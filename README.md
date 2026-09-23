@@ -1,4 +1,4 @@
-```markdown
+
 # 🛠️ Quy Tắc Làm Việc Với Git & Hướng Dẫn Khởi Chạy Dự Án
 
 ---
@@ -16,7 +16,7 @@
 
 
 
-```
+
 
 ### 🔄 Quy trình làm việc 5 bước hàng ngày (Bắt buộc cho từng task)
 
