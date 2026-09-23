@@ -14,6 +14,10 @@
 
 ### 🔄 Quy trình làm việc 5 bước hàng ngày (Bắt buộc cho từng task)
 
+
+
+```
+
 #### Bước 1: Luôn cập nhật code mới nhất từ nhánh `develop`
 Trước khi bắt tay vào làm bất kỳ tính năng nào:
 ```bash
