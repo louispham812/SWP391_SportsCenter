@@ -1,5 +1,3 @@
-Dưới đây là nội dung tệp **`README.md`** đã được rút gọn và tập trung 100% vào **Quy tắc làm việc với Git** cùng **Hướng dẫn khởi chạy dự án lần đầu chi tiết từng lệnh cho Backend (BE) và Frontend (FE)**. Bạn chỉ cần sao chép toàn bộ khối văn bản bên dưới vào file:
-
 ```markdown
 # 🛠️ Quy Tắc Làm Việc Với Git & Hướng Dẫn Khởi Chạy Dự Án
 
