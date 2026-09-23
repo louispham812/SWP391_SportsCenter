@@ -1,4 +1,3 @@
----
 # 🛠️ Quy Tắc Làm Việc Với Git & Hướng Dẫn Khởi Chạy Dự Án
 
 ---
