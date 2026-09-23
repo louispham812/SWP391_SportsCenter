@@ -6,44 +6,6 @@
 
 ---
 
-## 👥 Thành viên nhóm & Phân công vai trò (Team 5)
-
-| STT | Họ và Tên | GitHub Username | Vai trò chính trong dự án |
-|:---:|:---|:---|:---|
-| 1 | **[Tên Trưởng nhóm]** | `@leader_github` | **Team Leader / Fullstack / DevOps** |
-| 2 | **[Thành viên 2]** | `@member2_github` | **Frontend Developer (Manager & Dashboard)** |
-| 3 | **[Thành viên 3]** | `@member3_github` | **Frontend Developer (Coach & Member App)** |
-| 4 | **[Thành viên 4]** | `@member4_github` | **Backend Developer (Auth, Database, API Core)** |
-| 5 | **[Thành viên 5]** | `@member5_github` | **Backend & AI Integration (AI Assistant, Reports)** |
-
----
-
-## 📌 Các phân hệ & Vai trò người dùng (User Roles)
-
-1. **Center Manager (Quản lý trung tâm):**
-   - Quản lý học viên, HLV và nhân viên.
-   - Quản lý lớp học, phòng tập, bộ môn, lịch hoạt động và phân công giảng dạy.
-   - Thống kê doanh thu, gói tập, báo cáo số lượng học viên.
-   - Phân quyền người dùng và kiểm tra nhật ký hệ thống (System Logs).
-
-2. **Coach (Huấn luyện viên):**
-   - Theo dõi lịch dạy và danh sách học viên theo lớp.
-   - Điểm danh, ghi nhận kết quả và đánh giá tiến độ từng buổi.
-   - Tạo giáo án tập luyện, gửi bài tập về nhà.
-   - Sử dụng trợ lý AI để gợi ý bài tập phù hợp thể trạng/mục tiêu học viên.
-
-3. **Member (Học viên / Khách hàng):**
-   - Đăng ký tài khoản, mua/gia hạn các gói tập và dịch vụ.
-   - Đặt chỗ, hủy lớp học, xem lịch tập cá nhân.
-   - Xem nhận xét, đánh giá từ HLV và lịch sử điểm danh.
-   - Tương tác với trợ lý AI để hỏi đáp lịch tập và bài tập.
-
-4. **Receptionist (Nhân viên lễ tân):**
-   - Tìm kiếm thông tin hội viên, hỗ trợ check-in tại quầy.
-   - Đăng ký thẻ tập trực tiếp, tiếp nhận lịch tập cho khách hàng.
-
----
-
 ## 🌿 Chiến lược phân nhánh Git (Branching Strategy)
 
 Hệ thống tuân thủ mô hình **Git Feature Branch Workflow**:
