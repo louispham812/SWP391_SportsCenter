@@ -4,13 +4,9 @@
 # Log file
 *.log
 
-# BlueJ files
-*.ctxt
-
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-
-# Package Files #
+# Maven & Build Artifacts
+target/
+**/target/
 *.jar
 *.war
 *.nar
@@ -19,6 +15,25 @@
 *.tar.gz
 *.rar
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+# Node & Frontend Artifacts
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+*.local
+
+# IDE & OS
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# BlueJ files
+*.ctxt
+
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
+# Virtual machine crash logs
 hs_err_pid*
 replay_pid*
