@@ -471,3 +471,65 @@ export const mockAuditLogs = [
     time: 'Hôm qua, 16:30',
   },
 ];
+
+export const mockSports = [
+  { id: 'pickleball', name: 'Pickleball Pro', courts: 5, active: true, icon: 'sports_tennis', image: 'https://images.unsplash.com/photo-1599586120429-48281b6f0ece?auto=format&fit=crop&w=600&q=80', desc: 'Môn thể thao bùng nổ toàn cầu với 5 sân chuẩn USAPA có mái che.' },
+  { id: 'tennis', name: 'Quần Vợt (Tennis)', courts: 7, active: true, icon: 'sports_baseball', image: 'https://images.unsplash.com/photo-1530915534664-4ac642379740?auto=format&fit=crop&w=600&q=80', desc: 'Cụm sân mặt cứng Plexipave Grand Slam & đất nện đạt chuẩn ITF.' },
+  { id: 'football', name: 'Bóng Đá Sân 7', courts: 2, active: true, icon: 'sports_soccer', image: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=600&q=80', desc: 'Sân cỏ nhân tạo sợi kim cương chống trơn trượt, dàn đèn 600 Lux.' },
+  { id: 'gym', name: 'Gym & Olympic Fitness', courts: 1, active: true, icon: 'fitness_center', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=600&q=80', desc: 'Thiết bị Technogym & Hammer Strength cao cấp, khu tạ tự do 400m².' },
+  { id: 'swimming', name: 'Bơi Lội Bốn Mùa', courts: 8, active: true, icon: 'pool', image: 'https://images.unsplash.com/photo-1519315901367-f34ff9154487?auto=format&fit=crop&w=600&q=80', desc: 'Bể bơi 50m Olympic xử lý bằng công nghệ điện phân muối khoáng 29°C.' },
+  { id: 'yoga', name: 'Yoga & Pilates Allegro', courts: 2, active: true, icon: 'self_improvement', image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80', desc: 'Studio cách âm sàn gỗ tự nhiên kết hợp hệ thống máy Reformer nhập khẩu Đức.' },
+];
+
+export const mockVouchers = [
+  { id: 'v_01', code: 'ELITE20', discountPercent: 20, maxDiscount: 500000, validUntil: '31/12/2026', usageLimit: 100, usedCount: 23, status: 'active', desc: 'Giảm 20% tối đa 500k khi mua gói thể thao mới' },
+  { id: 'v_02', code: 'CHAMPION50', discountPercent: 50, maxDiscount: 1000000, validUntil: '30/11/2026', usageLimit: 50, usedCount: 14, status: 'active', desc: 'Giảm 50% phí gia hạn cho học viên đạt MVP giải đấu' },
+  { id: 'v_03', code: 'SUMMER30', discountPercent: 30, maxDiscount: 800000, validUntil: '15/12/2026', usageLimit: 200, usedCount: 88, status: 'active', desc: 'Ưu đãi hè - Giảm 30% khóa học Tennis & Bơi lội' },
+  { id: 'v_04', code: 'WELCOME10', discountPercent: 10, maxDiscount: 200000, validUntil: '31/12/2026', usageLimit: 500, usedCount: 142, status: 'active', desc: 'Chào đón hội viên mới - Giảm 10% tại quầy' },
+];
+
+export const mockRetailInventory = [
+  { id: 'ret_01', name: 'Nước Điện Giải Pocari Sweat 500ml', category: 'Đồ uống', price: 25000, stock: 120, unit: 'Chai' },
+  { id: 'ret_02', name: 'Revive Chanh Muối Isotonic 500ml', category: 'Đồ uống', price: 20000, stock: 95, unit: 'Chai' },
+  { id: 'ret_03', name: 'Whey Protein Isolate Shake 40g (Chocolate)', category: 'Dinh dưỡng', price: 55000, stock: 45, unit: 'Ly' },
+  { id: 'ret_04', name: 'Nước Khoáng Tinh Khiết Dasani 500ml', category: 'Đồ uống', price: 15000, stock: 200, unit: 'Chai' },
+  { id: 'ret_05', name: 'Thuê Vợt Pickleball Carbon T700 Pro (Theo ca)', category: 'Cho thuê dụng cụ', price: 50000, stock: 18, unit: 'Cây/Ca' },
+  { id: 'ret_06', name: 'Thuê Vợt Tennis Wilson Clash v2 (Theo ca)', category: 'Cho thuê dụng cụ', price: 70000, stock: 10, unit: 'Cây/Ca' },
+  { id: 'ret_07', name: 'Hộp 3 Quả Bóng Tennis Wilson US Open', category: 'Dụng cụ thể thao', price: 120000, stock: 35, unit: 'Hộp' },
+  { id: 'ret_08', name: 'Bộ 3 Quả Bóng Pickleball Dura Fast 40 Chuẩn Thi Đấu', category: 'Dụng cụ thể thao', price: 90000, stock: 50, unit: 'Set' },
+  { id: 'ret_09', name: 'Dịch Vụ Khăn Tắm Cao Cấp & Túi Chống Nước', category: 'Tiện ích', price: 20000, stock: 80, unit: 'Lượt' },
+];
+
+export const mockLockers = [
+  { id: 'loc_01', number: '#01', area: 'Khu Nam', status: 'available', assignedTo: null },
+  { id: 'loc_07', number: '#07', area: 'Khu Nam', status: 'in-use', assignedTo: 'Đặng Tuấn Tú (ELT-5519)' },
+  { id: 'loc_12', number: '#12', area: 'Khu Nam VIP', status: 'in-use', assignedTo: 'Trần Bảo Lâm (ELT-6211)' },
+  { id: 'loc_24', number: '#24', area: 'Khu Nữ', status: 'available', assignedTo: null },
+  { id: 'loc_28', number: '#28', area: 'Khu Nữ', status: 'in-use', assignedTo: 'Nguyễn Minh Anh (ELT-8924)' },
+  { id: 'loc_35', number: '#35', area: 'Khu Nữ VIP', status: 'available', assignedTo: null },
+  { id: 'loc_42', number: '#42', area: 'Khu VIP Hỗn Hợp', status: 'maintenance', assignedTo: null },
+];
+
+export const mockSupportTickets = [
+  { id: 'tkt_01', memberId: 'ELT-8924', memberName: 'Nguyễn Minh Anh', phone: '0987 654 321', category: 'Thiết bị & Tủ đồ', content: 'Quên vòng tay thông minh trong tủ #28 sau giờ tập Pickleball', status: 'resolved', assignedTo: 'Hoàng Thu Trang (Lễ tân)', createdAt: '08:15 AM Hôm nay' },
+  { id: 'tkt_02', memberId: 'ELT-5519', memberName: 'Đặng Tuấn Tú', phone: '0912 345 678', category: 'Bảo lưu gói tập', content: 'Đề nghị bảo lưu thẻ 14 ngày do chuyến công tác TP.HCM từ 25/11', status: 'in-progress', assignedTo: 'Trần Hoàng Long (Quản lý)', createdAt: '08:30 AM Hôm nay' },
+  { id: 'tkt_03', memberId: 'ELT-3104', memberName: 'Lê Thu Băng', phone: '0933 222 111', category: 'Khiếu nại ca tập', content: 'Nhiệt độ phòng Yoga hơi lạnh vào đầu giờ sáng, đề nghị điều chỉnh 26°C', status: 'pending', assignedTo: 'Chưa phân công', createdAt: 'Hôm qua, 17:20' },
+];
+
+export const mockRefundRequests = [
+  { id: 'ref_01', transactionId: 'INV-8919', memberName: 'Phạm Hải Đăng', amount: 500000, reason: 'Khách thanh toán trùng 2 lần qua máy POS quẹt thẻ', requestedBy: 'Hoàng Thu Trang (Lễ tân)', status: 'pending', requestedAt: '08:20 AM Hôm nay' },
+  { id: 'ref_02', transactionId: 'INV-8890', memberName: 'Vũ Trọng Tuấn', amount: 1490000, reason: 'Chuyển đổi địa điểm công tác xa, không thể tiếp tục tập', requestedBy: 'Phạm Minh Tú (Lễ tân)', status: 'approved', requestedAt: 'Hôm qua, 14:10' },
+];
+
+export const mockCoachReviews = [
+  { id: 'rev_01', coachId: 'coa_01', coachName: 'Lê Anh Tuấn', memberName: 'Nguyễn Minh Anh', rating: 5, comment: 'Thầy Tuấn chỉ dẫn kỹ thuật Pickleball rất tận tình, sửa cách xoay hông và footwork cực kỳ chuẩn!', className: 'Pickleball Chiến Thuật Nâng Cao', date: '17/11/2026' },
+  { id: 'rev_02', coachId: 'coa_01', coachName: 'Lê Anh Tuấn', memberName: 'Trần Bảo Lâm', rating: 5, comment: 'Giáo án cá nhân hóa rất hiệu quả, cảm giác bóng và lực đập uy lực hơn hẳn sau 5 buổi tập.', className: 'Pickleball Pro Clinic', date: '12/11/2026' },
+  { id: 'rev_03', coachId: 'coa_02', coachName: 'Vũ Thu Hà', memberName: 'Vũ Ngọc Lan', rating: 5, comment: 'Cô Hà dạy Yoga phục hồi rất êm ái, các động tác giãn cơ trị liệu giúp hết hẳn đau mỏi lưng dưới.', className: 'Yoga Phục Hồi Thể Lực', date: '15/11/2026' },
+  { id: 'rev_04', coachId: 'coa_03', coachName: 'Trần Minh Quân', memberName: 'Đặng Tuấn Tú', rating: 4, comment: 'HLV chỉnh Forehand chuẩn, sân tập trung tâm bóng nảy đẹp.', className: 'Tennis Kỹ Năng Giao Bóng', date: '10/11/2026' },
+];
+
+export const mockPaymentHistory = [
+  { id: 'inv_01', invoiceId: 'INV-8924', date: '15/12/2025', description: 'Đăng ký Thẻ Hội Viên Silver Member (12 Tháng)', amount: 14280000, method: 'VNPAY-QR', status: 'Thành công', cashier: 'Cổng thanh toán online' },
+  { id: 'inv_02', invoiceId: 'INV-8921', date: '01/10/2026', description: 'Gói Pickleball Match Pass 10 Buổi (Áp mã ELITE20)', amount: 2000000, method: 'VietQR Chuyển khoản', status: 'Thành công', cashier: 'Lễ tân Hoàng Thu Trang' },
+  { id: 'inv_03', invoiceId: 'INV-8910', date: '18/11/2026', description: 'Mua 2 Pocari Sweat + Thuê Vợt Carbon', amount: 100000, method: 'Tiền mặt', status: 'Thành công', cashier: 'Lễ tân Hoàng Thu Trang' },
+];

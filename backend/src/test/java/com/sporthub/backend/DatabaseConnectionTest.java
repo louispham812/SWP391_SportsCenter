@@ -69,7 +69,7 @@ class DatabaseConnectionTest {
         System.out.println("========== DANH SÁCH USER TRONG DATABASE ==========");
         System.out.println("Tổng số user tìm thấy: " + users.size());
         for (User u : users) {
-            System.out.println("ID: " + u.getUserId() + " | Email: " + u.getEmail() + " | Tên: " + u.getFullName() + " | Role: " + u.getRole() + " | Status: " + u.getStatus());
+            System.out.println("ID: " + u.getUserId() + " | Email: " + u.getEmail() + " | Tên: " + u.getFullName() + " | Pass: " + u.getPasswordHash() + " | Role: " + u.getRole() + " | Status: " + u.getStatus());
         }
         System.out.println("====================================================");
         assertFalse(users.isEmpty(), "Bảng users phải có dữ liệu");
