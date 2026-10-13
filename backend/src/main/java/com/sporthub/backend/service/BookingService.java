@@ -473,6 +473,26 @@ public class BookingService {
     }
 
     @Transactional
+    public CourtBooking cancelCourtBooking(Long bookingId, Long actorId) {
+        CourtBooking booking = courtBookingRepository.findByIdForUpdate(bookingId)
+                .orElseThrow(() -> notFound("Không tìm thấy thông tin đặt sân."));
+        if (!booking.getMemberId().equals(actorId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn chỉ được hủy đặt sân của chính mình.");
+        }
+        if (!"CONFIRMED".equalsIgnoreCase(booking.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Trạng thái đặt sân không thể hủy.");
+        }
+        if (booking.getStartTime() == null
+                || booking.getStartTime().minusHours(2).isBefore(LocalDateTime.now())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Chỉ có thể hủy đặt sân trước giờ bắt đầu ít nhất 2 tiếng.");
+        }
+
+        booking.setStatus("CANCELLED");
+        return courtBookingRepository.save(booking);
+    }
+
+    @Transactional
     public Booking updateAttendance(Long bookingId, Long actorId, String actorRole, String status, String coachNote) {
         String normalizedStatus = status == null ? "" : status.trim().toUpperCase(Locale.ROOT);
         if (!List.of("PRESENT", "ABSENT").contains(normalizedStatus)) {

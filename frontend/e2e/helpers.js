@@ -3,7 +3,7 @@ import path from 'node:path';
 import { expect } from '@playwright/test';
 
 const testDataPath = path.join(import.meta.dirname, '.member-test-data.json');
-const apiBaseUrl = 'http://127.0.0.1:8080/api/v1';
+const apiBaseUrl = process.env.E2E_API_BASE_URL || 'http://127.0.0.1:8080/api/v1';
 
 export function readMemberTestData() {
   return JSON.parse(fs.readFileSync(testDataPath, 'utf8'));

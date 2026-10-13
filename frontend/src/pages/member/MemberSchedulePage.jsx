@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
-import { getMemberBookingSchedule } from '../../services/bookingApi';
+import { cancelMemberBooking, getMemberBookingSchedule } from '../../services/bookingApi';
 
 const DAY_START_HOUR = 6;
 const DAY_END_HOUR = 23;
@@ -198,8 +198,16 @@ export default function MemberSchedulePage() {
   const [entries, setEntries] = useState([]);
   const [bookingType, setBookingType] = useState('CLASS');
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
+  const [cancellingBookingId, setCancellingBookingId] = useState(null);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  useEffect(() => {
+    const intervalId = setInterval(() => setCurrentTime(Date.now()), 60_000);
+    return () => clearInterval(intervalId);
+  }, []);
 
   useEffect(() => {
     let current = true;
@@ -227,6 +235,38 @@ export default function MemberSchedulePage() {
   });
   const classCount = entries.filter((entry) => entry.bookingType === 'CLASS').length;
   const courtCount = entries.filter((entry) => entry.bookingType === 'COURT').length;
+
+  const handleCancelBooking = async (entry) => {
+    const bookingLabel = entry.bookingType === 'CLASS' ? 'lớp học' : 'sân';
+    const confirmed = window.confirm(
+      `Bạn có chắc muốn hủy ${bookingLabel} "${entry.title}" không?\n\n` +
+      'Yêu cầu hủy phải được thực hiện trước giờ bắt đầu ít nhất 2 tiếng. ' +
+      'Khoản đã thanh toán không được tự động hoàn lại.',
+    );
+    if (!confirmed) return;
+
+    const bookingKey = `${entry.bookingType}-${entry.bookingId}`;
+    setCancellingBookingId(bookingKey);
+    setError('');
+    setSuccessMessage('');
+    try {
+      await cancelMemberBooking(entry.bookingType, entry.bookingId);
+      setEntries((currentEntries) => currentEntries.filter(
+        (currentEntry) => `${currentEntry.bookingType}-${currentEntry.bookingId}` !== bookingKey,
+      ));
+      setSuccessMessage(`Đã hủy ${bookingLabel} "${entry.title}". Khoản đã thanh toán không được tự động hoàn lại.`);
+      try {
+        const refreshedEntries = await getMemberBookingSchedule();
+        setEntries(refreshedEntries);
+      } catch (refreshError) {
+        setError(`Đã hủy booking thành công nhưng không thể tải lại lịch: ${refreshError.message}`);
+      }
+    } catch (cancelError) {
+      setError(cancelError.message || 'Không thể hủy booking. Vui lòng thử lại.');
+    } finally {
+      setCancellingBookingId(null);
+    }
+  };
 
   const changeWeek = (amount) => {
     setWeekStart((currentWeek) => {
@@ -257,6 +297,11 @@ export default function MemberSchedulePage() {
         {error && (
           <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
             {error}
+          </div>
+        )}
+        {successMessage && (
+          <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            {successMessage}
           </div>
         )}
 
@@ -352,8 +397,58 @@ export default function MemberSchedulePage() {
               )}
             </div>
           ) : (
-            <div className="p-4">
+            <div className="space-y-4 p-4">
               <ScheduleGrid entries={entriesForWeek} weekDays={weekDays} bookingType={bookingType} />
+              <div className="space-y-3" aria-label="Các booking trong tuần">
+                {entriesForWeek.map((entry) => {
+                  const bookingKey = `${entry.bookingType}-${entry.bookingId}`;
+                  const canCancel = new Date(entry.startTime).getTime() - (2 * 60 * 60 * 1000) >= currentTime;
+                  const isCancelling = cancellingBookingId === bookingKey;
+                  return (
+                    <article
+                      key={bookingKey}
+                      data-booking-id={entry.bookingId}
+                      className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 p-4"
+                    >
+                      <div className="min-w-0">
+                        <h3 className="truncate font-bold text-slate-900">{entry.title}</h3>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {entry.sportName} · {entry.location}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {new Date(entry.startTime).toLocaleString('vi-VN', {
+                            weekday: 'long',
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                          {' – '}{formatTime(entry.endTime)} · {formatMoney(entry.amountPaid)}
+                        </p>
+                      </div>
+                      {canCancel ? (
+                        <button
+                          type="button"
+                          onClick={() => handleCancelBooking(entry)}
+                          disabled={isCancelling}
+                          className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700 hover:bg-red-50 disabled:cursor-wait disabled:opacity-60"
+                        >
+                          <span className="material-symbols-outlined text-lg">event_busy</span>
+                          {isCancelling ? 'Đang hủy...' : entry.bookingType === 'CLASS' ? 'Hủy lớp học' : 'Hủy sân'}
+                        </button>
+                      ) : (
+                        <span className="shrink-0 text-xs font-medium text-slate-500">
+                          Không thể hủy trong vòng 2 tiếng trước giờ bắt đầu
+                        </span>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-slate-500">
+                Có thể hủy booking trước giờ bắt đầu ít nhất 2 tiếng. Hủy booking không tự động hoàn tiền đã thanh toán.
+              </p>
             </div>
           )}
         </section>

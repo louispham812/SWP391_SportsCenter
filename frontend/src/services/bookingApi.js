@@ -31,3 +31,7 @@ export const checkoutBooking = (bookingType, itemId, startTime, endTime) =>
     body: JSON.stringify({ bookingType, itemId, startTime, endTime, paymentMethod: 'SANDBOX' }),
   });
 export const getMemberBookingSchedule = () => apiRequest('/booking-flow/schedule');
+export const cancelMemberBooking = (bookingType, bookingId) =>
+  apiRequest(`/booking-flow/schedule/${encodeURIComponent(bookingType)}/${encodeURIComponent(bookingId)}`, {
+    method: 'DELETE',
+  });

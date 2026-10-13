@@ -27,13 +27,16 @@ test('member selects a database court, checks out, and gets a persisted booking'
     );
     expect(slotsResponse.ok()).toBeTruthy();
     const slots = await slotsResponse.json();
-    if (slots.length) {
+    const cancellableSlot = slots.find(
+      (slot) => new Date(slot.startTime).getTime() >= Date.now() + (3 * 60 * 60 * 1000),
+    );
+    if (cancellableSlot) {
       selectedSport = sport;
-      selectedSlot = slots[0];
+      selectedSlot = cancellableSlot;
       break;
     }
   }
-  expect(selectedSlot, 'No active court has a free one-hour slot in the next 14 days').toBeTruthy();
+  expect(selectedSlot, 'No active court has a free slot at least three hours in the future').toBeTruthy();
 
   const unauthorizedResponse = await page.request.get(
     `${apiBaseUrl}/booking-flow/schedule`,
@@ -42,6 +45,12 @@ test('member selects a database court, checks out, and gets a persisted booking'
 
   await page.goto(`/member/book/courts/${selectedSport.sportId}`);
   await expect(page.getByRole('heading', { name: 'Chọn sân và khung giờ' })).toBeVisible();
+  const slotDateLabel = new Date(`${selectedSlot.startTime.slice(0, 10)}T12:00:00`).toLocaleDateString('vi-VN', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+  });
+  await page.getByRole('button', { name: slotDateLabel, exact: true }).click();
   const slotLabel = new Date(selectedSlot.startTime).toLocaleTimeString('vi-VN', {
     hour: '2-digit',
     minute: '2-digit',

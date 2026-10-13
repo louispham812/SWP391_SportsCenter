@@ -4,6 +4,7 @@ import com.sporthub.backend.dto.BookingConfirmationResponse;
 import com.sporthub.backend.dto.CheckoutRequest;
 import com.sporthub.backend.entity.Booking;
 import com.sporthub.backend.entity.ClassSession;
+import com.sporthub.backend.entity.CourtBooking;
 import com.sporthub.backend.entity.PaymentTransaction;
 import com.sporthub.backend.entity.PublicFacility;
 import com.sporthub.backend.entity.PublicSport;
@@ -152,6 +153,46 @@ class BookingServiceTest {
 
         assertThrows(ResponseStatusException.class, () -> bookingService.getQuote(
                 "COURT", 33L, start, start.plusMinutes(30)));
+    }
+
+    @Test
+    void memberCanCancelTheirCourtBookingMoreThanTwoHoursBeforeStart() {
+        CourtBooking booking = courtBooking(11L, LocalDateTime.now().plusDays(1));
+        when(courtBookingRepository.findByIdForUpdate(99L)).thenReturn(Optional.of(booking));
+        when(courtBookingRepository.save(booking)).thenReturn(booking);
+
+        CourtBooking cancelled = bookingService.cancelCourtBooking(99L, 11L);
+
+        assertEquals("CANCELLED", cancelled.getStatus());
+        verify(courtBookingRepository).save(booking);
+    }
+
+    @Test
+    void memberCannotCancelAnotherMembersCourtBooking() {
+        CourtBooking booking = courtBooking(12L, LocalDateTime.now().plusDays(1));
+        when(courtBookingRepository.findByIdForUpdate(99L)).thenReturn(Optional.of(booking));
+
+        assertThrows(ResponseStatusException.class, () -> bookingService.cancelCourtBooking(99L, 11L));
+        verify(courtBookingRepository, never()).save(any(CourtBooking.class));
+    }
+
+    @Test
+    void memberCannotCancelCourtBookingWithinTwoHoursOfStart() {
+        CourtBooking booking = courtBooking(11L, LocalDateTime.now().plusMinutes(90));
+        when(courtBookingRepository.findByIdForUpdate(99L)).thenReturn(Optional.of(booking));
+
+        assertThrows(ResponseStatusException.class, () -> bookingService.cancelCourtBooking(99L, 11L));
+        verify(courtBookingRepository, never()).save(any(CourtBooking.class));
+    }
+
+    private CourtBooking courtBooking(Long memberId, LocalDateTime startTime) {
+        CourtBooking booking = new CourtBooking();
+        booking.setCourtBookingId(99L);
+        booking.setMemberId(memberId);
+        booking.setStartTime(startTime);
+        booking.setEndTime(startTime.plusHours(1));
+        booking.setStatus("CONFIRMED");
+        return booking;
     }
 
     private ClassSession session(int maxSlots) {

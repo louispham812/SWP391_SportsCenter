@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -69,6 +71,24 @@ public class BookingFlowController {
     public ResponseEntity<List<MemberScheduleEntryResponse>> getSchedule(Authentication authentication) {
         requireMember(authentication);
         return ResponseEntity.ok(bookingService.getMemberScheduleEntries(actorId(authentication)));
+    }
+
+    @DeleteMapping("/schedule/{bookingType}/{bookingId}")
+    public ResponseEntity<Void> cancelScheduleEntry(
+            @PathVariable String bookingType,
+            @PathVariable Long bookingId,
+            Authentication authentication) {
+        requireMember(authentication);
+        String normalizedType = bookingType.toUpperCase(java.util.Locale.ROOT);
+        if ("CLASS".equals(normalizedType)) {
+            bookingService.cancelClassBooking(bookingId, actorId(authentication));
+        } else if ("COURT".equals(normalizedType)) {
+            bookingService.cancelCourtBooking(bookingId, actorId(authentication));
+        } else {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Loại booking không hợp lệ.");
+        }
+        return ResponseEntity.noContent().build();
     }
 
     private void requireMember(Authentication authentication) {

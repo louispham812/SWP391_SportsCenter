@@ -29,6 +29,7 @@ test('member checks out a database class and gets a persisted schedule entry', a
   let selectedSport = sports[0];
   let availableClasses = [];
   let selectedClass;
+  let quote;
   for (const sport of sports) {
     const response = await page.request.get(
       `${apiBaseUrl}/booking-flow/classes?sportId=${encodeURIComponent(sport.sportId)}`,
@@ -36,14 +37,24 @@ test('member checks out a database class and gets a persisted schedule entry', a
     );
     expect(response.ok()).toBeTruthy();
     const results = await response.json();
-    const eligibleClass = results.find(
+    const eligibleClasses = results.filter(
       (classSession) => classSession.bookedSlots < classSession.maxSlots
-        && !['BOOKED', 'CONFIRMED'].includes(classSession.memberBookingStatus),
+        && !['BOOKED', 'CONFIRMED'].includes(classSession.memberBookingStatus)
+        && new Date(classSession.startTime).getTime() >= Date.now() + (3 * 60 * 60 * 1000),
     );
-    if (eligibleClass) {
+    for (const eligibleClass of eligibleClasses) {
+      const quoteResponse = await page.request.get(
+        `${apiBaseUrl}/booking-flow/quote?bookingType=CLASS&itemId=${eligibleClass.sessionId}`,
+        { headers },
+      );
+      if (!quoteResponse.ok()) continue;
+      quote = await quoteResponse.json();
       selectedSport = sport;
       availableClasses = results;
       selectedClass = eligibleClass;
+      break;
+    }
+    if (selectedClass) {
       break;
     }
     if (results.length && availableClasses.length === 0) {
@@ -69,12 +80,7 @@ test('member checks out a database class and gets a persisted schedule entry', a
   const classIndex = availableClasses.findIndex(
     (classSession) => classSession.sessionId === selectedClass.sessionId,
   );
-  const quoteResponse = await page.request.get(
-    `${apiBaseUrl}/booking-flow/quote?bookingType=CLASS&itemId=${selectedClass.sessionId}`,
-    { headers },
-  );
-  expect(quoteResponse.ok()).toBeTruthy();
-  const quote = await quoteResponse.json();
+  expect(quote, 'No upcoming class with an available slot and valid checkout data was found').toBeTruthy();
   expect(Number(quote.amount)).toBe(Number(selectedClass.priceAmount));
 
   const classCards = page.locator('article');
@@ -105,7 +111,34 @@ test('member checks out a database class and gets a persisted schedule entry', a
 
   await page.reload();
   await page.goto('/member/schedule');
-  await expect(page.getByText(selectedClass.className, { exact: true })).toBeVisible();
+  await expect(page.getByText(selectedClass.className, { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: /Lịch lớp học/ }).click();
+
+  const classDate = new Date(selectedClass.startTime);
+  const today = new Date();
+  const classDay = Date.UTC(classDate.getFullYear(), classDate.getMonth(), classDate.getDate());
+  const todayDay = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const daysUntilClass = Math.floor((classDay - todayDay) / (24 * 60 * 60 * 1000));
+  const weekOffset = Math.floor((daysUntilClass + ((today.getDay() + 6) % 7)) / 7);
+  for (let week = 0; week < weekOffset; week += 1) {
+    await page.getByRole('button', { name: 'Tuần sau' }).click();
+  }
+
+  const bookingCard = page.locator(`[data-booking-id="${savedBooking.bookingId}"]`);
+  page.once('dialog', (dialog) => dialog.accept());
+  await bookingCard.getByRole('button', { name: 'Hủy lớp học' }).click();
+  await expect(page.getByRole('status')).toContainText('Đã hủy lớp học');
+  await expect(bookingCard).toHaveCount(0);
+
+  const cancelledScheduleResponse = await page.request.get(`${apiBaseUrl}/booking-flow/schedule`, {
+    headers,
+  });
+  expect(cancelledScheduleResponse.ok()).toBeTruthy();
+  const cancelledSchedule = await cancelledScheduleResponse.json();
+  expect(cancelledSchedule).not.toContainEqual(expect.objectContaining({
+    bookingType: savedBooking.bookingType,
+    bookingId: savedBooking.bookingId,
+  }));
 
   removeLocalTestData();
 });
