@@ -8,8 +8,6 @@ import com.sporthub.backend.repository.ReceptionPaymentRepository;
 import com.sporthub.backend.repository.UserRepository;
 import org.springframework.data.domain.PageRequest;
 
-import com.sporthub.backend.repository.UserRepository;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

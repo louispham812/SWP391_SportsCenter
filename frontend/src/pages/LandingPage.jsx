@@ -272,41 +272,18 @@ export default function LandingPage() {
               <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
                 <div className="max-w-2xl">
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-secondary-container text-primary text-[11px] uppercase tracking-wider font-bold mb-4 shadow-sm">
-                    ƯU ĐÃI ĐẶC QUYỀN THÁNG NÀY
+                    GÓI HỘI VIÊN
                   </div>
                   <h2 className="font-headline-xl text-2xl sm:text-4xl text-white uppercase leading-tight mb-3 font-bold">
-                    Sẵn sàng thay đổi bản thân? Đăng ký gói tập nhận ngay ưu đãi 20%
+                    Tìm gói tập phù hợp với lịch trình của bạn
                   </h2>
                   <p className="text-sm sm:text-base text-slate-300 mb-6">
-                    Trở thành hội viên Elite Sports Center ngay hôm nay để nhận thêm quà tặng cao cấp và hỗ trợ chuyên gia toàn diện.
+                    Giá, thời hạn và tình trạng mở bán được cập nhật từ cơ sở dữ liệu.
                   </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm text-slate-100">
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-secondary-container text-primary flex items-center justify-center shrink-0 font-bold text-xs">
-                        ✓
-                      </span>
-                      <span>Tặng 02 buổi tập cùng Master PT 1-on-1</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-secondary-container text-primary flex items-center justify-center shrink-0 font-bold text-xs">
-                        ✓
-                      </span>
-                      <span>Bộ quà tặng Elite Sports Kit độc quyền</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-secondary-container text-primary flex items-center justify-center shrink-0 font-bold text-xs">
-                        ✓
-                      </span>
-                      <span>Miễn phí dịch vụ xông hơi Sauna & Băng tuyết</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-secondary-container text-primary flex items-center justify-center shrink-0 font-bold text-xs">
-                        ✓
-                      </span>
-                      <span>Đo phân tích chỉ số thể trạng InBody hàng tháng</span>
-                    </div>
-                  </div>
+                  <p className="text-xs sm:text-sm text-slate-100">
+                    Xem danh sách gói đang mở bán và chi tiết đăng ký tại trang bảng giá.
+                  </p>
                 </div>
 
                 {/* Buttons */}

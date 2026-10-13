@@ -30,12 +30,6 @@ public class Booking {
     private String status = "BOOKED"; // BOOKED, WAITLIST, CANCELLED
 
     @Builder.Default
-    @Column(name = "booking_time")
-    private LocalDateTime bookingTime = LocalDateTime.now();
-
-    @Column(length = 20)
-    private String status = "BOOKED"; // BOOKED, WAITLIST, CANCELLED
-  
     @Column(name = "attendance_status", length = 20)
     private String attendanceStatus = "PENDING"; // PENDING, PRESENT, ABSENT
 

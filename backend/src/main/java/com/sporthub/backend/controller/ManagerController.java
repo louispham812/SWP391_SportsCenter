@@ -3,7 +3,12 @@ package com.sporthub.backend.controller;
 import com.sporthub.backend.dto.PendingStaffRegistrationResponse;
 import com.sporthub.backend.dto.ManagerUserResponse;
 import com.sporthub.backend.dto.ManagerMemberResponse;
+import com.sporthub.backend.dto.ManagerPackageRequest;
 import com.sporthub.backend.entity.User;
+import com.sporthub.backend.entity.MembershipPackage;
+import com.sporthub.backend.entity.PublicSport;
+import com.sporthub.backend.repository.MembershipPackageRepository;
+import com.sporthub.backend.repository.PublicSportRepository;
 import com.sporthub.backend.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -13,6 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,9 +37,16 @@ public class ManagerController {
 
     private static final List<String> STAFF_ROLES = List.of("COACH", "RECEPTIONIST");
     private final UserRepository userRepository;
+    private final MembershipPackageRepository packageRepository;
+    private final PublicSportRepository sportRepository;
 
-    public ManagerController(UserRepository userRepository) {
+    public ManagerController(
+            UserRepository userRepository,
+            MembershipPackageRepository packageRepository,
+            PublicSportRepository sportRepository) {
         this.userRepository = userRepository;
+        this.packageRepository = packageRepository;
+        this.sportRepository = sportRepository;
     }
 
     @GetMapping("/staff-registrations")
@@ -115,6 +130,108 @@ public class ManagerController {
                         user.getPhone(),
                         user.getStatus(),
                         user.getCreatedAt()));
+    }
+
+    @GetMapping("/packages")
+    @Transactional(readOnly = true)
+    public List<MembershipPackage> getPackages(Authentication authentication) {
+        requireManager(authentication);
+        return packageRepository.findAllByOrderByPackageIdDesc();
+    }
+
+    @GetMapping("/sports")
+    @Transactional(readOnly = true)
+    public List<PublicSport> getSports(Authentication authentication) {
+        requireManager(authentication);
+        return sportRepository.findAllByOrderBySportIdAsc();
+    }
+
+    @PostMapping("/packages")
+    @Transactional
+    public MembershipPackage createPackage(
+            @RequestBody ManagerPackageRequest request,
+            Authentication authentication) {
+        requireManager(authentication);
+        validatePackage(request);
+        MembershipPackage membershipPackage = new MembershipPackage();
+        applyPackageRequest(membershipPackage, request);
+        return packageRepository.save(membershipPackage);
+    }
+
+    @PutMapping("/packages/{packageId}")
+    @Transactional
+    public MembershipPackage updatePackage(
+            @PathVariable Long packageId,
+            @RequestBody ManagerPackageRequest request,
+            Authentication authentication) {
+        requireManager(authentication);
+        validatePackage(request);
+        MembershipPackage membershipPackage = packageRepository.findById(packageId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Không tìm thấy gói tập."));
+        applyPackageRequest(membershipPackage, request);
+        return packageRepository.save(membershipPackage);
+    }
+
+    @PatchMapping("/packages/{packageId}/status")
+    @Transactional
+    public MembershipPackage updatePackageStatus(
+            @PathVariable Long packageId,
+            @RequestBody PackageStatusRequest request,
+            Authentication authentication) {
+        requireManager(authentication);
+        if (request.status() == null
+                || !List.of("ACTIVE", "INACTIVE").contains(request.status().trim().toUpperCase(Locale.ROOT))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trạng thái gói tập không hợp lệ.");
+        }
+        MembershipPackage membershipPackage = packageRepository.findById(packageId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Không tìm thấy gói tập."));
+        membershipPackage.setStatus(request.status().trim().toUpperCase(Locale.ROOT));
+        return packageRepository.save(membershipPackage);
+    }
+
+    private void validatePackage(ManagerPackageRequest request) {
+        if (request.name() == null || request.name().isBlank() || request.name().trim().length() > 100) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Tên gói tập là bắt buộc và tối đa 100 ký tự.");
+        }
+        if (request.price() == null || request.price().signum() <= 0
+                || request.price().scale() > 2 || request.price().precision() > 10) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Giá gói tập phải lớn hơn 0 và tối đa 10 chữ số, 2 chữ số thập phân.");
+        }
+        if (request.durationDays() == null || request.durationDays() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời hạn gói tập phải lớn hơn 0 ngày.");
+        }
+        if (request.accessType() == null
+                || !List.of("ALL_DAY", "PEAK", "OFF_PEAK")
+                        .contains(request.accessType().trim().toUpperCase(Locale.ROOT))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Khung giờ áp dụng không hợp lệ.");
+        }
+        if (request.status() == null
+                || !List.of("ACTIVE", "INACTIVE").contains(request.status().trim().toUpperCase(Locale.ROOT))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trạng thái gói tập không hợp lệ.");
+        }
+        if (request.sportId() != null && !sportRepository.existsById(request.sportId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không tìm thấy bộ môn đã chọn.");
+        }
+    }
+
+    private void applyPackageRequest(MembershipPackage membershipPackage, ManagerPackageRequest request) {
+        membershipPackage.setName(request.name().trim());
+        membershipPackage.setSportId(request.sportId());
+        membershipPackage.setPrice(request.price());
+        membershipPackage.setDurationDays(request.durationDays());
+        membershipPackage.setAccessType(request.accessType().trim().toUpperCase(Locale.ROOT));
+        membershipPackage.setDescription(
+                request.description() == null || request.description().isBlank()
+                        ? null
+                        : request.description().trim());
+        membershipPackage.setStatus(request.status().trim().toUpperCase(Locale.ROOT));
+    }
+
+    public record PackageStatusRequest(String status) {
     }
 
     @PatchMapping("/members/{userId}/lock")

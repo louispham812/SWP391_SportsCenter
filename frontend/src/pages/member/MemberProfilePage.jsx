@@ -1,70 +1,153 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { useApp } from '../../context/AppContext';
+import {
+  getMemberHealthProfile,
+  getMemberMemberships,
+  getMemberProfile,
+  updateMemberHealthProfile,
+  updateMemberProfile,
+} from '../../services/memberApi';
 
 export default function MemberProfilePage() {
-  const { currentUser, updateProfile, healthProfile, updateHealthProfile, activePlan, showToast } = useApp();
+  const { currentUser, updateProfile, showToast } = useApp();
 
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'health' | 'inbody'
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState('');
+  const [membership, setMembership] = useState(null);
+  const [memberAvatar, setMemberAvatar] = useState('');
 
-  // Personal Info Form State (MEM-03)
-  const [profileForm, setProfileForm] = useState({
-    name: currentUser.name || '',
-    phone: currentUser.phone || '',
-    email: currentUser.email || '',
-    dob: '1998-05-15',
-    gender: 'Nữ',
-    address: 'Căn 1204 Tòa Park 2, Times City, Hà Nội',
-    emergencyContactName: 'Nguyễn Văn Hùng (Bố)',
-    emergencyContactPhone: '0903 123 456',
-  });
+  const [profileForm, setProfileForm] = useState({});
+  const [healthForm, setHealthForm] = useState({});
+  const [inbodyForm, setInbodyForm] = useState({});
 
-  // Health Profile Form State (MEM-05)
-  const [healthForm, setHealthForm] = useState({
-    fitnessLevel: healthProfile.fitnessLevel || 'intermediate',
-    fitnessGoals: healthProfile.fitnessGoals || 'Tăng phản xạ, giảm mỡ & hoàn thiện kỹ thuật Pickleball',
-    injuryHistory: healthProfile.injuryHistory || 'Bong gân cổ chân phải (2024), đã phục hồi 95%',
-  });
+  useEffect(() => {
+    let current = true;
+    Promise.all([getMemberProfile(), getMemberHealthProfile(), getMemberMemberships()])
+      .then(([profile, health, memberships]) => {
+        if (!current) return;
+        setProfileForm({
+          fullName: profile.fullName || '',
+          phone: profile.phone || '',
+          email: profile.email || '',
+          dateOfBirth: profile.dateOfBirth || '',
+          gender: profile.gender || '',
+          address: profile.address || '',
+          emergencyContactName: profile.emergencyContactName || '',
+          emergencyContactPhone: profile.emergencyContactPhone || '',
+        });
+        setMemberAvatar(profile.avatar || '');
+        setHealthForm({
+          fitnessLevel: (health.fitnessLevel || '').toLowerCase(),
+          fitnessGoals: health.fitnessGoals || '',
+          injuryHistory: health.injuryHistory || '',
+        });
+        setInbodyForm({
+          weight: health.weightKg ?? '',
+          height: health.heightCm ?? '',
+          smm: health.smmKg ?? '',
+          pbf: health.pbfPercent ?? '',
+          bmi: health.bmi ?? '',
+        });
+        setMembership(memberships.find((item) => item.status === 'ACTIVE') || null);
+      })
+      .catch((requestError) => {
+        if (current) setProfileError(requestError.message || 'Không thể tải hồ sơ từ cơ sở dữ liệu.');
+      })
+      .finally(() => {
+        if (current) setProfileLoading(false);
+      });
+    return () => {
+      current = false;
+    };
+  }, []);
 
-  // InBody Form State (MEM-21)
-  const [inbodyForm, setInbodyForm] = useState({
-    weight: healthProfile.weight || 64.2,
-    height: healthProfile.height || 168,
-    smm: healthProfile.smm || 32.5,
-    pbf: healthProfile.pbf || 17.8,
-    bmi: healthProfile.bmi || 21.4,
-  });
-
-  const [avatarPreview, setAvatarPreview] = useState(null);
-
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    updateProfile(profileForm);
-  };
-
-  const handleSaveHealth = (e) => {
-    e.preventDefault();
-    updateHealthProfile(healthForm);
-  };
-
-  const handleSaveInBody = (e) => {
-    e.preventDefault();
-    updateHealthProfile(inbodyForm);
-  };
-
-  const handleAvatarChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setAvatarPreview(url);
-      showToast('Tải ảnh chân dung thành công', 'Ảnh đại diện đã cập nhật để xác thực tại cổng check-in (MEM-04)!');
+    setProfileError('');
+    try {
+      const saved = await updateMemberProfile({
+        ...profileForm,
+        fullName: profileForm.fullName,
+      });
+      setProfileForm((current) => ({ ...current, ...saved }));
+      setMemberAvatar(saved.avatar || '');
+      updateProfile(saved);
+      showToast('Cập nhật thành công', 'Hồ sơ đã được lưu vào cơ sở dữ liệu.');
+    } catch (requestError) {
+      setProfileError(requestError.message || 'Không thể lưu hồ sơ.');
     }
   };
+
+  const handleSaveHealth = async (e) => {
+    e.preventDefault();
+    await saveHealth({
+      fitnessLevel: healthForm.fitnessLevel.toUpperCase(),
+      fitnessGoals: healthForm.fitnessGoals,
+      injuryHistory: healthForm.injuryHistory,
+    });
+  };
+
+  const handleSaveInBody = async (e) => {
+    e.preventDefault();
+    const weight = Number(inbodyForm.weight) || null;
+    const height = Number(inbodyForm.height) || null;
+    const bmi = weight && height ? Number((weight / Math.pow(height / 100, 2)).toFixed(1)) : null;
+    await saveHealth({
+      weightKg: weight,
+      heightCm: height,
+      smmKg: Number(inbodyForm.smm) || null,
+      pbfPercent: Number(inbodyForm.pbf) || null,
+      bmi,
+    });
+  };
+
+  const saveHealth = async (changes) => {
+    setProfileError('');
+    try {
+      const saved = await updateMemberHealthProfile({
+        fitnessLevel: healthForm.fitnessLevel.toUpperCase() || null,
+        fitnessGoals: healthForm.fitnessGoals || null,
+        injuryHistory: healthForm.injuryHistory || null,
+        weightKg: Number(inbodyForm.weight) || null,
+        heightCm: Number(inbodyForm.height) || null,
+        smmKg: Number(inbodyForm.smm) || null,
+        pbfPercent: Number(inbodyForm.pbf) || null,
+        bmi: Number(inbodyForm.bmi) || null,
+        ...changes,
+      });
+      setHealthForm({
+        fitnessLevel: (saved.fitnessLevel || '').toLowerCase(),
+        fitnessGoals: saved.fitnessGoals || '',
+        injuryHistory: saved.injuryHistory || '',
+      });
+      setInbodyForm({
+        weight: saved.weightKg ?? '',
+        height: saved.heightCm ?? '',
+        smm: saved.smmKg ?? '',
+        pbf: saved.pbfPercent ?? '',
+        bmi: saved.bmi ?? '',
+      });
+      showToast('Đã lưu hồ sơ', 'Thông tin sức khỏe đã được lưu vào cơ sở dữ liệu.');
+    } catch (requestError) {
+      setProfileError(requestError.message || 'Không thể lưu hồ sơ sức khỏe.');
+    }
+  };
+
+  if (profileLoading) {
+    return <MemberLayout><p role="status" className="p-6">Đang tải hồ sơ từ cơ sở dữ liệu...</p></MemberLayout>;
+  }
 
   return (
     <MemberLayout>
       <div className="space-y-6">
+        {profileError && (
+          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            {profileError}
+          </p>
+        )}
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -133,7 +216,7 @@ export default function MemberProfilePage() {
                   </div>
                 </div>
                 <span className="px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-600 text-[10px] font-bold uppercase tracking-wider text-secondary-container">
-                  {activePlan.tier}
+                  {membership?.packageName || 'Chưa có gói hội viên'}
                 </span>
               </div>
 
@@ -141,8 +224,8 @@ export default function MemberProfilePage() {
               <div className="flex items-center justify-between mb-8 relative z-10">
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 rounded-full border-2 border-secondary-container overflow-hidden bg-slate-800 flex items-center justify-center">
-                    {avatarPreview ? (
-                      <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                    {memberAvatar ? (
+                      <img src={memberAvatar} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
                       <span className="font-bold text-lg text-secondary-container">
                         {currentUser.avatar || currentUser.name?.slice(0, 2).toUpperCase() || 'US'}
@@ -151,7 +234,7 @@ export default function MemberProfilePage() {
                   </div>
                   <div>
                     <div className="text-[10px] text-slate-400 uppercase tracking-widest">Hội viên chính thức</div>
-                    <div className="font-bold text-sm uppercase">{profileForm.name}</div>
+                    <div className="font-bold text-sm uppercase">{profileForm.fullName}</div>
                   </div>
                 </div>
                 <span className="material-symbols-outlined text-[28px] text-secondary-container">
@@ -163,27 +246,12 @@ export default function MemberProfilePage() {
               <div className="relative z-10 space-y-1">
                 <div className="flex items-center justify-between pt-2 text-xs font-mono text-slate-300">
                   <span>ID: #{currentUser.memberId || currentUser.id || ''}</span>
-                  <span>HẠN: {activePlan.expireDate}</span>
+                  <span>HẠN: {membership?.endDate || '—'}</span>
                 </div>
                 <div className="text-[10px] text-slate-400">
-                  Mã vạch RFID: {activePlan.barcode}
+                  Mã hội viên: {membership?.membershipId || currentUser.id}
                 </div>
               </div>
-            </div>
-
-            {/* Avatar Upload (MEM-04) */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
-              <h3 className="font-headline-sm text-sm font-bold text-primary uppercase">
-                Tải Ảnh Chân Dung (MEM-04)
-              </h3>
-              <p className="text-xs text-slate-500">
-                Cập nhật ảnh khuôn mặt rõ nét để hệ thống tự động nhận diện tại cửa check-in.
-              </p>
-              <label className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-dashed border-slate-300 hover:border-primary text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer">
-                <span className="material-symbols-outlined text-[20px]">add_a_photo</span>
-                <span>Chọn ảnh từ máy tính / Camera</span>
-                <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
-              </label>
             </div>
           </div>
 
@@ -200,8 +268,8 @@ export default function MemberProfilePage() {
                     <label className="text-xs font-bold uppercase text-slate-700 block mb-1">Họ và tên</label>
                     <input
                       type="text"
-                      value={profileForm.name}
-                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                      value={profileForm.fullName || ''}
+                      onChange={(e) => setProfileForm({ ...profileForm, fullName: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-primary"
                       required
                     />
@@ -224,7 +292,7 @@ export default function MemberProfilePage() {
                     <input
                       type="email"
                       value={profileForm.email}
-                      onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                      readOnly
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-primary"
                       required
                     />
@@ -233,15 +301,15 @@ export default function MemberProfilePage() {
                     <label className="text-xs font-bold uppercase text-slate-700 block mb-1">Ngày sinh</label>
                     <input
                       type="date"
-                      value={profileForm.dob}
-                      onChange={(e) => setProfileForm({ ...profileForm, dob: e.target.value })}
+                      value={profileForm.dateOfBirth || ''}
+                      onChange={(e) => setProfileForm({ ...profileForm, dateOfBirth: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-primary"
                     />
                   </div>
                   <div>
                     <label className="text-xs font-bold uppercase text-slate-700 block mb-1">Giới tính</label>
                     <select
-                      value={profileForm.gender}
+                      value={profileForm.gender || ''}
                       onChange={(e) => setProfileForm({ ...profileForm, gender: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none bg-white font-semibold"
                     >
@@ -256,7 +324,7 @@ export default function MemberProfilePage() {
                   <label className="text-xs font-bold uppercase text-slate-700 block mb-1">Địa chỉ thường trú</label>
                   <input
                     type="text"
-                    value={profileForm.address}
+                    value={profileForm.address || ''}
                     onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-primary"
                   />
@@ -269,7 +337,7 @@ export default function MemberProfilePage() {
                       <label className="text-[11px] font-semibold text-slate-600 block mb-1">Người thân liên hệ</label>
                       <input
                         type="text"
-                        value={profileForm.emergencyContactName}
+                        value={profileForm.emergencyContactName || ''}
                         onChange={(e) => setProfileForm({ ...profileForm, emergencyContactName: e.target.value })}
                         className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-primary"
                       />
@@ -278,7 +346,7 @@ export default function MemberProfilePage() {
                       <label className="text-[11px] font-semibold text-slate-600 block mb-1">SĐT người thân</label>
                       <input
                         type="tel"
-                        value={profileForm.emergencyContactPhone}
+                        value={profileForm.emergencyContactPhone || ''}
                         onChange={(e) => setProfileForm({ ...profileForm, emergencyContactPhone: e.target.value })}
                         className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-primary"
                       />
@@ -383,7 +451,7 @@ export default function MemberProfilePage() {
                       type="number"
                       step="0.1"
                       value={inbodyForm.weight}
-                      onChange={(e) => setInbodyForm({ ...inbodyForm, weight: Number(e.target.value) })}
+                      onChange={(e) => setInbodyForm({ ...inbodyForm, weight: e.target.value })}
                       className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-base font-bold outline-none"
                     />
                   </div>

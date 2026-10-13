@@ -24,6 +24,3 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     List<ClassSession> findByStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
             LocalDateTime weekStart, LocalDateTime weekEnd);
 }
-import org.springframework.data.jpa.repository.JpaRepository;
-
-public interface ClassSessionRepository extends JpaRepository<ClassSession, Long> {}

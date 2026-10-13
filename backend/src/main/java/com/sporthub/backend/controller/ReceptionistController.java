@@ -1,11 +1,21 @@
 package com.sporthub.backend.controller;
 
 import com.sporthub.backend.dto.ReceptionistMemberResponse;
+import com.sporthub.backend.dto.MemberPackagePurchaseResponse;
+import com.sporthub.backend.dto.ReceptionistMembershipSaleRequest;
+import com.sporthub.backend.dto.ReceptionistCheckInRequest;
+import com.sporthub.backend.dto.ReceptionistCheckInResponse;
 import com.sporthub.backend.dto.ReceptionistReportResponse;
+import com.sporthub.backend.entity.MemberCheckIn;
+import com.sporthub.backend.entity.MembershipPackage;
 import com.sporthub.backend.entity.ReceptionPayment;
+import com.sporthub.backend.entity.UserMembership;
 import com.sporthub.backend.entity.User;
+import com.sporthub.backend.repository.MembershipPackageRepository;
+import com.sporthub.backend.repository.MemberCheckInRepository;
 import com.sporthub.backend.repository.PaymentTransactionRepository;
 import com.sporthub.backend.repository.ReceptionPaymentRepository;
+import com.sporthub.backend.repository.UserMembershipRepository;
 import com.sporthub.backend.repository.UserRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Page;
@@ -16,15 +26,19 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
@@ -37,14 +51,23 @@ public class ReceptionistController {
     private final UserRepository userRepository;
     private final ReceptionPaymentRepository paymentRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final UserMembershipRepository membershipRepository;
+    private final MembershipPackageRepository packageRepository;
+    private final MemberCheckInRepository checkInRepository;
 
     public ReceptionistController(
             UserRepository userRepository,
             ReceptionPaymentRepository paymentRepository,
-            PaymentTransactionRepository paymentTransactionRepository) {
+            PaymentTransactionRepository paymentTransactionRepository,
+            UserMembershipRepository membershipRepository,
+            MembershipPackageRepository packageRepository,
+            MemberCheckInRepository checkInRepository) {
         this.userRepository = userRepository;
         this.paymentRepository = paymentRepository;
         this.paymentTransactionRepository = paymentTransactionRepository;
+        this.membershipRepository = membershipRepository;
+        this.packageRepository = packageRepository;
+        this.checkInRepository = checkInRepository;
     }
 
     @GetMapping("/members")
@@ -67,6 +90,108 @@ public class ReceptionistController {
                         user.getPhone(),
                         user.getStatus(),
                         user.getCreatedAt()));
+    }
+
+    @GetMapping("/check-ins")
+    @Transactional(readOnly = true)
+    public List<ReceptionistCheckInResponse> getRecentCheckIns(Authentication authentication) {
+        requireStaff(authentication);
+        List<MemberCheckIn> entries = checkInRepository.findTop50ByOrderByCheckedInAtDesc();
+        Map<Long, User> members = userRepository.findAllById(
+                        entries.stream().map(MemberCheckIn::getMemberId).distinct().toList()).stream()
+                .collect(Collectors.toMap(User::getUserId, Function.identity()));
+        return entries.stream()
+                .map(entry -> {
+                    User member = members.get(entry.getMemberId());
+                    return new ReceptionistCheckInResponse(
+                            entry.getCheckInId(),
+                            entry.getMemberId(),
+                            member == null ? "Không rõ hội viên" : member.getFullName(),
+                            member == null ? null : member.getPhone(),
+                            entry.getCheckedInAt(),
+                            entry.getResult());
+                })
+                .toList();
+    }
+
+    @PostMapping("/check-ins")
+    @Transactional
+    public ReceptionistCheckInResponse recordCheckIn(
+            @RequestBody ReceptionistCheckInRequest request,
+            Authentication authentication) {
+        requireStaff(authentication);
+        if (request == null || request.memberId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng chọn hội viên.");
+        }
+        User member = userRepository.findById(request.memberId())
+                .filter(user -> "MEMBER".equalsIgnoreCase(user.getRole()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy hội viên."));
+        LocalDate today = LocalDate.now();
+        boolean hasActiveMembership = membershipRepository.findByUserIdOrderByEndDateDesc(member.getUserId()).stream()
+                .anyMatch(membership -> "ACTIVE".equalsIgnoreCase(membership.getStatus())
+                        && (membership.getStartDate() == null || !membership.getStartDate().isAfter(today))
+                        && (membership.getEndDate() == null || !membership.getEndDate().isBefore(today)));
+        boolean isValid = "ACTIVE".equalsIgnoreCase(member.getStatus()) && hasActiveMembership;
+        MemberCheckIn entry = new MemberCheckIn();
+        entry.setMemberId(member.getUserId());
+        entry.setCheckedInAt(LocalDateTime.now());
+        entry.setResult(isValid ? "VALID" : "REJECTED");
+        entry.setRecordedBy(actorId(authentication));
+        MemberCheckIn saved = checkInRepository.save(entry);
+        return new ReceptionistCheckInResponse(
+                saved.getCheckInId(),
+                member.getUserId(),
+                member.getFullName(),
+                member.getPhone(),
+                saved.getCheckedInAt(),
+                saved.getResult());
+    }
+
+    @PostMapping("/membership-sales")
+    @Transactional
+    public MemberPackagePurchaseResponse sellMembership(
+            @RequestBody ReceptionistMembershipSaleRequest request,
+            Authentication authentication) {
+        requireStaff(authentication);
+        if (request == null || request.memberId() == null || request.packageId() == null
+                || request.paymentMethod() == null
+                || !Set.of("CASH", "TRANSFER", "POS").contains(request.paymentMethod().toUpperCase(Locale.ROOT))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thông tin thanh toán không hợp lệ.");
+        }
+        User member = userRepository.findById(request.memberId())
+                .filter(user -> "MEMBER".equalsIgnoreCase(user.getRole()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy hội viên."));
+        if (!"ACTIVE".equalsIgnoreCase(member.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tài khoản hội viên hiện không hoạt động.");
+        }
+        MembershipPackage membershipPackage = packageRepository.findById(request.packageId())
+                .filter(item -> "ACTIVE".equalsIgnoreCase(item.getStatus()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Gói tập không còn được mở bán."));
+        LocalDate today = LocalDate.now();
+        UserMembership membership = new UserMembership();
+        membership.setUserId(member.getUserId());
+        membership.setPackageId(membershipPackage.getPackageId());
+        membership.setStartDate(today);
+        membership.setEndDate(today.plusDays(membershipPackage.getDurationDays()));
+        membership.setStatus("ACTIVE");
+        UserMembership savedMembership = membershipRepository.save(membership);
+
+        ReceptionPayment payment = new ReceptionPayment();
+        payment.setMemberId(Math.toIntExact(member.getUserId()));
+        payment.setMembershipId(Math.toIntExact(savedMembership.getMembershipId()));
+        payment.setAmount(membershipPackage.getPrice());
+        payment.setPaymentMethod(request.paymentMethod().toUpperCase(Locale.ROOT));
+        payment.setPaymentStatus("COMPLETED");
+        payment.setApprovedBy(Math.toIntExact(actorId(authentication)));
+        payment.setCreatedAt(LocalDateTime.now());
+        ReceptionPayment savedPayment = paymentRepository.save(payment);
+        return new MemberPackagePurchaseResponse(
+                savedPayment.getPaymentId().longValue(),
+                savedMembership.getMembershipId(),
+                membershipPackage.getName(),
+                savedPayment.getAmount(),
+                savedPayment.getPaymentStatus(),
+                savedPayment.getCreatedAt());
     }
 
     @GetMapping("/report")
@@ -163,6 +288,14 @@ public class ReceptionistController {
                 .anyMatch(role -> List.of("ROLE_RECEPTIONIST", "ROLE_MANAGER", "ROLE_ADMIN").contains(role));
         if (!isStaff) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền truy cập chức năng lễ tân.");
+        }
+    }
+
+    private Long actorId(Authentication authentication) {
+        try {
+            return Long.valueOf(authentication.getName());
+        } catch (NumberFormatException exception) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Phiên đăng nhập không hợp lệ.");
         }
     }
 

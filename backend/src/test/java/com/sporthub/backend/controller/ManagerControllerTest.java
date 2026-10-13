@@ -1,6 +1,9 @@
 package com.sporthub.backend.controller;
 
 import com.sporthub.backend.entity.User;
+import com.sporthub.backend.entity.MembershipPackage;
+import com.sporthub.backend.repository.MembershipPackageRepository;
+import com.sporthub.backend.repository.PublicSportRepository;
 import com.sporthub.backend.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;
@@ -11,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
+import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -23,7 +27,10 @@ import static org.mockito.Mockito.when;
 class ManagerControllerTest {
 
     private final UserRepository userRepository = mock(UserRepository.class);
-    private final ManagerController controller = new ManagerController(userRepository);
+    private final MembershipPackageRepository packageRepository = mock(MembershipPackageRepository.class);
+    private final PublicSportRepository sportRepository = mock(PublicSportRepository.class);
+    private final ManagerController controller =
+            new ManagerController(userRepository, packageRepository, sportRepository);
     private final UsernamePasswordAuthenticationToken manager =
             new UsernamePasswordAuthenticationToken(
                     "1", "", List.of(new SimpleGrantedAuthority("ROLE_MANAGER")));
@@ -106,6 +113,42 @@ class ManagerControllerTest {
         when(userRepository.findById(7L)).thenReturn(Optional.of(coachUser));
 
         assertThrows(ResponseStatusException.class, () -> controller.lockMember(7L, manager));
+    }
+
+    @Test
+    void managerCanCreateAndUpdateDatabasePackage() {
+        when(packageRepository.save(any(MembershipPackage.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        var request = new com.sporthub.backend.dto.ManagerPackageRequest(
+                "Gold Fitness", null, new BigDecimal("2500000"), 90,
+                "ALL_DAY", "Gym membership", "ACTIVE");
+
+        var created = controller.createPackage(request, manager);
+
+        assertEquals("Gold Fitness", created.getName());
+        assertEquals(new BigDecimal("2500000"), created.getPrice());
+        assertEquals(90, created.getDurationDays());
+
+        created.setPackageId(4L);
+        when(packageRepository.findById(4L)).thenReturn(Optional.of(created));
+        var update = new com.sporthub.backend.dto.ManagerPackageRequest(
+                "Gold Fitness Plus", null, new BigDecimal("3000000"), 120,
+                "PEAK", "Updated", "ACTIVE");
+        var updated = controller.updatePackage(4L, update, manager);
+
+        assertEquals("Gold Fitness Plus", updated.getName());
+        assertEquals("PEAK", updated.getAccessType());
+    }
+
+    @Test
+    void packageManagementIsManagerOnlyAndValidatesPackageFields() {
+        assertThrows(ResponseStatusException.class, () -> controller.getPackages(coach));
+        assertThrows(ResponseStatusException.class, () -> controller.createPackage(
+                new com.sporthub.backend.dto.ManagerPackageRequest(
+                        "", null, new BigDecimal("100"), 30, "ALL_DAY", "", "ACTIVE"),
+                manager));
+        assertThrows(ResponseStatusException.class, () -> controller.updatePackageStatus(
+                1L, new ManagerController.PackageStatusRequest("DELETED"), manager));
     }
 
     @Test
