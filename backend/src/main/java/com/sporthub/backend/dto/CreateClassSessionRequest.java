@@ -10,6 +10,7 @@ public record CreateClassSessionRequest(
         Long facilityId,
         LocalDateTime startTime,
         LocalDateTime endTime,
+        Integer sessionCount,
         Integer maxSlots,
         BigDecimal priceAmount) {
 }

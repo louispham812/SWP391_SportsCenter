@@ -15,6 +15,7 @@ const emptySession = {
   facilityId: '',
   startTime: '',
   endTime: '',
+  sessionCount: 1,
   maxSlots: 8,
   priceAmount: 0,
 };
@@ -28,6 +29,7 @@ export default function AdminFacilitiesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const loadFacilities = useCallback(async () => {
     setError('');
@@ -72,18 +74,21 @@ export default function AdminFacilitiesPage() {
   const handleCreateSession = async (event) => {
     event.preventDefault();
     setError('');
+    setSuccess('');
     setSaving(true);
     try {
-      await createManagerClassSession({
+      const createdSessions = await createManagerClassSession({
         ...sessionForm,
         sportId: Number(sessionForm.sportId),
         coachId: Number(sessionForm.coachId),
         facilityId: Number(sessionForm.facilityId),
+        sessionCount: Number(sessionForm.sessionCount),
         maxSlots: Number(sessionForm.maxSlots),
         priceAmount: Number(sessionForm.priceAmount),
       });
       setShowAddClassModal(false);
       setSessionForm(emptySession);
+      setSuccess(`Đã tạo ${createdSessions.length} buổi học, lặp hàng tuần theo thứ và giờ đã chọn.`);
     } catch (requestError) {
       setError(requestError.message || 'Không thể tạo lịch lớp.');
     } finally {
@@ -119,6 +124,11 @@ export default function AdminFacilitiesPage() {
         {error && (
           <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             {error}
+          </p>
+        )}
+        {success && (
+          <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+            {success}
           </p>
         )}
 
@@ -224,6 +234,12 @@ export default function AdminFacilitiesPage() {
                   <input required type="datetime-local" value={sessionForm.endTime}
                     onChange={(event) => setSessionForm({ ...sessionForm, endTime: event.target.value })}
                     className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm" />
+                </label>
+                <label className="text-xs font-bold text-slate-700">
+                  Số buổi (hàng tuần)
+                  <input required type="number" min="1" max="52" value={sessionForm.sessionCount}
+                    onChange={(event) => setSessionForm({ ...sessionForm, sessionCount: event.target.value })}
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
                 </label>
                 <label className="text-xs font-bold text-slate-700">
                   Sĩ số tối đa

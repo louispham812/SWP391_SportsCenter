@@ -19,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -96,7 +97,7 @@ public class FacilityManagementController {
 
     @PostMapping("/class-sessions")
     @Transactional
-    public ClassSession createClassSession(
+    public List<ClassSession> createClassSession(
             @RequestBody CreateClassSessionRequest request,
             Authentication authentication) {
         requireManager(authentication);
@@ -115,21 +116,30 @@ public class FacilityManagementController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Cơ sở đang bảo trì.");
         }
 
-        ClassSession session = new ClassSession();
-        session.setClassName(request.className().trim());
-        session.setSportId(request.sportId());
-        session.setCoachId(coach.getUserId());
-        session.setFacilityId(request.facilityId());
-        session.setStartTime(request.startTime());
-        session.setEndTime(request.endTime());
-        session.setMaxSlots(request.maxSlots());
-        session.setBookedSlots(0);
-        session.setPriceAmount(request.priceAmount() == null ? BigDecimal.ZERO : request.priceAmount());
-        session.setStatus("SCHEDULED");
-        return classSessionRepository.save(session);
+        List<ClassSession> sessions = new ArrayList<>(request.sessionCount());
+        for (int index = 0; index < request.sessionCount(); index++) {
+            ClassSession session = new ClassSession();
+            session.setClassName(request.className().trim());
+            session.setSportId(request.sportId());
+            session.setCoachId(coach.getUserId());
+            session.setFacilityId(request.facilityId());
+            session.setStartTime(request.startTime().plusWeeks(index));
+            session.setEndTime(request.endTime().plusWeeks(index));
+            session.setMaxSlots(request.maxSlots());
+            session.setBookedSlots(0);
+            session.setPriceAmount(request.priceAmount() == null ? BigDecimal.ZERO : request.priceAmount());
+            session.setStatus("SCHEDULED");
+            sessions.add(session);
+        }
+        return classSessionRepository.saveAll(sessions);
     }
 
     private void validateSession(CreateClassSessionRequest request) {
+        if (request.sessionCount() == null || request.sessionCount() < 1 || request.sessionCount() > 52) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Số buổi học phải từ 1 đến 52.");
+        }
         if (request.className() == null || request.className().isBlank() || request.className().length() > 100
                 || request.sportId() == null || request.coachId() == null || request.facilityId() == null
                 || request.startTime() == null || request.endTime() == null
