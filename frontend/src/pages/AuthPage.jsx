@@ -8,26 +8,30 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:808
 export default function AuthPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { authenticateUser, addAuditLog } = useApp();
+  const { authenticateUser } = useApp();
 
   // Active Tab: derived from route URL ('/register' -> 'register', otherwise 'login')
   const activeTab = location.pathname === '/register' ? 'register' : 'login';
   const setActiveTab = (tab) => {
     setAuthError('');
+    setAuthNotice('');
     navigate(tab === 'register' ? '/register' : '/login');
   };
 
   // Password visibility
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [authNotice, setAuthNotice] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Login form state
+  const [loginRole, setLoginRole] = useState('MEMBER');
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
   // Register form state
   const [regForm, setRegForm] = useState({
+    role: 'MEMBER',
     fullName: '',
     phone: '',
     email: '',
@@ -51,7 +55,6 @@ export default function AuthPage() {
       throw new Error('Vai trò tài khoản không được hỗ trợ.');
     }
     authenticateUser(user, destination.key);
-    addAuditLog('Đăng nhập hệ thống', `Tài khoản ${user.email} đăng nhập thành công.`);
     navigate(destination.path);
   };
 
@@ -84,6 +87,7 @@ export default function AuthPage() {
         body: JSON.stringify({
           email: loginIdentifier.trim(),
           password: loginPassword,
+          role: loginRole,
         }),
       });
       if (!response.ok) {
@@ -114,13 +118,17 @@ export default function AuthPage() {
           phone: regForm.phone.trim(),
           email: regForm.email.trim(),
           password: regForm.password,
+          role: regForm.role,
         }),
       });
       if (!response.ok) {
         throw new Error(await getErrorMessage(response));
       }
       const user = await response.json();
-      addAuditLog('Đăng ký hội viên', `Tài khoản hội viên ${user.email} đã được tạo.`);
+      if (user.status === 'PENDING') {
+        setAuthNotice('Đăng ký đã được lưu. Tài khoản nhân viên sẽ sử dụng được sau khi Quản lý duyệt.');
+        return;
+      }
       authenticate(user);
     } catch (error) {
       setAuthError(getRequestErrorMessage(error, 'Đăng ký'));
@@ -353,6 +361,31 @@ export default function AuthPage() {
                         {authError}
                       </p>
                     )}
+                    {authNotice && (
+                      <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                        {authNotice}
+                      </p>
+                    )}
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="login-role" className="text-xs uppercase tracking-wider text-slate-700 font-bold">
+                        Đăng nhập với vai trò
+                      </label>
+                      <select
+                        id="login-role"
+                        required
+                        value={loginRole}
+                        onChange={(e) => {
+                          setLoginRole(e.target.value);
+                          setAuthError('');
+                        }}
+                        className="w-full bg-white text-slate-900 px-4 py-3 rounded-xl border border-slate-300 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 shadow-sm"
+                      >
+                        <option value="MEMBER">Khách hàng / Hội viên</option>
+                        <option value="COACH">Huấn luyện viên (Coach)</option>
+                        <option value="RECEPTIONIST">Nhân viên lễ tân</option>
+                        <option value="MANAGER">Quản lý</option>
+                      </select>
+                    </div>
                     {/* Identifier */}
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs uppercase tracking-wider text-slate-700 font-bold">
@@ -452,6 +485,11 @@ export default function AuthPage() {
                         {authError}
                       </p>
                     )}
+                    {authNotice && (
+                      <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                        {authNotice}
+                      </p>
+                    )}
                     {/* NHÓM 1: THÔNG TIN CƠ BẢN */}
                     <div className="flex flex-col gap-3.5">
                       <div className="flex items-center justify-between">
@@ -466,6 +504,32 @@ export default function AuthPage() {
                         <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">
                           * Bắt buộc điền
                         </span>
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <label htmlFor="register-role" className="text-xs uppercase tracking-wider text-slate-700 font-bold">
+                          Đăng ký vai trò *
+                        </label>
+                        <select
+                          id="register-role"
+                          required
+                          value={regForm.role}
+                          onChange={(e) => {
+                            setRegForm({ ...regForm, role: e.target.value });
+                            setAuthError('');
+                            setAuthNotice('');
+                          }}
+                          className="w-full bg-white text-slate-900 px-4 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 shadow-sm"
+                        >
+                          <option value="MEMBER">Khách hàng / Hội viên</option>
+                          <option value="COACH">Huấn luyện viên (Coach) — chờ Quản lý duyệt</option>
+                          <option value="RECEPTIONIST">Nhân viên lễ tân — chờ Quản lý duyệt</option>
+                        </select>
+                        {regForm.role !== 'MEMBER' && (
+                          <p className="text-[11px] text-amber-700">
+                            Tài khoản nhân viên chỉ hoạt động sau khi được Quản lý phê duyệt.
+                          </p>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -580,6 +644,7 @@ export default function AuthPage() {
                     </div>
 
                     {/* NHÓM 2: HỒ SƠ SỨC KHỎE (PAR-Q) & MỤC TIÊU */}
+                    {regForm.role === 'MEMBER' && (
                     <div className="p-5 bg-white rounded-2xl flex flex-col gap-3.5 relative overflow-hidden border border-slate-200 shadow-sm">
                       <div className="absolute -right-16 -top-16 w-44 h-44 bg-[#c1f100]/15 rounded-full blur-2xl pointer-events-none"></div>
 
@@ -667,6 +732,7 @@ export default function AuthPage() {
                         </span>
                       </div>
                     </div>
+                    )}
 
                     {/* Agree Terms Checkbox */}
                     <label className="flex items-start gap-2.5 cursor-pointer select-none">

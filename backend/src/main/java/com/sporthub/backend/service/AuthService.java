@@ -13,6 +13,10 @@ import java.util.Locale;
 @Service
 public class AuthService {
 
+    private static final String MEMBER_ROLE = "MEMBER";
+    private static final String COACH_ROLE = "COACH";
+    private static final String RECEPTIONIST_ROLE = "RECEPTIONIST";
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -24,8 +28,9 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         String identifier = request.getEmail() == null ? "" : request.getEmail().trim();
         String password = request.getPassword();
-        if (identifier.isEmpty() || password == null || password.isEmpty()) {
-            throw new IllegalArgumentException("Vui lòng nhập email/số điện thoại và mật khẩu.");
+        String requestedRole = normalizeRole(request.getRole());
+        if (identifier.isEmpty() || password == null || password.isEmpty() || requestedRole == null) {
+            throw new IllegalArgumentException("Vui lòng nhập email/số điện thoại, mật khẩu và vai trò.");
         }
 
         User user = userRepository.findByEmailIgnoreCase(identifier)
@@ -41,7 +46,14 @@ public class AuthService {
             throw new RuntimeException("Email hoặc mật khẩu không chính xác!");
         }
 
+        if (!requestedRole.equalsIgnoreCase(user.getRole())) {
+            throw new RuntimeException("Tài khoản không thuộc vai trò bạn đã chọn.");
+        }
+
         if (!"ACTIVE".equals(user.getStatus())) {
+            if ("PENDING".equals(user.getStatus())) {
+                throw new RuntimeException("Tài khoản đang chờ Quản lý duyệt.");
+            }
             throw new RuntimeException("Tài khoản của bạn đã bị khóa hoặc chưa kích hoạt!");
         }
 
@@ -60,10 +72,11 @@ public class AuthService {
                 : request.getEmail().trim().toLowerCase(Locale.ROOT);
         String phone = request.getPhone() == null ? "" : request.getPhone().trim();
         String password = request.getPassword();
+        String role = normalizeRole(request.getRole());
 
         if (fullName.isEmpty() || email.isEmpty() || phone.isEmpty()
-                || password == null || password.isEmpty()) {
-            throw new IllegalArgumentException("Vui lòng điền đầy đủ các thông tin bắt buộc.");
+                || password == null || password.isEmpty() || role == null) {
+            throw new IllegalArgumentException("Vui lòng điền đầy đủ các thông tin bắt buộc và chọn vai trò.");
         }
         if (fullName.length() > 100 || email.length() > 100 || phone.length() > 15) {
             throw new IllegalArgumentException("Tên, email hoặc số điện thoại vượt quá độ dài cho phép.");
@@ -78,16 +91,27 @@ public class AuthService {
             throw new IllegalArgumentException("Email này đã được đăng ký.");
         }
 
+        if (!MEMBER_ROLE.equals(role) && !COACH_ROLE.equals(role) && !RECEPTIONIST_ROLE.equals(role)) {
+            throw new IllegalArgumentException("Vai trò đăng ký không hợp lệ.");
+        }
+
         User user = User.builder()
                 .fullName(fullName)
                 .email(email)
                 .phone(phone)
                 .passwordHash(passwordEncoder.encode(password))
-                .role("MEMBER")
-                .status("ACTIVE")
+                .role(role)
+                .status(MEMBER_ROLE.equals(role) ? "ACTIVE" : "PENDING")
                 .build();
 
         return toAuthResponse(userRepository.save(user));
+    }
+
+    private String normalizeRole(String role) {
+        if (role == null || role.isBlank()) {
+            return null;
+        }
+        return role.trim().toUpperCase(Locale.ROOT);
     }
 
     private AuthResponse toAuthResponse(User user) {
@@ -98,6 +122,7 @@ public class AuthService {
                 user.getFullName(),
                 user.getEmail(),
                 user.getPhone(),
-                user.getUserId());
+                user.getUserId(),
+                user.getStatus());
     }
 }

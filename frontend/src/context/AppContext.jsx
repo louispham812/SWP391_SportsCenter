@@ -1,7 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState } from 'react';
 import {
-  mockUsers,
   mockMembersList,
   mockCoachesList,
   mockPackages,
@@ -28,8 +27,8 @@ const generateId = (prefix) => {
 };
 
 export function AppProvider({ children }) {
-  // 1. Current Active Role for Testing
-  const [currentRole, setCurrentRole] = useState('member'); // 'member' | 'receptionist' | 'coach' | 'admin'
+  // 1. Authenticated account state
+  const [currentRole, setCurrentRole] = useState(null);
 
   // 2. Core Collections
   const [members, setMembers] = useState(mockMembersList);
@@ -48,7 +47,7 @@ export function AppProvider({ children }) {
   const [paymentHistory, setPaymentHistory] = useState(mockPaymentHistory);
 
   // 3. User & Profile State (Member: Nguyễn Minh Anh)
-  const [currentUser, setCurrentUser] = useState(mockUsers.member);
+  const [currentUser, setCurrentUser] = useState(null);
   const [healthProfile, setHealthProfile] = useState({
     fitnessLevel: 'intermediate', // 'beginner' | 'intermediate' | 'advanced'
     fitnessGoals: 'Tăng phản xạ, giảm mỡ & hoàn thiện kỹ thuật Pickleball',
@@ -156,15 +155,6 @@ export function AppProvider({ children }) {
     }, 4500);
   };
 
-  // Switch Role Handler
-  const switchRole = (newRole) => {
-    setCurrentRole(newRole);
-    if (mockUsers[newRole]) {
-      setCurrentUser(mockUsers[newRole]);
-      showToast('Chuyển đổi phân hệ', `Đang thao tác với quyền: ${mockUsers[newRole].roleTitle}`, 'info');
-    }
-  };
-
   const authenticateUser = (user, roleKey) => {
     const roleTitles = {
       member: 'Hội viên Thể thao',
@@ -179,6 +169,7 @@ export function AppProvider({ children }) {
       email: user.email,
       phone: user.phone || '',
       role: user.role,
+      status: user.status,
       roleTitle: roleTitles[roleKey],
       avatar: user.fullName
         .split(/\s+/)
@@ -196,7 +187,7 @@ export function AppProvider({ children }) {
       id: generateId('log'),
       action,
       target,
-      user: currentUser.name || 'Người dùng',
+      user: currentUser?.name || 'Người dùng',
       time: 'Vừa xong',
     };
     setAuditLogs((prev) => [log, ...prev]);
@@ -341,9 +332,9 @@ export function AppProvider({ children }) {
             students: [
               ...(c.students || []),
               {
-                id: currentUser.id || 'mem_01',
-                name: currentUser.name || 'Nguyễn Minh Anh',
-                phone: currentUser.phone || '0987 654 321',
+                id: currentUser.id,
+                name: currentUser.name,
+                phone: currentUser.phone,
                 status: 'present',
                 note: 'Đăng ký qua ứng dụng hội viên',
               },
@@ -387,7 +378,7 @@ export function AppProvider({ children }) {
           const updated = {
             ...c,
             isWaitlisted: true,
-            waitlist: [...waitlist, { id: currentUser.id || 'mem_01', name: currentUser.name, phone: currentUser.phone }],
+            waitlist: [...waitlist, { id: currentUser.id, name: currentUser.name, phone: currentUser.phone }],
           };
           addAuditLog('Tham gia danh sách chờ', `Hội viên ${currentUser.name} vào hàng đợi lớp: ${c.title}`);
           showToast('Đã vào danh sách chờ', `Bạn đã vào hàng đợi lớp "${c.title}". Khi có người hủy, hệ thống sẽ tự động gửi thông báo!`);
@@ -604,7 +595,7 @@ export function AppProvider({ children }) {
       id: generateId('rev'),
       coachId: review.coachId || 'coa_01',
       coachName: review.coachName || 'HLV Lê Anh Tuấn',
-      memberName: currentUser.name || 'Nguyễn Minh Anh',
+      memberName: currentUser.name,
       rating: Number(review.rating) || 5,
       comment: review.comment,
       className: review.className || 'Pickleball Chiến Thuật Nâng Cao',
@@ -704,9 +695,9 @@ export function AppProvider({ children }) {
   const createSupportTicket = (ticket) => {
     const newTkt = {
       id: generateId('tkt'),
-      memberId: ticket.memberId || currentUser.memberId || 'ELT-8924',
-      memberName: ticket.memberName || currentUser.name || 'Nguyễn Minh Anh',
-      phone: ticket.phone || currentUser.phone || '0987 654 321',
+      memberId: ticket.memberId || currentUser.memberId || currentUser.id,
+      memberName: ticket.memberName || currentUser.name,
+      phone: ticket.phone || currentUser.phone,
       category: ticket.category || 'Hỗ trợ chung',
       content: ticket.content,
       status: 'pending',
@@ -751,7 +742,6 @@ export function AppProvider({ children }) {
   const value = {
     // Roles & Session
     currentRole,
-    switchRole,
     authenticateUser,
     currentUser,
     updateProfile,
