@@ -4,6 +4,7 @@ import { getPublicSports } from './publicContentApi';
 export const getUpcomingClasses = () => apiRequest('/bookings/classes');
 export const getCoachSchedule = (weekStart) =>
   apiRequest(`/bookings/coach-schedule?weekStart=${encodeURIComponent(weekStart)}`);
+export const getCoachStudents = () => apiRequest('/bookings/coach-students');
 export const getSessionRoster = (sessionId) =>
   apiRequest(`/bookings/classes/${encodeURIComponent(sessionId)}/roster`);
 export const cancelBooking = (bookingId) =>

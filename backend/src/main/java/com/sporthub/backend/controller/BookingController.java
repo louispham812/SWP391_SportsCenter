@@ -2,6 +2,7 @@ package com.sporthub.backend.controller;
 
 import com.sporthub.backend.dto.ClassSessionResponse;
 import com.sporthub.backend.dto.CoachScheduleEntryResponse;
+import com.sporthub.backend.dto.CoachStudentBookingResponse;
 import com.sporthub.backend.dto.ReceptionistClassResponse;
 import com.sporthub.backend.dto.RosterBookingResponse;
 import com.sporthub.backend.entity.Booking;
@@ -39,6 +40,12 @@ public class BookingController {
             Authentication authentication) {
         requireRole(authentication, "COACH");
         return ResponseEntity.ok(bookingService.getCoachSchedule(actorId(authentication), weekStart));
+    }
+
+    @GetMapping("/coach-students")
+    public ResponseEntity<List<CoachStudentBookingResponse>> getCoachStudents(Authentication authentication) {
+        requireRole(authentication, "COACH");
+        return ResponseEntity.ok(bookingService.getCoachStudents(actorId(authentication)));
     }
 
     @GetMapping("/receptionist-schedule")

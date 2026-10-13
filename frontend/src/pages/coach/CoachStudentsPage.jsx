@@ -1,16 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import CoachLayout from '../../components/layouts/CoachLayout';
-import { apiRequest } from '../../services/apiClient';
-
-const startOfWeek = () => {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-  date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+import { getCoachStudents } from '../../services/bookingApi';
 
 export default function CoachStudentsPage() {
   const [students, setStudents] = useState([]);
@@ -21,29 +11,22 @@ export default function CoachStudentsPage() {
     let current = true;
     const loadStudents = async () => {
       try {
-        const schedule = await apiRequest(`/bookings/coach-schedule?weekStart=${startOfWeek()}`);
-        const rosters = await Promise.all(
-          schedule.map((session) =>
-            apiRequest(`/bookings/classes/${session.sessionId}/roster`)
-              .then((rows) => ({ session, rows }))
-          )
-        );
+        const bookings = await getCoachStudents();
         const byMember = new Map();
-        rosters.forEach(({ session, rows }) => {
-          rows.forEach((student) => {
-            const existing = byMember.get(student.memberId) || {
-              id: student.memberId,
-              name: student.memberName,
-              phone: student.memberPhone,
-              sessions: [],
-            };
-            existing.sessions.push({
-              sessionId: session.sessionId,
-              className: session.className,
-              status: student.attendanceStatus || student.bookingStatus,
-            });
-            byMember.set(student.memberId, existing);
+        bookings.forEach((booking) => {
+          const existing = byMember.get(booking.memberId) || {
+            id: booking.memberId,
+            name: booking.memberName,
+            phone: booking.memberPhone,
+            sessions: [],
+          };
+          existing.sessions.push({
+            bookingId: booking.bookingId,
+            className: booking.className,
+            startTime: booking.startTime,
+            status: booking.attendanceStatus || booking.bookingStatus,
           });
+          byMember.set(booking.memberId, existing);
         });
         if (current) setStudents([...byMember.values()]);
       } catch (requestError) {
@@ -63,11 +46,11 @@ export default function CoachStudentsPage() {
       <div className="space-y-6">
         <header>
           <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-secondary">
-            Học viên có đặt lớp trong tuần
+            Học viên đã đăng ký các lớp bạn được phân công
           </p>
           <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Danh Sách Học Viên Của Tôi</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Danh sách được tổng hợp từ lịch huấn luyện và booking đã lưu trên hệ thống.
+            Danh sách chỉ gồm học viên có booking còn hiệu lực tại các lớp được phân công cho bạn.
           </p>
         </header>
 
@@ -78,11 +61,11 @@ export default function CoachStudentsPage() {
         )}
         {loading ? (
           <p role="status" className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-            Đang tải lịch và danh sách học viên...
+            Đang tải danh sách học viên từ cơ sở dữ liệu...
           </p>
         ) : students.length === 0 ? (
           <p className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-            Tuần này chưa có học viên đặt các lớp do bạn phụ trách.
+            Chưa có học viên đăng ký các lớp được phân công cho bạn.
           </p>
         ) : (
           <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -103,8 +86,10 @@ export default function CoachStudentsPage() {
                   </p>
                   <ul className="space-y-2">
                     {student.sessions.map((session) => (
-                      <li key={`${student.id}-${session.sessionId}`} className="flex justify-between gap-3 text-xs">
-                        <span className="font-medium text-slate-800">{session.className}</span>
+                      <li key={`${student.id}-${session.bookingId}`} className="flex justify-between gap-3 text-xs">
+                        <span className="font-medium text-slate-800">
+                          {session.className} · {new Date(session.startTime).toLocaleDateString('vi-VN')}
+                        </span>
                         <span className="shrink-0 text-slate-500">{session.status}</span>
                       </li>
                     ))}
