@@ -21,8 +21,12 @@ CREATE TABLE users (
     password VARCHAR(100) NOT NULL,
 
     phone VARCHAR(15),
-
     avatar VARCHAR(255) NULL,
+    date_of_birth DATE NULL,
+    gender NVARCHAR(20) NULL,
+    address NVARCHAR(500) NULL,
+    emergency_contact_name NVARCHAR(100) NULL,
+    emergency_contact_phone NVARCHAR(15) NULL,
 
     role VARCHAR(20) NOT NULL CHECK (role IN ('MANAGER', 'RECEPTIONIST', 'COACH', 'MEMBER')),
 
@@ -51,8 +55,10 @@ CREATE TABLE member_health_profiles (
     injury_history NVARCHAR(MAX) NULL,            -- Tiền sử chấn thương
 
     weight_kg DECIMAL(5,2) NULL,
-
     height_cm DECIMAL(5,2) NULL,
+    smm_kg DECIMAL(5,2) NULL,
+    pbf_percent DECIMAL(5,2) NULL,
+    bmi DECIMAL(5,2) NULL,
 
     updated_at DATETIME DEFAULT GETDATE(),
 
@@ -733,3 +739,17 @@ INSERT INTO feedbacks (member_id, session_id, coach_id, rating, comment, created
 (12, 4, 5, 4, N'Buổi tập vui vẻ, không khí lớp học năng động. Sân bãi sạch đẹp.',        '2026-10-10 10:30:00');
 
 GO
+
+IF OBJECT_ID(N'dbo.member_check_ins', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.member_check_ins (
+        check_in_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        member_id INT NOT NULL,
+        checked_in_at DATETIME2 NOT NULL,
+        result NVARCHAR(20) NOT NULL,
+        recorded_by INT NOT NULL,
+        CONSTRAINT FK_member_check_ins_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
+        CONSTRAINT FK_member_check_ins_recorder FOREIGN KEY (recorded_by) REFERENCES dbo.users(user_id),
+        CONSTRAINT CK_member_check_ins_result CHECK (result IN ('VALID', 'REJECTED'))
+    );
+END;

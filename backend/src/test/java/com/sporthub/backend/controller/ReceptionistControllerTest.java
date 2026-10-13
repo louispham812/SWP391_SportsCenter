@@ -4,7 +4,10 @@ import com.sporthub.backend.entity.PaymentTransaction;
 import com.sporthub.backend.entity.ReceptionPayment;
 import com.sporthub.backend.entity.User;
 import com.sporthub.backend.repository.PaymentTransactionRepository;
+import com.sporthub.backend.repository.MembershipPackageRepository;
+import com.sporthub.backend.repository.MemberCheckInRepository;
 import com.sporthub.backend.repository.ReceptionPaymentRepository;
+import com.sporthub.backend.repository.UserMembershipRepository;
 import com.sporthub.backend.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;
@@ -29,8 +32,16 @@ class ReceptionistControllerTest {
     private final ReceptionPaymentRepository paymentRepository = mock(ReceptionPaymentRepository.class);
     private final PaymentTransactionRepository paymentTransactionRepository =
             mock(PaymentTransactionRepository.class);
+    private final UserMembershipRepository membershipRepository = mock(UserMembershipRepository.class);
+    private final MembershipPackageRepository packageRepository = mock(MembershipPackageRepository.class);
+    private final MemberCheckInRepository checkInRepository = mock(MemberCheckInRepository.class);
     private final ReceptionistController controller = new ReceptionistController(
-            userRepository, paymentRepository, paymentTransactionRepository);
+            userRepository,
+            paymentRepository,
+            paymentTransactionRepository,
+            membershipRepository,
+            packageRepository,
+            checkInRepository);
     private final UsernamePasswordAuthenticationToken receptionist =
             new UsernamePasswordAuthenticationToken(
                     "3", "", List.of(new SimpleGrantedAuthority("ROLE_RECEPTIONIST")));

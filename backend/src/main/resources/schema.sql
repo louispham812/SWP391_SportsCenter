@@ -117,6 +117,32 @@ IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
         ADD CONSTRAINT CK_users_registration_status
         CHECK (status IN ('ACTIVE', 'PENDING', 'INACTIVE', 'LOCKED'));
 
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.users', N'date_of_birth') IS NULL
+    ALTER TABLE dbo.users ADD date_of_birth DATE NULL;
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.users', N'gender') IS NULL
+    ALTER TABLE dbo.users ADD gender NVARCHAR(20) NULL;
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.users', N'address') IS NULL
+    ALTER TABLE dbo.users ADD address NVARCHAR(500) NULL;
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.users', N'emergency_contact_name') IS NULL
+    ALTER TABLE dbo.users ADD emergency_contact_name NVARCHAR(100) NULL;
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.users', N'emergency_contact_phone') IS NULL
+    ALTER TABLE dbo.users ADD emergency_contact_phone NVARCHAR(15) NULL;
+
+IF OBJECT_ID(N'dbo.member_health_profiles', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.member_health_profiles', N'smm_kg') IS NULL
+    ALTER TABLE dbo.member_health_profiles ADD smm_kg DECIMAL(5,2) NULL;
+IF OBJECT_ID(N'dbo.member_health_profiles', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.member_health_profiles', N'pbf_percent') IS NULL
+    ALTER TABLE dbo.member_health_profiles ADD pbf_percent DECIMAL(5,2) NULL;
+IF OBJECT_ID(N'dbo.member_health_profiles', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.member_health_profiles', N'bmi') IS NULL
+    ALTER TABLE dbo.member_health_profiles ADD bmi DECIMAL(5,2) NULL;
+
 IF OBJECT_ID(N'dbo.class_sessions', N'U') IS NOT NULL
    AND COL_LENGTH(N'dbo.class_sessions', N'price_amount') IS NULL
 BEGIN
@@ -401,3 +427,17 @@ IF NOT EXISTS (SELECT 1 FROM dbo.public_facilities WHERE slug = N'flexible-hours
     VALUES (N'flexible-hours', N'Thời gian tập linh hoạt',
             N'Lịch hoạt động linh hoạt giúp hội viên chủ động sắp xếp thời gian đến tập và sử dụng dịch vụ.',
             N'access_time', N'Lịch linh hoạt', 1);
+
+IF OBJECT_ID(N'dbo.member_check_ins', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.member_check_ins (
+        check_in_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        member_id INT NOT NULL,
+        checked_in_at DATETIME2 NOT NULL,
+        result NVARCHAR(20) NOT NULL,
+        recorded_by INT NOT NULL,
+        CONSTRAINT FK_member_check_ins_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
+        CONSTRAINT FK_member_check_ins_recorder FOREIGN KEY (recorded_by) REFERENCES dbo.users(user_id),
+        CONSTRAINT CK_member_check_ins_result CHECK (result IN ('VALID', 'REJECTED'))
+    )
+END;

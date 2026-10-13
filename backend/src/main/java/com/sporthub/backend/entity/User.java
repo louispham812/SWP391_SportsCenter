@@ -2,6 +2,7 @@ package com.sporthub.backend.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -21,6 +22,9 @@ public class User {
     @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
 
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
+
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
@@ -32,6 +36,18 @@ public class User {
 
     @Column(length = 255)
     private String avatar;
+
+    @Column(length = 20)
+    private String gender;
+
+    @Column(columnDefinition = "NVARCHAR(500)")
+    private String address;
+
+    @Column(name = "emergency_contact_name", length = 100)
+    private String emergencyContactName;
+
+    @Column(name = "emergency_contact_phone", length = 15)
+    private String emergencyContactPhone;
 
     @Column(nullable = false, length = 20)
     private String role; // MANAGER, RECEPTIONIST, COACH, MEMBER

@@ -2,6 +2,8 @@ package com.sporthub.backend.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -19,6 +21,7 @@ import java.time.LocalDateTime;
 public class ReceptionPayment {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "payment_id")
     private Integer paymentId;
 
@@ -28,6 +31,12 @@ public class ReceptionPayment {
     @Column(name = "amount")
     private BigDecimal amount;
 
+    @Column(name = "um_id")
+    private Integer membershipId;
+
+    @Column(name = "voucher_id")
+    private Integer voucherId;
+
     @Column(name = "payment_method")
     private String paymentMethod;
 
@@ -36,4 +45,7 @@ public class ReceptionPayment {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @Column(name = "approved_by")
+    private Integer approvedBy;
 }
