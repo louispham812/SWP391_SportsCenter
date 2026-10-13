@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 import java.util.List;
+import java.time.LocalDateTime;
 
 public interface ClassSessionRepository extends JpaRepository<ClassSession, Long> {
 
@@ -17,4 +18,10 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     Optional<ClassSession> findByIdForUpdate(@Param("sessionId") Long sessionId);
 
     List<ClassSession> findBySportIdAndStatusOrderByStartTimeAsc(Long sportId, String status);
+
+    List<ClassSession> findByCoachIdAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
+            Long coachId, LocalDateTime weekStart, LocalDateTime weekEnd);
+
+    List<ClassSession> findByStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
+            LocalDateTime weekStart, LocalDateTime weekEnd);
 }

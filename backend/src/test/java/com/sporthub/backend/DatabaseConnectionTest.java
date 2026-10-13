@@ -3,7 +3,10 @@ package com.sporthub.backend;
 import com.sporthub.backend.entity.MembershipPackage;
 import com.sporthub.backend.entity.User;
 import com.sporthub.backend.repository.MembershipPackageRepository;
+import com.sporthub.backend.repository.PaymentTransactionRepository;
+import com.sporthub.backend.repository.ReceptionPaymentRepository;
 import com.sporthub.backend.repository.UserRepository;
+import org.springframework.data.domain.PageRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +18,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.List;
+import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -29,6 +33,12 @@ class DatabaseConnectionTest {
 
     @Autowired
     private MembershipPackageRepository packageRepository;
+
+    @Autowired
+    private ReceptionPaymentRepository receptionPaymentRepository;
+
+    @Autowired
+    private PaymentTransactionRepository paymentTransactionRepository;
 
     @Test
     @DisplayName("Kiểm tra kết nối trực tiếp tới SQL Server qua DataSource")
@@ -86,5 +96,17 @@ class DatabaseConnectionTest {
             System.out.println("ID: " + p.getPackageId() + " | Tên: " + p.getName() + " | Giá: " + p.getPrice() + " | Trạng thái: " + p.getStatus());
         }
         System.out.println("======================================================");
+    }
+
+    @Test
+    @DisplayName("Kiểm tra truy vấn phân trang hội viên và giao dịch lễ tân")
+    void testReceptionistDataQueries() {
+        assertFalse(userRepository.searchMembers("", PageRequest.of(0, 10)).isEmpty());
+        assertNotNull(receptionPaymentRepository
+                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+                        LocalDate.now().atStartOfDay(), LocalDate.now().plusDays(1).atStartOfDay()));
+        assertNotNull(paymentTransactionRepository
+                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+                        LocalDate.now().atStartOfDay(), LocalDate.now().plusDays(1).atStartOfDay()));
     }
 }

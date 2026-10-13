@@ -1,6 +1,8 @@
 package com.sporthub.backend.service;
 
 import com.sporthub.backend.dto.BookingConfirmationResponse;
+import com.sporthub.backend.dto.CoachScheduleEntryResponse;
+import com.sporthub.backend.dto.ReceptionistClassResponse;
 import com.sporthub.backend.dto.CheckoutRequest;
 import com.sporthub.backend.entity.Booking;
 import com.sporthub.backend.entity.ClassSession;
@@ -27,6 +29,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Optional;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -113,6 +116,64 @@ class BookingServiceTest {
                 11L,
                 new CheckoutRequest("CLASS", 22L, null, null, "SANDBOX")));
         verify(paymentTransactionRepository, never()).save(any(PaymentTransaction.class));
+    }
+
+    @Test
+    void coachScheduleReturnsAssignedDatabaseSessionsForRequestedWeek() {
+        LocalDate weekStart = LocalDate.of(2026, 10, 12);
+        ClassSession session = session(4);
+        session.setSessionId(22L);
+        session.setStartTime(weekStart.plusDays(1).atTime(19, 30));
+        session.setEndTime(weekStart.plusDays(1).atTime(21, 0));
+        when(classSessionRepository
+                .findByCoachIdAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
+                        8L, weekStart.atStartOfDay(), weekStart.plusDays(7).atStartOfDay()))
+                .thenReturn(List.of(session));
+        when(publicSportRepository.findAllById(List.of(4L))).thenReturn(List.of(sport(4L, "Pickleball")));
+        when(publicFacilityRepository.findAllById(List.of(5L))).thenReturn(List.of(facility(5L, "Sân Pro 01")));
+        when(bookingRepository.findBySessionIdInAndStatusIn(List.of(22L), List.of("BOOKED", "CONFIRMED")))
+                .thenReturn(List.of(
+                        Booking.builder().sessionId(22L).status("BOOKED").build(),
+                        Booking.builder().sessionId(22L).status("CONFIRMED").build()));
+
+        List<CoachScheduleEntryResponse> result = bookingService.getCoachSchedule(8L, weekStart);
+
+        assertEquals(1, result.size());
+        assertEquals("Class session", result.get(0).className());
+        assertEquals("Pickleball", result.get(0).sportName());
+        assertEquals("Sân Pro 01", result.get(0).facilityName());
+        assertEquals(2, result.get(0).bookedSlots());
+        assertEquals(4, result.get(0).maxSlots());
+        verify(classSessionRepository)
+                .findByCoachIdAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
+                        8L, weekStart.atStartOfDay(), weekStart.plusDays(7).atStartOfDay());
+    }
+
+    @Test
+    void receptionistScheduleReturnsClassesWithCoachAndBookingDetails() {
+        LocalDate weekStart = LocalDate.of(2026, 10, 12);
+        ClassSession session = session(4);
+        session.setSessionId(22L);
+        session.setStartTime(weekStart.plusDays(1).atTime(19, 30));
+        session.setEndTime(weekStart.plusDays(1).atTime(21, 0));
+        when(classSessionRepository
+                .findByStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
+                        weekStart.atStartOfDay(), weekStart.plusDays(7).atStartOfDay()))
+                .thenReturn(List.of(session));
+        when(publicSportRepository.findAllById(List.of(4L))).thenReturn(List.of(sport(4L, "Pickleball")));
+        when(publicFacilityRepository.findAllById(List.of(5L))).thenReturn(List.of(facility(5L, "Sân Pro 01")));
+        when(userRepository.findAllById(List.of(8L)))
+                .thenReturn(List.of(User.builder().userId(8L).fullName("Huấn luyện viên").build()));
+        when(bookingRepository.findBySessionIdInAndStatusIn(List.of(22L), List.of("BOOKED", "CONFIRMED")))
+                .thenReturn(List.of(Booking.builder().sessionId(22L).status("BOOKED").build()));
+
+        List<ReceptionistClassResponse> result = bookingService.getReceptionistSchedule(weekStart);
+
+        assertEquals(1, result.size());
+        assertEquals("Pickleball", result.get(0).sportName());
+        assertEquals("Sân Pro 01", result.get(0).facilityName());
+        assertEquals("Huấn luyện viên", result.get(0).coachName());
+        assertEquals(1, result.get(0).bookedSlots());
     }
 
     @Test

@@ -17,6 +17,9 @@ import MemberProfilePage from './pages/member/MemberProfilePage';
 // Receptionist Portal Pages
 import ReceptionCheckInPage from './pages/receptionist/ReceptionCheckInPage';
 import ReceptionPOSPage from './pages/receptionist/ReceptionPOSPage';
+import ReceptionMembersPage from './pages/receptionist/ReceptionMembersPage';
+import ReceptionClassesPage from './pages/receptionist/ReceptionClassesPage';
+import ReceptionShiftReportPage from './pages/receptionist/ReceptionShiftReportPage';
 
 // Coach Portal Pages
 import CoachSchedulePage from './pages/coach/CoachSchedulePage';
@@ -79,8 +82,9 @@ function App() {
         {/* Receptionist Routes (Flow 1, 3, 4) */}
         <Route path="/receptionist" element={<RequireRole role="receptionist"><ReceptionCheckInPage /></RequireRole>} />
         <Route path="/receptionist/pos" element={<RequireRole role="receptionist"><ReceptionPOSPage /></RequireRole>} />
-        <Route path="/receptionist/members" element={<RequireRole role="receptionist"><ReceptionCheckInPage /></RequireRole>} />
-        <Route path="/receptionist/shift" element={<RequireRole role="receptionist"><ReceptionPOSPage /></RequireRole>} />
+        <Route path="/receptionist/members" element={<RequireRole role="receptionist"><ReceptionMembersPage /></RequireRole>} />
+        <Route path="/receptionist/classes" element={<RequireRole role="receptionist"><ReceptionClassesPage /></RequireRole>} />
+        <Route path="/receptionist/shift" element={<RequireRole role="receptionist"><ReceptionShiftReportPage /></RequireRole>} />
 
         {/* Coach Routes (Flow 2, 4, 5) */}
         <Route path="/coach" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />

@@ -2,6 +2,7 @@ package com.sporthub.backend.service;
 
 import com.sporthub.backend.dto.BookingConfirmationResponse;
 import com.sporthub.backend.dto.BookingQuoteResponse;
+import com.sporthub.backend.dto.CoachScheduleEntryResponse;
 import com.sporthub.backend.dto.CheckoutRequest;
 import com.sporthub.backend.entity.Booking;
 import com.sporthub.backend.entity.ClassSession;
@@ -15,6 +16,7 @@ import com.sporthub.backend.dto.ClassSessionResponse;
 import com.sporthub.backend.dto.CourtSlotResponse;
 import com.sporthub.backend.dto.MemberScheduleEntryResponse;
 import com.sporthub.backend.dto.RosterBookingResponse;
+import com.sporthub.backend.dto.ReceptionistClassResponse;
 import com.sporthub.backend.repository.BookingRepository;
 import com.sporthub.backend.repository.ClassSessionRepository;
 import com.sporthub.backend.repository.CourtBookingRepository;
@@ -110,6 +112,78 @@ public class BookingService {
                     booking == null ? null : booking.getStatus(),
                     session.getPriceAmount());
         }).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CoachScheduleEntryResponse> getCoachSchedule(Long coachId, LocalDate weekStart) {
+        LocalDateTime start = weekStart.atStartOfDay();
+        LocalDateTime end = weekStart.plusDays(7).atStartOfDay();
+        List<ClassSession> sessions = classSessionRepository
+                .findByCoachIdAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
+                        coachId, start, end);
+        if (sessions.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> sessionIds = sessions.stream().map(ClassSession::getSessionId).toList();
+        Map<Long, String> sportNames = publicSportRepository.findAllById(
+                        sessions.stream().map(ClassSession::getSportId).distinct().toList()).stream()
+                .collect(Collectors.toMap(PublicSport::getSportId, PublicSport::getName));
+        Map<Long, String> facilityNames = publicFacilityRepository.findAllById(
+                        sessions.stream().map(ClassSession::getFacilityId).distinct().toList()).stream()
+                .collect(Collectors.toMap(PublicFacility::getFacilityId, PublicFacility::getName));
+        Map<Long, Long> bookedCounts = bookingRepository
+                .findBySessionIdInAndStatusIn(sessionIds, ACTIVE_STATUSES).stream()
+                .collect(Collectors.groupingBy(Booking::getSessionId, Collectors.counting()));
+
+        return sessions.stream().map(session -> new CoachScheduleEntryResponse(
+                session.getSessionId(),
+                session.getClassName(),
+                sportNames.get(session.getSportId()),
+                facilityNames.getOrDefault(session.getFacilityId(), "Địa điểm chưa cấu hình"),
+                session.getStartTime(),
+                session.getEndTime(),
+                bookedCounts.getOrDefault(session.getSessionId(), 0L).intValue(),
+                session.getMaxSlots(),
+                session.getStatus())).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReceptionistClassResponse> getReceptionistSchedule(LocalDate weekStart) {
+        LocalDateTime start = weekStart.atStartOfDay();
+        LocalDateTime end = weekStart.plusDays(7).atStartOfDay();
+        List<ClassSession> sessions = classSessionRepository
+                .findByStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(start, end);
+        if (sessions.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> sessionIds = sessions.stream().map(ClassSession::getSessionId).toList();
+        Map<Long, String> sportNames = publicSportRepository.findAllById(
+                        sessions.stream().map(ClassSession::getSportId).distinct().toList()).stream()
+                .collect(Collectors.toMap(PublicSport::getSportId, PublicSport::getName));
+        Map<Long, String> facilityNames = publicFacilityRepository.findAllById(
+                        sessions.stream().map(ClassSession::getFacilityId).distinct().toList()).stream()
+                .collect(Collectors.toMap(PublicFacility::getFacilityId, PublicFacility::getName));
+        Map<Long, String> coachNames = userRepository.findAllById(
+                        sessions.stream().map(ClassSession::getCoachId).distinct().toList()).stream()
+                .collect(Collectors.toMap(User::getUserId, User::getFullName));
+        Map<Long, Long> bookedCounts = bookingRepository
+                .findBySessionIdInAndStatusIn(sessionIds, ACTIVE_STATUSES).stream()
+                .collect(Collectors.groupingBy(Booking::getSessionId, Collectors.counting()));
+
+        return sessions.stream().map(session -> new ReceptionistClassResponse(
+                session.getSessionId(),
+                session.getClassName(),
+                sportNames.get(session.getSportId()),
+                facilityNames.getOrDefault(session.getFacilityId(), "Địa điểm chưa cấu hình"),
+                coachNames.get(session.getCoachId()),
+                session.getSportId(),
+                session.getStartTime(),
+                session.getEndTime(),
+                bookedCounts.getOrDefault(session.getSessionId(), 0L).intValue(),
+                session.getMaxSlots(),
+                session.getStatus())).toList();
     }
 
     @Transactional(readOnly = true)

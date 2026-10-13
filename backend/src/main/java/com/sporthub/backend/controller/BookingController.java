@@ -1,6 +1,8 @@
 package com.sporthub.backend.controller;
 
 import com.sporthub.backend.dto.ClassSessionResponse;
+import com.sporthub.backend.dto.CoachScheduleEntryResponse;
+import com.sporthub.backend.dto.ReceptionistClassResponse;
 import com.sporthub.backend.dto.RosterBookingResponse;
 import com.sporthub.backend.entity.Booking;
 import com.sporthub.backend.service.BookingService;
@@ -10,6 +12,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/v1/bookings")
@@ -26,6 +29,22 @@ public class BookingController {
     public ResponseEntity<List<ClassSessionResponse>> getUpcomingClasses(Authentication authentication) {
         return ResponseEntity.ok(bookingService.getUpcomingClasses(
                 actorId(authentication), actorRole(authentication)));
+    }
+
+    @GetMapping("/coach-schedule")
+    public ResponseEntity<List<CoachScheduleEntryResponse>> getCoachSchedule(
+            @RequestParam LocalDate weekStart,
+            Authentication authentication) {
+        requireRole(authentication, "COACH");
+        return ResponseEntity.ok(bookingService.getCoachSchedule(actorId(authentication), weekStart));
+    }
+
+    @GetMapping("/receptionist-schedule")
+    public ResponseEntity<List<ReceptionistClassResponse>> getReceptionistSchedule(
+            @RequestParam LocalDate weekStart,
+            Authentication authentication) {
+        requireAnyRole(actorRole(authentication), "RECEPTIONIST", "MANAGER", "ADMIN");
+        return ResponseEntity.ok(bookingService.getReceptionistSchedule(weekStart));
     }
 
     @GetMapping("/my-schedule")
