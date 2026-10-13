@@ -3,11 +3,20 @@ package com.sporthub.backend;
 import com.sporthub.backend.entity.MembershipPackage;
 import com.sporthub.backend.entity.User;
 import com.sporthub.backend.repository.MembershipPackageRepository;
+import com.sporthub.backend.repository.PaymentTransactionRepository;
+import com.sporthub.backend.repository.ReceptionPaymentRepository;
 import com.sporthub.backend.repository.UserRepository;
+import org.springframework.data.domain.PageRequest;
+
+import com.sporthub.backend.repository.UserRepository;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -15,6 +24,9 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.List;
+
+import java.time.LocalDate;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -29,6 +41,15 @@ class DatabaseConnectionTest {
 
     @Autowired
     private MembershipPackageRepository packageRepository;
+
+    @Autowired
+    private ReceptionPaymentRepository receptionPaymentRepository;
+
+    @Autowired
+    private PaymentTransactionRepository paymentTransactionRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     @DisplayName("Kiểm tra kết nối trực tiếp tới SQL Server qua DataSource")
@@ -69,7 +90,11 @@ class DatabaseConnectionTest {
         System.out.println("========== DANH SÁCH USER TRONG DATABASE ==========");
         System.out.println("Tổng số user tìm thấy: " + users.size());
         for (User u : users) {
+
+            System.out.println("ID: " + u.getUserId() + " | Email: " + u.getEmail() + " | Tên: " + u.getFullName() + " | Pass: " + u.getPasswordHash() + " | Role: " + u.getRole() + " | Status: " + u.getStatus());
+
             System.out.println("ID: " + u.getUserId() + " | Email: " + u.getEmail() + " | Tên: " + u.getFullName() + " | Role: " + u.getRole() + " | Status: " + u.getStatus());
+
         }
         System.out.println("====================================================");
         assertFalse(users.isEmpty(), "Bảng users phải có dữ liệu");
@@ -86,5 +111,50 @@ class DatabaseConnectionTest {
             System.out.println("ID: " + p.getPackageId() + " | Tên: " + p.getName() + " | Giá: " + p.getPrice() + " | Trạng thái: " + p.getStatus());
         }
         System.out.println("======================================================");
+    }
+
+    @Test
+    @DisplayName("Kiểm tra truy vấn phân trang hội viên và giao dịch lễ tân")
+    void testReceptionistDataQueries() {
+        assertFalse(userRepository.searchMembers("", PageRequest.of(0, 10)).isEmpty());
+        assertNotNull(receptionPaymentRepository
+                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+                        LocalDate.now().atStartOfDay(), LocalDate.now().plusDays(1).atStartOfDay()));
+        assertNotNull(paymentTransactionRepository
+                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+                        LocalDate.now().atStartOfDay(), LocalDate.now().plusDays(1).atStartOfDay()));
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("Cho phép tạo tài khoản nhân viên ở trạng thái chờ duyệt")
+    void testPendingStaffRegistrationStatusIsAllowed() {
+        String email = "pending-" + UUID.randomUUID() + "@example.com";
+        int inserted = jdbcTemplate.update(
+                "INSERT INTO dbo.users (full_name, email, password, phone, role, status) "
+                        + "VALUES (?, ?, ?, ?, ?, ?)",
+                "Pending Coach Test", email, "encoded-password", "0900000000", "COACH", "PENDING");
+
+        assertEquals(1, inserted);
+        assertEquals("PENDING", jdbcTemplate.queryForObject(
+                "SELECT status FROM dbo.users WHERE email = ?", String.class, email));
+        assertTrue(userRepository.findPendingStaffRegistrations(List.of("COACH", "RECEPTIONIST"))
+                .stream()
+                .anyMatch(user -> email.equals(user.getEmail())),
+                "Đăng ký PENDING phải xuất hiện trong truy vấn danh sách chờ duyệt");
+        assertTrue(userRepository.searchManagerUsers("", null, PageRequest.of(0, 50))
+                .stream()
+                .anyMatch(user -> email.equals(user.getEmail())),
+                "Tài khoản nhân viên vừa tạo phải xuất hiện trong danh sách Nhân sự & Khách");
+
+        String memberEmail = "member-" + UUID.randomUUID() + "@example.com";
+        jdbcTemplate.update(
+                "INSERT INTO dbo.users (full_name, email, password, phone, role, status) "
+                        + "VALUES (?, ?, ?, ?, ?, ?)",
+                "Database Member Test", memberEmail, "encoded-password", "0900000001", "MEMBER", "ACTIVE");
+        assertTrue(userRepository.searchManagerMembers("", "ACTIVE", PageRequest.of(0, 50))
+                .stream()
+                .anyMatch(user -> memberEmail.equals(user.getEmail())),
+                "Hội viên vừa tạo phải xuất hiện trong truy vấn danh sách quản lý hội viên");
     }
 }

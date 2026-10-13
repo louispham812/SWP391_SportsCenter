@@ -1,122 +1,114 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
-function App() {
-  const [count, setCount] = useState(0)
+// Public Pages
+import LandingPage from './pages/LandingPage';
+import PricingPage from './pages/PricingPage';
+import AuthPage from './pages/AuthPage';
+import PublicContentPage from './pages/PublicContentPage';
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+// Member Portal Pages
+import MemberDashboardPage from './pages/member/MemberDashboardPage';
+import MemberSchedulePage from './pages/member/MemberSchedulePage';
+import MemberBookingFlowPage from './pages/member/MemberBookingFlowPage';
+import MemberAIAssistantPage from './pages/member/MemberAIAssistantPage';
+import MemberProfilePage from './pages/member/MemberProfilePage';
 
-      <div className="ticks"></div>
+// Receptionist Portal Pages
+import ReceptionCheckInPage from './pages/receptionist/ReceptionCheckInPage';
+import ReceptionPOSPage from './pages/receptionist/ReceptionPOSPage';
+import ReceptionMembersPage from './pages/receptionist/ReceptionMembersPage';
+import ReceptionClassesPage from './pages/receptionist/ReceptionClassesPage';
+import ReceptionShiftReportPage from './pages/receptionist/ReceptionShiftReportPage';
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+// Coach Portal Pages
+import CoachSchedulePage from './pages/coach/CoachSchedulePage';
+import CoachStudentsPage from './pages/coach/CoachStudentsPage';
+import CoachAttendancePage from './pages/coach/CoachAttendancePage';
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+// Admin / Manager Portal Pages
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import AdminMembersPage from './pages/admin/AdminMembersPage';
+import AdminStaffPage from './pages/admin/AdminStaffPage';
+import AdminStaffApprovalsPage from './pages/admin/AdminStaffApprovalsPage';
+import AdminFacilitiesPage from './pages/admin/AdminFacilitiesPage';
+import AdminPackagesPage from './pages/admin/AdminPackagesPage';
+
+// Floating Demo Switcher & Global Notifications
+import ToastContainer from './components/ToastContainer';
+
+import { AppProvider, useApp } from './context/AppContext';
+
+function RequireRole({ role, children }) {
+  const { currentUser, currentRole } = useApp();
+  const location = useLocation();
+
+  if (!currentUser) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+  if (currentRole !== role) {
+    return <Navigate to={`/${currentRole || 'login'}`} replace />;
+  }
+  return children;
 }
 
-export default App
+function App() {
+  return (
+    <AppProvider>
+      <BrowserRouter>
+        <ToastContainer />
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/sports" element={<PublicContentPage contentType="sports" />} />
+        <Route path="/sports/:slug" element={<PublicContentPage contentType="sports" />} />
+        <Route path="/facilities" element={<PublicContentPage contentType="facilities" />} />
+        <Route path="/facilities/:slug" element={<PublicContentPage contentType="facilities" />} />
+        <Route path="/login" element={<AuthPage />} />
+        <Route path="/register" element={<AuthPage />} />
+
+        {/* Member Routes (Flow 1, 2, 5, 6) */}
+        <Route path="/member" element={<RequireRole role="member"><MemberDashboardPage /></RequireRole>} />
+        <Route path="/member/book" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+        <Route path="/member/book/:bookingType/sports" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+        <Route path="/member/book/courts/:sportId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+        <Route path="/member/book/classes/:sportId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+        <Route path="/member/book/checkout/:bookingType/:resourceId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+        <Route path="/member/book/confirmation" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+        <Route path="/member/schedule" element={<RequireRole role="member"><MemberSchedulePage /></RequireRole>} />
+        <Route path="/member/ai-assistant" element={<RequireRole role="member"><MemberAIAssistantPage /></RequireRole>} />
+        <Route path="/member/profile" element={<RequireRole role="member"><MemberProfilePage /></RequireRole>} />
+
+        {/* Receptionist Routes (Flow 1, 3, 4) */}
+        <Route path="/receptionist" element={<RequireRole role="receptionist"><ReceptionCheckInPage /></RequireRole>} />
+        <Route path="/receptionist/pos" element={<RequireRole role="receptionist"><ReceptionPOSPage /></RequireRole>} />
+        <Route path="/receptionist/members" element={<RequireRole role="receptionist"><ReceptionMembersPage /></RequireRole>} />
+        <Route path="/receptionist/classes" element={<RequireRole role="receptionist"><ReceptionClassesPage /></RequireRole>} />
+        <Route path="/receptionist/shift" element={<RequireRole role="receptionist"><ReceptionShiftReportPage /></RequireRole>} />
+
+        {/* Coach Routes (Flow 2, 4, 5) */}
+        <Route path="/coach" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
+        <Route path="/coach/students" element={<RequireRole role="coach"><CoachStudentsPage /></RequireRole>} />
+        <Route path="/coach/attendance" element={<RequireRole role="coach"><CoachAttendancePage /></RequireRole>} />
+        <Route path="/coach/income" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
+
+        {/* Admin / Center Manager Routes (Flow 1, 2, 3) */}
+        <Route path="/admin" element={<RequireRole role="admin"><AdminDashboardPage /></RequireRole>} />
+        <Route path="/admin/members" element={<RequireRole role="admin"><AdminMembersPage /></RequireRole>} />
+        <Route path="/admin/staff" element={<RequireRole role="admin"><AdminStaffPage /></RequireRole>} />
+        <Route path="/admin/staff-approvals" element={<RequireRole role="admin"><AdminStaffApprovalsPage /></RequireRole>} />
+        <Route path="/admin/facilities" element={<RequireRole role="admin"><AdminFacilitiesPage /></RequireRole>} />
+        <Route path="/admin/packages" element={<RequireRole role="admin"><AdminPackagesPage /></RequireRole>} />
+        <Route path="/admin/settings" element={<RequireRole role="admin"><AdminDashboardPage /></RequireRole>} />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+    </BrowserRouter>
+    </AppProvider>
+  );
+}
+
+export default App;

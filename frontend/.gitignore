@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+playwright-report
+test-results
+e2e/.member-test-data.json
+e2e/.booking-test-data.json
 
 # Editor directories and files
 .vscode/*
