@@ -30,6 +30,7 @@ import CoachAttendancePage from './pages/coach/CoachAttendancePage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminMembersPage from './pages/admin/AdminMembersPage';
 import AdminStaffPage from './pages/admin/AdminStaffPage';
+import AdminStaffApprovalsPage from './pages/admin/AdminStaffApprovalsPage';
 import AdminFacilitiesPage from './pages/admin/AdminFacilitiesPage';
 import AdminPackagesPage from './pages/admin/AdminPackagesPage';
 
@@ -96,6 +97,7 @@ function App() {
         <Route path="/admin" element={<RequireRole role="admin"><AdminDashboardPage /></RequireRole>} />
         <Route path="/admin/members" element={<RequireRole role="admin"><AdminMembersPage /></RequireRole>} />
         <Route path="/admin/staff" element={<RequireRole role="admin"><AdminStaffPage /></RequireRole>} />
+        <Route path="/admin/staff-approvals" element={<RequireRole role="admin"><AdminStaffApprovalsPage /></RequireRole>} />
         <Route path="/admin/facilities" element={<RequireRole role="admin"><AdminFacilitiesPage /></RequireRole>} />
         <Route path="/admin/packages" element={<RequireRole role="admin"><AdminPackagesPage /></RequireRole>} />
         <Route path="/admin/settings" element={<RequireRole role="admin"><AdminDashboardPage /></RequireRole>} />

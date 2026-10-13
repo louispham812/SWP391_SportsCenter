@@ -7,11 +7,20 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.Optional;
+import java.util.List;
 
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmailIgnoreCase(String email);
     Optional<User> findByPhone(String phone);
     boolean existsByEmailIgnoreCase(String email);
+
+    @Query("""
+            select user from User user
+            where upper(trim(user.status)) = 'PENDING'
+              and upper(trim(user.role)) in :roles
+            order by user.createdAt asc
+            """)
+    List<User> findPendingStaffRegistrations(@Param("roles") List<String> roles);
 
     @Query("""
             select user from User user

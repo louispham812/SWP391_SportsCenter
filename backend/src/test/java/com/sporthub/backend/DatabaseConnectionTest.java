@@ -11,6 +11,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -19,6 +21,7 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.List;
 import java.time.LocalDate;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -39,6 +42,9 @@ class DatabaseConnectionTest {
 
     @Autowired
     private PaymentTransactionRepository paymentTransactionRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     @DisplayName("Kiểm tra kết nối trực tiếp tới SQL Server qua DataSource")
@@ -108,5 +114,24 @@ class DatabaseConnectionTest {
         assertNotNull(paymentTransactionRepository
                 .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
                         LocalDate.now().atStartOfDay(), LocalDate.now().plusDays(1).atStartOfDay()));
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("Cho phép tạo tài khoản nhân viên ở trạng thái chờ duyệt")
+    void testPendingStaffRegistrationStatusIsAllowed() {
+        String email = "pending-" + UUID.randomUUID() + "@example.com";
+        int inserted = jdbcTemplate.update(
+                "INSERT INTO dbo.users (full_name, email, password, phone, role, status) "
+                        + "VALUES (?, ?, ?, ?, ?, ?)",
+                "Pending Coach Test", email, "encoded-password", "0900000000", "COACH", "PENDING");
+
+        assertEquals(1, inserted);
+        assertEquals("PENDING", jdbcTemplate.queryForObject(
+                "SELECT status FROM dbo.users WHERE email = ?", String.class, email));
+        assertTrue(userRepository.findPendingStaffRegistrations(List.of("COACH", "RECEPTIONIST"))
+                .stream()
+                .anyMatch(user -> email.equals(user.getEmail())),
+                "Đăng ký PENDING phải xuất hiện trong truy vấn danh sách chờ duyệt");
     }
 }

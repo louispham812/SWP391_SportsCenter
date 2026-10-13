@@ -81,6 +81,42 @@ BEGIN
     )
 END;
 
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+    EXEC(N'
+        DECLARE @statusConstraintName sysname;
+        DECLARE @dropStatusConstraintSql nvarchar(500);
+        WHILE 1 = 1
+        BEGIN
+            SELECT TOP (1) @statusConstraintName = name
+            FROM sys.check_constraints
+            WHERE parent_object_id = OBJECT_ID(N''dbo.users'')
+              AND definition LIKE N''%status%''
+              AND definition NOT LIKE N''%PENDING%'';
+
+            IF @statusConstraintName IS NULL BREAK;
+
+            SET @dropStatusConstraintSql = N''ALTER TABLE dbo.users DROP CONSTRAINT ''
+                + QUOTENAME(@statusConstraintName);
+            EXEC(@dropStatusConstraintSql);
+            SET @statusConstraintName = NULL;
+        END
+    ');
+
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1
+       FROM sys.check_constraints
+       WHERE parent_object_id = OBJECT_ID(N'dbo.users')
+         AND definition LIKE N'%status%'
+         AND definition LIKE N'%PENDING%'
+         AND definition LIKE N'%ACTIVE%'
+         AND definition LIKE N'%INACTIVE%'
+         AND definition LIKE N'%LOCKED%'
+   )
+    ALTER TABLE dbo.users
+        ADD CONSTRAINT CK_users_registration_status
+        CHECK (status IN ('ACTIVE', 'PENDING', 'INACTIVE', 'LOCKED'));
+
 IF OBJECT_ID(N'dbo.class_sessions', N'U') IS NOT NULL
    AND COL_LENGTH(N'dbo.class_sessions', N'price_amount') IS NULL
 BEGIN

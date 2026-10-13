@@ -9,6 +9,7 @@ export default function AdminLayout({ children }) {
     { label: 'Gói tập & Dịch vụ', path: '/admin/packages', icon: 'card_membership' },
     { label: 'Lịch & Sân bãi', path: '/admin/facilities', icon: 'stadium' },
     { label: 'Nhân sự & Khách', path: '/admin/staff', icon: 'group' },
+    { label: 'Duyệt đăng ký nhân viên', path: '/admin/staff-approvals', icon: 'how_to_reg' },
     { label: 'Quản lý Hội viên', path: '/admin/members', icon: 'shield_person' },
   ];
 

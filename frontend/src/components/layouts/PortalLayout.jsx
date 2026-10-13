@@ -61,6 +61,7 @@ export default function PortalLayout({
     { title: 'Quản lý Gói tập & Dịch vụ', subtitle: 'Cấu hình giá thẻ, thời hạn, quyền lợi', path: '/admin/packages', icon: 'card_membership', roleName: 'Admin' },
     { title: 'Quản lý Lịch & Sân bãi', subtitle: 'Lịch đặt cụm sân Pickleball, Tennis, Bể bơi', path: '/admin/facilities', icon: 'stadium', roleName: 'Admin' },
     { title: 'Quản lý Nhân sự & Khách', subtitle: 'Danh sách HLV, lễ tân, tài khoản người dùng', path: '/admin/staff', icon: 'group', roleName: 'Admin' },
+    { title: 'Duyệt đăng ký nhân viên', subtitle: 'Duyệt hoặc từ chối đăng ký Coach và Lễ tân', path: '/admin/staff-approvals', icon: 'how_to_reg', roleName: 'Admin' },
     { title: 'Bảng giá hội viên công khai', subtitle: 'Trang bảng giá gói Diamond, Gold, Silver', path: '/pricing', icon: 'receipt_long', roleName: 'Public' },
   ];
 
