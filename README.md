@@ -124,6 +124,11 @@ git checkout develop
 
 ### 🖥️ A. KHỞI CHẠY BACKEND (Chạy trước để cấp Database & API)
 
+Để bật Trợ lý AI cho hội viên và HLV, đặt biến môi trường `OPENAI_API_KEY` trước khi khởi động backend.
+Có thể chọn model bằng `OPENAI_MODEL` (mặc định `gpt-4o-mini`). Không lưu API key trong source code
+hoặc commit key vào Git. Nếu chưa cấu hình key, API sẽ trả lỗi cấu hình rõ ràng và giao diện không hiển thị
+câu trả lời AI giả lập.
+
 Mở cửa sổ Terminal thứ nhất:
 
 ```bash

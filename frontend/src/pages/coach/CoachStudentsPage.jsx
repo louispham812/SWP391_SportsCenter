@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import CoachLayout from '../../components/layouts/CoachLayout';
 import { getCoachStudents } from '../../services/bookingApi';
+import { generateCoachPlan } from '../../services/aiAssistantApi';
 
 export default function CoachStudentsPage() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [generatingFor, setGeneratingFor] = useState(null);
+  const [plans, setPlans] = useState({});
+  const [planErrors, setPlanErrors] = useState({});
 
   useEffect(() => {
     let current = true;
@@ -40,6 +44,22 @@ export default function CoachStudentsPage() {
       current = false;
     };
   }, []);
+
+  const handleGeneratePlan = async (student) => {
+    setGeneratingFor(student.id);
+    setPlanErrors((current) => ({ ...current, [student.id]: '' }));
+    try {
+      const result = await generateCoachPlan(student.id);
+      setPlans((current) => ({ ...current, [student.id]: result.answer }));
+    } catch (requestError) {
+      setPlanErrors((current) => ({
+        ...current,
+        [student.id]: requestError.message || 'Không thể tạo giáo án cho học viên này.',
+      }));
+    } finally {
+      setGeneratingFor(null);
+    }
+  };
 
   return (
     <CoachLayout>
@@ -82,7 +102,7 @@ export default function CoachStudentsPage() {
                 </div>
                 <div className="mt-5 border-t border-slate-100 pt-4">
                   <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                    Lớp đã đăng ký trong tuần
+                    Lớp đã đăng ký
                   </p>
                   <ul className="space-y-2">
                     {student.sessions.map((session) => (
@@ -95,12 +115,31 @@ export default function CoachStudentsPage() {
                     ))}
                   </ul>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => handleGeneratePlan(student)}
+                  disabled={generatingFor !== null}
+                  className="mt-4 w-full rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {generatingFor === student.id ? 'Đang tạo giáo án...' : 'Tạo giáo án bằng AI'}
+                </button>
+                {planErrors[student.id] && (
+                  <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+                    {planErrors[student.id]}
+                  </p>
+                )}
+                {plans[student.id] && (
+                  <div className="mt-3 whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                    {plans[student.id]}
+                  </div>
+                )}
               </article>
             ))}
           </section>
         )}
         <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
-          Tạo giáo án AI chưa được bật vì ứng dụng hiện chưa cấu hình dịch vụ AI. Không có bài tập giả lập nào được hiển thị.
+          Giáo án dùng mục tiêu/chỉ số sức khỏe và lớp đã đăng ký của học viên gửi tới OpenAI; không gửi tên hoặc số điện thoại.
+          Đây là gợi ý tham khảo, HLV cần kiểm tra an toàn trước khi áp dụng.
         </p>
       </div>
     </CoachLayout>
