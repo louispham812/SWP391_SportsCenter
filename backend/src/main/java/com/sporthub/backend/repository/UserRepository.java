@@ -68,4 +68,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     long countByRoleIgnoreCaseAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
             String role, java.time.LocalDateTime start, java.time.LocalDateTime end);
+import java.util.Optional;
+
+public interface UserRepository extends JpaRepository<User, Long> {
+    Optional<User> findByEmail(String email);
+    boolean existsByEmail(String email);
 }

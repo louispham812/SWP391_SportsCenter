@@ -46,4 +46,10 @@ public class ClassSession {
 
     @Column(name = "price_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal priceAmount;
+
+    @Column(name = "booked_slots")
+    private Integer bookedSlots = 0;
+
+    @Column(length = 20)
+    private String status = "SCHEDULED"; // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
 }

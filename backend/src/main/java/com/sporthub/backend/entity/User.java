@@ -25,6 +25,8 @@ public class User {
     private String email;
 
     @Column(name = "password", nullable = false)
+
+    @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
     @Column(length = 15)

@@ -7,10 +7,14 @@ import com.sporthub.backend.repository.PaymentTransactionRepository;
 import com.sporthub.backend.repository.ReceptionPaymentRepository;
 import com.sporthub.backend.repository.UserRepository;
 import org.springframework.data.domain.PageRequest;
+
+import com.sporthub.backend.repository.UserRepository;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +24,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.List;
+
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -85,7 +90,11 @@ class DatabaseConnectionTest {
         System.out.println("========== DANH SÁCH USER TRONG DATABASE ==========");
         System.out.println("Tổng số user tìm thấy: " + users.size());
         for (User u : users) {
+
             System.out.println("ID: " + u.getUserId() + " | Email: " + u.getEmail() + " | Tên: " + u.getFullName() + " | Pass: " + u.getPasswordHash() + " | Role: " + u.getRole() + " | Status: " + u.getStatus());
+
+            System.out.println("ID: " + u.getUserId() + " | Email: " + u.getEmail() + " | Tên: " + u.getFullName() + " | Role: " + u.getRole() + " | Status: " + u.getStatus());
+
         }
         System.out.println("====================================================");
         assertFalse(users.isEmpty(), "Bảng users phải có dữ liệu");

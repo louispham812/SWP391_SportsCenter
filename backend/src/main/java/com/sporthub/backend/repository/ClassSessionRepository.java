@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
 import java.util.Optional;
 import java.util.List;
 import java.time.LocalDateTime;
@@ -25,3 +24,6 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     List<ClassSession> findByStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
             LocalDateTime weekStart, LocalDateTime weekEnd);
 }
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ClassSessionRepository extends JpaRepository<ClassSession, Long> {}
