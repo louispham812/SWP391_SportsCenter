@@ -150,6 +150,44 @@ class BookingServiceTest {
     }
 
     @Test
+    void coachStudentsIncludesOnlyActiveBookingsInTheCoachsAssignedClasses() {
+        ClassSession assignedSession = session(4);
+        assignedSession.setSessionId(22L);
+        assignedSession.setClassName("Coach class");
+        ClassSession cancelledSession = session(4);
+        cancelledSession.setSessionId(23L);
+        cancelledSession.setStatus("CANCELLED");
+        when(classSessionRepository.findByCoachIdOrderByStartTimeAsc(8L))
+                .thenReturn(List.of(assignedSession, cancelledSession));
+        when(bookingRepository.findBySessionIdInAndStatusIn(List.of(22L), List.of("BOOKED", "CONFIRMED")))
+                .thenReturn(List.of(
+                        Booking.builder()
+                                .bookingId(100L)
+                                .memberId(11L)
+                                .sessionId(22L)
+                                .bookingTime(LocalDateTime.now())
+                                .status("BOOKED")
+                                .attendanceStatus("PENDING")
+                                .build()));
+        when(userRepository.findAllById(List.of(11L)))
+                .thenReturn(List.of(User.builder()
+                        .userId(11L)
+                        .fullName("Registered student")
+                        .phone("0900000000")
+                        .build()));
+
+        var result = bookingService.getCoachStudents(8L);
+
+        assertEquals(1, result.size());
+        assertEquals(11L, result.get(0).memberId());
+        assertEquals("Registered student", result.get(0).memberName());
+        assertEquals(22L, result.get(0).sessionId());
+        assertEquals("Coach class", result.get(0).className());
+        verify(classSessionRepository).findByCoachIdOrderByStartTimeAsc(8L);
+        verify(bookingRepository).findBySessionIdInAndStatusIn(List.of(22L), List.of("BOOKED", "CONFIRMED"));
+    }
+
+    @Test
     void receptionistScheduleReturnsClassesWithCoachAndBookingDetails() {
         LocalDate weekStart = LocalDate.of(2026, 10, 12);
         ClassSession session = session(4);

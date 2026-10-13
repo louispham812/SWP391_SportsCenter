@@ -21,6 +21,8 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     List<ClassSession> findByCoachIdAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
             Long coachId, LocalDateTime weekStart, LocalDateTime weekEnd);
 
+    List<ClassSession> findByCoachIdOrderByStartTimeAsc(Long coachId);
+
     List<ClassSession> findByStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
             LocalDateTime weekStart, LocalDateTime weekEnd);
 }

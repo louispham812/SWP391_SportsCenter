@@ -3,6 +3,7 @@ package com.sporthub.backend.service;
 import com.sporthub.backend.dto.BookingConfirmationResponse;
 import com.sporthub.backend.dto.BookingQuoteResponse;
 import com.sporthub.backend.dto.CoachScheduleEntryResponse;
+import com.sporthub.backend.dto.CoachStudentBookingResponse;
 import com.sporthub.backend.dto.CheckoutRequest;
 import com.sporthub.backend.entity.Booking;
 import com.sporthub.backend.entity.ClassSession;
@@ -146,6 +147,52 @@ public class BookingService {
                 bookedCounts.getOrDefault(session.getSessionId(), 0L).intValue(),
                 session.getMaxSlots(),
                 session.getStatus())).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CoachStudentBookingResponse> getCoachStudents(Long coachId) {
+        List<ClassSession> sessions = classSessionRepository.findByCoachIdOrderByStartTimeAsc(coachId).stream()
+                .filter(session -> !"CANCELLED".equalsIgnoreCase(session.getStatus()))
+                .toList();
+        if (sessions.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, ClassSession> sessionsById = sessions.stream()
+                .collect(Collectors.toMap(ClassSession::getSessionId, Function.identity()));
+        List<Long> sessionIds = sessionsById.keySet().stream().toList();
+        List<Booking> bookings = bookingRepository.findBySessionIdInAndStatusIn(sessionIds, ACTIVE_STATUSES);
+        if (bookings.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, User> members = userRepository.findAllById(
+                        bookings.stream().map(Booking::getMemberId).distinct().toList()).stream()
+                .collect(Collectors.toMap(User::getUserId, Function.identity()));
+        return bookings.stream()
+                .sorted((left, right) -> {
+                    int sessionOrder = sessionsById.get(left.getSessionId()).getStartTime()
+                            .compareTo(sessionsById.get(right.getSessionId()).getStartTime());
+                    if (sessionOrder != 0) {
+                        return sessionOrder;
+                    }
+                    return left.getBookingTime().compareTo(right.getBookingTime());
+                })
+                .map(booking -> {
+                    ClassSession session = sessionsById.get(booking.getSessionId());
+                    User member = members.get(booking.getMemberId());
+                    return new CoachStudentBookingResponse(
+                            booking.getBookingId(),
+                            booking.getMemberId(),
+                            member == null ? null : member.getFullName(),
+                            member == null ? null : member.getPhone(),
+                            session.getSessionId(),
+                            session.getClassName(),
+                            session.getStartTime(),
+                            booking.getStatus(),
+                            booking.getAttendanceStatus());
+                })
+                .toList();
     }
 
     @Transactional(readOnly = true)

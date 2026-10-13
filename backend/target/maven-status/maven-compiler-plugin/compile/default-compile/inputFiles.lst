@@ -1,5 +1,6 @@
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\BackendApplication.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\config\SecurityConfig.java
+C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\controller\AiAssistantController.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\controller\AuthController.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\controller\BookingController.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\controller\BookingFlowController.java
@@ -9,12 +10,17 @@ C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\controller\PackageController.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\controller\PublicContentController.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\controller\ReceptionistController.java
+C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\dto\AssistantChatRequest.java
+C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\dto\AssistantMessageRequest.java
+C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\dto\AssistantResponse.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\dto\AuthResponse.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\dto\BookingConfirmationResponse.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\dto\BookingQuoteResponse.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\dto\CheckoutRequest.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\dto\ClassSessionResponse.java
+C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\dto\CoachPlanRequest.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\dto\CoachScheduleEntryResponse.java
+C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\dto\CoachStudentBookingResponse.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\dto\CourtSlotResponse.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\dto\CreateClassSessionRequest.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\dto\FacilityStatusRequest.java
@@ -72,5 +78,6 @@ C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\repository\UserMembershipRepository.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\repository\UserRepository.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\security\BearerTokenAuthenticationFilter.java
+C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\service\AiAssistantService.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\service\AuthService.java
 C:\Users\nguye\OneDrive\Desktop\SWP391\SWP391_SportsCenter\backend\src\main\java\com\sporthub\backend\service\BookingService.java

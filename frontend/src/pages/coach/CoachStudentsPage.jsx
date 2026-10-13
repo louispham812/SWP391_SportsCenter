@@ -1,49 +1,36 @@
 import React, { useEffect, useState } from 'react';
 import CoachLayout from '../../components/layouts/CoachLayout';
-import { apiRequest } from '../../services/apiClient';
-
-const startOfWeek = () => {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-  date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+import { getCoachStudents } from '../../services/bookingApi';
+import { generateCoachPlan } from '../../services/aiAssistantApi';
 
 export default function CoachStudentsPage() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [generatingBookingId, setGeneratingBookingId] = useState(null);
+  const [plans, setPlans] = useState({});
+  const [planErrors, setPlanErrors] = useState({});
 
   useEffect(() => {
     let current = true;
     const loadStudents = async () => {
       try {
-        const schedule = await apiRequest(`/bookings/coach-schedule?weekStart=${startOfWeek()}`);
-        const rosters = await Promise.all(
-          schedule.map((session) =>
-            apiRequest(`/bookings/classes/${session.sessionId}/roster`)
-              .then((rows) => ({ session, rows }))
-          )
-        );
+        const bookings = await getCoachStudents();
         const byMember = new Map();
-        rosters.forEach(({ session, rows }) => {
-          rows.forEach((student) => {
-            const existing = byMember.get(student.memberId) || {
-              id: student.memberId,
-              name: student.memberName,
-              phone: student.memberPhone,
-              sessions: [],
-            };
-            existing.sessions.push({
-              sessionId: session.sessionId,
-              className: session.className,
-              status: student.attendanceStatus || student.bookingStatus,
-            });
-            byMember.set(student.memberId, existing);
+        bookings.forEach((booking) => {
+          const existing = byMember.get(booking.memberId) || {
+            id: booking.memberId,
+            name: booking.memberName,
+            phone: booking.memberPhone,
+            sessions: [],
+          };
+          existing.sessions.push({
+            bookingId: booking.bookingId,
+            className: booking.className,
+            startTime: booking.startTime,
+            status: booking.attendanceStatus || booking.bookingStatus,
           });
+          byMember.set(booking.memberId, existing);
         });
         if (current) setStudents([...byMember.values()]);
       } catch (requestError) {
@@ -58,16 +45,32 @@ export default function CoachStudentsPage() {
     };
   }, []);
 
+  const handleGeneratePlan = async (student, session) => {
+    setGeneratingBookingId(session.bookingId);
+    setPlanErrors((current) => ({ ...current, [session.bookingId]: '' }));
+    try {
+      const result = await generateCoachPlan(session.bookingId);
+      setPlans((current) => ({ ...current, [session.bookingId]: result.answer }));
+    } catch (requestError) {
+      setPlanErrors((current) => ({
+        ...current,
+        [session.bookingId]: requestError.message || 'Không thể tạo giáo án cho học viên này.',
+      }));
+    } finally {
+      setGeneratingBookingId(null);
+    }
+  };
+
   return (
     <CoachLayout>
       <div className="space-y-6">
         <header>
           <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-secondary">
-            Học viên có đặt lớp trong tuần
+            Học viên đã đăng ký các lớp bạn được phân công
           </p>
           <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Danh Sách Học Viên Của Tôi</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Danh sách được tổng hợp từ lịch huấn luyện và booking đã lưu trên hệ thống.
+            Danh sách chỉ gồm học viên có booking còn hiệu lực tại các lớp được phân công cho bạn.
           </p>
         </header>
 
@@ -78,11 +81,11 @@ export default function CoachStudentsPage() {
         )}
         {loading ? (
           <p role="status" className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-            Đang tải lịch và danh sách học viên...
+            Đang tải danh sách học viên từ cơ sở dữ liệu...
           </p>
         ) : students.length === 0 ? (
           <p className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-            Tuần này chưa có học viên đặt các lớp do bạn phụ trách.
+            Chưa có học viên đăng ký các lớp được phân công cho bạn.
           </p>
         ) : (
           <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -99,13 +102,35 @@ export default function CoachStudentsPage() {
                 </div>
                 <div className="mt-5 border-t border-slate-100 pt-4">
                   <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                    Lớp đã đăng ký trong tuần
+                    Lớp đã đăng ký
                   </p>
                   <ul className="space-y-2">
                     {student.sessions.map((session) => (
-                      <li key={`${student.id}-${session.sessionId}`} className="flex justify-between gap-3 text-xs">
-                        <span className="font-medium text-slate-800">{session.className}</span>
-                        <span className="shrink-0 text-slate-500">{session.status}</span>
+                      <li key={`${student.id}-${session.bookingId}`} className="rounded-lg bg-slate-50 p-3">
+                        <div className="flex justify-between gap-3 text-xs">
+                          <span className="font-medium text-slate-800">
+                            {session.className} · {new Date(session.startTime).toLocaleDateString('vi-VN')}
+                          </span>
+                          <span className="shrink-0 text-slate-500">{session.status}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleGeneratePlan(student, session)}
+                          disabled={generatingBookingId !== null}
+                          className="mt-3 w-full rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {generatingBookingId === session.bookingId ? 'Đang tạo giáo án...' : 'Tạo giáo án bằng AI'}
+                        </button>
+                        {planErrors[session.bookingId] && (
+                          <p role="alert" className="mt-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+                            {planErrors[session.bookingId]}
+                          </p>
+                        )}
+                        {plans[session.bookingId] && (
+                          <div className="mt-3 whitespace-pre-wrap rounded-lg bg-white p-3 text-sm text-slate-700">
+                            {plans[session.bookingId]}
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -115,7 +140,8 @@ export default function CoachStudentsPage() {
           </section>
         )}
         <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
-          Tạo giáo án AI chưa được bật vì ứng dụng hiện chưa cấu hình dịch vụ AI. Không có bài tập giả lập nào được hiển thị.
+          Giáo án dùng mục tiêu/chỉ số sức khỏe và lớp đã đăng ký của học viên gửi tới OpenAI; không gửi tên hoặc số điện thoại.
+          Đây là gợi ý tham khảo, HLV cần kiểm tra an toàn trước khi áp dụng.
         </p>
       </div>
     </CoachLayout>
