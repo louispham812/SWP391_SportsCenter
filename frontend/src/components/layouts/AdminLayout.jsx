@@ -1,10 +1,9 @@
 import React from 'react';
 import PortalLayout from './PortalLayout';
-import { mockUsers } from '../../data/mockData';
 import { useApp } from '../../context/AppContext';
 
 export default function AdminLayout({ children }) {
-  const { showToast } = useApp();
+  const { currentUser, showToast } = useApp();
   const adminMenu = [
     { label: 'Tổng quan', path: '/admin', icon: 'grid_view' },
     { label: 'Gói tập & Dịch vụ', path: '/admin/packages', icon: 'card_membership' },
@@ -17,7 +16,7 @@ export default function AdminLayout({ children }) {
     <PortalLayout
       role="admin"
       roleBadge="ELITE ADMIN"
-      currentUser={mockUsers.admin}
+      currentUser={currentUser}
       menuItems={adminMenu}
       quickAction={{
         label: 'Xuất Báo Cáo',

@@ -1,10 +1,9 @@
 import React from 'react';
 import PortalLayout from './PortalLayout';
-import { mockUsers } from '../../data/mockData';
 import { useApp } from '../../context/AppContext';
 
 export default function ReceptionistLayout({ children }) {
-  const { showToast } = useApp();
+  const { currentUser, showToast } = useApp();
   const receptionistMenu = [
     { label: 'Check-in tại quầy', path: '/receptionist', icon: 'how_to_reg' },
     { label: 'Bán hàng & Thu ngân POS', path: '/receptionist/pos', icon: 'point_of_sale' },
@@ -17,7 +16,7 @@ export default function ReceptionistLayout({ children }) {
     <PortalLayout
       role="receptionist"
       roleBadge="ELITE RECEPTION"
-      currentUser={mockUsers.receptionist}
+      currentUser={currentUser}
       menuItems={receptionistMenu}
       quickAction={{
         label: 'Quét Thẻ RFID',

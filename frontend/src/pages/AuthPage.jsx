@@ -2,34 +2,35 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1')
+  .replace(/\/$/, '');
+
 export default function AuthPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { switchRole, addAuditLog } = useApp();
+  const { authenticateUser, addAuditLog } = useApp();
 
   // Active Tab: derived from route URL ('/register' -> 'register', otherwise 'login')
   const activeTab = location.pathname === '/register' ? 'register' : 'login';
   const setActiveTab = (tab) => {
+    setAuthError('');
     navigate(tab === 'register' ? '/register' : '/login');
   };
 
-  // Demo Role Selector for Testing
-  const [selectedRole, setSelectedRole] = useState('member'); // 'member' | 'receptionist' | 'coach' | 'admin'
-
   // Password visibility
   const [showPassword, setShowPassword] = useState(false);
-  const [showQrModal, setShowQrModal] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Login form state
-  const [loginIdentifier, setLoginIdentifier] = useState('0987 654 321');
-  const [loginPassword, setLoginPassword] = useState('••••••••');
-  const [rememberMe, setRememberMe] = useState(true);
+  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
 
   // Register form state
   const [regForm, setRegForm] = useState({
-    fullName: 'Nguyễn Văn A',
-    phone: '0912 345 678',
-    email: 'nguyenvana@example.com',
+    fullName: '',
+    phone: '',
+    email: '',
     password: '',
     fitnessLevel: 'intermediate',
     primaryGoal: 'skills',
@@ -37,28 +38,95 @@ export default function AuthPage() {
     agreeTerms: true,
   });
 
-  const handleLoginSubmit = (e) => {
-    e.preventDefault();
-    switchRole(selectedRole);
-    addAuditLog('Đăng nhập hệ thống', `Người dùng đăng nhập thành công vào vai trò: ${selectedRole.toUpperCase()}`);
-
-    if (selectedRole === 'admin') navigate('/admin');
-    else if (selectedRole === 'coach') navigate('/coach');
-    else if (selectedRole === 'receptionist') navigate('/receptionist');
-    else navigate('/member');
+  const authenticate = (user) => {
+    const roleMap = {
+      MEMBER: { key: 'member', path: '/member' },
+      RECEPTIONIST: { key: 'receptionist', path: '/receptionist' },
+      COACH: { key: 'coach', path: '/coach' },
+      MANAGER: { key: 'admin', path: '/admin' },
+      ADMIN: { key: 'admin', path: '/admin' },
+    };
+    const destination = roleMap[user.role?.toUpperCase()];
+    if (!destination) {
+      throw new Error('Vai trò tài khoản không được hỗ trợ.');
+    }
+    authenticateUser(user, destination.key);
+    addAuditLog('Đăng nhập hệ thống', `Tài khoản ${user.email} đăng nhập thành công.`);
+    navigate(destination.path);
   };
 
-  const handleRegisterSubmit = (e) => {
+  const getErrorMessage = async (response) => {
+    const body = await response.text();
+    if (!body) return 'Không thể kết nối tới máy chủ. Vui lòng thử lại.';
+    try {
+      const parsed = JSON.parse(body);
+      return parsed.message || parsed.error || body;
+    } catch {
+      return body;
+    }
+  };
+
+  const getRequestErrorMessage = (error, action) => {
+    if (error instanceof TypeError) {
+      return 'Không thể kết nối tới backend. Hãy kiểm tra backend và SQL Server đang chạy.';
+    }
+    return error.message || `${action} thất bại. Vui lòng thử lại.`;
+  };
+
+  const handleLoginSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: loginIdentifier.trim(),
+          password: loginPassword,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response));
+      }
+      authenticate(await response.json());
+    } catch (error) {
+      setAuthError(getRequestErrorMessage(error, 'Đăng nhập'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     if (!regForm.agreeTerms) {
-      alert('Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách bảo mật!');
+      setAuthError('Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách bảo mật!');
       return;
     }
-
-    switchRole('member');
-    addAuditLog('Đăng ký hội viên', `Hội viên mới đăng ký tài khoản: ${regForm.fullName} (${regForm.phone})`);
-    alert(`Chào mừng ${regForm.fullName} gia nhập Elite Sports Center! Đang chuyển hướng đến cổng Hội viên...`);
-    navigate('/member');
+    setAuthError('');
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: regForm.fullName.trim(),
+          phone: regForm.phone.trim(),
+          email: regForm.email.trim(),
+          password: regForm.password,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response));
+      }
+      const user = await response.json();
+      addAuditLog('Đăng ký hội viên', `Tài khoản hội viên ${user.email} đã được tạo.`);
+      authenticate(user);
+    } catch (error) {
+      setAuthError(getRequestErrorMessage(error, 'Đăng ký'));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -279,36 +347,12 @@ export default function AuthPage() {
                  ========================================= */}
               {activeTab === 'login' && (
                 <div className="flex flex-col gap-6 animate-in fade-in duration-300">
-                  {/* Demo Role Selector Bar */}
-                  <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-2">
-                      Chọn vai trò truy cập demo (1-chạm vào đúng portal):
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {[
-                        { id: 'member', label: 'Hội viên', icon: 'person' },
-                        { id: 'receptionist', label: 'Lễ tân', icon: 'support_agent' },
-                        { id: 'coach', label: 'HLV', icon: 'fitness_center' },
-                        { id: 'admin', label: 'Quản lý', icon: 'admin_panel_settings' },
-                      ].map((r) => (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => setSelectedRole(r.id)}
-                          className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-                            selectedRole === r.id
-                              ? 'bg-[#00132b] text-[#c3f400] border-[#00132b] shadow-sm'
-                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-[16px]">{r.icon}</span>
-                          <span>{r.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4">
+                    {authError && (
+                      <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                        {authError}
+                      </p>
+                    )}
                     {/* Identifier */}
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs uppercase tracking-wider text-slate-700 font-bold">
@@ -322,7 +366,10 @@ export default function AuthPage() {
                           type="text"
                           required
                           value={loginIdentifier}
-                          onChange={(e) => setLoginIdentifier(e.target.value)}
+                          onChange={(e) => {
+                            setLoginIdentifier(e.target.value);
+                            setAuthError('');
+                          }}
                           placeholder="name@example.com / 0912..."
                           className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-11 pr-4 py-3 rounded-xl border border-slate-300 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition-colors shadow-sm"
                         />
@@ -351,7 +398,10 @@ export default function AuthPage() {
                           type={showPassword ? 'text' : 'password'}
                           required
                           value={loginPassword}
-                          onChange={(e) => setLoginPassword(e.target.value)}
+                          onChange={(e) => {
+                            setLoginPassword(e.target.value);
+                            setAuthError('');
+                          }}
                           placeholder="••••••••"
                           className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-11 pr-11 py-3 rounded-xl border border-slate-300 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition-colors shadow-sm"
                         />
@@ -367,75 +417,15 @@ export default function AuthPage() {
                       </div>
                     </div>
 
-                    {/* Remember me & QR */}
-                    <div className="flex items-center justify-between pt-1">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={rememberMe}
-                          onChange={(e) => setRememberMe(e.target.checked)}
-                          className="w-4 h-4 rounded border-slate-300 text-emerald-700 focus:ring-0 cursor-pointer"
-                        />
-                        <span className="text-xs text-slate-600 font-medium">Ghi nhớ đăng nhập</span>
-                      </label>
-
-                      <button
-                        type="button"
-                        onClick={() => setShowQrModal(true)}
-                        className="flex items-center gap-1.5 text-xs text-emerald-800 hover:underline font-bold"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">qr_code_scanner</span>
-                        <span>Đăng nhập mã QR</span>
-                      </button>
-                    </div>
-
                     {/* Submit Button */}
                     <button
                       type="submit"
-                      className="w-full py-3.5 rounded-xl bg-[#c1f100] hover:bg-[#abd600] text-slate-950 font-headline-sm text-sm uppercase tracking-wider font-bold shadow-[0_4px_24px_rgba(193,241,0,0.4)] active:scale-[0.99] transition-all flex items-center justify-center gap-2 border border-[#a7d400] mt-2 cursor-pointer"
+                      disabled={isSubmitting}
+                      className="w-full py-3.5 rounded-xl bg-[#c1f100] hover:bg-[#abd600] disabled:opacity-60 text-slate-950 font-headline-sm text-sm uppercase tracking-wider font-bold shadow-[0_4px_24px_rgba(193,241,0,0.4)] active:scale-[0.99] transition-all flex items-center justify-center gap-2 border border-[#a7d400] mt-2 cursor-pointer"
                     >
-                      <span>ĐĂNG NHẬP NGAY</span>
+                      <span>{isSubmitting ? 'ĐANG XÁC THỰC...' : 'ĐĂNG NHẬP NGAY'}</span>
                       <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
                     </button>
-
-                    {/* Social Auth Divider */}
-                    <div className="relative flex items-center justify-center my-2">
-                      <div className="w-full h-px bg-slate-200"></div>
-                      <span className="absolute px-3 bg-[#f7f9fb] text-slate-500 text-[11px] uppercase tracking-wider font-semibold">
-                        Hoặc đăng nhập nhanh qua
-                      </span>
-                    </div>
-
-                    {/* Social Buttons */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          switchRole('member');
-                          navigate('/member');
-                        }}
-                        className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 text-xs font-semibold shadow-sm transition-all cursor-pointer"
-                      >
-                        <svg className="w-4 h-4 fill-current text-slate-800" viewBox="0 0 24 24">
-                          <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"></path>
-                        </svg>
-                        <span>Google</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          switchRole('member');
-                          navigate('/member');
-                        }}
-                        className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 text-xs font-semibold shadow-sm transition-all cursor-pointer"
-                      >
-                        <svg className="w-4 h-4 fill-current text-slate-800" viewBox="0 0 24 24">
-                          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.36c.64-.78 1.08-1.86.96-2.95-1 .04-2.16.66-2.82 1.44-.58.67-1.1 1.76-.96 2.82 1.11.09 2.18-.55 2.82-1.31"></path>
-                        </svg>
-                        <span>Apple ID</span>
-                      </button>
-                    </div>
 
                     <div className="flex items-center justify-center gap-1.5 pt-2 text-xs text-slate-600">
                       <span>Chưa có tài khoản hội viên?</span>
@@ -457,6 +447,11 @@ export default function AuthPage() {
               {activeTab === 'register' && (
                 <div className="flex flex-col gap-6 animate-in fade-in duration-300">
                   <form onSubmit={handleRegisterSubmit} className="flex flex-col gap-6">
+                    {authError && (
+                      <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                        {authError}
+                      </p>
+                    )}
                     {/* NHÓM 1: THÔNG TIN CƠ BẢN */}
                     <div className="flex flex-col gap-3.5">
                       <div className="flex items-center justify-between">
@@ -486,8 +481,12 @@ export default function AuthPage() {
                             <input
                               type="text"
                               required
+                              maxLength={100}
                               value={regForm.fullName}
-                              onChange={(e) => setRegForm({ ...regForm, fullName: e.target.value })}
+                              onChange={(e) => {
+                                setRegForm({ ...regForm, fullName: e.target.value });
+                                setAuthError('');
+                              }}
                               placeholder="Nguyễn Văn A"
                               className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-11 pr-3 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition-colors shadow-sm"
                             />
@@ -506,8 +505,12 @@ export default function AuthPage() {
                             <input
                               type="tel"
                               required
+                              maxLength={15}
                               value={regForm.phone}
-                              onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
+                              onChange={(e) => {
+                                setRegForm({ ...regForm, phone: e.target.value });
+                                setAuthError('');
+                              }}
                               placeholder="0912 345 678"
                               className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-11 pr-3 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition-colors shadow-sm"
                             />
@@ -527,8 +530,12 @@ export default function AuthPage() {
                           <input
                             type="email"
                             required
+                            maxLength={100}
                             value={regForm.email}
-                            onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
+                            onChange={(e) => {
+                              setRegForm({ ...regForm, email: e.target.value });
+                              setAuthError('');
+                            }}
                             placeholder="name@example.com"
                             className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-11 pr-3 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition-colors shadow-sm"
                           />
@@ -547,8 +554,12 @@ export default function AuthPage() {
                           <input
                             type={showPassword ? 'text' : 'password'}
                             required
+                            minLength={8}
                             value={regForm.password}
-                            onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
+                            onChange={(e) => {
+                              setRegForm({ ...regForm, password: e.target.value });
+                              setAuthError('');
+                            }}
                             placeholder="••••••••"
                             className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-11 pr-11 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition-colors shadow-sm"
                           />
@@ -563,7 +574,7 @@ export default function AuthPage() {
                           </button>
                         </div>
                         <span className="text-[11px] text-slate-500 mt-0.5">
-                          Tối thiểu 8 ký tự, bao gồm chữ hoa, chữ thường và số.
+                          Mật khẩu cần có ít nhất 8 ký tự.
                         </span>
                       </div>
                     </div>
@@ -682,50 +693,13 @@ export default function AuthPage() {
                     {/* Submit Register Button */}
                     <button
                       type="submit"
-                      className="w-full py-3.5 rounded-xl bg-[#c1f100] hover:bg-[#abd600] text-slate-950 font-headline-sm text-sm uppercase tracking-wider font-bold shadow-[0_4px_24px_rgba(193,241,0,0.4)] active:scale-[0.99] transition-all flex items-center justify-center gap-2 border border-[#a7d400] cursor-pointer"
+                      disabled={isSubmitting}
+                      className="w-full py-3.5 rounded-xl bg-[#c1f100] hover:bg-[#abd600] disabled:opacity-60 text-slate-950 font-headline-sm text-sm uppercase tracking-wider font-bold shadow-[0_4px_24px_rgba(193,241,0,0.4)] active:scale-[0.99] transition-all flex items-center justify-center gap-2 border border-[#a7d400] cursor-pointer"
                     >
-                      <span>ĐĂNG KÝ TÀI KHOẢN NGAY</span>
+                      <span>{isSubmitting ? 'ĐANG TẠO TÀI KHOẢN...' : 'ĐĂNG KÝ TÀI KHOẢN NGAY'}</span>
                       <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
                     </button>
 
-                    {/* Social Divider */}
-                    <div className="relative flex items-center justify-center my-2">
-                      <div className="w-full h-px bg-slate-200"></div>
-                      <span className="absolute px-3 bg-[#f7f9fb] text-slate-500 text-[11px] uppercase tracking-wider font-semibold">
-                        Hoặc đăng ký nhanh qua
-                      </span>
-                    </div>
-
-                    {/* Social Buttons */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          switchRole('member');
-                          navigate('/member');
-                        }}
-                        className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 text-xs font-semibold shadow-sm transition-all cursor-pointer"
-                      >
-                        <svg className="w-4 h-4 fill-current text-slate-800" viewBox="0 0 24 24">
-                          <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"></path>
-                        </svg>
-                        <span>Google</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          switchRole('member');
-                          navigate('/member');
-                        }}
-                        className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 text-xs font-semibold shadow-sm transition-all cursor-pointer"
-                      >
-                        <svg className="w-4 h-4 fill-current text-slate-800" viewBox="0 0 24 24">
-                          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.36c.64-.78 1.08-1.86.96-2.95-1 .04-2.16.66-2.82 1.44-.58.67-1.1 1.76-.96 2.82 1.11.09 2.18-.55 2.82-1.31"></path>
-                        </svg>
-                        <span>Apple ID</span>
-                      </button>
-                    </div>
                   </form>
                 </div>
               )}
@@ -763,53 +737,6 @@ export default function AuthPage() {
         </div>
       </main>
 
-      {/* QR Login Modal */}
-      {showQrModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl relative animate-in fade-in">
-            <button
-              onClick={() => setShowQrModal(false)}
-              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">close</span>
-            </button>
-
-            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full inline-block">
-              QUÉT MÃ ĐĂNG NHẬP NHANH
-            </span>
-
-            <h3 className="font-headline-sm text-lg font-bold text-slate-900">
-              Đăng Nhập Qua Ứng Dụng Elite
-            </h3>
-            <p className="text-xs text-slate-500">
-              Mở camera hoặc ứng dụng di động Elite Sports trên điện thoại và quét mã QR này để đăng nhập ngay.
-            </p>
-
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 inline-block shadow-inner">
-              <img
-                src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=ELITE_SPORTS_FAST_AUTH_TOKEN_998877"
-                alt="Auth QR Code"
-                className="w-48 h-48 mx-auto rounded-lg shadow-sm"
-              />
-              <div className="font-mono text-[11px] font-bold text-slate-600 mt-2">
-                Hết hạn sau 59s
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setShowQrModal(false);
-                switchRole(selectedRole);
-                navigate(selectedRole === 'admin' ? '/admin' : selectedRole === 'coach' ? '/coach' : selectedRole === 'receptionist' ? '/receptionist' : '/member');
-              }}
-              className="w-full py-2.5 rounded-xl bg-[#c1f100] text-slate-950 font-bold text-xs uppercase tracking-wider hover:bg-[#abd600] transition-colors shadow-sm"
-            >
-              Giả lập Quét mã Thành Công →
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

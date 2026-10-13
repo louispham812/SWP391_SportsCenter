@@ -123,7 +123,7 @@ export default function MemberDashboardPage() {
 
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-primary text-xs font-bold">
-                  Hội viên #{currentUser.memberId || 'ELT-8924'}
+                  Hội viên #{currentUser.memberId || currentUser.id || ''}
                 </span>
                 <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-bold">
                   {activePlan.status === 'active' ? 'Đang hoạt động' : 'Tạm dừng'}
@@ -520,12 +520,12 @@ export default function MemberDashboardPage() {
 
             <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 inline-block shadow-inner relative">
               <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=SPORT_MEM_${currentUser.memberId || 'ELT-8924'}_COUNT_${qrCountdown}`}
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=SPORT_MEM_${currentUser.memberId || currentUser.id || ''}_COUNT_${qrCountdown}`}
                 alt="Member Dynamic QR"
                 className="w-48 h-48 mx-auto rounded-lg shadow-sm"
               />
               <div className="font-mono text-xs font-bold text-slate-800 mt-2">
-                #{currentUser.memberId || 'ELT-8924'}
+                #{currentUser.memberId || currentUser.id || ''}
               </div>
 
               {/* Countdown badge */}
@@ -562,7 +562,7 @@ export default function MemberDashboardPage() {
                   Gia Hạn & Thanh Toán Trực Tuyến
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Hội viên: {currentUser.name} (#{currentUser.memberId || 'ELT-8924'})
+                  Hội viên: {currentUser.name} (#{currentUser.memberId || currentUser.id || ''})
                 </p>
               </div>
             </div>

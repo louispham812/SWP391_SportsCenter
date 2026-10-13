@@ -10,9 +10,9 @@ export default function MemberProfilePage() {
 
   // Personal Info Form State (MEM-03)
   const [profileForm, setProfileForm] = useState({
-    name: currentUser.name || 'Nguyễn Minh Anh',
-    phone: currentUser.phone || '0987 654 321',
-    email: currentUser.email || 'minhanh.nguyen@example.com',
+    name: currentUser.name || '',
+    phone: currentUser.phone || '',
+    email: currentUser.email || '',
     dob: '1998-05-15',
     gender: 'Nữ',
     address: 'Căn 1204 Tòa Park 2, Times City, Hà Nội',
@@ -144,7 +144,9 @@ export default function MemberProfilePage() {
                     {avatarPreview ? (
                       <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="font-bold text-lg text-secondary-container">MA</span>
+                      <span className="font-bold text-lg text-secondary-container">
+                        {currentUser.avatar || currentUser.name?.slice(0, 2).toUpperCase() || 'US'}
+                      </span>
                     )}
                   </div>
                   <div>
@@ -160,7 +162,7 @@ export default function MemberProfilePage() {
               {/* Member Details */}
               <div className="relative z-10 space-y-1">
                 <div className="flex items-center justify-between pt-2 text-xs font-mono text-slate-300">
-                  <span>ID: #{currentUser.memberId || 'ELT-8924'}</span>
+                  <span>ID: #{currentUser.memberId || currentUser.id || ''}</span>
                   <span>HẠN: {activePlan.expireDate}</span>
                 </div>
                 <div className="text-[10px] text-slate-400">

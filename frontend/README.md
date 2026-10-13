@@ -14,3 +14,21 @@ The React Compiler is not enabled on this template because of its impact on dev 
 ## Expanding the Oxlint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+
+## Authentication API
+
+The sign-in and registration forms call the Spring Boot backend at
+`http://localhost:8080/api/v1` by default. Start SQL Server and the backend
+(`mvn spring-boot:run` from `backend`) before using these forms. The backend's
+database connection is configured in `backend/src/main/resources/application.properties`.
+
+If the backend uses a different address, set `VITE_API_BASE_URL` in a local
+`.env.local` file, including the `/api/v1` path, for example:
+
+```env
+VITE_API_BASE_URL=http://localhost:8080/api/v1
+```
+
+Registration creates an active `MEMBER` in the `users` table, and sign-in
+validates the submitted email address or phone number and password against that
+table.
