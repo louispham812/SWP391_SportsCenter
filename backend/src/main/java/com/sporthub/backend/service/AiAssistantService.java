@@ -72,45 +72,34 @@ public class AiAssistantService {
     }
 
     public String createCoachPlan(Long coachId, CoachPlanRequest request) {
-        if (request == null || request.memberId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cần chọn học viên.");
+        if (request == null || request.bookingId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không tìm thấy lượt đăng ký lớp.");
         }
         if (request.goal() != null && request.goal().length() > 1000) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mục tiêu giáo án không được vượt quá 1000 ký tự.");
         }
 
-        List<ClassSession> assignedSessions = classSessionRepository
-                .findByCoachIdOrderByStartTimeAsc(coachId).stream()
-                .filter(session -> !"CANCELLED".equalsIgnoreCase(session.getStatus()))
-                .toList();
-        List<Long> assignedSessionIds = assignedSessions.stream()
-                .map(ClassSession::getSessionId)
-                .toList();
-        if (assignedSessionIds.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn chưa được phân công lớp nào.");
-        }
+        Booking booking = bookingRepository.findById(request.bookingId())
+                .filter(candidate -> ACTIVE_BOOKING_STATUSES.contains(candidate.getStatus().toUpperCase(Locale.ROOT)))
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Lượt đăng ký không còn hiệu lực hoặc không tồn tại."));
+        ClassSession session = classSessionRepository.findById(booking.getSessionId())
+                .filter(candidate -> Objects.equals(candidate.getCoachId(), coachId))
+                .filter(candidate -> !"CANCELLED".equalsIgnoreCase(candidate.getStatus()))
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Bạn không được phân công lớp trong lượt đăng ký này."));
 
-        List<Booking> studentBookings = bookingRepository
-                .findBySessionIdInAndStatusIn(assignedSessionIds, ACTIVE_BOOKING_STATUSES).stream()
-                .filter(booking -> Objects.equals(booking.getMemberId(), request.memberId()))
-                .toList();
-        if (studentBookings.isEmpty()) {
+        if (booking.getMemberId() == null) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "Học viên này chưa đăng ký lớp nào do bạn phụ trách.");
+                    "Không xác định được hội viên đăng ký lớp.");
         }
 
-        String context = memberContext(request.memberId()) + "\n\nLớp được HLV phụ trách mà học viên đã đăng ký:\n"
-                + studentBookings.stream()
-                        .map(booking -> assignedSessions.stream()
-                                .filter(session -> session.getSessionId().equals(booking.getSessionId()))
-                                .findFirst()
-                                .map(session -> "- " + session.getClassName() + " lúc " + session.getStartTime())
-                                .orElse(null))
-                        .filter(Objects::nonNull)
-                        .distinct()
-                        .limit(20)
-                        .reduce("", (text, line) -> text + line + "\n");
+        String context = memberContext(booking.getMemberId())
+                + "\n\nLớp học viên đã đăng ký với bạn:\n- "
+                + session.getClassName() + " lúc " + session.getStartTime() + "\n";
         String goal = request.goal() == null || request.goal().isBlank()
                 ? "Tạo giáo án phù hợp với mục tiêu và hồ sơ hiện có."
                 : request.goal().trim();

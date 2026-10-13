@@ -7,7 +7,7 @@ export default function CoachStudentsPage() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [generatingFor, setGeneratingFor] = useState(null);
+  const [generatingBookingId, setGeneratingBookingId] = useState(null);
   const [plans, setPlans] = useState({});
   const [planErrors, setPlanErrors] = useState({});
 
@@ -45,19 +45,19 @@ export default function CoachStudentsPage() {
     };
   }, []);
 
-  const handleGeneratePlan = async (student) => {
-    setGeneratingFor(student.id);
-    setPlanErrors((current) => ({ ...current, [student.id]: '' }));
+  const handleGeneratePlan = async (student, session) => {
+    setGeneratingBookingId(session.bookingId);
+    setPlanErrors((current) => ({ ...current, [session.bookingId]: '' }));
     try {
-      const result = await generateCoachPlan(student.id);
-      setPlans((current) => ({ ...current, [student.id]: result.answer }));
+      const result = await generateCoachPlan(session.bookingId);
+      setPlans((current) => ({ ...current, [session.bookingId]: result.answer }));
     } catch (requestError) {
       setPlanErrors((current) => ({
         ...current,
-        [student.id]: requestError.message || 'Không thể tạo giáo án cho học viên này.',
+        [session.bookingId]: requestError.message || 'Không thể tạo giáo án cho học viên này.',
       }));
     } finally {
-      setGeneratingFor(null);
+      setGeneratingBookingId(null);
     }
   };
 
@@ -106,33 +106,35 @@ export default function CoachStudentsPage() {
                   </p>
                   <ul className="space-y-2">
                     {student.sessions.map((session) => (
-                      <li key={`${student.id}-${session.bookingId}`} className="flex justify-between gap-3 text-xs">
-                        <span className="font-medium text-slate-800">
-                          {session.className} · {new Date(session.startTime).toLocaleDateString('vi-VN')}
-                        </span>
-                        <span className="shrink-0 text-slate-500">{session.status}</span>
+                      <li key={`${student.id}-${session.bookingId}`} className="rounded-lg bg-slate-50 p-3">
+                        <div className="flex justify-between gap-3 text-xs">
+                          <span className="font-medium text-slate-800">
+                            {session.className} · {new Date(session.startTime).toLocaleDateString('vi-VN')}
+                          </span>
+                          <span className="shrink-0 text-slate-500">{session.status}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleGeneratePlan(student, session)}
+                          disabled={generatingBookingId !== null}
+                          className="mt-3 w-full rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {generatingBookingId === session.bookingId ? 'Đang tạo giáo án...' : 'Tạo giáo án bằng AI'}
+                        </button>
+                        {planErrors[session.bookingId] && (
+                          <p role="alert" className="mt-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+                            {planErrors[session.bookingId]}
+                          </p>
+                        )}
+                        {plans[session.bookingId] && (
+                          <div className="mt-3 whitespace-pre-wrap rounded-lg bg-white p-3 text-sm text-slate-700">
+                            {plans[session.bookingId]}
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleGeneratePlan(student)}
-                  disabled={generatingFor !== null}
-                  className="mt-4 w-full rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {generatingFor === student.id ? 'Đang tạo giáo án...' : 'Tạo giáo án bằng AI'}
-                </button>
-                {planErrors[student.id] && (
-                  <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">
-                    {planErrors[student.id]}
-                  </p>
-                )}
-                {plans[student.id] && (
-                  <div className="mt-3 whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-                    {plans[student.id]}
-                  </div>
-                )}
               </article>
             ))}
           </section>

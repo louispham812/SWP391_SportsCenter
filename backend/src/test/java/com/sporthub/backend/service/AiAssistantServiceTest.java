@@ -55,23 +55,55 @@ class AiAssistantServiceTest {
 
     @Test
     void coachCannotGeneratePlanForAStudentNotBookedIntoTheirClasses() {
+        Booking booking = Booking.builder()
+                .bookingId(65L)
+                .memberId(99L)
+                .sessionId(40L)
+                .status("BOOKED")
+                .build();
+        when(bookingRepository.findById(65L)).thenReturn(Optional.of(booking));
         ClassSession assignedClass = ClassSession.builder()
+                .sessionId(40L)
+                .coachId(10L)
+                .className("Assigned class")
+                .status("SCHEDULED")
+                .startTime(LocalDateTime.now().plusDays(1))
+                .build();
+        when(classSessionRepository.findById(40L)).thenReturn(Optional.of(assignedClass));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.createCoachPlan(8L, new CoachPlanRequest(65L, "")));
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+    }
+
+    @Test
+    void coachPlanUsesAnActiveBookingAssignedToTheCurrentCoach() {
+        Booking booking = Booking.builder()
+                .bookingId(65L)
+                .memberId(99L)
+                .sessionId(40L)
+                .status("BOOKED")
+                .build();
+        when(bookingRepository.findById(65L)).thenReturn(Optional.of(booking));
+        when(classSessionRepository.findById(40L)).thenReturn(Optional.of(ClassSession.builder()
                 .sessionId(40L)
                 .coachId(8L)
                 .className("Assigned class")
                 .status("SCHEDULED")
                 .startTime(LocalDateTime.now().plusDays(1))
-                .build();
-        when(classSessionRepository.findByCoachIdOrderByStartTimeAsc(8L))
-                .thenReturn(List.of(assignedClass));
-        when(bookingRepository.findBySessionIdInAndStatusIn(List.of(40L), List.of("BOOKED", "CONFIRMED")))
-                .thenReturn(List.of(Booking.builder().memberId(12L).sessionId(40L).build()));
+                .build()));
+        when(healthProfileRepository.findByMemberId(99L)).thenReturn(Optional.empty());
+        when(bookingRepository.findByMemberIdAndStatusIn(99L, List.of("BOOKED", "CONFIRMED")))
+                .thenReturn(List.of(booking));
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> service.createCoachPlan(8L, new CoachPlanRequest(99L, "")));
+                () -> service.createCoachPlan(8L, new CoachPlanRequest(65L, "")));
 
-        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, exception.getStatusCode());
+        verify(healthProfileRepository).findByMemberId(99L);
     }
 
     @Test

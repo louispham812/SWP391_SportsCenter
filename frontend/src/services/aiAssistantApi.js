@@ -6,8 +6,8 @@ export const sendMemberAssistantMessages = (messages) =>
     body: JSON.stringify({ messages }),
   });
 
-export const generateCoachPlan = (memberId, goal = '') =>
+export const generateCoachPlan = (bookingId, goal = '') =>
   apiRequest('/ai/coach-plan', {
     method: 'POST',
-    body: JSON.stringify({ memberId, goal }),
+    body: JSON.stringify({ bookingId, goal }),
   });
