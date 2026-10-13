@@ -123,6 +123,36 @@ IF NOT EXISTS (SELECT 1 FROM dbo.public_sports WHERE slug = N'yoga-pilates')
     VALUES (N'yoga-pilates', N'Yoga & Pilates', N'Không gian tĩnh lặng', N'Phục hồi',
             N'Phòng tập yên tĩnh với thiết bị Reformer, phù hợp cho luyện tập và phục hồi thể chất.', N'self_improvement', N'Lớp tối đa 8 người', 1);
 
+IF NOT EXISTS (SELECT 1 FROM dbo.public_sports WHERE slug = N'football')
+    INSERT INTO dbo.public_sports (slug, name, subtitle, tag, description, icon, area, active)
+    VALUES (N'football', N'Bóng đá', N'Sân bóng đá', N'Thể thao đồng đội',
+            N'Bộ môn bóng đá dành cho luyện tập và thi đấu theo nhóm.', N'sports_soccer', N'Sân bóng đá', 1);
+
+IF NOT EXISTS (SELECT 1 FROM dbo.public_sports WHERE slug = N'badminton')
+    INSERT INTO dbo.public_sports (slug, name, subtitle, tag, description, icon, area, active)
+    VALUES (N'badminton', N'Cầu lông', N'Sân cầu lông', N'Phổ biến',
+            N'Bộ môn cầu lông dành cho luyện tập cá nhân và thi đấu đôi.', N'sports_tennis', N'Sân trong nhà', 1);
+
+IF NOT EXISTS (SELECT 1 FROM dbo.public_sports WHERE slug = N'volleyball')
+    INSERT INTO dbo.public_sports (slug, name, subtitle, tag, description, icon, area, active)
+    VALUES (N'volleyball', N'Bóng chuyền', N'Sân bóng chuyền', N'Thể thao đồng đội',
+            N'Bộ môn bóng chuyền dành cho luyện tập và thi đấu theo đội.', N'sports_volleyball', N'Sân bóng chuyền', 1);
+
+IF NOT EXISTS (SELECT 1 FROM dbo.public_sports WHERE slug = N'table-tennis')
+    INSERT INTO dbo.public_sports (slug, name, subtitle, tag, description, icon, area, active)
+    VALUES (N'table-tennis', N'Bóng bàn', N'Bàn bóng bàn', N'Phản xạ',
+            N'Bộ môn bóng bàn phù hợp cho luyện tập kỹ thuật và thi đấu đơn hoặc đôi.', N'table_restaurant', N'Khu bóng bàn', 1);
+
+IF NOT EXISTS (SELECT 1 FROM dbo.public_sports WHERE slug = N'swimming')
+    INSERT INTO dbo.public_sports (slug, name, subtitle, tag, description, icon, area, active)
+    VALUES (N'swimming', N'Bơi lội', N'Hồ bơi', N'Thể thao dưới nước',
+            N'Bộ môn bơi lội dành cho luyện tập thể lực và cải thiện kỹ thuật bơi.', N'pool', N'Hồ bơi', 1);
+
+IF NOT EXISTS (SELECT 1 FROM dbo.public_sports WHERE slug = N'athletics')
+    INSERT INTO dbo.public_sports (slug, name, subtitle, tag, description, icon, area, active)
+    VALUES (N'athletics', N'Điền kinh', N'Đường chạy điền kinh', N'Rèn thể lực',
+            N'Bộ môn điền kinh gồm các hoạt động chạy bộ và rèn luyện sức bền.', N'directions_run', N'Đường chạy', 1);
+
 IF NOT EXISTS (SELECT 1 FROM dbo.sports_courts c JOIN dbo.public_sports s ON s.sport_id = c.sport_id WHERE s.slug = N'pickleball' AND c.court_name = N'Pickleball Court 01')
     INSERT INTO dbo.sports_courts (sport_id, court_name, description, hourly_rate, opens_at, closes_at, active)
     SELECT sport_id, N'Pickleball Court 01', N'Sân có mái che, mặt sân tiêu chuẩn.', 180000, '06:00', '22:00', 1 FROM dbo.public_sports WHERE slug = N'pickleball';
