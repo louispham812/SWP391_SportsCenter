@@ -12,27 +12,27 @@ GO
 
 CREATE TABLE users (
 
-    user_id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id INT IDENTITY(1,1) PRIMARY KEY,
 
-    full_name NVARCHAR(100) NOT NULL,
+    full_name NVARCHAR(100) NOT NULL,
 
-    email VARCHAR(100) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL UNIQUE,
 
-    password VARCHAR(100) NOT NULL,
+    password VARCHAR(100) NOT NULL,
 
-    phone VARCHAR(15),
-    avatar VARCHAR(255) NULL,
+    phone VARCHAR(15),
+    avatar VARCHAR(255) NULL,
     date_of_birth DATE NULL,
     gender NVARCHAR(20) NULL,
     address NVARCHAR(500) NULL,
     emergency_contact_name NVARCHAR(100) NULL,
     emergency_contact_phone NVARCHAR(15) NULL,
 
-    role VARCHAR(20) NOT NULL CHECK (role IN ('MANAGER', 'RECEPTIONIST', 'COACH', 'MEMBER')),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('MANAGER', 'RECEPTIONIST', 'COACH', 'MEMBER')),
 
-    status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE', 'LOCKED')),
+    status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE', 'LOCKED')),
 
-    created_at DATETIME DEFAULT GETDATE()
+    created_at DATETIME DEFAULT GETDATE()
 
 );
 
@@ -44,18 +44,18 @@ GO
 
 CREATE TABLE member_health_profiles (
 
-    profile_id INT IDENTITY(1,1) PRIMARY KEY,
+    profile_id INT IDENTITY(1,1) PRIMARY KEY,
 
-    member_id INT NOT NULL UNIQUE,
+    member_id INT NOT NULL UNIQUE,
 
-    fitness_level VARCHAR(30) DEFAULT 'BEGINNER', -- BEGINNER, AMATEUR, ADVANCED
+    fitness_level VARCHAR(30) DEFAULT 'BEGINNER', -- BEGINNER, AMATEUR, ADVANCED
 
     fitness_goals NVARCHAR(MAX) NULL,             -- Mục tiêu: Giảm cân, Tăng cơ...
 
     injury_history NVARCHAR(MAX) NULL,            -- Tiền sử chấn thương
 
-    weight_kg DECIMAL(5,2) NULL,
-    height_cm DECIMAL(5,2) NULL,
+    weight_kg DECIMAL(5,2) NULL,
+    height_cm DECIMAL(5,2) NULL,
     smm_kg DECIMAL(5,2) NULL,
     pbf_percent DECIMAL(5,2) NULL,
     bmi DECIMAL(5,2) NULL,
@@ -608,59 +608,59 @@ GO
 
 INSERT INTO class_sessions (
 
-    class_name, sport_id, coach_id, facility_id, start_time, end_time,
+ class_name, sport_id, coach_id, facility_id, start_time, end_time,
 
-    max_slots, booked_slots, status, price_amount
+ max_slots, booked_slots, status, price_amount
 
 ) VALUES
 
 (N'Lớp Bóng Đá Cơ Bản', 5, 7, 10,
 
- DATEADD(HOUR, 18, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
+DATEADD(HOUR, 18, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
 
- DATEADD(MINUTE, 90, DATEADD(HOUR, 18, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
+DATEADD(MINUTE, 90, DATEADD(HOUR, 18, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
 
- 14, 0, 'SCHEDULED', 180000),
+14, 0, 'SCHEDULED', 180000),
 
 (N'Lớp Cầu Lông Căn Bản', 6, 8, 12,
 
- DATEADD(HOUR, 19, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
+DATEADD(HOUR, 19, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
 
- DATEADD(MINUTE, 90, DATEADD(HOUR, 19, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
+DATEADD(MINUTE, 90, DATEADD(HOUR, 19, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
 
- 8, 0, 'SCHEDULED', 140000),
+8, 0, 'SCHEDULED', 140000),
 
 (N'Lớp Bóng Chuyền Căn Bản', 7, 6, 14,
 
- DATEADD(HOUR, 18, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
+DATEADD(HOUR, 18, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
 
- DATEADD(MINUTE, 90, DATEADD(HOUR, 18, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
+DATEADD(MINUTE, 90, DATEADD(HOUR, 18, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
 
- 12, 0, 'SCHEDULED', 160000),
+12, 0, 'SCHEDULED', 160000),
 
 (N'Lớp Bóng Bàn Căn Bản', 8, 5, 16,
 
- DATEADD(HOUR, 19, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
+DATEADD(HOUR, 19, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
 
- DATEADD(MINUTE, 60, DATEADD(HOUR, 19, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
+DATEADD(MINUTE, 60, DATEADD(HOUR, 19, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
 
- 8, 0, 'SCHEDULED', 120000),
+8, 0, 'SCHEDULED', 120000),
 
 (N'Lớp Bơi Lội Căn Bản', 9, 6, 18,
 
- DATEADD(HOUR, 17, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
+DATEADD(HOUR, 17, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
 
- DATEADD(MINUTE, 60, DATEADD(HOUR, 17, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
+DATEADD(MINUTE, 60, DATEADD(HOUR, 17, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
 
- 8, 0, 'SCHEDULED', 170000),
+8, 0, 'SCHEDULED', 170000),
 
 (N'Lớp Điền Kinh Căn Bản', 10, 7, 20,
 
- DATEADD(HOUR, 7, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
+DATEADD(HOUR, 7, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
 
- DATEADD(MINUTE, 60, DATEADD(HOUR, 7, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
+DATEADD(MINUTE, 60, DATEADD(HOUR, 7, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
 
- 12, 0, 'SCHEDULED', 110000);
+12, 0, 'SCHEDULED', 110000);
 
 GO
 
