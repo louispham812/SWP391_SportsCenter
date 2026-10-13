@@ -133,5 +133,19 @@ class DatabaseConnectionTest {
                 .stream()
                 .anyMatch(user -> email.equals(user.getEmail())),
                 "Đăng ký PENDING phải xuất hiện trong truy vấn danh sách chờ duyệt");
+        assertTrue(userRepository.searchManagerUsers("", null, PageRequest.of(0, 50))
+                .stream()
+                .anyMatch(user -> email.equals(user.getEmail())),
+                "Tài khoản nhân viên vừa tạo phải xuất hiện trong danh sách Nhân sự & Khách");
+
+        String memberEmail = "member-" + UUID.randomUUID() + "@example.com";
+        jdbcTemplate.update(
+                "INSERT INTO dbo.users (full_name, email, password, phone, role, status) "
+                        + "VALUES (?, ?, ?, ?, ?, ?)",
+                "Database Member Test", memberEmail, "encoded-password", "0900000001", "MEMBER", "ACTIVE");
+        assertTrue(userRepository.searchManagerMembers("", "ACTIVE", PageRequest.of(0, 50))
+                .stream()
+                .anyMatch(user -> memberEmail.equals(user.getEmail())),
+                "Hội viên vừa tạo phải xuất hiện trong truy vấn danh sách quản lý hội viên");
     }
 }

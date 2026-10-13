@@ -1,8 +1,12 @@
 package com.sporthub.backend.controller;
 
 import com.sporthub.backend.dto.PendingStaffRegistrationResponse;
+import com.sporthub.backend.dto.ManagerUserResponse;
+import com.sporthub.backend.dto.ManagerMemberResponse;
 import com.sporthub.backend.entity.User;
 import com.sporthub.backend.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,6 +14,7 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
@@ -18,7 +23,7 @@ import java.util.List;
 import java.util.Locale;
 
 @RestController
-@RequestMapping("/api/v1/manager/staff-registrations")
+@RequestMapping("/api/v1/manager")
 @CrossOrigin(origins = "*")
 public class ManagerController {
 
@@ -29,7 +34,7 @@ public class ManagerController {
         this.userRepository = userRepository;
     }
 
-    @GetMapping
+    @GetMapping("/staff-registrations")
     @Transactional(readOnly = true)
     public List<PendingStaffRegistrationResponse> getPendingRegistrations(Authentication authentication) {
         requireManager(authentication);
@@ -45,7 +50,92 @@ public class ManagerController {
                 .toList();
     }
 
-    @PatchMapping("/{userId}/approve")
+    @GetMapping("/users")
+    @Transactional(readOnly = true)
+    public Page<ManagerUserResponse> searchUsers(
+            @RequestParam(defaultValue = "") String query,
+            @RequestParam(required = false) String role,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size,
+            Authentication authentication) {
+        requireManager(authentication);
+        if (page < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số trang không hợp lệ.");
+        }
+        String normalizedRole = role == null || role.isBlank()
+                ? null
+                : role.trim().toUpperCase(Locale.ROOT);
+        if (normalizedRole != null
+                && !List.of("MANAGER", "ADMIN", "COACH", "RECEPTIONIST", "MEMBER").contains(normalizedRole)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vai trò không hợp lệ.");
+        }
+
+        return userRepository.searchManagerUsers(
+                        query.trim(),
+                        normalizedRole,
+                        PageRequest.of(page, Math.min(Math.max(size, 1), 50)))
+                .map(user -> new ManagerUserResponse(
+                        user.getUserId(),
+                        user.getFullName(),
+                        user.getEmail(),
+                        user.getPhone(),
+                        user.getRole(),
+                        user.getStatus(),
+                        user.getCreatedAt()));
+    }
+
+    @GetMapping("/members")
+    @Transactional(readOnly = true)
+    public Page<ManagerMemberResponse> searchMembers(
+            @RequestParam(defaultValue = "") String query,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size,
+            Authentication authentication) {
+        requireManager(authentication);
+        if (page < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số trang không hợp lệ.");
+        }
+        String normalizedStatus = status == null || status.isBlank()
+                ? null
+                : status.trim().toUpperCase(Locale.ROOT);
+        if (normalizedStatus != null
+                && !List.of("ACTIVE", "PENDING", "LOCKED", "INACTIVE").contains(normalizedStatus)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trạng thái không hợp lệ.");
+        }
+
+        return userRepository.searchManagerMembers(
+                        query.trim(),
+                        normalizedStatus,
+                        PageRequest.of(page, Math.min(Math.max(size, 1), 50)))
+                .map(user -> new ManagerMemberResponse(
+                        user.getUserId(),
+                        user.getFullName(),
+                        user.getEmail(),
+                        user.getPhone(),
+                        user.getStatus(),
+                        user.getCreatedAt()));
+    }
+
+    @PatchMapping("/members/{userId}/lock")
+    @Transactional
+    public ManagerMemberResponse lockMember(
+            @PathVariable Long userId,
+            Authentication authentication) {
+        requireManager(authentication);
+        return updateMemberStatus(userId, "ACTIVE", "LOCKED");
+    }
+
+    @PatchMapping("/members/{userId}/unlock")
+    @Transactional
+    public ManagerMemberResponse unlockMember(
+            @PathVariable Long userId,
+            Authentication authentication) {
+        requireManager(authentication);
+        return updateMemberStatus(userId, "LOCKED", "ACTIVE");
+    }
+
+    @PatchMapping("/staff-registrations/{userId}/approve")
     @Transactional
     public PendingStaffRegistrationResponse approveRegistration(
             @PathVariable Long userId,
@@ -54,7 +144,7 @@ public class ManagerController {
         return decide(userId, "ACTIVE");
     }
 
-    @PatchMapping("/{userId}/reject")
+    @PatchMapping("/staff-registrations/{userId}/reject")
     @Transactional
     public PendingStaffRegistrationResponse rejectRegistration(
             @PathVariable Long userId,
@@ -81,6 +171,30 @@ public class ManagerController {
                 savedUser.getEmail(),
                 savedUser.getPhone(),
                 savedUser.getRole(),
+                savedUser.getCreatedAt());
+    }
+
+    private ManagerMemberResponse updateMemberStatus(Long userId, String expectedStatus, String status) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Không tìm thấy hội viên."));
+        if (!"MEMBER".equalsIgnoreCase(user.getRole())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Tài khoản này không phải hội viên.");
+        }
+        if (!expectedStatus.equalsIgnoreCase(user.getStatus())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Trạng thái tài khoản đã thay đổi. Vui lòng tải lại danh sách.");
+        }
+
+        user.setStatus(status);
+        User savedUser = userRepository.save(user);
+        return new ManagerMemberResponse(
+                savedUser.getUserId(),
+                savedUser.getFullName(),
+                savedUser.getEmail(),
+                savedUser.getPhone(),
+                savedUser.getStatus(),
                 savedUser.getCreatedAt());
     }
 
