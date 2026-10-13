@@ -19,6 +19,7 @@ import {
 } from '../data/mockData';
 
 const AppContext = createContext();
+const AUTH_SESSION_KEY = 'sports-center-auth-session';
 
 let idCounter = 2000;
 const generateId = (prefix) => {
@@ -26,9 +27,28 @@ const generateId = (prefix) => {
   return `${prefix}_${idCounter}`;
 };
 
+const getAuthSession = () => {
+  try {
+    const session = JSON.parse(sessionStorage.getItem(AUTH_SESSION_KEY) || 'null');
+    const validRoles = ['member', 'receptionist', 'coach', 'admin'];
+    if (
+      session?.user &&
+      typeof session.user === 'object' &&
+      validRoles.includes(session.role)
+    ) {
+      return session;
+    }
+  } catch {
+    sessionStorage.removeItem(AUTH_SESSION_KEY);
+  }
+  return null;
+};
+
 export function AppProvider({ children }) {
-  // 1. Authenticated account state
-  const [currentRole, setCurrentRole] = useState(null);
+  // 1. Authenticated account state, scoped to this browser tab.
+  const [authSession, setAuthSession] = useState(getAuthSession);
+  const currentRole = authSession?.role || null;
+  const currentUser = authSession?.user || null;
 
   // 2. Core Collections
   const [members, setMembers] = useState(mockMembersList);
@@ -46,8 +66,7 @@ export function AppProvider({ children }) {
   const [coachReviews, setCoachReviews] = useState(mockCoachReviews);
   const [paymentHistory, setPaymentHistory] = useState(mockPaymentHistory);
 
-  // 3. User & Profile State (Member: Nguyễn Minh Anh)
-  const [currentUser, setCurrentUser] = useState(null);
+  // 3. User & Profile State
   const [healthProfile, setHealthProfile] = useState({
     fitnessLevel: 'intermediate', // 'beginner' | 'intermediate' | 'advanced'
     fitnessGoals: 'Tăng phản xạ, giảm mỡ & hoàn thiện kỹ thuật Pickleball',
@@ -162,8 +181,9 @@ export function AppProvider({ children }) {
       coach: 'Huấn luyện viên',
       admin: 'Giám đốc Trung tâm',
     };
-    setCurrentRole(roleKey);
-    setCurrentUser({
+    const session = {
+      role: roleKey,
+      user: {
       id: user.userId,
       name: user.fullName,
       email: user.email,
@@ -177,8 +197,16 @@ export function AppProvider({ children }) {
         .slice(-2)
         .join('')
         .toUpperCase(),
-    });
+      },
+    };
+    sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+    setAuthSession(session);
     showToast('Đăng nhập thành công', `Xin chào ${user.fullName}!`);
+  };
+
+  const logout = () => {
+    sessionStorage.removeItem(AUTH_SESSION_KEY);
+    setAuthSession(null);
   };
 
   // Helper: Add Audit Log (MGR-14)
@@ -199,7 +227,15 @@ export function AppProvider({ children }) {
 
   // MEM-03: Update Member Profile
   const updateProfile = (data) => {
-    setCurrentUser((prev) => ({ ...prev, ...data }));
+    setAuthSession((prev) => {
+      if (!prev) return prev;
+      const session = {
+        ...prev,
+        user: { ...prev.user, ...data },
+      };
+      sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+      return session;
+    });
     addAuditLog('Cập nhật hồ sơ', `Hội viên ${data.name || currentUser.name} đã cập nhật thông tin cá nhân`);
     showToast('Cập nhật thành công', 'Hồ sơ cá nhân và thông tin liên hệ đã được lưu!');
   };
@@ -742,8 +778,9 @@ export function AppProvider({ children }) {
   const value = {
     // Roles & Session
     currentRole,
-    authenticateUser,
     currentUser,
+    authenticateUser,
+    logout,
     updateProfile,
     healthProfile,
     updateHealthProfile,

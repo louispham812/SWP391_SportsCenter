@@ -1,9 +1,26 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useApp } from '../context/AppContext';
 
 export default function Navbar() {
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { currentRole, currentUser, logout } = useApp();
+  const isAuthenticated = Boolean(currentUser);
+  const roleHomePaths = {
+    member: '/member',
+    receptionist: '/receptionist',
+    coach: '/coach',
+    admin: '/admin',
+  };
+  const accountPath = roleHomePaths[currentRole] || '/login';
+
+  const handleLogout = () => {
+    logout();
+    setMobileNavOpen(false);
+    navigate('/');
+  };
 
   const navLinks = [
     { label: 'Giới thiệu', path: '/#gioi-thieu' },
@@ -52,27 +69,50 @@ export default function Navbar() {
 
         {/* Auth & CTA */}
         <div className="flex items-center gap-2.5 sm:gap-3">
-          <Link
-            to="/login"
-            className="hidden sm:inline-flex text-[13px] uppercase tracking-wider text-slate-700 hover:text-slate-950 transition-colors px-3 py-2 font-bold"
-          >
-            Đăng nhập
-          </Link>
-
-          <Link
-            to="/pricing"
-            className="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl bg-[#c1f100] text-slate-950 text-[12px] sm:text-[13px] uppercase tracking-wider font-bold shadow-md hover:bg-[#abd600] transition-all border border-[#a7d400]"
-          >
-            Trở thành Hội viên
-          </Link>
-
-          <Link
-            to="/member"
-            title="Khu vực Hội viên"
-            className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-900 shadow-sm transition-colors"
-          >
-            <span className="material-symbols-outlined text-[20px]">person</span>
-          </Link>
+          {isAuthenticated ? (
+            <>
+              <span className="hidden xl:inline text-sm font-semibold text-slate-700">
+                Xin chào, {currentUser.name}
+              </span>
+              <Link
+                to={accountPath}
+                title={`Khu vực ${currentUser.roleTitle}`}
+                aria-label={`Mở khu vực ${currentUser.roleTitle}`}
+                className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-900 shadow-sm transition-colors font-bold text-xs"
+              >
+                {currentUser.avatar || <span className="material-symbols-outlined text-[20px]">person</span>}
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="hidden sm:inline-flex text-[12px] uppercase tracking-wider text-red-700 hover:text-red-900 px-2 py-2 font-bold"
+              >
+                Đăng xuất
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="hidden sm:inline-flex text-[13px] uppercase tracking-wider text-slate-700 hover:text-slate-950 transition-colors px-3 py-2 font-bold"
+              >
+                Đăng nhập
+              </Link>
+              <Link
+                to="/pricing"
+                className="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl bg-[#c1f100] text-slate-950 text-[12px] sm:text-[13px] uppercase tracking-wider font-bold shadow-md hover:bg-[#abd600] transition-all border border-[#a7d400]"
+              >
+                Trở thành Hội viên
+              </Link>
+              <Link
+                to="/login"
+                title="Đăng nhập"
+                className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-900 shadow-sm transition-colors"
+              >
+                <span className="material-symbols-outlined text-[20px]">person</span>
+              </Link>
+            </>
+          )}
 
           {/* Mobile hamburger button */}
           <button
@@ -102,20 +142,41 @@ export default function Navbar() {
             </Link>
           ))}
           <div className="flex items-center justify-between pt-2">
-            <Link
-              to="/login"
-              onClick={() => setMobileNavOpen(false)}
-              className="text-xs uppercase font-bold text-slate-800"
-            >
-              Đăng nhập tài khoản
-            </Link>
-            <Link
-              to="/register"
-              onClick={() => setMobileNavOpen(false)}
-              className="text-xs uppercase font-bold text-emerald-800"
-            >
-              Đăng ký mới →
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <Link
+                  to={accountPath}
+                  onClick={() => setMobileNavOpen(false)}
+                  className="text-xs uppercase font-bold text-slate-800"
+                >
+                  Tài khoản của tôi
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="text-xs uppercase font-bold text-red-700"
+                >
+                  Đăng xuất
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  onClick={() => setMobileNavOpen(false)}
+                  className="text-xs uppercase font-bold text-slate-800"
+                >
+                  Đăng nhập tài khoản
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={() => setMobileNavOpen(false)}
+                  className="text-xs uppercase font-bold text-emerald-800"
+                >
+                  Đăng ký mới →
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}

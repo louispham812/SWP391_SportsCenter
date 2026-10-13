@@ -1,14 +1,26 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1')
   .replace(/\/$/, '');
+const ROLE_HOME_PATHS = {
+  member: '/member',
+  receptionist: '/receptionist',
+  coach: '/coach',
+  admin: '/admin',
+};
 
 export default function AuthPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { authenticateUser } = useApp();
+  const { authenticateUser, currentUser, currentRole } = useApp();
+
+  useEffect(() => {
+    if (currentUser) {
+      navigate(ROLE_HOME_PATHS[currentRole] || '/', { replace: true });
+    }
+  }, [currentUser, currentRole, navigate]);
 
   // Active Tab: derived from route URL ('/register' -> 'register', otherwise 'login')
   const activeTab = location.pathname === '/register' ? 'register' : 'login';

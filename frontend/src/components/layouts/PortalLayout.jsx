@@ -17,7 +17,7 @@ export default function PortalLayout({
   const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { members, classes, switchRole, showToast } = useApp();
+  const { members, classes, logout, showToast } = useApp();
 
   const searchInputRef = useRef(null);
 
@@ -233,7 +233,10 @@ export default function PortalLayout({
               </span>
             </div>
             <button
-              onClick={() => navigate('/login')}
+              onClick={() => {
+                logout();
+                navigate('/login');
+              }}
               className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
               title="Đăng xuất"
               type="button"
@@ -482,6 +485,7 @@ export default function PortalLayout({
                     <button
                       onClick={() => {
                         setProfileOpen(false);
+                        logout();
                         navigate('/login');
                       }}
                       className="w-full flex items-center gap-2 px-2.5 py-2 text-xs rounded-xl text-red-600 hover:bg-red-50 font-bold transition-colors text-left cursor-pointer"
@@ -693,35 +697,6 @@ export default function PortalLayout({
                 </div>
               )}
 
-              {/* 4. Quick Switch Roles */}
-              <div className="pt-2 border-t border-slate-100">
-                <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Chuyển Nhanh Phân Hệ (Quick Role Switch)
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
-                  {[
-                    { label: 'Hội viên', roleKey: 'member', path: '/member', icon: 'person' },
-                    { label: 'Lễ tân', roleKey: 'receptionist', path: '/receptionist', icon: 'badge' },
-                    { label: 'Huấn luyện viên', roleKey: 'coach', path: '/coach', icon: 'fitness_center' },
-                    { label: 'Quản lý Admin', roleKey: 'admin', path: '/admin', icon: 'shield_person' },
-                  ].map((r) => (
-                    <button
-                      key={r.roleKey}
-                      onClick={() => {
-                        switchRole(r.roleKey);
-                        navigate(r.path);
-                        setSearchOpen(false);
-                      }}
-                      className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-800 transition-colors cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-[18px] text-slate-600">
-                        {r.icon}
-                      </span>
-                      <span>{r.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
             {/* Micro Footer */}
