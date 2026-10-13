@@ -26,6 +26,15 @@ BEGIN
     )
 END;
 
+IF OBJECT_ID(N'dbo.auth_sessions', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.auth_sessions (
+        token_hash CHAR(64) NOT NULL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        expires_at DATETIME2 NOT NULL
+    )
+END;
+
 IF NOT EXISTS (SELECT 1 FROM dbo.public_sports WHERE slug = N'gym-fitness')
     INSERT INTO dbo.public_sports (slug, name, subtitle, tag, description, icon, area, active)
     VALUES (N'gym-fitness', N'Gym & Fitness', N'Trang thiết bị hiện đại', N'Olympic Spec',

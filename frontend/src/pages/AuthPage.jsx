@@ -66,7 +66,7 @@ export default function AuthPage() {
     if (!destination) {
       throw new Error('Vai trò tài khoản không được hỗ trợ.');
     }
-    authenticateUser(user, destination.key);
+    authenticateUser(user, destination.key, user.token);
     navigate(destination.path);
   };
 

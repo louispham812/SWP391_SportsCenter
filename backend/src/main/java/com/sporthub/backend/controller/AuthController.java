@@ -42,4 +42,13 @@ public class AuthController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+    @DeleteMapping("/session")
+    public ResponseEntity<Void> logout(@RequestHeader(name = "Authorization", required = false) String authorization) {
+        String token = authorization != null && authorization.startsWith("Bearer ")
+                ? authorization.substring(7).trim()
+                : null;
+        authService.logout(token);
+        return ResponseEntity.noContent().build();
+    }
 }

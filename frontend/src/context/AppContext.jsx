@@ -17,6 +17,7 @@ import {
   mockCoachReviews,
   mockPaymentHistory,
 } from '../data/mockData';
+import { apiRequest } from '../services/apiClient';
 
 const AppContext = createContext();
 const AUTH_SESSION_KEY = 'sports-center-auth-session';
@@ -34,6 +35,7 @@ const getAuthSession = () => {
     if (
       session?.user &&
       typeof session.user === 'object' &&
+      typeof session.token === 'string' &&
       validRoles.includes(session.role)
     ) {
       return session;
@@ -174,7 +176,7 @@ export function AppProvider({ children }) {
     }, 4500);
   };
 
-  const authenticateUser = (user, roleKey) => {
+  const authenticateUser = (user, roleKey, token) => {
     const roleTitles = {
       member: 'Hội viên Thể thao',
       receptionist: 'Nhân viên Lễ tân',
@@ -182,6 +184,7 @@ export function AppProvider({ children }) {
       admin: 'Giám đốc Trung tâm',
     };
     const session = {
+      token,
       role: roleKey,
       user: {
       id: user.userId,
@@ -205,8 +208,14 @@ export function AppProvider({ children }) {
   };
 
   const logout = () => {
+    const token = authSession?.token;
     sessionStorage.removeItem(AUTH_SESSION_KEY);
     setAuthSession(null);
+    if (token) {
+      apiRequest('/auth/session', { method: 'DELETE', authToken: token }).catch((error) => {
+        console.error('Không thể thu hồi phiên đăng nhập trên máy chủ:', error);
+      });
+    }
   };
 
   // Helper: Add Audit Log (MGR-14)

@@ -3,12 +3,17 @@ package com.sporthub.backend.service;
 import com.sporthub.backend.dto.AuthResponse;
 import com.sporthub.backend.dto.LoginRequest;
 import com.sporthub.backend.dto.RegisterRequest;
+import com.sporthub.backend.entity.AuthSession;
 import com.sporthub.backend.entity.User;
+import com.sporthub.backend.repository.AuthSessionRepository;
 import com.sporthub.backend.repository.UserRepository;
+import com.sporthub.backend.security.BearerTokenAuthenticationFilter;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Locale;
+import java.util.UUID;
+import java.time.LocalDateTime;
 
 @Service
 public class AuthService {
@@ -18,10 +23,15 @@ public class AuthService {
     private static final String RECEPTIONIST_ROLE = "RECEPTIONIST";
 
     private final UserRepository userRepository;
+    private final AuthSessionRepository sessionRepository;
     private final PasswordEncoder passwordEncoder;
 
-    AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    AuthService(
+            UserRepository userRepository,
+            AuthSessionRepository sessionRepository,
+            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.sessionRepository = sessionRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -62,7 +72,7 @@ public class AuthService {
             userRepository.save(user);
         }
 
-        return toAuthResponse(user);
+        return createSession(user);
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -104,7 +114,16 @@ public class AuthService {
                 .status(MEMBER_ROLE.equals(role) ? "ACTIVE" : "PENDING")
                 .build();
 
-        return toAuthResponse(userRepository.save(user));
+        User savedUser = userRepository.save(user);
+        return "ACTIVE".equals(savedUser.getStatus())
+                ? createSession(savedUser)
+                : toAuthResponse(savedUser, null);
+    }
+
+    public void logout(String token) {
+        if (token != null && !token.isBlank()) {
+            sessionRepository.deleteById(BearerTokenAuthenticationFilter.sha256(token.trim()));
+        }
     }
 
     private String normalizeRole(String role) {
@@ -114,8 +133,17 @@ public class AuthService {
         return role.trim().toUpperCase(Locale.ROOT);
     }
 
-    private AuthResponse toAuthResponse(User user) {
-        String token = "BEARER_TOKEN_" + user.getRole() + "_" + user.getUserId();
+    private AuthResponse createSession(User user) {
+        String token = UUID.randomUUID().toString();
+        AuthSession session = new AuthSession();
+        session.setTokenHash(BearerTokenAuthenticationFilter.sha256(token));
+        session.setUserId(user.getUserId());
+        session.setExpiresAt(LocalDateTime.now().plusHours(12));
+        sessionRepository.save(session);
+        return toAuthResponse(user, token);
+    }
+
+    private AuthResponse toAuthResponse(User user, String token) {
         return new AuthResponse(
                 token,
                 user.getRole(),
