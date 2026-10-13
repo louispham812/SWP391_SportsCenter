@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import LandingPage from './pages/LandingPage';
 import PricingPage from './pages/PricingPage';
 import AuthPage from './pages/AuthPage';
+import PublicContentPage from './pages/PublicContentPage';
 
 // Member Portal Pages
 import MemberDashboardPage from './pages/member/MemberDashboardPage';
@@ -55,6 +56,10 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/sports" element={<PublicContentPage contentType="sports" />} />
+        <Route path="/sports/:slug" element={<PublicContentPage contentType="sports" />} />
+        <Route path="/facilities" element={<PublicContentPage contentType="facilities" />} />
+        <Route path="/facilities/:slug" element={<PublicContentPage contentType="facilities" />} />
         <Route path="/login" element={<AuthPage />} />
         <Route path="/register" element={<AuthPage />} />
 

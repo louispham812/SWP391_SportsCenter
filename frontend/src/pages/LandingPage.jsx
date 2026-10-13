@@ -1,51 +1,33 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { getPublicFacilities, getPublicSports } from '../services/publicContentApi';
 
 export default function LandingPage() {
-  const sports = [
-    {
-      title: 'Gym & Fitness',
-      subtitle: 'Trang thiết bị hiện đại',
-      tag: 'Olympic Spec',
-      tagColor: 'bg-slate-100 text-slate-700',
-      desc: 'Máy tập Technogym & Hammer Strength nhập khẩu nguyên chiếc, khu tạ tự do chuẩn Olympic tải trọng lớn kèm đo lường điện tử.',
-      icon: 'fitness_center',
-      area: 'Khu vực 800m²',
-      link: '/pricing',
-    },
-    {
-      title: 'Sân Pickleball',
-      subtitle: 'Cụm 5 sân có mái che',
-      tag: 'Hot Trend',
-      tagColor: 'bg-secondary-container/30 text-secondary border border-secondary/20',
-      desc: 'Mặt sân US Open Pro Cushion giảm chấn chấn thương khớp, hệ thống đèn LED chống chói 500 Lux phục vụ thi đấu cả ngày lẫn đêm.',
-      icon: 'sports_tennis',
-      area: 'Đạt chuẩn USAPA',
-      link: '/pricing',
-    },
-    {
-      title: 'Quần Vợt Tennis',
-      subtitle: 'Sân chuẩn thi đấu',
-      tag: 'Chuẩn ITF',
-      tagColor: 'bg-slate-100 text-slate-700',
-      desc: 'Mặt sân đất nện nhân tạo & sân cứng Plexipave cao cấp. Tích hợp máy bắn bóng tự động và phòng thay đồ V.I.P khép kín.',
-      icon: 'sports_baseball',
-      area: '7 Sân Quốc Tế',
-      link: '/pricing',
-    },
-    {
-      title: 'Yoga & Pilates',
-      subtitle: 'Không gian tĩnh lặng',
-      tag: 'Phục Hồi',
-      tagColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
-      desc: 'Phòng tập cách âm tràn ngập ánh sáng tự nhiên với hệ thống máy Reformer nhập khẩu nguyên chiếc từ Đức và hương thảo mộc an lành.',
-      icon: 'self_improvement',
-      area: 'Lớp Tối Đa 8 Người',
-      link: '/pricing',
-    },
-  ];
+  const [sports, setSports] = useState([]);
+  const [facilities, setFacilities] = useState([]);
+  const [isContentLoading, setIsContentLoading] = useState(true);
+  const [contentError, setContentError] = useState('');
+
+  useEffect(() => {
+    let isActive = true;
+    Promise.all([getPublicSports(), getPublicFacilities()])
+      .then(([sportsData, facilitiesData]) => {
+        if (!isActive) return;
+        setSports(sportsData);
+        setFacilities(facilitiesData);
+      })
+      .catch((error) => {
+        if (isActive) setContentError(error.message || 'Không thể tải nội dung trang chủ.');
+      })
+      .finally(() => {
+        if (isActive) setIsContentLoading(false);
+      });
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   const metrics = [
     { value: '5.000+', label: 'Hội viên năng động', icon: 'groups' },
@@ -162,10 +144,10 @@ export default function LandingPage() {
 
               <div className="mt-4 md:mt-0">
                 <Link
-                  to="/pricing"
+                  to="/sports"
                   className="inline-flex items-center gap-1 text-primary text-[13px] uppercase tracking-wider hover:text-secondary transition-colors font-bold group"
                 >
-                  <span>Xem Bảng giá toàn bộ môn</span>
+                  <span>Xem tất cả bộ môn</span>
                   <span className="material-symbols-outlined text-[18px] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform">
                     arrow_outward
                   </span>
@@ -174,10 +156,18 @@ export default function LandingPage() {
             </div>
 
             {/* Grid Cards */}
+            {contentError && (
+              <p role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                Không thể tải danh sách bộ môn: {contentError}
+              </p>
+            )}
+            {isContentLoading ? (
+              <p role="status" className="py-6 text-slate-600">Đang tải bộ môn...</p>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {sports.map((sport, index) => (
+              {sports.map((sport) => (
                 <div
-                  key={index}
+                  key={sport.sportId}
                   className="group relative rounded-xl bg-white p-6 flex flex-col justify-between border border-slate-200 shadow-sm hover:shadow-lg hover:border-slate-300 transition-all duration-300"
                 >
                   <div>
@@ -185,19 +175,19 @@ export default function LandingPage() {
                       <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-primary group-hover:bg-secondary-container group-hover:text-primary transition-all">
                         <span className="material-symbols-outlined text-[28px]">{sport.icon}</span>
                       </div>
-                      <span className={`px-2 py-1 rounded text-[11px] uppercase font-semibold ${sport.tagColor}`}>
+                      <span className="px-2 py-1 rounded bg-slate-100 text-slate-700 text-[11px] uppercase font-semibold">
                         {sport.tag}
                       </span>
                     </div>
 
                     <h3 className="font-headline-sm text-lg text-primary mb-1 group-hover:text-secondary transition-colors font-bold">
-                      {sport.title}
+                      {sport.name}
                     </h3>
                     <p className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-3">
                       {sport.subtitle}
                     </p>
                     <p className="text-xs text-slate-600 leading-relaxed mb-4">
-                      {sport.desc}
+                      {sport.description}
                     </p>
                   </div>
 
@@ -206,7 +196,7 @@ export default function LandingPage() {
                       {sport.area}
                     </span>
                     <Link
-                      to={sport.link}
+                      to={`/sports/${sport.slug}`}
                       className="inline-flex items-center gap-1 text-xs text-secondary group-hover:translate-x-1 transition-transform uppercase tracking-wider font-bold"
                     >
                       <span>Chi tiết</span>
@@ -216,6 +206,7 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
+            )}
           </div>
         </section>
 
@@ -234,64 +225,42 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Feature 1 */}
-              <div className="p-8 rounded-2xl bg-surface-container-low border border-slate-200 flex flex-col justify-between relative overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                <div>
-                  <div className="w-14 h-14 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-secondary mb-6 shadow-sm">
-                    <span className="material-symbols-outlined text-[32px]">access_time</span>
-                  </div>
-                  <h3 className="font-headline-md text-xl text-primary mb-2 font-bold">
-                    Mở Cửa 24/7 Linh Hoạt
-                  </h3>
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    Tập luyện bất kỳ lúc nào bạn muốn. Hệ thống check-in quầy và QR bảo mật giúp hội viên chủ động lịch biểu mà không cần thủ tục rườm rà.
-                  </p>
-                </div>
-                <div className="mt-6 pt-4 border-t border-slate-200/80 flex items-center gap-1.5 text-secondary text-xs uppercase tracking-wider font-bold">
-                  <span className="material-symbols-outlined text-[16px]">lock_open</span>
-                  <span>Check-in tự động 0.3s</span>
-                </div>
+            {contentError && (
+              <p role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                Không thể tải danh sách tiện ích: {contentError}
+              </p>
+            )}
+            {isContentLoading ? (
+              <p role="status" className="py-6 text-slate-600">Đang tải tiện ích...</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {facilities.map((facility) => (
+                  <Link
+                    key={facility.facilityId}
+                    to={`/facilities/${facility.slug}`}
+                    className="group p-8 rounded-2xl bg-surface-container-low border border-slate-200 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <div>
+                      <div className="w-14 h-14 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-secondary mb-6 shadow-sm">
+                        <span className="material-symbols-outlined text-[32px]">{facility.icon}</span>
+                      </div>
+                      <h3 className="font-headline-md text-xl text-primary mb-2 font-bold group-hover:text-secondary">
+                        {facility.name}
+                      </h3>
+                      <p className="text-sm text-slate-600 leading-relaxed">{facility.description}</p>
+                    </div>
+                    <div className="mt-6 pt-4 border-t border-slate-200/80 flex items-center gap-1.5 text-secondary text-xs uppercase tracking-wider font-bold">
+                      <span className="material-symbols-outlined text-[16px]">{facility.icon}</span>
+                      <span>{facility.highlight}</span>
+                    </div>
+                  </Link>
+                ))}
               </div>
-
-              {/* Feature 2 */}
-              <div className="p-8 rounded-2xl bg-white border-2 border-secondary/50 flex flex-col justify-between relative overflow-hidden shadow-md">
-                <div className="absolute top-0 right-0 w-24 h-1.5 bg-secondary-container"></div>
-                <div>
-                  <div className="w-14 h-14 rounded-xl bg-secondary-container/20 border border-secondary/20 flex items-center justify-center text-secondary mb-6 shadow-sm">
-                    <span className="material-symbols-outlined text-[32px]">badge</span>
-                  </div>
-                  <h3 className="font-headline-md text-xl text-primary mb-2 font-bold">
-                    Đội Ngũ HLV Chuyên Nghiệp
-                  </h3>
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    100% huấn luyện viên có chứng chỉ quốc tế NASM, ACE, ITF và kinh nghiệm thi đấu. Giáo án rèn luyện được cá nhân hóa và gợi ý bằng AI chuyên sâu.
-                  </p>
-                </div>
-                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center gap-1.5 text-secondary text-xs uppercase tracking-wider font-bold">
-                  <span className="material-symbols-outlined text-[16px]">verified_user</span>
-                  <span>Kèm 1-1 chuyên sâu</span>
-                </div>
-              </div>
-
-              {/* Feature 3 */}
-              <div className="p-8 rounded-2xl bg-surface-container-low border border-slate-200 flex flex-col justify-between relative overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                <div>
-                  <div className="w-14 h-14 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-secondary mb-6 shadow-sm">
-                    <span className="material-symbols-outlined text-[32px]">smart_toy</span>
-                  </div>
-                  <h3 className="font-headline-md text-xl text-primary mb-2 font-bold">
-                    Hệ Thống AI Thông Minh
-                  </h3>
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    Trợ lý ảo hỗ trợ giải đáp thắc mắc, phân tích chỉ số thể trạng và tự động đề xuất lộ trình rèn luyện tối ưu cho từng hội viên.
-                  </p>
-                </div>
-                <div className="mt-6 pt-4 border-t border-slate-200/80 flex items-center gap-1.5 text-secondary text-xs uppercase tracking-wider font-bold">
-                  <span className="material-symbols-outlined text-[16px]">analytics</span>
-                  <span>Số hóa 100% dữ liệu</span>
-                </div>
-              </div>
+            )}
+            <div className="mt-8 text-center">
+              <Link to="/facilities" className="font-bold text-emerald-800 hover:underline">
+                Khám phá tất cả tiện ích →
+              </Link>
             </div>
           </div>
         </section>

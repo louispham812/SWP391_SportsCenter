@@ -32,3 +32,13 @@ VITE_API_BASE_URL=http://localhost:8080/api/v1
 Registration creates an active `MEMBER` in the `users` table, and sign-in
 validates the submitted email address or phone number and password against that
 table.
+
+## Public home-page content
+
+The home page and the `/sports` and `/facilities` pages load their content from
+the Spring Boot API endpoints `/api/v1/public/content/sports` and
+`/api/v1/public/content/facilities`. On backend startup, `backend/src/main/resources/schema.sql`
+creates the `public_sports` and `public_facilities` tables if needed and inserts
+the initial public content only when its slug is not already present. The SQL
+Server account configured for the backend therefore needs permission to create
+tables the first time the backend starts.

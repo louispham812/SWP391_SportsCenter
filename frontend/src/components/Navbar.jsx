@@ -24,8 +24,8 @@ export default function Navbar() {
 
   const navLinks = [
     { label: 'Giới thiệu', path: '/#gioi-thieu' },
-    { label: 'Bộ môn', path: '/#bo-mon' },
-    { label: 'Tiện ích', path: '/#tien-ich' },
+    { label: 'Bộ môn', path: '/sports' },
+    { label: 'Tiện ích', path: '/facilities' },
     { label: 'Bảng giá', path: '/pricing' },
   ];
 
@@ -50,7 +50,8 @@ export default function Navbar() {
         {/* Navigation Links Desktop */}
         <nav className="hidden lg:flex items-center gap-8">
           {navLinks.map((link) => {
-            const isActive = location.pathname === link.path;
+            const isActive = location.pathname === link.path
+              || location.pathname.startsWith(`${link.path}/`);
             return (
               <Link
                 key={link.label}
