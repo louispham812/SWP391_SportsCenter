@@ -35,9 +35,11 @@ public class ClassSession {
     @Column(name = "max_slots", nullable = false)
     private Integer maxSlots;
 
+    @Builder.Default
     @Column(name = "booked_slots")
     private Integer bookedSlots = 0;
 
+    @Builder.Default
     @Column(length = 20)
     private String status = "SCHEDULED"; // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
 }

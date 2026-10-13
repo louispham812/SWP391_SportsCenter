@@ -20,12 +20,15 @@ public class Booking {
     @Column(name = "session_id", nullable = false)
     private Long sessionId;
 
+    @Builder.Default
     @Column(name = "booking_time")
     private LocalDateTime bookingTime = LocalDateTime.now();
 
+    @Builder.Default
     @Column(length = 20)
     private String status = "BOOKED"; // BOOKED, WAITLIST, CANCELLED
 
+    @Builder.Default
     @Column(name = "attendance_status", length = 20)
     private String attendanceStatus = "PENDING"; // PENDING, PRESENT, ABSENT
 

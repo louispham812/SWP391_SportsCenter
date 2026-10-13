@@ -165,6 +165,31 @@ export function AppProvider({ children }) {
     }
   };
 
+  const authenticateUser = (user, roleKey) => {
+    const roleTitles = {
+      member: 'Hội viên Thể thao',
+      receptionist: 'Nhân viên Lễ tân',
+      coach: 'Huấn luyện viên',
+      admin: 'Giám đốc Trung tâm',
+    };
+    setCurrentRole(roleKey);
+    setCurrentUser({
+      id: user.userId,
+      name: user.fullName,
+      email: user.email,
+      phone: user.phone || '',
+      role: user.role,
+      roleTitle: roleTitles[roleKey],
+      avatar: user.fullName
+        .split(/\s+/)
+        .map((part) => part[0])
+        .slice(-2)
+        .join('')
+        .toUpperCase(),
+    });
+    showToast('Đăng nhập thành công', `Xin chào ${user.fullName}!`);
+  };
+
   // Helper: Add Audit Log (MGR-14)
   const addAuditLog = (action, target) => {
     const log = {
@@ -727,6 +752,7 @@ export function AppProvider({ children }) {
     // Roles & Session
     currentRole,
     switchRole,
+    authenticateUser,
     currentUser,
     updateProfile,
     healthProfile,

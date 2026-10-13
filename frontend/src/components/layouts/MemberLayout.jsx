@@ -1,10 +1,9 @@
 import React from 'react';
 import PortalLayout from './PortalLayout';
-import { mockUsers } from '../../data/mockData';
 import { useApp } from '../../context/AppContext';
 
 export default function MemberLayout({ children }) {
-  const { showToast } = useApp();
+  const { currentUser, showToast } = useApp();
   const memberMenu = [
     { label: 'Tổng quan hội viên', path: '/member', icon: 'dashboard' },
     { label: 'Lịch học & Đặt lớp', path: '/member/schedule', icon: 'calendar_month' },
@@ -17,7 +16,7 @@ export default function MemberLayout({ children }) {
     <PortalLayout
       role="member"
       roleBadge="ELITE MEMBER"
-      currentUser={mockUsers.member}
+      currentUser={currentUser}
       menuItems={memberMenu}
       quickAction={{
         label: 'Mã Thẻ QR',
