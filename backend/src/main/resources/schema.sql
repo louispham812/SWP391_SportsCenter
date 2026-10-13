@@ -153,6 +153,17 @@ IF NOT EXISTS (SELECT 1 FROM dbo.public_sports WHERE slug = N'athletics')
     VALUES (N'athletics', N'Điền kinh', N'Đường chạy điền kinh', N'Rèn thể lực',
             N'Bộ môn điền kinh gồm các hoạt động chạy bộ và rèn luyện sức bền.', N'directions_run', N'Đường chạy', 1);
 
+IF OBJECT_ID(N'dbo.sports', N'U') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM dbo.sports WHERE sport_id BETWEEN 5 AND 10)
+    INSERT INTO dbo.sports (sport_name, description)
+    VALUES
+        (N'Bóng đá', N'Sân bóng đá cỏ nhân tạo.'),
+        (N'Cầu lông', N'Sân cầu lông trong nhà.'),
+        (N'Bóng chuyền', N'Sân bóng chuyền.'),
+        (N'Bóng bàn', N'Khu bàn bóng bàn.'),
+        (N'Bơi lội', N'Hồ bơi và làn bơi.'),
+        (N'Điền kinh', N'Đường chạy điền kinh.');
+
 IF NOT EXISTS (SELECT 1 FROM dbo.sports_courts c JOIN dbo.public_sports s ON s.sport_id = c.sport_id WHERE s.slug = N'pickleball' AND c.court_name = N'Pickleball Court 01')
     INSERT INTO dbo.sports_courts (sport_id, court_name, description, hourly_rate, opens_at, closes_at, active)
     SELECT sport_id, N'Pickleball Court 01', N'Sân có mái che, mặt sân tiêu chuẩn.', 180000, '06:00', '22:00', 1 FROM dbo.public_sports WHERE slug = N'pickleball';
@@ -174,6 +185,157 @@ IF NOT EXISTS (SELECT 1 FROM dbo.sports_courts c JOIN dbo.public_sports s ON s.s
 IF NOT EXISTS (SELECT 1 FROM dbo.sports_courts c JOIN dbo.public_sports s ON s.sport_id = c.sport_id WHERE s.slug = N'yoga-pilates' AND c.court_name = N'Yoga Studio 01')
     INSERT INTO dbo.sports_courts (sport_id, court_name, description, hourly_rate, opens_at, closes_at, active)
     SELECT sport_id, N'Yoga Studio 01', N'Phòng yoga và pilates yên tĩnh.', 160000, '06:00', '22:00', 1 FROM dbo.public_sports WHERE slug = N'yoga-pilates';
+
+INSERT INTO dbo.sports_courts (sport_id, court_name, description, hourly_rate, opens_at, closes_at, active)
+SELECT sport.sport_id, seed.court_name, seed.description, seed.hourly_rate,
+       seed.opens_at, seed.closes_at, 1
+FROM (VALUES
+    (N'football', N'Sân bóng đá 7 người 01', N'Sân cỏ nhân tạo 7 người.', 500000, '06:00', '22:00'),
+    (N'football', N'Sân bóng đá 7 người 02', N'Sân cỏ nhân tạo 7 người, có đèn buổi tối.', 550000, '06:00', '22:00'),
+    (N'badminton', N'Sân cầu lông 01', N'Sân cầu lông trong nhà.', 100000, '06:00', '22:00'),
+    (N'badminton', N'Sân cầu lông 02', N'Sân cầu lông trong nhà, thảm tiêu chuẩn.', 120000, '06:00', '22:00'),
+    (N'volleyball', N'Sân bóng chuyền 01', N'Sân bóng chuyền trong nhà.', 250000, '06:00', '22:00'),
+    (N'volleyball', N'Sân bóng chuyền 02', N'Sân bóng chuyền đa năng.', 280000, '06:00', '22:00'),
+    (N'table-tennis', N'Bàn bóng bàn 01', N'Bàn bóng bàn khu luyện tập.', 50000, '06:00', '22:00'),
+    (N'table-tennis', N'Bàn bóng bàn 02', N'Bàn bóng bàn thi đấu.', 60000, '06:00', '22:00'),
+    (N'swimming', N'Làn bơi 01', N'Làn bơi tiêu chuẩn.', 180000, '06:00', '21:00'),
+    (N'swimming', N'Làn bơi 02', N'Làn bơi khu luyện tập.', 220000, '06:00', '21:00'),
+    (N'athletics', N'Đường chạy 01', N'Khu đường chạy luyện tập.', 80000, '05:00', '21:00'),
+    (N'athletics', N'Đường chạy 02', N'Khu đường chạy tiêu chuẩn.', 100000, '05:00', '21:00')
+) AS seed(sport_slug, court_name, description, hourly_rate, opens_at, closes_at)
+JOIN dbo.public_sports sport ON sport.slug = seed.sport_slug
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM dbo.sports_courts existing
+    WHERE existing.sport_id = sport.sport_id
+      AND existing.court_name = seed.court_name
+);
+
+IF OBJECT_ID(N'dbo.facilities', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.public_facilities', N'U') IS NOT NULL
+    INSERT INTO dbo.facilities (facility_name, sport_id, capacity, status)
+    SELECT seed.facility_name, sport.sport_id, seed.capacity, 'AVAILABLE'
+    FROM (VALUES
+        (5, N'Sân Bóng Đá 7 Người - Sân F1', 14),
+        (5, N'Sân Bóng Đá 7 Người - Sân F2', 14),
+        (6, N'Sân Cầu Lông Trong Nhà - Sân B1', 4),
+        (6, N'Sân Cầu Lông Trong Nhà - Sân B2', 4),
+        (7, N'Sân Bóng Chuyền - Sân V1', 12),
+        (7, N'Sân Bóng Chuyền - Sân V2', 12),
+        (8, N'Khu Bóng Bàn - Bàn T1', 4),
+        (8, N'Khu Bóng Bàn - Bàn T2', 4),
+        (9, N'Hồ Bơi - Làn S1', 8),
+        (9, N'Hồ Bơi - Làn S2', 8),
+        (10, N'Đường Chạy Điền Kinh - Khu A1', 12),
+        (10, N'Đường Chạy Điền Kinh - Khu A2', 12)
+    ) AS seed(sport_id, facility_name, capacity)
+    JOIN dbo.sports sport ON sport.sport_id = seed.sport_id
+    WHERE NOT EXISTS (
+        SELECT 1 FROM dbo.facilities existing WHERE existing.facility_name = seed.facility_name
+    );
+
+IF EXISTS (
+    SELECT 1
+    FROM dbo.facilities facility
+    JOIN (VALUES
+        (N'Sân Bóng Đá 7 Người - Sân F1', N'booking-football-01'),
+        (N'Sân Bóng Đá 7 Người - Sân F2', N'booking-football-02'),
+        (N'Sân Cầu Lông Trong Nhà - Sân B1', N'booking-badminton-01'),
+        (N'Sân Cầu Lông Trong Nhà - Sân B2', N'booking-badminton-02'),
+        (N'Sân Bóng Chuyền - Sân V1', N'booking-volleyball-01'),
+        (N'Sân Bóng Chuyền - Sân V2', N'booking-volleyball-02'),
+        (N'Khu Bóng Bàn - Bàn T1', N'booking-table-tennis-01'),
+        (N'Khu Bóng Bàn - Bàn T2', N'booking-table-tennis-02'),
+        (N'Hồ Bơi - Làn S1', N'booking-swimming-01'),
+        (N'Hồ Bơi - Làn S2', N'booking-swimming-02'),
+        (N'Đường Chạy Điền Kinh - Khu A1', N'booking-athletics-01'),
+        (N'Đường Chạy Điền Kinh - Khu A2', N'booking-athletics-02')
+    ) AS seed(facility_name, slug) ON seed.facility_name = facility.facility_name
+    JOIN dbo.public_facilities publicFacility
+      ON publicFacility.facility_id = facility.facility_id
+      OR publicFacility.slug = seed.slug
+    WHERE publicFacility.facility_id <> facility.facility_id
+       OR publicFacility.slug <> seed.slug
+)
+    THROW 51000, 'Booking facilities must use matching IDs in facilities and public_facilities.', 1;
+
+EXEC(N'SET IDENTITY_INSERT dbo.public_facilities ON;
+INSERT INTO dbo.public_facilities (facility_id, slug, name, description, icon, highlight, active)
+SELECT facility.facility_id, seed.slug, seed.public_name, seed.description, seed.icon, seed.highlight, 1
+FROM dbo.facilities facility
+JOIN (VALUES
+    (N''Sân Bóng Đá 7 Người - Sân F1'', N''booking-football-01'', N''Sân bóng đá 7 người - Sân F1'', N''Sân cỏ nhân tạo phục vụ lớp học và luyện tập.'', N''sports_soccer'', N''Sân cỏ nhân tạo''),
+    (N''Sân Bóng Đá 7 Người - Sân F2'', N''booking-football-02'', N''Sân bóng đá 7 người - Sân F2'', N''Sân cỏ nhân tạo có đèn buổi tối.'', N''sports_soccer'', N''Sân cỏ nhân tạo''),
+    (N''Sân Cầu Lông Trong Nhà - Sân B1'', N''booking-badminton-01'', N''Sân cầu lông - Sân B1'', N''Sân cầu lông trong nhà phục vụ lớp học và luyện tập.'', N''sports_tennis'', N''Sân trong nhà''),
+    (N''Sân Cầu Lông Trong Nhà - Sân B2'', N''booking-badminton-02'', N''Sân cầu lông - Sân B2'', N''Sân cầu lông trong nhà thảm tiêu chuẩn.'', N''sports_tennis'', N''Sân trong nhà''),
+    (N''Sân Bóng Chuyền - Sân V1'', N''booking-volleyball-01'', N''Sân bóng chuyền - Sân V1'', N''Sân trong nhà phục vụ lớp học và luyện tập.'', N''sports_volleyball'', N''Sân trong nhà''),
+    (N''Sân Bóng Chuyền - Sân V2'', N''booking-volleyball-02'', N''Sân bóng chuyền - Sân V2'', N''Sân đa năng phục vụ luyện tập và thi đấu.'', N''sports_volleyball'', N''Sân đa năng''),
+    (N''Khu Bóng Bàn - Bàn T1'', N''booking-table-tennis-01'', N''Bàn bóng bàn T1'', N''Bàn bóng bàn khu luyện tập.'', N''table_restaurant'', N''Bàn tiêu chuẩn''),
+    (N''Khu Bóng Bàn - Bàn T2'', N''booking-table-tennis-02'', N''Bàn bóng bàn T2'', N''Bàn bóng bàn thi đấu.'', N''table_restaurant'', N''Bàn tiêu chuẩn''),
+    (N''Hồ Bơi - Làn S1'', N''booking-swimming-01'', N''Hồ bơi - Làn S1'', N''Làn bơi tiêu chuẩn phục vụ lớp học và luyện tập.'', N''pool'', N''Làn bơi''),
+    (N''Hồ Bơi - Làn S2'', N''booking-swimming-02'', N''Hồ bơi - Làn S2'', N''Làn bơi khu luyện tập.'', N''pool'', N''Làn bơi''),
+    (N''Đường Chạy Điền Kinh - Khu A1'', N''booking-athletics-01'', N''Đường chạy điền kinh A1'', N''Khu đường chạy phục vụ lớp học và luyện tập.'', N''directions_run'', N''Đường chạy''),
+    (N''Đường Chạy Điền Kinh - Khu A2'', N''booking-athletics-02'', N''Đường chạy điền kinh A2'', N''Khu đường chạy tiêu chuẩn.'', N''directions_run'', N''Đường chạy'')
+) AS seed(facility_name, slug, public_name, description, icon, highlight)
+  ON seed.facility_name = facility.facility_name
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM dbo.public_facilities existing
+    WHERE existing.facility_id = facility.facility_id
+       OR existing.slug = seed.slug
+);
+SET IDENTITY_INSERT dbo.public_facilities OFF;');
+
+WITH class_seed AS (
+    SELECT *
+    FROM (VALUES
+        (N'football', N'Lớp Bóng Đá Cơ Bản', N'coach.phat@sporthub.com', N'Sân Bóng Đá 7 Người - Sân F1', 1080, 90, 14, 180000),
+        (N'badminton', N'Lớp Cầu Lông Căn Bản', N'coach.thao@sporthub.com', N'Sân Cầu Lông Trong Nhà - Sân B1', 1140, 90, 8, 140000),
+        (N'volleyball', N'Lớp Bóng Chuyền Căn Bản', N'coach.nam@sporthub.com', N'Sân Bóng Chuyền - Sân V1', 1080, 90, 12, 160000),
+        (N'table-tennis', N'Lớp Bóng Bàn Căn Bản', N'coach.minh@sporthub.com', N'Khu Bóng Bàn - Bàn T1', 1140, 60, 8, 120000),
+        (N'swimming', N'Lớp Bơi Lội Căn Bản', N'coach.nam@sporthub.com', N'Hồ Bơi - Làn S1', 1020, 60, 8, 170000),
+        (N'athletics', N'Lớp Điền Kinh Căn Bản', N'coach.phat@sporthub.com', N'Đường Chạy Điền Kinh - Khu A1', 420, 60, 12, 110000)
+    ) AS seed(sport_slug, class_name, coach_email, facility_name, start_minute, duration_minute, max_slots, price_amount)
+)
+INSERT INTO dbo.class_sessions (
+    class_name, sport_id, coach_id, facility_id, start_time, end_time,
+    max_slots, booked_slots, status, price_amount
+)
+SELECT seed.class_name, sport.sport_id, COALESCE(preferredCoach.user_id, anyCoach.user_id),
+       facility.facility_id, classTime.start_time,
+       DATEADD(MINUTE, seed.duration_minute, classTime.start_time),
+       seed.max_slots, 0, 'SCHEDULED', seed.price_amount
+FROM class_seed seed
+JOIN dbo.public_sports sport ON sport.slug = seed.sport_slug
+JOIN dbo.sports legacySport ON legacySport.sport_id = sport.sport_id
+JOIN dbo.facilities facility ON facility.facility_name = seed.facility_name
+CROSS APPLY (
+    SELECT DATEADD(MINUTE, seed.start_minute,
+                   DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))) AS start_time
+) classTime
+OUTER APPLY (
+    SELECT TOP (1) coach.user_id
+    FROM dbo.users coach
+    WHERE coach.email = seed.coach_email
+      AND coach.role = 'COACH'
+      AND coach.status = 'ACTIVE'
+    ORDER BY coach.user_id
+) preferredCoach
+OUTER APPLY (
+    SELECT TOP (1) coach.user_id
+    FROM dbo.users coach
+    WHERE coach.role = 'COACH'
+      AND coach.status = 'ACTIVE'
+    ORDER BY coach.user_id
+) anyCoach
+WHERE COALESCE(preferredCoach.user_id, anyCoach.user_id) IS NOT NULL
+  AND NOT EXISTS (
+      SELECT 1
+      FROM dbo.class_sessions existing
+      WHERE existing.sport_id = sport.sport_id
+        AND existing.class_name = seed.class_name
+        AND existing.start_time > GETDATE()
+  );
 
 IF OBJECT_ID(N'dbo.class_sessions', N'U') IS NOT NULL
     UPDATE dbo.class_sessions

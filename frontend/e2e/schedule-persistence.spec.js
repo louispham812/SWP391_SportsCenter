@@ -27,6 +27,14 @@ test('dashboard and schedule read the confirmed booking back from the database',
   await expect(page.getByText(bookingData.title, { exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Mở thời khóa biểu' }).click();
   await expect(page).toHaveURL(/\/member\/schedule$/);
+  const classScheduleTab = page.getByRole('button', { name: /Lịch lớp học/ });
+  const courtScheduleTab = page.getByRole('button', { name: /Lịch đặt sân/ });
+  await expect(classScheduleTab).toBeVisible();
+  await expect(courtScheduleTab).toBeVisible();
+
+  const bookingTab = bookingData.bookingType === 'CLASS' ? classScheduleTab : courtScheduleTab;
+  await bookingTab.click();
+  await expect(bookingTab).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText(bookingData.title, { exact: true })).toBeVisible();
 
 });
