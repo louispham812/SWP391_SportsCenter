@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface PublicSportRepository extends JpaRepository<PublicSport, Long> {
     List<PublicSport> findByActiveTrueOrderBySportIdAsc();
+    List<PublicSport> findAllByOrderBySportIdAsc();
 }

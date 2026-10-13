@@ -24,3 +24,25 @@ export const lockManagerMember = (userId) =>
 
 export const unlockManagerMember = (userId) =>
   apiRequest(`/manager/members/${userId}/unlock`, { method: 'PATCH' });
+
+export const getManagerPackages = () => apiRequest('/manager/packages');
+
+export const getManagerSports = () => apiRequest('/manager/sports');
+
+export const createManagerPackage = (membershipPackage) =>
+  apiRequest('/manager/packages', {
+    method: 'POST',
+    body: JSON.stringify(membershipPackage),
+  });
+
+export const updateManagerPackage = (packageId, membershipPackage) =>
+  apiRequest(`/manager/packages/${packageId}`, {
+    method: 'PUT',
+    body: JSON.stringify(membershipPackage),
+  });
+
+export const updateManagerPackageStatus = (packageId, status) =>
+  apiRequest(`/manager/packages/${packageId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
