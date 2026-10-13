@@ -5,7 +5,7 @@ import { useApp } from '../../context/AppContext';
 export default function PortalLayout({
   role = 'member', // 'member' | 'receptionist' | 'coach' | 'admin'
   menuItems = [],
-  roleBadge = 'ELITE PORTAL',
+  roleBadge = 'FPT PORTAL',
   currentUser = {},
   quickAction = null,
   children,
@@ -17,11 +17,11 @@ export default function PortalLayout({
   const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { members, classes, logout, showToast } = useApp();
+  const { members = [], classes = [], logout, showToast } = useApp();
 
   const searchInputRef = useRef(null);
 
-  // Initial Notifications State
+  // Initial Notifications State với thương hiệu FPT
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -30,7 +30,7 @@ export default function PortalLayout({
       time: '5 phút trước',
       read: false,
       icon: 'sports_tennis',
-      color: 'bg-lime-100 text-lime-800',
+      color: 'bg-orange-100 text-orange-800',
       link: '/member/schedule',
     },
     {
@@ -45,7 +45,7 @@ export default function PortalLayout({
     },
     {
       id: 3,
-      title: 'Cập nhật lịch thi đấu',
+      title: 'Cập nhật giáo án bài tập',
       desc: 'HLV Lê Anh Tuấn đã phê duyệt giáo án bài tập về nhà.',
       time: '1 giờ trước',
       read: true,
@@ -56,7 +56,7 @@ export default function PortalLayout({
     {
       id: 4,
       title: 'Cảnh báo thời hạn gói',
-      desc: 'Thẻ Silver Member còn 26 ngày trước khi đến hạn gia hạn.',
+      desc: 'Thẻ Gold Member FPT còn 26 ngày trước khi đến hạn gia hạn.',
       time: '1 ngày trước',
       read: true,
       icon: 'card_membership',
@@ -69,7 +69,7 @@ export default function PortalLayout({
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  // Global Keyboard Shortcut: Cmd+K / Ctrl+K
+  // Global Keyboard Shortcut: Cmd+K / Ctrl+K & Escape
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -92,25 +92,25 @@ export default function PortalLayout({
     }
   }, [searchOpen]);
 
-  // System pages directory for quick jump
+  // Danh mục trang chức năng hệ thống FPT Sports Center
   const systemPages = [
     { title: 'Tổng quan Hội viên', subtitle: 'Bảng điều khiển cá nhân, lịch tập hôm nay', path: '/member', icon: 'dashboard', roleName: 'Hội viên' },
-    { title: 'Lịch học & Đặt lớp', subtitle: 'Thời khóa biểu, đặt chỗ và hủy lịch', path: '/member/schedule', icon: 'calendar_month', roleName: 'Hội viên' },
-    { title: 'Tiến độ & Trợ lý AI', subtitle: 'Gợi ý bài tập AI, phân tích InBody', path: '/member/ai-assistant', icon: 'smart_toy', roleName: 'Hội viên' },
+    { title: 'Lịch học & Đặt lớp', subtitle: 'Thời khóa biểu, đặt chỗ và hủy lịch sân', path: '/member/schedule', icon: 'calendar_month', roleName: 'Hội viên' },
+    { title: 'Tiến độ & Trợ lý AI', subtitle: 'Gợi ý bài tập AI, phân tích chỉ số InBody', path: '/member/ai-assistant', icon: 'smart_toy', roleName: 'Hội viên' },
     { title: 'Hồ sơ & Thẻ số cá nhân', subtitle: 'Mã QR check-in, lịch sử tập luyện', path: '/member/profile', icon: 'badge', roleName: 'Hội viên' },
-    { title: 'Check-in Lễ tân tại quầy', subtitle: 'Quét thẻ RFID, tìm kiếm hội viên, mở tủ đồ', path: '/receptionist', icon: 'how_to_reg', roleName: 'Lễ tân' },
+    { title: 'Check-in Lễ tân quầy', subtitle: 'Quét thẻ RFID, tìm kiếm hội viên, mở tủ đồ', path: '/receptionist', icon: 'how_to_reg', roleName: 'Lễ tân' },
     { title: 'Bán hàng POS & Thu ngân', subtitle: 'Bán gói tập, nước uống, thiết bị thể thao', path: '/receptionist/pos', icon: 'point_of_sale', roleName: 'Lễ tân' },
     { title: 'Lịch dạy HLV trong tuần', subtitle: 'Lịch ca dạy, phòng tập, số lượng học viên', path: '/coach', icon: 'calendar_today', roleName: 'HLV' },
     { title: 'Học viên của tôi', subtitle: 'Hồ sơ học viên, mục tiêu thể chất PAR-Q', path: '/coach/students', icon: 'groups', roleName: 'HLV' },
     { title: 'Điểm danh & Đánh giá buổi tập', subtitle: 'Ghi nhận chuyên cần, gửi bài tập về nhà', path: '/coach/attendance', icon: 'fact_check', roleName: 'HLV' },
     { title: 'Tổng quan Quản lý Trung tâm', subtitle: 'Doanh thu, tỉ lệ lấp đầy sân, báo cáo vận hành', path: '/admin', icon: 'grid_view', roleName: 'Admin' },
-    { title: 'Quản lý Gói tập & Dịch vụ', subtitle: 'Cấu hình giá thẻ, thời hạn, quyền lợi', path: '/admin/packages', icon: 'card_membership', roleName: 'Admin' },
+    { title: 'Quản lý Gói tập & Dịch vụ', subtitle: 'Cấu hình giá thẻ, thời hạn, quyền lợi FPT', path: '/admin/packages', icon: 'card_membership', roleName: 'Admin' },
     { title: 'Quản lý Lịch & Sân bãi', subtitle: 'Lịch đặt cụm sân Pickleball, Tennis, Bể bơi', path: '/admin/facilities', icon: 'stadium', roleName: 'Admin' },
     { title: 'Quản lý Nhân sự & Khách', subtitle: 'Danh sách HLV, lễ tân, tài khoản người dùng', path: '/admin/staff', icon: 'group', roleName: 'Admin' },
     { title: 'Bảng giá hội viên công khai', subtitle: 'Trang bảng giá gói Diamond, Gold, Silver', path: '/pricing', icon: 'receipt_long', roleName: 'Public' },
   ];
 
-  // Search Results Filtering
+  // Lọc kết quả tìm kiếm
   const cleanQuery = searchQuery.trim().toLowerCase();
   const matchedPages = systemPages.filter(
     (p) =>
@@ -121,16 +121,16 @@ export default function PortalLayout({
 
   const matchedMembers = members.filter(
     (m) =>
-      m.name.toLowerCase().includes(cleanQuery) ||
-      m.phone.includes(cleanQuery) ||
-      m.memberId.toLowerCase().includes(cleanQuery)
+      m.name?.toLowerCase().includes(cleanQuery) ||
+      m.phone?.includes(cleanQuery) ||
+      m.memberId?.toLowerCase().includes(cleanQuery)
   ).slice(0, 4);
 
   const matchedClasses = classes.filter(
     (c) =>
-      c.title.toLowerCase().includes(cleanQuery) ||
-      c.sport.toLowerCase().includes(cleanQuery) ||
-      c.coach.toLowerCase().includes(cleanQuery)
+      c.title?.toLowerCase().includes(cleanQuery) ||
+      c.sport?.toLowerCase().includes(cleanQuery) ||
+      c.coach?.toLowerCase().includes(cleanQuery)
   ).slice(0, 3);
 
   const handleMarkAllRead = () => {
@@ -139,12 +139,12 @@ export default function PortalLayout({
   };
 
   return (
-    <div className="min-h-screen bg-[#f7f9fb] font-body-md text-slate-800 antialiased flex flex-col pb-16 lg:pb-0">
+    <div className="min-h-screen bg-slate-50 font-body-md text-slate-800 antialiased flex flex-col pb-16 lg:pb-0">
       {/* =========================================
-          1. FIXED LEFT SIDEBAR (Unified Width w-72)
+          1. FIXED LEFT SIDEBAR (Màu Cam FPT Đồng Bộ)
          ========================================= */}
       <aside
-        className={`fixed left-0 top-0 h-full w-72 bg-white z-50 flex flex-col justify-between border-r border-slate-200 shadow-sm transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed left-0 top-0 h-full w-72 bg-white z-50 flex flex-col justify-between border-r border-slate-200/90 shadow-sm transition-transform duration-300 lg:translate-x-0 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -152,24 +152,24 @@ export default function PortalLayout({
           {/* Brand Header */}
           <div className="px-6 pt-6 pb-4">
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 rounded-xl bg-[#00132b] flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                <span className="material-symbols-outlined text-[#c1f100] text-[24px]">bolt</span>
+              <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
+                <span className="material-symbols-outlined text-[24px]">bolt</span>
               </div>
               <div className="flex flex-col">
-                <span className="font-headline-sm text-[16px] text-slate-900 tracking-tight font-bold leading-tight">
-                  ELITE SPORTS
+                <span className="font-headline-sm text-[16px] text-slate-900 tracking-tight font-extrabold leading-tight">
+                  FPT SPORTS <span className="text-orange-500">CENTER</span>
                 </span>
                 <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold mt-0.5">
-                  Athletic Performance
+                  FPT University Sanctuary
                 </span>
               </div>
             </Link>
 
             {/* Role Context Pill */}
             <div className="mt-4 flex items-center justify-between">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs">
-                <span className="w-2 h-2 rounded-full bg-[#c1f100] shadow-[0_0_8px_#c1f100] animate-pulse"></span>
-                <span className="font-label-sm uppercase tracking-wider font-bold text-[10px] text-slate-800">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-200/80 text-xs">
+                <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(242,112,35,0.8)] animate-pulse"></span>
+                <span className="uppercase tracking-wider font-extrabold text-[10px] text-orange-600">
                   {roleBadge}
                 </span>
               </div>
@@ -182,7 +182,7 @@ export default function PortalLayout({
 
           {/* Navigation Links */}
           <div className="px-4 mt-2">
-            <span className="px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+            <span className="px-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">
               Menu Chức Năng
             </span>
 
@@ -199,13 +199,13 @@ export default function PortalLayout({
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] transition-all ${
                       isActive
-                        ? 'bg-[#c1f100] text-slate-950 font-headline-sm font-bold shadow-sm'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                        ? 'bg-orange-500 text-white font-bold shadow-md shadow-orange-500/20'
+                        : 'text-slate-600 hover:bg-orange-50 hover:text-orange-600 font-bold'
                     }`}
                   >
                     <span
                       className={`material-symbols-outlined text-[20px] ${
-                        isActive ? 'text-slate-950 font-bold' : 'text-slate-500'
+                        isActive ? 'text-white font-bold' : 'text-slate-500'
                       }`}
                     >
                       {item.icon}
@@ -219,17 +219,17 @@ export default function PortalLayout({
         </div>
 
         {/* User Card & Logout Bottom */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200">
-          <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-slate-200 shadow-sm">
-            <div className="w-10 h-10 rounded-full bg-[#00132b] text-[#c1f100] flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
-              {currentUser.avatar || 'US'}
+        <div className="p-4 bg-slate-50 border-t border-slate-200/80">
+          <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-slate-200/80 shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+              {currentUser?.avatar || 'FPT'}
             </div>
             <div className="flex flex-col min-w-0 flex-1">
               <span className="text-xs font-bold text-slate-900 truncate">
-                {currentUser.name || 'Người dùng'}
+                {currentUser?.name || 'Người dùng FPT'}
               </span>
-              <span className="text-[11px] text-slate-500 truncate">
-                {currentUser.roleTitle || role.toUpperCase()}
+              <span className="text-[11px] text-slate-500 truncate font-semibold">
+                {currentUser?.roleTitle || role.toUpperCase()}
               </span>
             </div>
             <button
@@ -247,7 +247,7 @@ export default function PortalLayout({
         </div>
       </aside>
 
-      {/* Backdrop for mobile sidebar */}
+      {/* Mobile Sidebar Overlay */}
       {mobileMenuOpen && (
         <div
           onClick={() => setMobileMenuOpen(false)}
@@ -256,11 +256,11 @@ export default function PortalLayout({
       )}
 
       {/* =========================================
-          2. FIXED TOP HEADER (Synchronized Across Roles)
+          2. FIXED TOP HEADER
          ========================================= */}
       <div className="lg:pl-72 flex-1 flex flex-col min-h-screen">
-        <header className="sticky top-0 h-16 bg-white/95 backdrop-blur-xl z-40 border-b border-slate-200 shadow-[0_1px_4px_rgba(0,0,0,0.03)] flex items-center justify-between px-4 lg:px-8">
-          {/* Left: Mobile Toggle + Search Trigger Button */}
+        <header className="sticky top-0 h-16 bg-white/95 backdrop-blur-xl z-40 border-b border-slate-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.03)] flex items-center justify-between px-4 lg:px-8">
+          {/* Left: Mobile Toggle + Search Trigger */}
           <div className="flex items-center gap-3 flex-1 max-w-xl">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -271,45 +271,45 @@ export default function PortalLayout({
               <span className="material-symbols-outlined text-[22px]">menu</span>
             </button>
 
-            {/* Clickable Quick Search Bar that opens Command Palette */}
+            {/* Command Palette Trigger */}
             <div
               onClick={() => setSearchOpen(true)}
-              className="relative flex items-center w-full h-10 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-500 text-xs cursor-pointer transition-all shadow-inner select-none"
+              className="relative flex items-center w-full h-10 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200/80 text-slate-500 text-xs cursor-pointer transition-all shadow-inner select-none"
             >
               <span className="material-symbols-outlined text-slate-400 text-[18px] mr-2.5">
                 search
               </span>
-              <span className="truncate text-slate-400">
-                Tìm kiếm thông tin, lịch học, hội viên...
+              <span className="truncate text-slate-400 font-medium">
+                Tìm kiếm chức năng, lịch học, hội viên FPT...
               </span>
-              <kbd className="hidden sm:inline-flex items-center gap-0.5 ml-auto px-2 py-0.5 text-[10px] font-mono font-semibold text-slate-500 bg-white border border-slate-300 rounded shadow-sm">
+              <kbd className="hidden sm:inline-flex items-center gap-0.5 ml-auto px-2 py-0.5 text-[10px] font-mono font-bold text-slate-500 bg-white border border-slate-300 rounded shadow-sm">
                 ⌘K
               </kbd>
             </div>
           </div>
 
-          {/* Right: Status Chip + Quick Action Button + Notifications + Profile */}
+          {/* Right: Actions, Notifications, Profile */}
           <div className="flex items-center gap-3 shrink-0 ml-3">
             <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="font-bold uppercase tracking-wider text-[10px]">
+              <span className="font-extrabold uppercase tracking-wider text-[10px]">
                 HỆ THỐNG TRỰC TUYẾN
               </span>
             </div>
 
-            {/* Quick Action Button per Role */}
+            {/* Quick Action Button */}
             {quickAction && (
               <button
                 onClick={quickAction.onClick}
                 type="button"
-                className="h-9 px-3.5 rounded-xl bg-[#c1f100] hover:bg-[#abd600] text-slate-950 text-xs uppercase tracking-wider font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer border border-[#a7d400]"
+                className="h-9 px-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs uppercase tracking-wider font-extrabold flex items-center gap-1.5 transition-all shadow-md shadow-orange-500/20 cursor-pointer border border-orange-500"
               >
                 <span className="material-symbols-outlined text-[18px]">{quickAction.icon}</span>
                 <span className="hidden sm:inline">{quickAction.label}</span>
               </button>
             )}
 
-            {/* Notification Trigger & Flyout */}
+            {/* Notification Dropdown */}
             <div className="relative">
               <button
                 onClick={() => {
@@ -317,18 +317,17 @@ export default function PortalLayout({
                   setProfileOpen(false);
                 }}
                 type="button"
-                className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors relative cursor-pointer"
+                className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-orange-600 hover:bg-orange-50 transition-colors relative cursor-pointer"
                 title="Thông báo hệ thống"
               >
                 <span className="material-symbols-outlined text-[18px]">notifications</span>
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white shadow-sm">
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-orange-500 text-white text-[9px] font-extrabold flex items-center justify-center border-2 border-white shadow-sm">
                     {unreadCount}
                   </span>
                 )}
               </button>
 
-              {/* Notification Flyout Menu */}
               {notificationsOpen && (
                 <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -337,7 +336,7 @@ export default function PortalLayout({
                         Thông Báo Mới
                       </h3>
                       {unreadCount > 0 && (
-                        <span className="px-2 py-0.5 rounded-full bg-[#c1f100] text-slate-950 text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded-full bg-orange-500 text-white text-[10px] font-extrabold">
                           {unreadCount} chưa đọc
                         </span>
                       )}
@@ -345,18 +344,18 @@ export default function PortalLayout({
                     {unreadCount > 0 && (
                       <button
                         onClick={handleMarkAllRead}
-                        className="text-[11px] text-emerald-800 font-bold hover:underline cursor-pointer"
+                        className="text-[11px] text-orange-600 font-bold hover:underline cursor-pointer"
                       >
                         Đọc tất cả
                       </button>
                     )}
                   </div>
 
-                  {/* Filter tabs */}
+                  {/* Notification Filters */}
                   <div className="flex gap-2 pt-2 pb-1">
                     <button
                       onClick={() => setNotificationFilter('all')}
-                      className={`text-xs px-2.5 py-1 rounded-lg font-semibold cursor-pointer ${
+                      className={`text-xs px-2.5 py-1 rounded-lg font-bold cursor-pointer ${
                         notificationFilter === 'all'
                           ? 'bg-slate-900 text-white'
                           : 'text-slate-600 hover:bg-slate-100'
@@ -366,7 +365,7 @@ export default function PortalLayout({
                     </button>
                     <button
                       onClick={() => setNotificationFilter('unread')}
-                      className={`text-xs px-2.5 py-1 rounded-lg font-semibold cursor-pointer ${
+                      className={`text-xs px-2.5 py-1 rounded-lg font-bold cursor-pointer ${
                         notificationFilter === 'unread'
                           ? 'bg-slate-900 text-white'
                           : 'text-slate-600 hover:bg-slate-100'
@@ -376,7 +375,7 @@ export default function PortalLayout({
                     </button>
                   </div>
 
-                  {/* Notifications list */}
+                  {/* List */}
                   <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 pt-1">
                     {notifications
                       .filter((n) => (notificationFilter === 'unread' ? !n.read : true))
@@ -392,8 +391,8 @@ export default function PortalLayout({
                             setNotificationsOpen(false);
                             if (n.link) navigate(n.link);
                           }}
-                          className={`flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer ${
-                            !n.read ? 'bg-slate-50/70' : ''
+                          className={`flex items-start gap-3 p-2.5 rounded-xl hover:bg-orange-50/50 transition-colors cursor-pointer ${
+                            !n.read ? 'bg-orange-50/30' : ''
                           }`}
                         >
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${n.color}`}>
@@ -405,10 +404,10 @@ export default function PortalLayout({
                                 {n.title}
                               </span>
                               {!n.read && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#c1f100] shrink-0"></span>
+                                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0"></span>
                               )}
                             </div>
-                            <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">
+                            <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5 font-medium">
                               {n.desc}
                             </p>
                             <span className="text-[10px] text-slate-400 mt-1 block font-mono">
@@ -420,15 +419,15 @@ export default function PortalLayout({
                   </div>
 
                   <div className="pt-2 border-t border-slate-100 mt-2 text-center">
-                    <span className="text-[11px] text-slate-400">
-                      Cập nhật tự động thời gian thực qua WebSockets
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      Cập nhật tự động thời gian thực qua hệ thống FPT
                     </span>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Profile Avatar Trigger & Dropdown */}
+            {/* User Profile Menu */}
             <div className="relative">
               <button
                 onClick={() => {
@@ -436,21 +435,21 @@ export default function PortalLayout({
                   setNotificationsOpen(false);
                 }}
                 type="button"
-                className="w-9 h-9 rounded-xl bg-[#00132b] text-[#c1f100] flex items-center justify-center font-bold text-xs shadow-sm hover:ring-2 hover:ring-[#c1f100] transition-all cursor-pointer"
+                className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center font-bold text-xs shadow-sm hover:ring-2 hover:ring-orange-400 transition-all cursor-pointer"
               >
-                {currentUser.avatar || 'US'}
+                {currentUser?.avatar || 'FPT'}
               </button>
 
               {profileOpen && (
                 <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="p-2 border-b border-slate-100">
                     <div className="font-bold text-sm text-slate-900 truncate">
-                      {currentUser.name}
+                      {currentUser?.name || 'Người dùng FPT'}
                     </div>
-                    <div className="text-xs text-slate-500 truncate">{currentUser.email}</div>
-                    <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold uppercase tracking-wider">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#c1f100]"></span>
-                      {currentUser.roleTitle}
+                    <div className="text-xs text-slate-500 truncate font-medium">{currentUser?.email}</div>
+                    <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-orange-50 text-orange-700 text-[10px] font-extrabold uppercase tracking-wider">
+                      <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                      {currentUser?.roleTitle || role.toUpperCase()}
                     </div>
                   </div>
 
@@ -460,7 +459,7 @@ export default function PortalLayout({
                         navigate('/member/profile');
                         setProfileOpen(false);
                       }}
-                      className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition-colors text-left cursor-pointer"
+                      className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-xl hover:bg-orange-50 hover:text-orange-600 text-slate-700 font-bold transition-colors text-left cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-[18px] text-slate-500">
                         account_circle
@@ -472,7 +471,7 @@ export default function PortalLayout({
                         navigate('/pricing');
                         setProfileOpen(false);
                       }}
-                      className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition-colors text-left cursor-pointer"
+                      className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-xl hover:bg-orange-50 hover:text-orange-600 text-slate-700 font-bold transition-colors text-left cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-[18px] text-slate-500">
                         card_membership
@@ -500,16 +499,14 @@ export default function PortalLayout({
           </div>
         </header>
 
-        {/* =========================================
-            3. MAIN CONTENT CANVAS
-           ========================================= */}
-        <main className="p-4 sm:p-6 lg:p-8 flex-1 bg-[#f7f9fb]">
+        {/* MAIN CANVAS */}
+        <main className="p-4 sm:p-6 lg:p-8 flex-1 bg-slate-50">
           {children}
         </main>
       </div>
 
       {/* =========================================
-          4. MOBILE BOTTOM NAVIGATION (Thanh điều hướng nhanh trên điện thoại)
+          3. MOBILE BOTTOM NAVIGATION
          ========================================= */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200 px-2 py-1.5 flex items-center justify-around shadow-lg">
         {menuItems.slice(0, 4).map((item) => {
@@ -523,25 +520,24 @@ export default function PortalLayout({
               to={item.path}
               className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-colors ${
                 isActive
-                  ? 'text-slate-950 font-bold'
+                  ? 'text-orange-600 font-bold'
                   : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               <div
                 className={`w-9 h-7 rounded-lg flex items-center justify-center ${
-                  isActive ? 'bg-[#c1f100]' : ''
+                  isActive ? 'bg-orange-500 text-white shadow-sm' : ''
                 }`}
               >
                 <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
               </div>
-              <span className="text-[10px] mt-0.5 truncate max-w-[64px]">
+              <span className="text-[10px] mt-0.5 truncate max-w-[64px] font-semibold">
                 {item.label.split(' ')[0]}
               </span>
             </Link>
           );
         })}
 
-        {/* More Menu on Mobile */}
         <button
           onClick={() => setMobileMenuOpen(true)}
           type="button"
@@ -550,12 +546,12 @@ export default function PortalLayout({
           <div className="w-9 h-7 rounded-lg flex items-center justify-center">
             <span className="material-symbols-outlined text-[20px]">menu</span>
           </div>
-          <span className="text-[10px] mt-0.5">Thêm</span>
+          <span className="text-[10px] mt-0.5 font-semibold">Thêm</span>
         </button>
       </nav>
 
       {/* =========================================
-          5. COMMAND PALETTE MODAL (Cmd + K / Ctrl + K)
+          4. COMMAND PALETTE MODAL (Cmd + K / Ctrl + K)
          ========================================= */}
       {searchOpen && (
         <div
@@ -576,7 +572,7 @@ export default function PortalLayout({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm trang chức năng, hội viên, lịch học, gói tập... (gõ để lọc)"
-                className="w-full py-4 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
+                className="w-full py-4 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none font-medium"
               />
               {searchQuery && (
                 <button
@@ -591,11 +587,11 @@ export default function PortalLayout({
               </kbd>
             </div>
 
-            {/* Quick Filter Categories / Results */}
+            {/* Results */}
             <div className="overflow-y-auto p-3 flex flex-col gap-4">
-              {/* 1. Pages & Features */}
+              {/* Pages & Features */}
               <div>
-                <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <div className="px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
                   Trang Chức Năng Hệ Thống ({matchedPages.length})
                 </div>
                 <div className="flex flex-col gap-1 mt-1">
@@ -606,18 +602,18 @@ export default function PortalLayout({
                         navigate(page.path);
                         setSearchOpen(false);
                       }}
-                      className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors cursor-pointer group"
+                      className="flex items-center justify-between p-2.5 rounded-xl hover:bg-orange-50 text-left transition-colors cursor-pointer group"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-[#c1f100] text-slate-700 group-hover:text-slate-950 flex items-center justify-center transition-colors">
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-orange-500 text-slate-700 group-hover:text-white flex items-center justify-center transition-colors">
                           <span className="material-symbols-outlined text-[18px]">{page.icon}</span>
                         </div>
                         <div>
-                          <div className="text-xs font-bold text-slate-900">{page.title}</div>
-                          <div className="text-[11px] text-slate-500">{page.subtitle}</div>
+                          <div className="text-xs font-bold text-slate-900 group-hover:text-orange-600 transition-colors">{page.title}</div>
+                          <div className="text-[11px] text-slate-500 font-medium">{page.subtitle}</div>
                         </div>
                       </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
                         {page.roleName}
                       </span>
                     </button>
@@ -625,25 +621,25 @@ export default function PortalLayout({
                 </div>
               </div>
 
-              {/* 2. Members (if query matches) */}
+              {/* Members */}
               {matchedMembers.length > 0 && (
                 <div>
-                  <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <div className="px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
                     Hội Viên Tìm Thấy ({matchedMembers.length})
                   </div>
                   <div className="flex flex-col gap-1 mt-1">
                     {matchedMembers.map((m) => (
                       <button
-                        key={m.id}
+                        key={m.id || m.memberId}
                         onClick={() => {
                           navigate('/receptionist');
                           setSearchOpen(false);
                         }}
-                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors cursor-pointer"
+                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-orange-50 text-left transition-colors cursor-pointer"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-[#00132b] text-[#c1f100] flex items-center justify-center text-xs font-bold">
-                            {m.name.charAt(0)}
+                          <div className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-bold">
+                            {m.name?.charAt(0)}
                           </div>
                           <div>
                             <div className="text-xs font-bold text-slate-900">{m.name}</div>
@@ -652,7 +648,7 @@ export default function PortalLayout({
                             </div>
                           </div>
                         </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-bold border border-emerald-200">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 font-bold border border-orange-200">
                           {m.tier} Member
                         </span>
                       </button>
@@ -661,10 +657,10 @@ export default function PortalLayout({
                 </div>
               )}
 
-              {/* 3. Classes (if query matches) */}
+              {/* Classes */}
               {matchedClasses.length > 0 && (
                 <div>
-                  <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <div className="px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
                     Lớp Học Thể Thao ({matchedClasses.length})
                   </div>
                   <div className="flex flex-col gap-1 mt-1">
@@ -675,20 +671,20 @@ export default function PortalLayout({
                           navigate('/member/schedule');
                           setSearchOpen(false);
                         }}
-                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors cursor-pointer"
+                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-orange-50 text-left transition-colors cursor-pointer"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
                             <span className="material-symbols-outlined text-[18px]">sports_tennis</span>
                           </div>
                           <div>
                             <div className="text-xs font-bold text-slate-900">{c.title}</div>
-                            <div className="text-[11px] text-slate-500">
+                            <div className="text-[11px] text-slate-500 font-medium">
                               {c.time} • {c.room} ({c.coach})
                             </div>
                           </div>
                         </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#c1f100] text-slate-950 font-bold">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500 text-white font-bold">
                           {c.enrolled}/{c.capacity} Chỗ
                         </span>
                       </button>
@@ -696,13 +692,12 @@ export default function PortalLayout({
                   </div>
                 </div>
               )}
-
             </div>
 
-            {/* Micro Footer */}
-            <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
+            {/* Modal Footer */}
+            <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500 font-medium">
               <span>Sử dụng phím <strong>ESC</strong> để đóng</span>
-              <span>Elite Sports Command Palette v2.0</span>
+              <span>FPT Sports Center Command Palette v2.0</span>
             </div>
           </div>
         </div>

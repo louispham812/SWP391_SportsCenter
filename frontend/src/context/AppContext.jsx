@@ -20,7 +20,7 @@ import {
 import { apiRequest } from '../services/apiClient';
 
 const AppContext = createContext();
-const AUTH_SESSION_KEY = 'sports-center-auth-session';
+const AUTH_SESSION_KEY = 'fpt-sports-center-auth-session';
 
 let idCounter = 2000;
 const generateId = (prefix) => {
@@ -68,10 +68,44 @@ export function AppProvider({ children }) {
   const [coachReviews, setCoachReviews] = useState(mockCoachReviews);
   const [paymentHistory, setPaymentHistory] = useState(mockPaymentHistory);
 
+  // 2b. Orders & Invoices Collection (Đơn đăng ký & Hóa đơn)
+  const [orders, setOrders] = useState([
+    {
+      id: 'ORD-89301',
+      sportName: 'Pickleball Pro Clinic',
+      className: 'Pickleball Chiến Thuật Nâng Cao',
+      shiftTime: '18:00 - 19:30 (Thứ 3, 18/11/2026)',
+      coachName: 'HLV Lê Anh Tuấn',
+      room: 'Sân Mái Che Pro 01',
+      createdDate: '18/10/2026 - 10:15',
+      originalPrice: 450000,
+      finalPrice: 0,
+      paymentMethod: 'Đặc quyền Member Pass',
+      status: 'CONFIRMED', // 'PENDING' | 'CONFIRMED' | 'CANCELLED_REFUNDED' | 'CANCELLED_EXPIRED'
+      hoursLeftToClass: 5,
+      discountReason: 'Đặc quyền Member Pass (-100%)',
+    },
+    {
+      id: 'ORD-77210',
+      sportName: 'Tennis ITF High-Performance',
+      className: 'Tennis Chỉnh Đòn Forehand & Backhand',
+      shiftTime: '19:30 - 21:00 (Thứ 5, 20/11/2026)',
+      coachName: 'HLV Trần Đình Long',
+      room: 'Sân Tennis Central 02',
+      createdDate: '18/10/2026 - 11:30',
+      originalPrice: 800000,
+      finalPrice: 200000,
+      paymentMethod: 'VNPAY-QR',
+      status: 'PENDING',
+      hoursLeftToClass: 48,
+      discountReason: 'Ưu đãi Hội viên (-75%)',
+    },
+  ]);
+
   // 3. User & Profile State
   const [healthProfile, setHealthProfile] = useState({
-    fitnessLevel: 'intermediate', // 'beginner' | 'intermediate' | 'advanced'
-    fitnessGoals: 'Tăng phản xạ, giảm mỡ & hoàn thiện kỹ thuật Pickleball',
+    fitnessLevel: 'intermediate',
+    fitnessGoals: 'Tăng phản xạ, giảm mỡ & hoàn thiện kỹ thuật Pickleball/Tennis FPT',
     injuryHistory: 'Bong gân cổ chân phải (2024), đã phục hồi 95%',
     weight: 64.2,
     smm: 32.5,
@@ -83,7 +117,7 @@ export function AppProvider({ children }) {
 
   // Active Member Plan State
   const [activePlan, setActivePlan] = useState({
-    name: 'Gói Pickleball Match Pass & VIP Diamond',
+    name: 'Gói FPT Pickleball Pass & VIP Diamond',
     tier: 'Diamond Member',
     status: 'active',
     startDate: '15/12/2025',
@@ -93,17 +127,17 @@ export function AppProvider({ children }) {
     barcode: '893850129841',
   });
 
-  // 4. Staff Accounts & RBAC (Manager: MGR-01, MGR-02)
+  // 4. Staff Accounts & RBAC
   const [staffList, setStaffList] = useState([
     {
       id: 1,
       name: 'Trần Hoàng Long',
       role: 'Quản Lý Trung Tâm (Center Manager)',
       roleKey: 'admin',
-      roleBadge: 'bg-primary text-secondary-container',
+      roleBadge: 'bg-orange-500 text-white font-bold',
       phone: '0901 111 222',
-      email: 'hoanglong@elitesports.vn',
-      specialty: 'Điều hành tổng thể & Kế hoạch chiến lược',
+      email: 'hoanglong@fpt.edu.vn',
+      specialty: 'Điều hành tổng thể & Kế hoạch chiến lược FPT',
       status: 'active',
     },
     {
@@ -111,9 +145,9 @@ export function AppProvider({ children }) {
       name: 'Lê Anh Tuấn',
       role: 'Huấn Luyện Viên (Master Coach)',
       roleKey: 'coach',
-      roleBadge: 'bg-secondary-container text-primary',
+      roleBadge: 'bg-orange-100 text-orange-800 font-bold',
       phone: '0905 333 444',
-      email: 'anhtuan.le@elitesports.vn',
+      email: 'anhtuan.le@fpt.edu.vn',
       specialty: 'Pickleball PPR & Biomechanics (NASM)',
       status: 'active',
     },
@@ -122,9 +156,9 @@ export function AppProvider({ children }) {
       name: 'Vũ Thu Hà',
       role: 'Huấn Luyện Viên (Coach)',
       roleKey: 'coach',
-      roleBadge: 'bg-secondary-container text-primary',
+      roleBadge: 'bg-orange-100 text-orange-800 font-bold',
       phone: '0908 555 666',
-      email: 'thuha.vu@elitesports.vn',
+      email: 'thuha.vu@fpt.edu.vn',
       specialty: 'Yoga & Pilates Reformer Allegro 2',
       status: 'active',
     },
@@ -133,9 +167,9 @@ export function AppProvider({ children }) {
       name: 'Hoàng Thu Trang',
       role: 'Nhân Viên Lễ Tân (Receptionist)',
       roleKey: 'receptionist',
-      roleBadge: 'bg-slate-100 text-slate-800',
+      roleBadge: 'bg-slate-100 text-slate-800 font-bold',
       phone: '0919 777 888',
-      email: 'thutrang@elitesports.vn',
+      email: 'thutrang@fpt.edu.vn',
       specialty: 'Quầy tiếp đón ca sáng & Thu ngân POS',
       status: 'active',
     },
@@ -152,12 +186,12 @@ export function AppProvider({ children }) {
     { id: 'p8', feature: 'Gửi khiếu nại & Đánh giá dịch vụ', manager: true, coach: false, receptionist: true, member: true },
   ]);
 
-  // 5. AI Settings (Manager: MGR-15)
+  // 5. AI Settings
   const [aiSettings, setAiSettings] = useState({
     enabledChatbot: true,
     enabledWorkoutGen: true,
-    model: 'Gemini Pro Athletic Specialist',
-    promptRules: 'Ưu tiên an toàn chấn thương, tuân thủ nội quy hủy lớp trước 2 tiếng và kiểm tra y tế PAR-Q trước khi chỉ định bài tập cường độ cao.',
+    model: 'Gemini Pro FPT Sports Engine',
+    promptRules: 'Ưu tiên an toàn chấn thương, tuân thủ nội quy FPT Sports Center (hủy lớp trước 2 tiếng) và kiểm tra y tế PAR-Q trước khi chỉ định bài tập cường độ cao.',
   });
 
   // 6. Toast Notification System
@@ -178,33 +212,35 @@ export function AppProvider({ children }) {
 
   const authenticateUser = (user, roleKey, token) => {
     const roleTitles = {
-      member: 'Hội viên Thể thao',
-      receptionist: 'Nhân viên Lễ tân',
-      coach: 'Huấn luyện viên',
-      admin: 'Giám đốc Trung tâm',
+      member: 'Hội viên Thể thao FPT',
+      receptionist: 'Nhân viên Lễ tân FPT',
+      coach: 'Huấn luyện viên FPT',
+      admin: 'Quản lý Trung tâm FPT',
     };
     const session = {
       token,
       role: roleKey,
       user: {
-      id: user.userId,
-      name: user.fullName,
-      email: user.email,
-      phone: user.phone || '',
-      role: user.role,
-      status: user.status,
-      roleTitle: roleTitles[roleKey],
-      avatar: user.fullName
-        .split(/\s+/)
-        .map((part) => part[0])
-        .slice(-2)
-        .join('')
-        .toUpperCase(),
+        id: user.userId,
+        name: user.fullName,
+        email: user.email,
+        phone: user.phone || '',
+        role: user.role,
+        status: user.status,
+        roleTitle: roleTitles[roleKey],
+        avatar: user.fullName
+          ? user.fullName
+              .split(/\s+/)
+              .map((part) => part[0])
+              .slice(-2)
+              .join('')
+              .toUpperCase()
+          : 'FPT',
       },
     };
     sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
     setAuthSession(session);
-    showToast('Đăng nhập thành công', `Xin chào ${user.fullName}!`);
+    showToast('Đăng nhập thành công', `Xin chào ${user.fullName} đến với FPT Sports Center!`);
   };
 
   const logout = () => {
@@ -218,23 +254,38 @@ export function AppProvider({ children }) {
     }
   };
 
-  // Helper: Add Audit Log (MGR-14)
+  // Helper: Add Audit Log
   const addAuditLog = (action, target) => {
     const log = {
       id: generateId('log'),
       action,
       target,
-      user: currentUser?.name || 'Người dùng',
+      user: currentUser?.name || 'Người dùng FPT',
       time: 'Vừa xong',
     };
     setAuditLogs((prev) => [log, ...prev]);
   };
 
   // ==========================================
+  // ORDERS & INVOICES MANAGEMENT
+  // ==========================================
+
+  const addOrder = (newOrder) => {
+    setOrders((prev) => [newOrder, ...prev]);
+    addAuditLog('Tạo đơn đăng ký', `Hội viên khởi tạo đơn đăng ký #${newOrder.id} - ${newOrder.className}`);
+  };
+
+  const updateOrderStatus = (orderId, newStatus) => {
+    setOrders((prev) =>
+      prev.map((ord) => (ord.id === orderId ? { ...ord, status: newStatus } : ord))
+    );
+    addAuditLog('Cập nhật đơn hàng', `Đơn #${orderId} chuyển trạng thái sang [${newStatus}]`);
+  };
+
+  // ==========================================
   // FLOW 1: USER & MEMBERSHIP MANAGEMENT
   // ==========================================
 
-  // MEM-03: Update Member Profile
   const updateProfile = (data) => {
     setAuthSession((prev) => {
       if (!prev) return prev;
@@ -245,18 +296,16 @@ export function AppProvider({ children }) {
       sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
       return session;
     });
-    addAuditLog('Cập nhật hồ sơ', `Hội viên ${data.name || currentUser.name} đã cập nhật thông tin cá nhân`);
-    showToast('Cập nhật thành công', 'Hồ sơ cá nhân và thông tin liên hệ đã được lưu!');
+    addAuditLog('Cập nhật hồ sơ', `Hội viên ${data.name || currentUser?.name} đã cập nhật thông tin cá nhân`);
+    showToast('Cập nhật thành công', 'Hồ sơ cá nhân và thông tin liên hệ FPT đã được lưu!');
   };
 
-  // MEM-05: Update Health Profile
   const updateHealthProfile = (data) => {
     setHealthProfile((prev) => ({ ...prev, ...data }));
     addAuditLog('Cập nhật hồ sơ sức khỏe', `Hội viên đã cập nhật mục tiêu & chỉ số InBody`);
-    showToast('Hồ sơ thể trạng', 'Đã lưu mục tiêu thể thao và lịch sử chấn thương!');
+    showToast('Hồ sơ thể trạng', 'Đã lưu mục tiêu thể thao và chỉ số InBody!');
   };
 
-  // MEM-07 / MEM-09: Purchase or Renew Package
   const purchasePackage = (pkg, voucherCode = '', paymentMethod = 'VNPAY-QR') => {
     let finalPrice = pkg.price || (pkg.priceMonthly ? pkg.priceMonthly : 2500000);
     let discountAmount = 0;
@@ -273,14 +322,14 @@ export function AppProvider({ children }) {
       id: generateId('inv'),
       invoiceId: `INV-${2000 + (idCounter % 8000)}`,
       date: new Date().toLocaleDateString('vi-VN'),
-      description: `Đăng ký gói: ${pkg.name} (${voucherCode ? `Mã: ${voucherCode}` : 'Giá niêm yết'})`,
+      description: `Đăng ký gói FPT: ${pkg.name} (${voucherCode ? `Mã: ${voucherCode}` : 'Giá niêm yết'})`,
       amount: finalPrice,
       method: paymentMethod,
       status: 'Thành công',
       cashier: 'Cổng thanh toán Online',
     };
 
-    setPaymentHistory([newInvoice, ...paymentHistory]);
+    setPaymentHistory((prev) => [newInvoice, ...prev]);
     setActivePlan((prev) => ({
       ...prev,
       name: pkg.name,
@@ -289,20 +338,19 @@ export function AppProvider({ children }) {
       remainingPTSessions: prev.remainingPTSessions + (pkg.type === 'tier' ? 6 : 10),
     }));
 
-    addAuditLog('Thanh toán gói tập', `Hội viên ${currentUser.name} thanh toán ${pkg.name} (${finalPrice.toLocaleString('vi-VN')} ₫)`);
+    addAuditLog('Thanh toán gói tập', `Hội viên ${currentUser?.name} thanh toán ${pkg.name} (${finalPrice.toLocaleString('vi-VN')} ₫)`);
     showToast('Kích hoạt gói tập thành công', `Gói "${pkg.name}" đã kích hoạt. Hóa đơn điện tử #${newInvoice.invoiceId} đã được xuất!`);
     return newInvoice;
   };
 
-  // REC-02 / REC-05: Add New Member at Desk
   const addMember = (newMem) => {
     const memId = generateId('mem');
     const created = {
       id: memId,
-      memberId: `ELT-${1000 + (idCounter % 9000)}`,
+      memberId: `FPT-${1000 + (idCounter % 9000)}`,
       name: newMem.name,
       phone: newMem.phone,
-      email: newMem.email || 'customer@elitesports.vn',
+      email: newMem.email || 'member@fpt.edu.vn',
       tier: newMem.tier || 'Silver',
       status: 'active',
       joined: new Date().toLocaleDateString('vi-VN'),
@@ -310,13 +358,12 @@ export function AppProvider({ children }) {
       enrolledClassesCount: 0,
       wallet: 0,
     };
-    setMembers([created, ...members]);
-    addAuditLog('Tạo thẻ hội viên mới', `Đăng ký hội viên mới: ${created.name} (${created.memberId}) tại quầy`);
+    setMembers((prev) => [created, ...prev]);
+    addAuditLog('Tạo thẻ hội viên mới', `Đăng ký hội viên mới: ${created.name} (${created.memberId}) tại quầy FPT`);
     showToast('Tạo hội viên thành công', `Hội viên ${created.name} (${created.memberId}) đã được cấp thẻ ${created.tier}!`);
     return created;
   };
 
-  // REC-09: Freeze Package (Bảo lưu gói tập)
   const freezePackage = (memberId, days, reason) => {
     setMembers((prev) =>
       prev.map((m) => {
@@ -330,19 +377,16 @@ export function AppProvider({ children }) {
     );
   };
 
-  // REC-10: Transfer Package (Chuyển nhượng gói tập)
   const transferPackage = (fromMemberName, toMemberName, transferFee = 250000) => {
     addAuditLog('Chuyển nhượng gói tập', `Chuyển quyền thẻ hội viên từ [${fromMemberName}] sang [${toMemberName}], phí: ${transferFee.toLocaleString('vi-VN')} ₫`);
-    showToast('Chuyển nhượng hoàn tất', `Gói tập của ${fromMemberName} đã được bàn giao thành công cho ${toMemberName}!`);
+    showToast('Chuyển nhượng hoàn tất', `Gói tập của ${fromMemberName} đã bàn giao thành công cho ${toMemberName}!`);
   };
 
-  // REC-08: Issue RFID Card or Dynamic QR
   const issueRfidCard = (memberId, cardCode) => {
     addAuditLog('Cấp thẻ từ / RFID', `Gán mã thẻ RFID #${cardCode} cho hội viên #${memberId}`);
-    showToast('Cấp thẻ từ thành công', `Mã RFID ${cardCode} đã liên kết thành công vào hồ sơ học viên!`);
+    showToast('Cấp thẻ từ thành công', `Mã RFID ${cardCode} đã liên kết vào hồ sơ học viên FPT!`);
   };
 
-  // MGR-03: Toggle Member Status (Khóa/Mở)
   const toggleMemberStatus = (memberId) => {
     setMembers((prev) =>
       prev.map((m) => {
@@ -361,13 +405,12 @@ export function AppProvider({ children }) {
   // FLOW 2: CLASS BOOKING & SCHEDULE MANAGEMENT
   // ==========================================
 
-  // MEM-15: Member Books Class
   const bookClass = (classId) => {
     setClasses((prev) =>
       prev.map((c) => {
         if (c.id === classId) {
           if (c.enrolled >= c.capacity) {
-            showToast('Lớp học đã kín chỗ', 'Lớp đã đủ sĩ số. Bạn có thể bấm "Tham gia Hàng đợi" để nhận thông báo.', 'error');
+            showToast('Lớp học đã kín chỗ', 'Lớp đã đủ sĩ số. Bạn có thể chọn "Tham gia Hàng đợi" để nhận thông báo.', 'error');
             return c;
           }
           const updated = {
@@ -377,16 +420,16 @@ export function AppProvider({ children }) {
             students: [
               ...(c.students || []),
               {
-                id: currentUser.id,
-                name: currentUser.name,
-                phone: currentUser.phone,
+                id: currentUser?.id || generateId('st'),
+                name: currentUser?.name || 'Hội viên FPT',
+                phone: currentUser?.phone || '',
                 status: 'present',
-                note: 'Đăng ký qua ứng dụng hội viên',
+                note: 'Đăng ký qua cổng FPT Sports Center',
               },
             ],
           };
-          addAuditLog('Đặt lớp học', `Hội viên ${currentUser.name} đã đặt chỗ lớp: ${c.title}`);
-          showToast('Đặt chỗ thành công', `Bạn đã giữ chỗ thành công lớp "${c.title}" (${c.time})!`);
+          addAuditLog('Đặt lớp học', `Hội viên ${currentUser?.name} đã đặt chỗ lớp: ${c.title}`);
+          showToast('Đặt chỗ thành công', `Bạn đã giữ chỗ lớp "${c.title}" (${c.time})!`);
           return updated;
         }
         return c;
@@ -394,7 +437,6 @@ export function AppProvider({ children }) {
     );
   };
 
-  // MEM-17: Member Cancels Class
   const cancelClass = (classId) => {
     setClasses((prev) =>
       prev.map((c) => {
@@ -403,10 +445,10 @@ export function AppProvider({ children }) {
             ...c,
             enrolled: Math.max(0, c.enrolled - 1),
             isBooked: false,
-            students: (c.students || []).filter((st) => st.name !== currentUser.name),
+            students: (c.students || []).filter((st) => st.name !== currentUser?.name),
           };
-          addAuditLog('Hủy đặt chỗ', `Hội viên ${currentUser.name} đã hủy lớp: ${c.title}`);
-          showToast('Hủy đặt chỗ thành công', `Đã hủy lịch học lớp "${c.title}". Vị trí đã được hoàn lại.`, 'info');
+          addAuditLog('Hủy đặt chỗ', `Hội viên ${currentUser?.name} đã hủy lớp: ${c.title}`);
+          showToast('Hủy đặt chỗ thành công', `Đã hủy lịch lớp "${c.title}". Vị trí đã được hoàn lại.`, 'info');
           return updated;
         }
         return c;
@@ -414,7 +456,6 @@ export function AppProvider({ children }) {
     );
   };
 
-  // MEM-16: Join Waitlist
   const joinWaitlist = (classId) => {
     setClasses((prev) =>
       prev.map((c) => {
@@ -423,10 +464,10 @@ export function AppProvider({ children }) {
           const updated = {
             ...c,
             isWaitlisted: true,
-            waitlist: [...waitlist, { id: currentUser.id, name: currentUser.name, phone: currentUser.phone }],
+            waitlist: [...waitlist, { id: currentUser?.id || generateId('st'), name: currentUser?.name, phone: currentUser?.phone }],
           };
-          addAuditLog('Tham gia danh sách chờ', `Hội viên ${currentUser.name} vào hàng đợi lớp: ${c.title}`);
-          showToast('Đã vào danh sách chờ', `Bạn đã vào hàng đợi lớp "${c.title}". Khi có người hủy, hệ thống sẽ tự động gửi thông báo!`);
+          addAuditLog('Tham gia danh sách chờ', `Hội viên ${currentUser?.name} vào hàng đợi lớp: ${c.title}`);
+          showToast('Đã vào danh sách chờ', `Bạn đã vào hàng đợi lớp "${c.title}". Khi có chỗ trống, hệ thống sẽ tự động gửi thông báo!`);
           return updated;
         }
         return c;
@@ -434,7 +475,6 @@ export function AppProvider({ children }) {
     );
   };
 
-  // REC-17: Promote from Waitlist to Enrolled
   const promoteFromWaitlist = (classId, studentName) => {
     setClasses((prev) =>
       prev.map((c) => {
@@ -453,7 +493,6 @@ export function AppProvider({ children }) {
     );
   };
 
-  // MGR-08 / MGR-09: Create Class Session & Assign Coach
   const createClassSession = (sessionData) => {
     const newClass = {
       id: generateId('cls'),
@@ -469,19 +508,18 @@ export function AppProvider({ children }) {
       isBooked: false,
       students: [],
     };
-    setClasses([newClass, ...classes]);
+    setClasses((prev) => [newClass, ...prev]);
     addAuditLog('Xếp lịch lớp học mới', `Đã mở lớp "${newClass.title}" phân công ${newClass.coachName}`);
-    showToast('Mở lớp thành công', `Lớp học "${newClass.title}" đã được thêm vào thời khóa biểu!`);
+    showToast('Mở lớp thành công', `Lớp học "${newClass.title}" đã thêm vào thời khóa biểu!`);
   };
 
-  // MGR-19: Toggle Court Maintenance
   const toggleFacilityMaintenance = (facId) => {
     setFacilities((prev) =>
       prev.map((f) => {
         if (f.id === facId) {
           const nextStatus = f.status === 'active' ? 'maintenance' : 'active';
           addAuditLog('Thay đổi trạng thái sân bãi', `Cơ sở ${f.name} chuyển sang ${nextStatus === 'maintenance' ? 'Bảo trì tạm thời' : 'Sẵn sàng phục vụ'}`);
-          showToast('Cập nhật trạng thái sân', `${f.name}: Đã chuyển sang ${nextStatus === 'maintenance' ? 'Bảo trì (Khóa xếp lịch)' : 'Hoạt động bình thường'}`, nextStatus === 'maintenance' ? 'warning' : 'success');
+          showToast('Cập nhật trạng thái sân', `${f.name}: Chuyển sang ${nextStatus === 'maintenance' ? 'Bảo trì (Khóa xếp lịch)' : 'Hoạt động bình thường'}`, nextStatus === 'maintenance' ? 'warning' : 'success');
           return { ...f, status: nextStatus };
         }
         return f;
@@ -493,7 +531,6 @@ export function AppProvider({ children }) {
   // FLOW 3: PAYMENT & FINANCIAL REPORTS
   // ==========================================
 
-  // REC-18 / REC-19 / REC-24: Process POS Checkout
   const processPOSPayment = (cartItems, method, customerName = 'Khách lẻ vãng lai', discount = 0) => {
     const totalRaw = cartItems.reduce((acc, it) => acc + it.price * it.qty, 0);
     const finalAmount = Math.max(0, totalRaw - discount);
@@ -514,13 +551,12 @@ export function AppProvider({ children }) {
       status: 'Thành công',
     };
 
-    setPaymentHistory([newInvoice, ...paymentHistory]);
+    setPaymentHistory((prev) => [newInvoice, ...prev]);
     addAuditLog('Thu ngân POS tại quầy', `Lễ tân xuất hóa đơn #${newInvoice.invoiceId} (${finalAmount.toLocaleString('vi-VN')} ₫) cho ${customerName}`);
     showToast('Thanh toán POS hoàn tất', `Đã lập hóa đơn #${newInvoice.invoiceId} (${finalAmount.toLocaleString('vi-VN')} ₫). Hóa đơn nhiệt sẵn sàng in!`);
     return newInvoice;
   };
 
-  // REC-21: Submit Refund Request
   const submitRefundRequest = (transactionId, memberName, amount, reason) => {
     const newRef = {
       id: generateId('ref'),
@@ -532,12 +568,11 @@ export function AppProvider({ children }) {
       status: 'pending',
       requestedAt: 'Vừa xong',
     };
-    setRefundRequests([newRef, ...refundRequests]);
+    setRefundRequests((prev) => [newRef, ...prev]);
     addAuditLog('Đề nghị hoàn tiền', `Lễ tân gửi yêu cầu hoàn tiền #${transactionId} (${Number(amount).toLocaleString('vi-VN')} ₫) chờ Quản lý duyệt`);
-    showToast('Đã gửi đề nghị hoàn phí', `Yêu cầu hoàn tiền #${transactionId} đã gửi đến Giám đốc trung tâm!`, 'info');
+    showToast('Đã gửi đề nghị hoàn phí', `Yêu cầu hoàn tiền #${transactionId} đã gửi đến Quản lý trung tâm!`, 'info');
   };
 
-  // MGR-16: Manager Approves / Rejects Refund
   const approveRefund = (refundId, isApproved) => {
     setRefundRequests((prev) =>
       prev.map((r) => {
@@ -556,13 +591,13 @@ export function AppProvider({ children }) {
   // FLOW 4: TRAINING & ATTENDANCE MANAGEMENT
   // ==========================================
 
-  // REC-11 / REC-12: Member Check-in at Gate
   const checkInMember = (query) => {
+    const cleanQ = query.trim().toLowerCase();
     const matched = members.find(
       (m) =>
-        m.phone.includes(query) ||
-        m.name.toLowerCase().includes(query.toLowerCase()) ||
-        m.memberId.toLowerCase().includes(query.toLowerCase())
+        m.phone?.includes(cleanQ) ||
+        m.name?.toLowerCase().includes(cleanQ) ||
+        m.memberId?.toLowerCase().includes(cleanQ)
     );
 
     const checkInId = generateId('chk');
@@ -571,17 +606,17 @@ export function AppProvider({ children }) {
 
     const newLog = {
       id: checkInId,
-      memberId: matched ? matched.memberId : `ELT-${1000 + (idCounter % 9000)}`,
+      memberId: matched ? matched.memberId : `FPT-${1000 + (idCounter % 9000)}`,
       name: matched ? matched.name : query,
       tier: matched ? `${matched.tier} Member` : 'Silver Member',
-      plan: isExpired ? 'Gói Tập (Đã hết hạn)' : 'Gói Toàn Năng 5 Sao',
+      plan: isExpired ? 'Gói Tập (Đã hết hạn)' : 'Gói Toàn Năng FPT 5 Sao',
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      method: 'Quét mã QR App / Thẻ từ',
+      method: 'Quét mã QR App / Thẻ từ RFID',
       locker: isExpired ? 'Không cấp' : assignedLocker,
       status: isExpired ? 'expired' : 'valid',
     };
 
-    setCheckIns([newLog, ...checkIns]);
+    setCheckIns((prev) => [newLog, ...prev]);
     addAuditLog('Check-in tại quầy', `Lễ tân check-in: ${newLog.name} (${newLog.memberId})`);
 
     if (newLog.status === 'expired') {
@@ -592,7 +627,6 @@ export function AppProvider({ children }) {
     return newLog;
   };
 
-  // REC-13: Manage Lockers & Towels
   const assignLocker = (memberId, lockerNum) => {
     setLockers((prev) =>
       prev.map((l) => (l.number === lockerNum ? { ...l, status: 'in-use', assignedTo: `#${memberId}` } : l))
@@ -604,10 +638,9 @@ export function AppProvider({ children }) {
     setLockers((prev) =>
       prev.map((l) => (l.id === lockerId ? { ...l, status: 'available', assignedTo: null } : l))
     );
-    showToast('Trả tủ đồ', 'Tủ đồ đã được mở khóa và sẵn sàng cho khách tiếp theo!');
+    showToast('Trả tủ đồ', 'Tủ đồ đã mở khóa và sẵn sàng cho khách tiếp theo!');
   };
 
-  // COA-05 / COA-08 / COA-09: Coach Saves Attendance & Review
   const saveClassAttendance = (classId, updatedStudents, coachNote) => {
     setClasses((prev) =>
       prev.map((c) =>
@@ -615,10 +648,9 @@ export function AppProvider({ children }) {
       )
     );
     addAuditLog('Lưu điểm danh lớp', `HLV đã lưu điểm danh lớp học #${classId}`);
-    showToast('Đã lưu điểm danh & đánh giá', 'Dữ liệu chuyên cần và nhận xét của học viên đã được đồng bộ hóa!');
+    showToast('Đã lưu điểm danh & đánh giá', 'Dữ liệu chuyên cần và nhận xét học viên đã được đồng bộ hóa!');
   };
 
-  // COA-06: 1-on-1 PT Check-in (Deduct 1 PT session)
   const checkInPTSession = (studentName, maxWeight, timeRecord, coachFeedback) => {
     setActivePlan((prev) => ({
       ...prev,
@@ -628,40 +660,36 @@ export function AppProvider({ children }) {
     showToast('Điểm danh PT thành công', `Đã ghi nhận buổi tập cho ${studentName}. Đã trừ 1 buổi PT (Còn lại: ${Math.max(0, activePlan.remainingPTSessions - 1)} buổi)`);
   };
 
-  // COA-10: Assign Homework
   const assignHomework = (className, title, content) => {
     addAuditLog('Giao bài tập về nhà', `HLV đã gửi bài tập "${title}" cho lớp ${className}`);
     showToast('Gửi bài tập thành công', `Đã giao bài tập "${title}" cho toàn bộ học viên!`);
   };
 
-  // MEM-27: Rate Coach / Class
   const addCoachReview = (review) => {
     const newRev = {
       id: generateId('rev'),
       coachId: review.coachId || 'coa_01',
       coachName: review.coachName || 'HLV Lê Anh Tuấn',
-      memberName: currentUser.name,
+      memberName: currentUser?.name || 'Hội viên FPT',
       rating: Number(review.rating) || 5,
       comment: review.comment,
       className: review.className || 'Pickleball Chiến Thuật Nâng Cao',
       date: new Date().toLocaleDateString('vi-VN'),
     };
-    setCoachReviews([newRev, ...coachReviews]);
-    addAuditLog('Đánh giá HLV', `Hội viên ${currentUser.name} đánh giá ${newRev.rating} sao cho ${newRev.coachName}`);
+    setCoachReviews((prev) => [newRev, ...prev]);
+    addAuditLog('Đánh giá HLV', `Hội viên ${currentUser?.name} đánh giá ${newRev.rating} sao cho ${newRev.coachName}`);
     showToast('Đánh giá thành công', `Cảm ơn bạn đã đóng góp ý kiến cho HLV ${newRev.coachName}!`);
   };
 
-  // COA-12: Coach Requests Leave / Shift Swap
   const requestCoachLeave = (date, reason, subCoach) => {
     addAuditLog('HLV xin đổi ca', `HLV đề nghị đổi ca ngày ${date} cho ${subCoach} (Lý do: ${reason})`);
-    showToast('Gửi đơn xin nghỉ/đổi ca', 'Đơn xin đổi ca đã được chuyển đến Quản lý trung tâm để duyệt!');
+    showToast('Gửi đơn xin nghỉ/đổi ca', 'Đơn xin đổi ca đã chuyển đến Quản lý trung tâm để duyệt!');
   };
 
   // ==========================================
   // FLOW 5 & 6: AI WORKOUT & AI ASSISTANT
   // ==========================================
 
-  // MGR-15: Update AI Settings
   const updateAISettings = (newSettings) => {
     setAiSettings((prev) => ({ ...prev, ...newSettings }));
     addAuditLog('Cấu hình AI', 'Quản lý đã cập nhật System Prompt & chính sách cho AI Chatbot');
@@ -669,23 +697,22 @@ export function AppProvider({ children }) {
   };
 
   // ==========================================
-  // MANAGER OPERATIONS (MGR-01, MGR-02, MGR-18, MGR-20)
+  // MANAGER TOOLS
   // ==========================================
 
-  // MGR-01: Staff Management
   const addStaff = (data) => {
     const newStaffMember = {
       id: staffList.length + 1,
       name: data.name,
       role: data.roleTitle || 'Huấn Luyện Viên (Coach)',
       roleKey: data.roleKey || 'coach',
-      roleBadge: data.roleKey === 'coach' ? 'bg-secondary-container text-primary' : 'bg-slate-100 text-slate-800',
+      roleBadge: data.roleKey === 'coach' ? 'bg-orange-100 text-orange-800 font-bold' : 'bg-slate-100 text-slate-800 font-bold',
       phone: data.phone,
-      email: data.email,
+      email: data.email || 'staff@fpt.edu.vn',
       specialty: data.specialty || 'Chuyên viên thể thao',
       status: 'active',
     };
-    setStaffList([...staffList, newStaffMember]);
+    setStaffList((prev) => [...prev, newStaffMember]);
     addAuditLog('Thêm nhân viên mới', `Tạo tài khoản nhân viên ${newStaffMember.name} (${newStaffMember.role})`);
     showToast('Thêm nhân sự thành công', `Nhân viên ${newStaffMember.name} đã được cấp quyền truy cập hệ thống!`);
   };
@@ -704,7 +731,6 @@ export function AppProvider({ children }) {
     );
   };
 
-  // MGR-02: Update RBAC Permissions
   const updatePermission = (permId, roleKey, value) => {
     setPermissionsMatrix((prev) =>
       prev.map((p) => (p.id === permId ? { ...p, [roleKey]: value } : p))
@@ -712,7 +738,6 @@ export function AppProvider({ children }) {
     showToast('Phân quyền thành công', 'Cấu hình quyền truy cập vai trò đã được cập nhật!', 'info');
   };
 
-  // MGR-18: Add Voucher Campaign
   const addVoucher = (voucher) => {
     const newVoucher = {
       id: generateId('v'),
@@ -723,35 +748,33 @@ export function AppProvider({ children }) {
       usageLimit: Number(voucher.usageLimit) || 100,
       usedCount: 0,
       status: 'active',
-      desc: voucher.desc || 'Chiến dịch khuyến mãi mới',
+      desc: voucher.desc || 'Chiến dịch khuyến mãi FPT mới',
     };
-    setVouchers([newVoucher, ...vouchers]);
+    setVouchers((prev) => [newVoucher, ...prev]);
     addAuditLog('Tạo mã giảm giá mới', `Quản lý tạo voucher ${newVoucher.code} (-${newVoucher.discountPercent}%)`);
     showToast('Tạo Voucher thành công', `Mã ${newVoucher.code} đã sẵn sàng áp dụng tại quầy và online!`);
   };
 
-  // MGR-20: Broadcast Notification
   const broadcastNotification = (title, message, audience = 'all') => {
     addAuditLog('Gửi thông báo toàn hệ thống', `Phát thông báo Push/Email: "${title}" tới ${audience === 'all' ? 'Toàn bộ hội viên' : audience}`);
     showToast('Phát thông báo thành công', `Đã gửi thông báo "${title}" tới tất cả người dùng trong hệ thống!`);
   };
 
-  // MGR-17 / REC-22 / MEM-26: Support Tickets
   const createSupportTicket = (ticket) => {
     const newTkt = {
       id: generateId('tkt'),
-      memberId: ticket.memberId || currentUser.memberId || currentUser.id,
-      memberName: ticket.memberName || currentUser.name,
-      phone: ticket.phone || currentUser.phone,
+      memberId: ticket.memberId || currentUser?.memberId || currentUser?.id,
+      memberName: ticket.memberName || currentUser?.name || 'Hội viên FPT',
+      phone: ticket.phone || currentUser?.phone || '',
       category: ticket.category || 'Hỗ trợ chung',
       content: ticket.content,
       status: 'pending',
       assignedTo: 'Chưa phân công',
       createdAt: 'Vừa xong',
     };
-    setSupportTickets([newTkt, ...supportTickets]);
+    setSupportTickets((prev) => [newTkt, ...prev]);
     addAuditLog('Gửi khiếu nại / yêu cầu', `Hội viên gửi phản ánh: ${newTkt.content}`);
-    showToast('Tiếp nhận yêu cầu', 'Yêu cầu của bạn đã được ghi nhận. Lễ tân và Quản lý sẽ xử lý sớm nhất!');
+    showToast('Tiếp nhận yêu cầu', 'Yêu cầu của bạn đã được ghi nhận. Lễ tân và Quản lý FPT sẽ xử lý sớm nhất!');
   };
 
   const assignSupportTicket = (ticketId, staffName) => {
@@ -768,7 +791,6 @@ export function AppProvider({ children }) {
     showToast('Đã đóng yêu cầu', 'Sự cố đã được giải quyết hoàn tất!');
   };
 
-  // MGR-03: Export Members CSV
   const exportMembersCSV = () => {
     const headers = ['Mã Hội Viên', 'Họ Và Tên', 'Số Điện Thoại', 'Email', 'Hạng Thẻ', 'Trạng Thái', 'Ngày Gia Nhập', 'Hết Hạn'];
     const rows = members.map((m) => [m.memberId, m.name, m.phone, m.email, m.tier, m.status, m.joined, m.expires]);
@@ -776,12 +798,12 @@ export function AppProvider({ children }) {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Danh_sach_hoi_vien_EliteSports_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `Danh_sach_hoi_vien_FPTSportsCenter_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     addAuditLog('Xuất file Excel hội viên', `Quản lý đã xuất danh sách ${members.length} hội viên ra file CSV`);
-    showToast('Xuất file thành công', 'File CSV dữ liệu hội viên đã được tải xuống máy tính!');
+    showToast('Xuất file thành công', 'File CSV dữ liệu hội viên FPT đã được tải xuống!');
   };
 
   const value = {
@@ -811,15 +833,20 @@ export function AppProvider({ children }) {
     refundRequests,
     coachReviews,
     paymentHistory,
+    orders, // Bổ sung Đơn hàng & Hóa đơn
     staffList,
     permissionsMatrix,
     aiSettings,
 
-    // Toasts
+    // Toasts & Logs
     toasts,
     showToast,
     removeToast,
     addAuditLog,
+
+    // Orders Actions
+    addOrder,
+    updateOrderStatus,
 
     // Flow 1 Actions
     addMember,

@@ -1,22 +1,22 @@
 // ==========================================
-// SWP391 SPORTS CENTER - CENTRALIZED MOCK DATA
+// FPT SPORTS CENTER - CENTRALIZED MOCK DATA
 // ==========================================
 
 export const mockUsers = {
   member: {
     id: 'usr_mem_01',
-    memberId: 'ELT-8924',
+    memberId: 'FPT-8924',
     name: 'Nguyễn Minh Anh',
     phone: '0987 654 321',
-    email: 'minhanh.nguyen@example.com',
+    email: 'minhanh.nguyen@fpt.edu.vn',
     role: 'MEMBER',
-    roleTitle: 'Hội viên Thể thao',
+    roleTitle: 'Hội viên Thể thao FPT',
     tier: 'Silver Member',
     joinDate: '15/12/2023',
     expireDate: '15/12/2026',
     walletBalance: 1250000,
     avatar: 'MA',
-    goal: 'Tăng phản xạ, giảm mỡ & hoàn thiện kỹ thuật Pickleball',
+    goal: 'Tăng phản xạ, giảm mỡ & hoàn thiện kỹ thuật Pickleball/Tennis FPT',
     inbody: {
       weight: 64.2,
       smm: 32.5, // Skeletal Muscle Mass (kg)
@@ -29,20 +29,20 @@ export const mockUsers = {
     id: 'usr_rec_01',
     name: 'Hoàng Thu Trang',
     phone: '0919 777 888',
-    email: 'thutrang@elitesports.vn',
+    email: 'thutrang@fpt.edu.vn',
     role: 'RECEPTIONIST',
-    roleTitle: 'Nhân viên Lễ tân',
+    roleTitle: 'Nhân viên Lễ tân FPT',
     shift: 'Ca Sáng (06:00 - 14:00)',
-    counter: 'Quầy Tiếp Đón Trung Tâm',
+    counter: 'Quầy Tiếp Đón Trung Tâm FPT',
     avatar: 'TT',
   },
   coach: {
     id: 'usr_coa_01',
     name: 'Lê Anh Tuấn',
     phone: '0905 333 444',
-    email: 'anhtuan.le@elitesports.vn',
+    email: 'anhtuan.le@fpt.edu.vn',
     role: 'COACH',
-    roleTitle: 'Master Coach',
+    roleTitle: 'Master Coach FPT',
     certifications: 'PPR Certified / NASM-CPT / Biomechanics Specialist',
     rating: 4.95,
     totalReviews: 128,
@@ -52,10 +52,10 @@ export const mockUsers = {
     id: 'usr_adm_01',
     name: 'Trần Hoàng Long',
     phone: '0901 111 222',
-    email: 'hoanglong@elitesports.vn',
+    email: 'hoanglong@fpt.edu.vn',
     role: 'MANAGER',
-    roleTitle: 'Giám đốc Trung tâm',
-    facility: 'Cơ sở Flagship Central Hà Nội',
+    roleTitle: 'Quản lý Trung tâm FPT',
+    facility: 'Khu Thể thao Đa năng FPT University Hòa Lạc',
     avatar: 'HL',
   },
 };
@@ -63,10 +63,10 @@ export const mockUsers = {
 export const mockMembersList = [
   {
     id: 'mem_01',
-    memberId: 'ELT-8924',
+    memberId: 'FPT-8924',
     name: 'Nguyễn Minh Anh',
     phone: '0987 654 321',
-    email: 'minhanh@example.com',
+    email: 'minhanh@fpt.edu.vn',
     tier: 'Silver',
     status: 'active',
     joined: '15/12/2023',
@@ -76,10 +76,10 @@ export const mockMembersList = [
   },
   {
     id: 'mem_02',
-    memberId: 'ELT-6211',
+    memberId: 'FPT-6211',
     name: 'Trần Bảo Lâm',
     phone: '0903 888 999',
-    email: 'baolam.tran@example.com',
+    email: 'baolam.tran@fpt.edu.vn',
     tier: 'Diamond',
     status: 'active',
     joined: '10/01/2024',
@@ -89,10 +89,10 @@ export const mockMembersList = [
   },
   {
     id: 'mem_03',
-    memberId: 'ELT-5519',
+    memberId: 'FPT-5519',
     name: 'Đặng Tuấn Tú',
     phone: '0912 345 678',
-    email: 'tuantu@example.com',
+    email: 'tuantu@fpt.edu.vn',
     tier: 'Gold',
     status: 'active',
     joined: '05/03/2024',
@@ -102,10 +102,10 @@ export const mockMembersList = [
   },
   {
     id: 'mem_04',
-    memberId: 'ELT-3104',
+    memberId: 'FPT-3104',
     name: 'Lê Thu Băng',
     phone: '0933 222 111',
-    email: 'thubang@example.com',
+    email: 'thubang@fpt.edu.vn',
     tier: 'Silver',
     status: 'expired',
     joined: '01/06/2023',
@@ -115,10 +115,10 @@ export const mockMembersList = [
   },
   {
     id: 'mem_05',
-    memberId: 'ELT-7412',
+    memberId: 'FPT-7412',
     name: 'Phạm Hải Đăng',
     phone: '0977 444 555',
-    email: 'haidang@example.com',
+    email: 'haidang@fpt.edu.vn',
     tier: 'Gold',
     status: 'active',
     joined: '20/08/2024',
@@ -128,10 +128,10 @@ export const mockMembersList = [
   },
   {
     id: 'mem_06',
-    memberId: 'ELT-9031',
+    memberId: 'FPT-9031',
     name: 'Vũ Ngọc Lan',
     phone: '0966 111 222',
-    email: 'ngoclan.vu@example.com',
+    email: 'ngoclan.vu@fpt.edu.vn',
     tier: 'Silver',
     status: 'active',
     joined: '12/09/2024',
@@ -148,7 +148,7 @@ export const mockCoachesList = [
     title: 'Master Coach',
     specialty: 'Pickleball PPR & Biomechanics PT 1:1',
     phone: '0905 333 444',
-    email: 'anhtuan.le@elitesports.vn',
+    email: 'anhtuan.le@fpt.edu.vn',
     studentsCount: 24,
     rating: 4.95,
   },
@@ -158,7 +158,7 @@ export const mockCoachesList = [
     title: 'Senior Yoga Master',
     specialty: 'Yoga Hatha & Pilates Reformer Allegro 2',
     phone: '0908 555 666',
-    email: 'thuha.vu@elitesports.vn',
+    email: 'thuha.vu@fpt.edu.vn',
     studentsCount: 32,
     rating: 4.9,
   },
@@ -168,7 +168,7 @@ export const mockCoachesList = [
     title: 'Tennis ITF Coach',
     specialty: 'Tennis Căn Bản & Chiến Thuật Grand Slam',
     phone: '0918 222 333',
-    email: 'minhquan.tran@elitesports.vn',
+    email: 'minhquan.tran@fpt.edu.vn',
     studentsCount: 18,
     rating: 4.88,
   },
@@ -178,7 +178,7 @@ export const mockCoachesList = [
     title: 'Swimming Head Coach',
     specialty: 'Bơi Sải Sức Bền & Thể Thao Dưới Nước',
     phone: '0937 666 777',
-    email: 'ducduy.nguyen@elitesports.vn',
+    email: 'ducduy.nguyen@fpt.edu.vn',
     studentsCount: 26,
     rating: 4.92,
   },
@@ -188,7 +188,7 @@ export const mockCoachesList = [
     title: 'Combat Coach',
     specialty: 'Boxing WBA & Muay Thai Kick',
     phone: '0945 888 999',
-    email: 'hoanglong.bui@elitesports.vn',
+    email: 'hoanglong.bui@fpt.edu.vn',
     studentsCount: 20,
     rating: 4.85,
   },
@@ -198,17 +198,17 @@ export const mockPackages = [
   {
     id: 'pkg_01',
     type: 'tier',
-    name: 'Silver Member',
+    name: 'Silver Member FPT',
     priceMonthly: 1490000,
     priceAnnual: 1190000,
     discountClass: 10,
     discountCourt: 15,
-    desc: 'Toàn quyền Gym 24/7, tủ đồ cá nhân thông minh, giảm 10% các lớp học.',
+    desc: 'Toàn quyền Gym 24/7, tủ đồ cá nhân thông minh, giảm 10% các lớp học FPT.',
   },
   {
     id: 'pkg_02',
     type: 'tier',
-    name: 'Gold Member',
+    name: 'Gold Member FPT',
     priceMonthly: 2790000,
     priceAnnual: 2230000,
     discountClass: 20,
@@ -218,7 +218,7 @@ export const mockPackages = [
   {
     id: 'pkg_03',
     type: 'tier',
-    name: 'Diamond VIP',
+    name: 'Diamond VIP FPT',
     priceMonthly: 4490000,
     priceAnnual: 3590000,
     discountClass: 35,
@@ -271,7 +271,7 @@ export const mockClasses = [
     room: 'Sân Mái Che Pro 01',
     capacity: 8,
     enrolled: 6,
-    isBooked: true, // Nguyễn Minh Anh has booked this
+    isBooked: true,
     students: [
       { id: 'mem_01', name: 'Nguyễn Minh Anh', phone: '0987 654 321', status: 'present', note: 'Bộ pháp Forehand rất linh hoạt' },
       { id: 'mem_02', name: 'Trần Bảo Lâm', phone: '0903 888 999', status: 'present', note: 'Giao bóng uy lực, phản xạ nhanh' },
@@ -390,7 +390,7 @@ export const mockFacilities = [
 export const mockCheckIns = [
   {
     id: 'chk_01',
-    memberId: 'ELT-6211',
+    memberId: 'FPT-6211',
     name: 'Trần Bảo Lâm',
     tier: 'VIP Diamond',
     plan: 'Toàn Năng All-Access 5-Star VIP',
@@ -401,7 +401,7 @@ export const mockCheckIns = [
   },
   {
     id: 'chk_02',
-    memberId: 'ELT-5519',
+    memberId: 'FPT-5519',
     name: 'Đặng Tuấn Tú',
     tier: 'Gold Member',
     plan: 'Lớp Nhóm Huấn Luyện Tournament',
@@ -412,7 +412,7 @@ export const mockCheckIns = [
   },
   {
     id: 'chk_03',
-    memberId: 'ELT-3104',
+    memberId: 'FPT-3104',
     name: 'Lê Thu Băng',
     tier: 'Silver Member',
     plan: 'Gói Yoga & Fitness (Đã hết hạn)',
@@ -423,7 +423,7 @@ export const mockCheckIns = [
   },
   {
     id: 'chk_04',
-    memberId: 'ELT-8924',
+    memberId: 'FPT-8924',
     name: 'Nguyễn Minh Anh',
     tier: 'Silver Member',
     plan: 'Gói Pickleball Match Pass 10 Buổi',
@@ -438,7 +438,7 @@ export const mockAuditLogs = [
   {
     id: 'log_01',
     action: 'Kích hoạt gói tập',
-    target: 'Hội viên Trần Bảo Lâm (#ELT-6211) gói VIP Diamond 12 Tháng',
+    target: 'Hội viên Trần Bảo Lâm (#FPT-6211) gói VIP Diamond 12 Tháng',
     user: 'Lễ tân Hoàng Thu Trang',
     time: '10 phút trước',
   },
@@ -466,7 +466,7 @@ export const mockAuditLogs = [
   {
     id: 'log_05',
     action: 'Cấp thẻ hội viên mới',
-    target: 'Đăng ký mới hội viên Vũ Ngọc Lan (#ELT-9031) tại quầy',
+    target: 'Đăng ký mới hội viên Vũ Ngọc Lan (#FPT-9031) tại quầy',
     user: 'Lễ tân Hoàng Thu Trang',
     time: 'Hôm qua, 16:30',
   },
@@ -482,7 +482,7 @@ export const mockSports = [
 ];
 
 export const mockVouchers = [
-  { id: 'v_01', code: 'ELITE20', discountPercent: 20, maxDiscount: 500000, validUntil: '31/12/2026', usageLimit: 100, usedCount: 23, status: 'active', desc: 'Giảm 20% tối đa 500k khi mua gói thể thao mới' },
+  { id: 'v_01', code: 'FPT20', discountPercent: 20, maxDiscount: 500000, validUntil: '31/12/2026', usageLimit: 100, usedCount: 23, status: 'active', desc: 'Giảm 20% tối đa 500k khi mua gói thể thao FPT mới' },
   { id: 'v_02', code: 'CHAMPION50', discountPercent: 50, maxDiscount: 1000000, validUntil: '30/11/2026', usageLimit: 50, usedCount: 14, status: 'active', desc: 'Giảm 50% phí gia hạn cho học viên đạt MVP giải đấu' },
   { id: 'v_03', code: 'SUMMER30', discountPercent: 30, maxDiscount: 800000, validUntil: '15/12/2026', usageLimit: 200, usedCount: 88, status: 'active', desc: 'Ưu đãi hè - Giảm 30% khóa học Tennis & Bơi lội' },
   { id: 'v_04', code: 'WELCOME10', discountPercent: 10, maxDiscount: 200000, validUntil: '31/12/2026', usageLimit: 500, usedCount: 142, status: 'active', desc: 'Chào đón hội viên mới - Giảm 10% tại quầy' },
@@ -502,18 +502,18 @@ export const mockRetailInventory = [
 
 export const mockLockers = [
   { id: 'loc_01', number: '#01', area: 'Khu Nam', status: 'available', assignedTo: null },
-  { id: 'loc_07', number: '#07', area: 'Khu Nam', status: 'in-use', assignedTo: 'Đặng Tuấn Tú (ELT-5519)' },
-  { id: 'loc_12', number: '#12', area: 'Khu Nam VIP', status: 'in-use', assignedTo: 'Trần Bảo Lâm (ELT-6211)' },
+  { id: 'loc_07', number: '#07', area: 'Khu Nam', status: 'in-use', assignedTo: 'Đặng Tuấn Tú (FPT-5519)' },
+  { id: 'loc_12', number: '#12', area: 'Khu Nam VIP', status: 'in-use', assignedTo: 'Trần Bảo Lâm (FPT-6211)' },
   { id: 'loc_24', number: '#24', area: 'Khu Nữ', status: 'available', assignedTo: null },
-  { id: 'loc_28', number: '#28', area: 'Khu Nữ', status: 'in-use', assignedTo: 'Nguyễn Minh Anh (ELT-8924)' },
+  { id: 'loc_28', number: '#28', area: 'Khu Nữ', status: 'in-use', assignedTo: 'Nguyễn Minh Anh (FPT-8924)' },
   { id: 'loc_35', number: '#35', area: 'Khu Nữ VIP', status: 'available', assignedTo: null },
   { id: 'loc_42', number: '#42', area: 'Khu VIP Hỗn Hợp', status: 'maintenance', assignedTo: null },
 ];
 
 export const mockSupportTickets = [
-  { id: 'tkt_01', memberId: 'ELT-8924', memberName: 'Nguyễn Minh Anh', phone: '0987 654 321', category: 'Thiết bị & Tủ đồ', content: 'Quên vòng tay thông minh trong tủ #28 sau giờ tập Pickleball', status: 'resolved', assignedTo: 'Hoàng Thu Trang (Lễ tân)', createdAt: '08:15 AM Hôm nay' },
-  { id: 'tkt_02', memberId: 'ELT-5519', memberName: 'Đặng Tuấn Tú', phone: '0912 345 678', category: 'Bảo lưu gói tập', content: 'Đề nghị bảo lưu thẻ 14 ngày do chuyến công tác TP.HCM từ 25/11', status: 'in-progress', assignedTo: 'Trần Hoàng Long (Quản lý)', createdAt: '08:30 AM Hôm nay' },
-  { id: 'tkt_03', memberId: 'ELT-3104', memberName: 'Lê Thu Băng', phone: '0933 222 111', category: 'Khiếu nại ca tập', content: 'Nhiệt độ phòng Yoga hơi lạnh vào đầu giờ sáng, đề nghị điều chỉnh 26°C', status: 'pending', assignedTo: 'Chưa phân công', createdAt: 'Hôm qua, 17:20' },
+  { id: 'tkt_01', memberId: 'FPT-8924', memberName: 'Nguyễn Minh Anh', phone: '0987 654 321', category: 'Thiết bị & Tủ đồ', content: 'Quên vòng tay thông minh trong tủ #28 sau giờ tập Pickleball', status: 'resolved', assignedTo: 'Hoàng Thu Trang (Lễ tân)', createdAt: '08:15 AM Hôm nay' },
+  { id: 'tkt_02', memberId: 'FPT-5519', memberName: 'Đặng Tuấn Tú', phone: '0912 345 678', category: 'Bảo lưu gói tập', content: 'Đề nghị bảo lưu thẻ 14 ngày do chuyến công tác TP.HCM từ 25/11', status: 'in-progress', assignedTo: 'Trần Hoàng Long (Quản lý)', createdAt: '08:30 AM Hôm nay' },
+  { id: 'tkt_03', memberId: 'FPT-3104', memberName: 'Lê Thu Băng', phone: '0933 222 111', category: 'Khiếu nại ca tập', content: 'Nhiệt độ phòng Yoga hơi lạnh vào đầu giờ sáng, đề nghị điều chỉnh 26°C', status: 'pending', assignedTo: 'Chưa phân công', createdAt: 'Hôm qua, 17:20' },
 ];
 
 export const mockRefundRequests = [
@@ -529,7 +529,7 @@ export const mockCoachReviews = [
 ];
 
 export const mockPaymentHistory = [
-  { id: 'inv_01', invoiceId: 'INV-8924', date: '15/12/2025', description: 'Đăng ký Thẻ Hội Viên Silver Member (12 Tháng)', amount: 14280000, method: 'VNPAY-QR', status: 'Thành công', cashier: 'Cổng thanh toán online' },
-  { id: 'inv_02', invoiceId: 'INV-8921', date: '01/10/2026', description: 'Gói Pickleball Match Pass 10 Buổi (Áp mã ELITE20)', amount: 2000000, method: 'VietQR Chuyển khoản', status: 'Thành công', cashier: 'Lễ tân Hoàng Thu Trang' },
+  { id: 'inv_01', invoiceId: 'INV-8924', date: '15/12/2025', description: 'Đăng ký Thẻ Hội Viên Silver Member FPT (12 Tháng)', amount: 14280000, method: 'VNPAY-QR', status: 'Thành công', cashier: 'Cổng thanh toán online' },
+  { id: 'inv_02', invoiceId: 'INV-8921', date: '01/10/2026', description: 'Gói Pickleball Match Pass 10 Buổi (Áp mã FPT20)', amount: 2000000, method: 'VietQR Chuyển khoản', status: 'Thành công', cashier: 'Lễ tân Hoàng Thu Trang' },
   { id: 'inv_03', invoiceId: 'INV-8910', date: '18/11/2026', description: 'Mua 2 Pocari Sweat + Thuê Vợt Carbon', amount: 100000, method: 'Tiền mặt', status: 'Thành công', cashier: 'Lễ tân Hoàng Thu Trang' },
 ];

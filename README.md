@@ -107,6 +107,7 @@ git branch -d feature/coach-class-attendance
 ### Yêu cầu trước khi cài đặt:
 
 * Đã cài đặt **Git** và **Node.js** (khuyến nghị phiên bản v18.x hoặc v20.x).
+* Đã cài đặt **JDK 25** để chạy backend Java.
 * Đã cài đặt và khởi động cơ sở dữ liệu: **PostgreSQL** (hoặc **MySQL**).
 
 ---
