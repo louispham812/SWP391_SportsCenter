@@ -1,5 +1,6 @@
 package com.sporthub.backend.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record ClassSessionResponse(
@@ -15,5 +16,6 @@ public record ClassSessionResponse(
         Integer bookedSlots,
         String status,
         Long memberBookingId,
-        String memberBookingStatus) {
+        String memberBookingStatus,
+        BigDecimal priceAmount) {
 }

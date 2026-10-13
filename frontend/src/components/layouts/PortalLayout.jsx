@@ -17,57 +17,9 @@ export default function PortalLayout({
   const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { members, classes, logout, showToast } = useApp();
+  const { logout } = useApp();
 
   const searchInputRef = useRef(null);
-
-  // Initial Notifications State
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: 'Lịch học sắp diễn ra',
-      desc: 'Lớp Pickleball Chiến Thuật Pro bắt đầu lúc 18:00 tại Sân 01.',
-      time: '5 phút trước',
-      read: false,
-      icon: 'sports_tennis',
-      color: 'bg-lime-100 text-lime-800',
-      link: '/member/schedule',
-    },
-    {
-      id: 2,
-      title: 'Hội viên mới check-in',
-      desc: 'Nguyễn Minh Anh vừa check-in qua cổng RFID - Tủ đồ #24.',
-      time: '15 phút trước',
-      read: false,
-      icon: 'badge',
-      color: 'bg-emerald-100 text-emerald-800',
-      link: '/receptionist',
-    },
-    {
-      id: 3,
-      title: 'Cập nhật lịch thi đấu',
-      desc: 'HLV Lê Anh Tuấn đã phê duyệt giáo án bài tập về nhà.',
-      time: '1 giờ trước',
-      read: true,
-      icon: 'fact_check',
-      color: 'bg-blue-100 text-blue-800',
-      link: '/coach/attendance',
-    },
-    {
-      id: 4,
-      title: 'Cảnh báo thời hạn gói',
-      desc: 'Thẻ Silver Member còn 26 ngày trước khi đến hạn gia hạn.',
-      time: '1 ngày trước',
-      read: true,
-      icon: 'card_membership',
-      color: 'bg-amber-100 text-amber-800',
-      link: '/admin/packages',
-    },
-  ]);
-
-  const [notificationFilter, setNotificationFilter] = useState('all'); // 'all' | 'unread'
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
 
   // Global Keyboard Shortcut: Cmd+K / Ctrl+K
   useEffect(() => {
@@ -95,7 +47,9 @@ export default function PortalLayout({
   // System pages directory for quick jump
   const systemPages = [
     { title: 'Tổng quan Hội viên', subtitle: 'Bảng điều khiển cá nhân, lịch tập hôm nay', path: '/member', icon: 'dashboard', roleName: 'Hội viên' },
-    { title: 'Lịch học & Đặt lớp', subtitle: 'Thời khóa biểu, đặt chỗ và hủy lịch', path: '/member/schedule', icon: 'calendar_month', roleName: 'Hội viên' },
+    { title: 'Đặt sân chơi', subtitle: 'Chọn môn thể thao, sân, khung giờ và thanh toán', path: '/member/book/court/sports', icon: 'sports_tennis', roleName: 'Hội viên' },
+    { title: 'Booking lớp học', subtitle: 'Chọn môn thể thao, lớp học, lịch và thanh toán', path: '/member/book/class/sports', icon: 'fitness_center', roleName: 'Hội viên' },
+    { title: 'Thời khóa biểu của tôi', subtitle: 'Lịch sân và lịch lớp đã thanh toán', path: '/member/schedule', icon: 'calendar_month', roleName: 'Hội viên' },
     { title: 'Tiến độ & Trợ lý AI', subtitle: 'Gợi ý bài tập AI, phân tích InBody', path: '/member/ai-assistant', icon: 'smart_toy', roleName: 'Hội viên' },
     { title: 'Hồ sơ & Thẻ số cá nhân', subtitle: 'Mã QR check-in, lịch sử tập luyện', path: '/member/profile', icon: 'badge', roleName: 'Hội viên' },
     { title: 'Check-in Lễ tân tại quầy', subtitle: 'Quét thẻ RFID, tìm kiếm hội viên, mở tủ đồ', path: '/receptionist', icon: 'how_to_reg', roleName: 'Lễ tân' },
@@ -118,25 +72,6 @@ export default function PortalLayout({
       p.subtitle.toLowerCase().includes(cleanQuery) ||
       p.roleName.toLowerCase().includes(cleanQuery)
   );
-
-  const matchedMembers = members.filter(
-    (m) =>
-      m.name.toLowerCase().includes(cleanQuery) ||
-      m.phone.includes(cleanQuery) ||
-      m.memberId.toLowerCase().includes(cleanQuery)
-  ).slice(0, 4);
-
-  const matchedClasses = classes.filter(
-    (c) =>
-      c.title.toLowerCase().includes(cleanQuery) ||
-      c.sport.toLowerCase().includes(cleanQuery) ||
-      c.coach.toLowerCase().includes(cleanQuery)
-  ).slice(0, 3);
-
-  const handleMarkAllRead = () => {
-    setNotifications(notifications.map((n) => ({ ...n, read: true })));
-    showToast('Thông báo', 'Đã đánh dấu tất cả thông báo là đã đọc!', 'info');
-  };
 
   return (
     <div className="min-h-screen bg-[#f7f9fb] font-body-md text-slate-800 antialiased flex flex-col pb-16 lg:pb-0">
@@ -318,111 +253,19 @@ export default function PortalLayout({
                 }}
                 type="button"
                 className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors relative cursor-pointer"
-                title="Thông báo hệ thống"
+                title="Thông báo"
               >
                 <span className="material-symbols-outlined text-[18px]">notifications</span>
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white shadow-sm">
-                    {unreadCount}
-                  </span>
-                )}
               </button>
 
               {/* Notification Flyout Menu */}
               {notificationsOpen && (
                 <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-headline-sm text-sm font-bold text-slate-900">
-                        Thông Báo Mới
-                      </h3>
-                      {unreadCount > 0 && (
-                        <span className="px-2 py-0.5 rounded-full bg-[#c1f100] text-slate-950 text-[10px] font-bold">
-                          {unreadCount} chưa đọc
-                        </span>
-                      )}
-                    </div>
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={handleMarkAllRead}
-                        className="text-[11px] text-emerald-800 font-bold hover:underline cursor-pointer"
-                      >
-                        Đọc tất cả
-                      </button>
-                    )}
+                  <div className="pb-3 border-b border-slate-100">
+                    <h3 className="font-headline-sm text-sm font-bold text-slate-900">Thông báo</h3>
                   </div>
-
-                  {/* Filter tabs */}
-                  <div className="flex gap-2 pt-2 pb-1">
-                    <button
-                      onClick={() => setNotificationFilter('all')}
-                      className={`text-xs px-2.5 py-1 rounded-lg font-semibold cursor-pointer ${
-                        notificationFilter === 'all'
-                          ? 'bg-slate-900 text-white'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      Tất cả
-                    </button>
-                    <button
-                      onClick={() => setNotificationFilter('unread')}
-                      className={`text-xs px-2.5 py-1 rounded-lg font-semibold cursor-pointer ${
-                        notificationFilter === 'unread'
-                          ? 'bg-slate-900 text-white'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      Chưa đọc ({unreadCount})
-                    </button>
-                  </div>
-
-                  {/* Notifications list */}
-                  <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 pt-1">
-                    {notifications
-                      .filter((n) => (notificationFilter === 'unread' ? !n.read : true))
-                      .map((n) => (
-                        <div
-                          key={n.id}
-                          onClick={() => {
-                            setNotifications(
-                              notifications.map((item) =>
-                                item.id === n.id ? { ...item, read: true } : item
-                              )
-                            );
-                            setNotificationsOpen(false);
-                            if (n.link) navigate(n.link);
-                          }}
-                          className={`flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer ${
-                            !n.read ? 'bg-slate-50/70' : ''
-                          }`}
-                        >
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${n.color}`}>
-                            <span className="material-symbols-outlined text-[18px]">{n.icon}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-900 truncate">
-                                {n.title}
-                              </span>
-                              {!n.read && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#c1f100] shrink-0"></span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">
-                              {n.desc}
-                            </p>
-                            <span className="text-[10px] text-slate-400 mt-1 block font-mono">
-                              {n.time}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-100 mt-2 text-center">
-                    <span className="text-[11px] text-slate-400">
-                      Cập nhật tự động thời gian thực qua WebSockets
-                    </span>
+                  <div className="py-8 text-center text-xs text-slate-500">
+                    Chưa có thông báo từ hệ thống.
                   </div>
                 </div>
               )}
@@ -575,7 +418,7 @@ export default function PortalLayout({
                 ref={searchInputRef}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm trang chức năng, hội viên, lịch học, gói tập... (gõ để lọc)"
+                placeholder="Tìm trang chức năng (gõ để lọc)"
                 className="w-full py-4 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
               />
               {searchQuery && (
@@ -624,78 +467,6 @@ export default function PortalLayout({
                   ))}
                 </div>
               </div>
-
-              {/* 2. Members (if query matches) */}
-              {matchedMembers.length > 0 && (
-                <div>
-                  <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Hội Viên Tìm Thấy ({matchedMembers.length})
-                  </div>
-                  <div className="flex flex-col gap-1 mt-1">
-                    {matchedMembers.map((m) => (
-                      <button
-                        key={m.id}
-                        onClick={() => {
-                          navigate('/receptionist');
-                          setSearchOpen(false);
-                        }}
-                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-[#00132b] text-[#c1f100] flex items-center justify-center text-xs font-bold">
-                            {m.name.charAt(0)}
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold text-slate-900">{m.name}</div>
-                            <div className="text-[11px] text-slate-500 font-mono">
-                              {m.phone} • {m.memberId}
-                            </div>
-                          </div>
-                        </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-bold border border-emerald-200">
-                          {m.tier} Member
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 3. Classes (if query matches) */}
-              {matchedClasses.length > 0 && (
-                <div>
-                  <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Lớp Học Thể Thao ({matchedClasses.length})
-                  </div>
-                  <div className="flex flex-col gap-1 mt-1">
-                    {matchedClasses.map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => {
-                          navigate('/member/schedule');
-                          setSearchOpen(false);
-                        }}
-                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
-                            <span className="material-symbols-outlined text-[18px]">sports_tennis</span>
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold text-slate-900">{c.title}</div>
-                            <div className="text-[11px] text-slate-500">
-                              {c.time} • {c.room} ({c.coach})
-                            </div>
-                          </div>
-                        </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#c1f100] text-slate-950 font-bold">
-                          {c.enrolled}/{c.capacity} Chỗ
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
             </div>
 

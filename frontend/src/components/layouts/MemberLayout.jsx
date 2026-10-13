@@ -3,10 +3,12 @@ import PortalLayout from './PortalLayout';
 import { useApp } from '../../context/AppContext';
 
 export default function MemberLayout({ children }) {
-  const { currentUser, showToast } = useApp();
+  const { currentUser } = useApp();
   const memberMenu = [
     { label: 'Tổng quan hội viên', path: '/member', icon: 'dashboard' },
-    { label: 'Lịch học & Đặt lớp', path: '/member/schedule', icon: 'calendar_month' },
+    { label: 'Đặt sân chơi', path: '/member/book/court/sports', icon: 'sports_tennis' },
+    { label: 'Booking lớp học', path: '/member/book/class/sports', icon: 'fitness_center' },
+    { label: 'Thời khóa biểu của tôi', path: '/member/schedule', icon: 'calendar_month' },
     { label: 'Tiến độ & Trợ lý AI', path: '/member/ai-assistant', icon: 'smart_toy' },
     { label: 'Hồ sơ & Thẻ số', path: '/member/profile', icon: 'badge' },
     { label: 'Gói tập & Bảng giá', path: '/pricing', icon: 'card_membership' },
@@ -18,15 +20,6 @@ export default function MemberLayout({ children }) {
       roleBadge="ELITE MEMBER"
       currentUser={currentUser}
       menuItems={memberMenu}
-      quickAction={{
-        label: 'Mã Thẻ QR',
-        icon: 'qr_code_scanner',
-        onClick: () => {
-          const qrBtn = document.getElementById('quick-qr-trigger');
-          if (qrBtn) qrBtn.click();
-          else showToast('Mã Check-in QR', 'Mã cá nhân của bạn là #ELT-8924. Vui lòng đưa trước máy quét tại quầy!', 'info');
-        },
-      }}
     >
       {children}
     </PortalLayout>

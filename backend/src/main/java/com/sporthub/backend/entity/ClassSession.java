@@ -2,6 +2,7 @@ package com.sporthub.backend.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -42,4 +43,7 @@ public class ClassSession {
     @Builder.Default
     @Column(length = 20)
     private String status = "SCHEDULED"; // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+
+    @Column(name = "price_amount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal priceAmount;
 }

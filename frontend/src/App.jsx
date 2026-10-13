@@ -10,6 +10,7 @@ import PublicContentPage from './pages/PublicContentPage';
 // Member Portal Pages
 import MemberDashboardPage from './pages/member/MemberDashboardPage';
 import MemberSchedulePage from './pages/member/MemberSchedulePage';
+import MemberBookingFlowPage from './pages/member/MemberBookingFlowPage';
 import MemberAIAssistantPage from './pages/member/MemberAIAssistantPage';
 import MemberProfilePage from './pages/member/MemberProfilePage';
 
@@ -65,6 +66,12 @@ function App() {
 
         {/* Member Routes (Flow 1, 2, 5, 6) */}
         <Route path="/member" element={<RequireRole role="member"><MemberDashboardPage /></RequireRole>} />
+        <Route path="/member/book" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+        <Route path="/member/book/:bookingType/sports" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+        <Route path="/member/book/courts/:sportId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+        <Route path="/member/book/classes/:sportId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+        <Route path="/member/book/checkout/:bookingType/:resourceId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+        <Route path="/member/book/confirmation" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
         <Route path="/member/schedule" element={<RequireRole role="member"><MemberSchedulePage /></RequireRole>} />
         <Route path="/member/ai-assistant" element={<RequireRole role="member"><MemberAIAssistantPage /></RequireRole>} />
         <Route path="/member/profile" element={<RequireRole role="member"><MemberProfilePage /></RequireRole>} />

@@ -28,15 +28,6 @@ public class BookingController {
                 actorId(authentication), actorRole(authentication)));
     }
 
-    @PostMapping
-    public ResponseEntity<Booking> bookClass(
-            @RequestParam Long sessionId,
-            Authentication authentication) {
-        requireRole(authentication, "MEMBER");
-        Booking booking = bookingService.createBooking(actorId(authentication), sessionId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(booking);
-    }
-
     @GetMapping("/my-schedule")
     public ResponseEntity<List<Booking>> getMySchedule(Authentication authentication) {
         requireRole(authentication, "MEMBER");
@@ -48,7 +39,7 @@ public class BookingController {
             @PathVariable Long bookingId,
             Authentication authentication) {
         requireRole(authentication, "MEMBER");
-        return ResponseEntity.ok(bookingService.cancelBooking(bookingId, actorId(authentication)));
+        return ResponseEntity.ok(bookingService.cancelClassBooking(bookingId, actorId(authentication)));
     }
 
     @GetMapping("/classes/{sessionId}/roster")
