@@ -17,7 +17,7 @@ export default function MemberLayout({ children }) {
     { id: 3, title: 'Gia hạn gói tập', desc: 'Thẻ Diamond VIP còn 320 ngày sử dụng.', time: '1 ngày trước', unread: false },
   ];
 
-  // Danh sách Menu Sidebar Đầy Đủ (Đã chuẩn hóa cụm từ Kế hoạch tập luyện & Nhận xét HLV)
+  // Danh sách Menu Sidebar Đầy Đủ (Đã đổi cụm từ "Thông tin cá nhân")
   const memberNavItems = [
     { path: '/member', label: 'Trang chủ Tổng quan', icon: 'dashboard' },
     { path: '/member/schedule', label: 'Lịch tập cá nhân', icon: 'event_available' },
@@ -28,11 +28,11 @@ export default function MemberLayout({ children }) {
     { path: '/member/wallet', label: 'Ví FPT Pay & F-Points', icon: 'account_balance_wallet' },
     { path: '/member/matchmaking', label: 'Ghép đội & Giải đấu', icon: 'groups' },
     { path: '/member/analytics', label: 'Thống kê & InBody', icon: 'analytics' },
-    { path: '/member/workout-plan', label: 'Kế hoạch tập luyện & Nhận xét HLV', icon: 'fitness_center' }, // ĐÃ CHỦÂN HÓA CỤM TỪ
+    { path: '/member/workout-plan', label: 'Kế hoạch tập luyện & Nhận xét HLV', icon: 'fitness_center' },
     { path: '/member/reviews', label: 'Đánh giá HLV & Lớp', icon: 'star' },
     { path: '/member/membership', label: 'Gói tập & Gia hạn', icon: 'card_membership' },
     { path: '/member/ai-assistant', label: 'Trợ lý Thể thao AI', icon: 'smart_toy' },
-    { path: '/member/profile', label: 'Hồ sơ cá nhân', icon: 'person' },
+    { path: '/member/profile', label: 'Thông tin cá nhân', icon: 'person' }, // ĐÃ ĐỔI CỤM TỪ
   ];
 
   return (
@@ -96,17 +96,17 @@ export default function MemberLayout({ children }) {
 
         <div className="p-4 border-t border-slate-100 bg-slate-50/50 shrink-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-9 h-9 rounded-xl bg-orange-500 text-white font-black text-xs flex items-center justify-center shrink-0">
+            <Link to="/member/profile" className="flex items-center gap-2.5 overflow-hidden group">
+              <div className="w-9 h-9 rounded-xl bg-orange-500 text-white font-black text-xs flex items-center justify-center shrink-0 group-hover:bg-orange-600 transition-colors">
                 {currentUser?.name ? currentUser.name.charAt(0) : 'M'}
               </div>
               <div className="truncate">
-                <div className="text-xs font-bold text-slate-900 truncate">
+                <div className="text-xs font-bold text-slate-900 truncate group-hover:text-orange-600 transition-colors">
                   {currentUser?.name || 'Member Võ Tấn Triều'}
                 </div>
                 <div className="text-[10px] text-slate-500 truncate">Hội viên Thể thao FPT</div>
               </div>
-            </div>
+            </Link>
 
             <button
               type="button"
@@ -188,9 +188,21 @@ export default function MemberLayout({ children }) {
               )}
             </div>
 
-            <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
-              TT
-            </div>
+            {/* AVATAR TRÊN HEADER CÓ THỂ BẤM DẪN TỚI THÔNG TIN CÁ NHÂN */}
+            <Link
+              to="/member/profile"
+              title="Thông tin cá nhân"
+              className="w-9 h-9 rounded-xl bg-slate-900 hover:bg-orange-500 text-white font-black text-xs flex items-center justify-center shadow-md transition-colors cursor-pointer"
+            >
+              {currentUser?.name
+                ? currentUser.name
+                    .split(/\s+/)
+                    .map((n) => n[0])
+                    .slice(-2)
+                    .join('')
+                    .toUpperCase()
+                : 'TT'}
+            </Link>
           </div>
         </header>
 

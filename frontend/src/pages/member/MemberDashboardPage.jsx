@@ -8,7 +8,6 @@ export default function MemberDashboardPage() {
   const {
     currentUser,
     activePlan,
-    healthProfile,
     classes = [],
     cancelClass,
     showToast,
@@ -16,12 +15,11 @@ export default function MemberDashboardPage() {
 
   // Modal QR Check-in
   const [showQRModal, setShowQRModal] = useState(false);
-  const [qrCountdown, setQrCountdown] = useState(30);
+  const [qrCountdown] = useState(30);
 
   // Tab chuyển đổi nội dung chính
-  const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'plan' | 'history'
+  const [activeTab, setActiveTab] = useState('upcoming');
 
-  // Phòng chống crash nếu chưa nạp xong Context
   const user = useMemo(() => currentUser || {
     name: 'Hội viên',
     id: 'MEM001',
@@ -39,12 +37,10 @@ export default function MemberDashboardPage() {
     tier: 'Gold',
   }, [activePlan]);
 
-  // Lớp đã đặt chỗ
   const upcomingClasses = useMemo(() => {
     return classes.filter((c) => c?.isBooked);
   }, [classes]);
 
-  // Kế hoạch tập & Nhận xét mới từ HLV
   const coachFeedback = useMemo(() => [
     {
       id: 1,
@@ -56,14 +52,12 @@ export default function MemberDashboardPage() {
     },
   ], []);
 
-  // Lịch sử điểm danh
   const attendanceHistory = useMemo(() => [
     { date: '17/10/2026', class: 'Pickleball Chiến Thuật Nâng Cao', coach: 'HLV Lê Anh Tuấn', status: 'Có mặt', calories: 420 },
     { date: '15/10/2026', class: 'Yoga Phục Hồi & Trị Liệu', coach: 'HLV Vũ Thu Hà', status: 'Có mặt', calories: 280 },
     { date: '12/10/2026', class: 'Pickleball Căn Bản & Footwork', coach: 'HLV Lê Anh Tuấn', status: 'Có mặt', calories: 390 },
   ], []);
 
-  // Thông báo
   const notifications = useMemo(() => [
     { id: 1, type: 'schedule', title: 'Lịch học hôm nay', desc: 'Lớp Pickleball Chiến Thuật diễn ra lúc 18:00 tại Sân Pro 01.', time: '15 phút trước' },
     { id: 2, type: 'alert', title: 'Đổi phòng tập', desc: 'Lớp Yoga ngày 21/10 chuyển sang Studio 02.', time: '2 giờ trước' },
@@ -82,14 +76,14 @@ export default function MemberDashboardPage() {
             
             {/* Thông tin hội viên */}
             <div className="flex items-center gap-4">
-              <div className="relative">
+              <Link to="/member/profile" title="Xem thông tin cá nhân" className="relative group">
                 <img
                   src={user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
                   alt={user.name}
-                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-orange-500 shadow-md"
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-orange-500 shadow-md group-hover:scale-105 transition-transform"
                 />
                 <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-2 border-slate-900 rounded-full"></span>
-              </div>
+              </Link>
 
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
@@ -134,7 +128,7 @@ export default function MemberDashboardPage() {
           </div>
         </div>
 
-        {/* 2. THANH THAO TÁC NHANH (QUICK ACCESS TOOLBAR) */}
+        {/* 2. THANH THAO TÁC NHANH */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <Link
             to="/member/schedule"
@@ -183,17 +177,13 @@ export default function MemberDashboardPage() {
             <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 group-hover:bg-slate-900 group-hover:text-white transition-colors flex items-center justify-center">
               <span className="material-symbols-outlined text-[22px]">manage_accounts</span>
             </div>
-            <span className="text-xs font-bold text-slate-800">Cập Nhật Hồ Sơ</span>
+            <span className="text-xs font-bold text-slate-800">Thông Tin Cá Nhân</span>
           </Link>
         </div>
 
-        {/* 3. KHU VỰC NỘI DUNG CHÍNH (LAYOUT 2 CỘT) */}
+        {/* 3. KHU VỰC NỘI DUNG CHÍNH */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
-          {/* CỘT TRÁI (8 COLS) - LỊCH TẬP & KẾ HOẠCH TẬP */}
           <div className="lg:col-span-8 space-y-6">
-            
-            {/* Thanh Tab Chuyển Đổi */}
             <div className="bg-white p-1.5 rounded-2xl border border-slate-200 flex items-center gap-1 shadow-sm">
               <button
                 type="button"
@@ -235,7 +225,7 @@ export default function MemberDashboardPage() {
               </button>
             </div>
 
-            {/* TAB 1: LỚP ĐÃ ĐẶT CHỖ */}
+            {/* TAB 1 */}
             {activeTab === 'upcoming' && (
               <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
@@ -303,7 +293,7 @@ export default function MemberDashboardPage() {
               </div>
             )}
 
-            {/* TAB 2: LỜI KHUYÊN & NHẬN XÉT TỪ HLV */}
+            {/* TAB 2 */}
             {activeTab === 'plan' && (
               <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -341,7 +331,7 @@ export default function MemberDashboardPage() {
               </div>
             )}
 
-            {/* TAB 3: LỊCH SỬ ĐIỂM DANH */}
+            {/* TAB 3 */}
             {activeTab === 'history' && (
               <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
                 <h2 className="text-base font-black text-slate-900 uppercase">
@@ -382,10 +372,7 @@ export default function MemberDashboardPage() {
             )}
           </div>
 
-          {/* CỘT PHẢI (4 COLS) - TRỢ LÝ AI & THÔNG BÁO */}
           <div className="lg:col-span-4 space-y-6">
-            
-            {/* BOX 1: TRỢ LÝ AI HUB */}
             <div className="bg-slate-900 text-white p-6 rounded-3xl space-y-4 shadow-lg relative overflow-hidden">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase text-orange-400 bg-orange-500/20 px-2.5 py-0.5 rounded-full border border-orange-500/30">
@@ -410,7 +397,6 @@ export default function MemberDashboardPage() {
               </Link>
             </div>
 
-            {/* BOX 2: THÔNG BÁO TỰ ĐỘNG */}
             <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-3">
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                 <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">

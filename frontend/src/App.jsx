@@ -20,16 +20,18 @@ import MemberWorkoutPlanPage from './pages/member/MemberWorkoutPlanPage';
 import MemberMembershipPage from './pages/member/MemberMembershipPage';
 import MemberAIAssistantPage from './pages/member/MemberAIAssistantPage';
 import MemberProfilePage from './pages/member/MemberProfilePage';
-import MemberPlaceholderPage from './pages/member/MemberPlaceholderPage'; // Component sườn thông minh cho các trang mới
+import MemberPlaceholderPage from './pages/member/MemberPlaceholderPage';
 
 // Receptionist Portal Pages
 import ReceptionCheckInPage from './pages/receptionist/ReceptionCheckInPage';
 import ReceptionPOSPage from './pages/receptionist/ReceptionPOSPage';
 
-// Coach Portal Pages
+// Coach Portal Pages (ĐÃ BỔ SUNG ĐẦY ĐỦ VÀ ĐỒNG BỘ)
+import CoachDashboardPage from './pages/coach/CoachDashboardPage';
 import CoachSchedulePage from './pages/coach/CoachSchedulePage';
 import CoachStudentsPage from './pages/coach/CoachStudentsPage';
 import CoachAttendancePage from './pages/coach/CoachAttendancePage';
+import CoachProfilePage from './pages/coach/CoachProfilePage';
 
 // Admin / Manager Portal Pages
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
@@ -71,7 +73,7 @@ function App() {
           <Route path="/login" element={<AuthPage />} />
           <Route path="/register" element={<AuthPage />} />
 
-          {/* Member Routes - ĐẦY ĐỦ CÁC TRANG CỐT LÕI & SƯỜN MỞ RỘNG */}
+          {/* Member Routes */}
           <Route path="/member" element={<RequireRole role="member"><MemberDashboardPage /></RequireRole>} />
           <Route path="/member/schedule" element={<RequireRole role="member"><MemberSchedulePage /></RequireRole>} />
           <Route path="/member/classes" element={<RequireRole role="member"><MemberClassBookingPage /></RequireRole>} />
@@ -82,7 +84,6 @@ function App() {
           <Route path="/member/profile" element={<RequireRole role="member"><MemberProfilePage /></RequireRole>} />
           <Route path="/member/attendance" element={<RequireRole role="member"><MemberAttendanceHistoryPage /></RequireRole>} />
           <Route path="/member/workout-plan" element={<RequireRole role="member"><MemberWorkoutPlanPage /></RequireRole>} />
-          {/* SƯỜN CÁC TRANG MỚI ĐƯỢC TÍCH HỢP SẴN ROUTE */}
           <Route path="/member/court-booking" element={<RequireRole role="member"><MemberPlaceholderPage title="Đặt Sân Tự Do & Chia Tiền Sân" icon="stadium" desc="Sơ đồ chọn sân Pickleball, Cầu Lông, Tennis theo giờ thực & mời bạn cùng chia tiền." /></RequireRole>} />
           <Route path="/member/wallet" element={<RequireRole role="member"><MemberPlaceholderPage title="Ví FPT Pay & Tích Điểm F-Points" icon="account_balance_wallet" desc="Nạp tiền trước thanh toán 1-click, lưu tiền hoàn ca tập & đổi điểm chuyên cần lấy quà." /></RequireRole>} />
           <Route path="/member/matchmaking" element={<RequireRole role="member"><MemberPlaceholderPage title="Ghép Đội & Giải Đấu Nội Bộ" icon="groups" desc="Tìm bạn tập cùng trình độ, đăng ký giải đấu FPT Open và bảng xếp hạng ELO." /></RequireRole>} />
@@ -95,11 +96,13 @@ function App() {
           <Route path="/receptionist/members" element={<RequireRole role="receptionist"><ReceptionCheckInPage /></RequireRole>} />
           <Route path="/receptionist/shift" element={<RequireRole role="receptionist"><ReceptionPOSPage /></RequireRole>} />
 
-          {/* Coach Routes */}
-          <Route path="/coach" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
+          {/* Coach Routes (ĐÃ CHUẨN HÓA LOGIC ROUTING) */}
+          <Route path="/coach" element={<RequireRole role="coach"><CoachDashboardPage /></RequireRole>} />
+          <Route path="/coach/schedule" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
           <Route path="/coach/students" element={<RequireRole role="coach"><CoachStudentsPage /></RequireRole>} />
           <Route path="/coach/attendance" element={<RequireRole role="coach"><CoachAttendancePage /></RequireRole>} />
-          <Route path="/coach/income" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
+          <Route path="/coach/income" element={<RequireRole role="coach"><CoachDashboardPage /></RequireRole>} />
+          <Route path="/coach/profile" element={<RequireRole role="coach"><CoachProfilePage /></RequireRole>} />
 
           {/* Admin Routes */}
           <Route path="/admin" element={<RequireRole role="admin"><AdminDashboardPage /></RequireRole>} />
