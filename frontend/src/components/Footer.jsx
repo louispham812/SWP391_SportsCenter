@@ -19,7 +19,7 @@ export default function Footer() {
               </span>
             </Link>
             <p className="text-xs text-slate-600 leading-relaxed font-medium mt-2">
-              Tổ hợp thể thao đa năng F Sport Center chuẩn quốc tế phục vụ sinh viên, giảng viên và cộng đồng FPT.
+              Tổ hợp thể thao đa năng F Sport Center chuẩn quốc tế phục vụ hội viên và cộng đồng đam mê rèn luyện thể lực.
             </p>
           </div>
 
@@ -29,12 +29,12 @@ export default function Footer() {
               Liên hệ & Cơ sở
             </h4>
             <p className="text-xs text-slate-600 mb-2 font-medium">
-              Khu Thể Thao FPT, Đường Khu Công Nghệ Cao, Hà Nội / TP.HCM
+              Khu Thể Thao F Sport, Đường Khu Công Nghệ Cao, TP.HCM / Hà Nội
             </p>
             <p className="text-xs text-orange-600 font-extrabold mb-2">
               Hotline: 1900 8899 (24/7)
             </p>
-            <p className="text-xs text-slate-600 font-medium">fsportscenter@fpt.edu.vn</p>
+            <p className="text-xs text-slate-600 font-medium">contact@fsportcenter.vn</p>
           </div>
 
           {/* Col 3 */}
@@ -62,7 +62,7 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-slate-100 text-xs text-slate-500 font-medium">
-          <p>© 2026 F SPORT CENTER · SWP391 FPT University Project</p>
+          <p>© 2026 F SPORT CENTER · ATHLETIC PERFORMANCE SANCTUARY</p>
           <span className="font-bold text-orange-600 uppercase tracking-wider">PERFORMANCE FIRST</span>
         </div>
       </div>

@@ -150,7 +150,7 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f7f9fb] font-body-md text-slate-800 antialiased selection:bg-[#c1f100] selection:text-[#00132b]">
+    <div className="min-h-screen bg-[#f7f9fb] font-body-md text-slate-800 antialiased selection:bg-orange-500 selection:text-white">
       {/* =========================================
           TOP FLOATING NAVIGATION
          ========================================= */}

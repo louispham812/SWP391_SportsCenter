@@ -34,10 +34,9 @@ export default function Navbar() {
     <header className="fixed top-0 w-full z-40 bg-white/95 backdrop-blur-xl border-b border-slate-200/80 shadow-xs transition-all">
       <div className="h-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         
-        {/* BRAND LOGO - CHỮ F THỂ THAO MÀU CAM */}
+        {/* BRAND LOGO - CHỮ F CAM THỂ THAO */}
         <Link to="/" className="flex items-center gap-3 group">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 shadow-md shadow-orange-500/30 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
-            {/* Chữ F nghiêng phong cách thể thao */}
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -54,8 +53,9 @@ export default function Navbar() {
             <span className="font-headline-sm text-[18px] uppercase tracking-tight text-slate-900 flex items-center gap-1 font-black">
               F SPORT <span className="text-orange-500">CENTER</span>
             </span>
+            {/* Đã đổi slogan chuẩn Thương hiệu Thể thao */}
             <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
-              FPT University Sanctuary
+              ATHLETIC PERFORMANCE SANCTUARY
             </span>
           </div>
         </Link>

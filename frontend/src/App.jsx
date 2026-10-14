@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
 // Public Pages
@@ -54,11 +54,6 @@ function RequireRole({ role, children }) {
 }
 
 function App() {
-  // Đồng bộ tiêu đề Tab trình duyệt chính xác
-  useEffect(() => {
-    document.title = 'F Sport Center - FPT Athletic Sanctuary';
-  }, []);
-
   return (
     <AppProvider>
       <BrowserRouter>

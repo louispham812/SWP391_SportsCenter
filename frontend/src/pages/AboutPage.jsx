@@ -4,12 +4,12 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
 export default function AboutPage() {
-  // Chỉ số ấn tượng của FPT Sports Center
+  // Chỉ số ấn tượng của F Sport Center
   const milestones = [
     { number: '15.000 m²', label: 'Tổng diện tích quy hoạch', icon: 'aspect_ratio' },
     { number: '30+', label: 'Bộ môn thể thao đa dạng', icon: 'sports_tennis' },
     { number: '50+', label: 'HLV chứng chỉ quốc tế (NASM/PPR)', icon: 'workspace_premium' },
-    { number: '98%', label: 'Sinh viên & Hội viên hài lòng', icon: 'sentiment_very_satisfied' },
+    { number: '98%', label: 'Hội viên trải nghiệm hài lòng', icon: 'sentiment_very_satisfied' },
   ];
 
   // Giá trị cốt lõi
@@ -22,7 +22,7 @@ export default function AboutPage() {
     },
     {
       title: 'Công Nghệ AI Tiên Tiến',
-      desc: 'Tích hợp hệ thống phân tích InBody, AI đề xuất giáo án cá nhân hóa và quản lý check-in RFID 1-touch.',
+      desc: 'Tích hợp hệ thống phân tích InBody 770, AI đề xuất giáo án cá nhân hóa và quản lý check-in RFID 1-touch.',
       icon: 'smart_toy',
       badge: 'INNOVATION',
     },
@@ -34,7 +34,7 @@ export default function AboutPage() {
     },
     {
       title: 'Cộng Đồng Kết Nối',
-      desc: 'Nơi giao lưu, ghép đội thi đấu và phát triển phong trào thể thao sinh viên FPT năng động, lành mạnh.',
+      desc: 'Nơi giao lưu, ghép đội thi đấu và phát triển phong trào thể thao năng động, lành mạnh.',
       icon: 'groups',
       badge: 'COMMUNITY',
     },
@@ -88,22 +88,22 @@ export default function AboutPage() {
             <div className="max-w-3xl space-y-6">
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[11px] font-black uppercase tracking-widest">
                 <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse"></span>
-                VỀ CHÚNG TÔI • FPT SPORTS CENTER
+                VỀ CHÚNG TÔI • F SPORT CENTER
               </div>
 
               <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black uppercase tracking-tight leading-tight text-white">
-                Kiến Tạo Thế Hệ <br />
-                <span className="text-orange-500">Sinh Viên FPT</span> Toàn Năng
+                Kiến Tạo Không Gian <br />
+                <span className="text-orange-500">Thể Thao Đỉnh Cao</span> Cho Hội Viên
               </h1>
 
               <p className="text-base sm:text-lg text-slate-300 font-medium leading-relaxed max-w-2xl">
-                FPT Sports Center là siêu tổ hợp thể thao đa năng chuẩn quốc tế, tích hợp công nghệ AI chuyển đổi số hiện đại. Chúng tôi sứ mệnh mang lại không gian rèn luyện thể lực tối tân, truyền cảm hứng sống khỏe và bứt phá phong độ thi đấu.
+                F Sport Center là siêu tổ hợp thể thao đa năng chuẩn quốc tế, tích hợp công nghệ AI chuyển đổi số hiện đại. Chúng tôi mang sứ mệnh mang lại không gian rèn luyện thể lực tối tân, truyền cảm hứng sống khỏe và bứt phá phong độ thi đấu cho mọi hội viên.
               </p>
 
               <div className="pt-4 flex flex-wrap items-center gap-4">
                 <Link
                   to="/pricing"
-                  className="px-8 py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-500/30 transition-all flex items-center gap-2"
+                  className="px-8 py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-500/30 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <span>Khám Phá Gói Tập</span>
                   <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -111,9 +111,9 @@ export default function AboutPage() {
 
                 <Link
                   to="/facilities"
-                  className="px-8 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs uppercase tracking-wider transition-all"
+                  className="px-8 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
                 >
-                  Tham Quan Cơ Sở
+                  Tham Quan Cơ Sở 5 Sao
                 </Link>
               </div>
             </div>
@@ -151,7 +151,7 @@ export default function AboutPage() {
               <div className="relative rounded-3xl overflow-hidden border-2 border-slate-200 shadow-2xl">
                 <img
                   src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1000&auto=format&fit=crop"
-                  alt="FPT Sports Center Gymnasium"
+                  alt="F Sport Center Gymnasium"
                   className="w-full h-[400px] sm:h-[480px] object-cover"
                 />
               </div>
@@ -180,7 +180,7 @@ export default function AboutPage() {
               </div>
 
               <p className="text-sm text-slate-600 leading-relaxed font-medium">
-                Tại <strong>FPT Sports Center</strong>, chúng tôi tin rằng thể lực dẻo dai và tinh thần minh mẫn là nền tảng cốt lõi cho mọi thành công học thuật và sự nghiệp. Trung tâm không chỉ cung cấp không gian tập luyện mà còn xây dựng một hệ sinh thái thể thao chuyển đổi số toàn diện.
+                Tại <strong>F Sport Center</strong>, chúng tôi tin rằng thể lực dẻo dai và tinh thần minh mẫn là nền tảng cốt lõi cho mọi thành công. Trung tâm không chỉ cung cấp không gian tập luyện mà còn xây dựng một hệ sinh thái thể thao chuyển đổi số toàn diện.
               </p>
 
               <div className="space-y-4 pt-2">
@@ -190,7 +190,7 @@ export default function AboutPage() {
                     <span>Sứ Mệnh (Mission)</span>
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                    Phát triển thể chất toàn diện, tôi luyện tinh thần kỷ luật và khuyến khích lối sống năng động cho sinh viên, giảng viên và cộng đồng FPT.
+                    Phát triển thể chất toàn diện, tôi luyện tinh thần kỷ luật và khuyến khích lối sống năng động cho tất cả hội viên và cộng đồng yêu thể thao.
                   </p>
                 </div>
 
@@ -200,7 +200,7 @@ export default function AboutPage() {
                     <span>Tầm Nhìn (Vision)</span>
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                    Trở thành mô hình tổ hợp thể thao học đường dẫn đầu Việt Nam, ứng dụng tiên phong trí tuệ nhân tạo (AI) trong phân tích phong độ và đề xuất giáo án tập luyện.
+                    Trở thành mô hình tổ hợp thể thao đa năng cao cấp dẫn đầu, ứng dụng tiên phong trí tuệ nhân tạo (AI) trong phân tích phong độ và đề xuất giáo án tập luyện.
                   </p>
                 </div>
               </div>
@@ -217,7 +217,7 @@ export default function AboutPage() {
                 CORE VALUES
               </span>
               <h2 className="text-2xl sm:text-4xl font-black uppercase text-white">
-                4 Giá Trị Cốt Lõi Tại FPT Sports
+                4 Giá Trị Cốt Lõi Tại F Sport Center
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 font-medium">
                 Những định hướng chiến lược cam kết trải nghiệm huấn luyện xuất sắc nhất cho hội viên.
@@ -315,18 +315,18 @@ export default function AboutPage() {
               Sẵn Sàng Bứt Phá Phong Độ Thể Thao?
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-xl mx-auto">
-              Đăng ký ngay gói tập FPT Sports Center để nhận đặc quyền trải nghiệm trọn bộ cụm sân Pickleball, Tennis, Gym & Studio chuẩn 5 sao!
+              Đăng ký ngay gói tập F Sport Center để nhận đặc quyền trải nghiệm trọn bộ cụm sân Pickleball, Tennis, Gym & Studio chuẩn 5 sao!
             </p>
             <div className="pt-2 flex flex-wrap justify-center gap-4">
               <Link
                 to="/pricing"
-                className="px-8 py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-500/30 transition-all"
+                className="px-8 py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-500/30 transition-all cursor-pointer"
               >
                 Trở Thành Hội Viên Ngay
               </Link>
               <Link
                 to="/login"
-                className="px-8 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs uppercase tracking-wider transition-all"
+                className="px-8 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
               >
                 Đăng Nhập Tài Khoản
               </Link>
