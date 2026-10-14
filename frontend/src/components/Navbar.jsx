@@ -24,7 +24,7 @@ export default function Navbar() {
   };
 
   const navLinks = [
-    { label: 'Giới thiệu', path: '/#gioi-thieu' },
+    { label: 'Giới thiệu', path: '/about' },
     { label: 'Bộ môn', path: '/sports' },
     { label: 'Tiện ích', path: '/facilities' },
     { label: 'Bảng giá', path: '/pricing' },
@@ -34,14 +34,25 @@ export default function Navbar() {
     <header className="fixed top-0 w-full z-40 bg-white/95 backdrop-blur-xl border-b border-slate-200/80 shadow-xs transition-all">
       <div className="h-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         
-        {/* Brand Logo - ĐỒNG BỘ FPT SPORTS CENTER */}
+        {/* BRAND LOGO - CHỮ F THỂ THAO MÀU CAM */}
         <Link to="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform font-black">
-            <span className="material-symbols-outlined text-[24px]">bolt</span>
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 shadow-md shadow-orange-500/30 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+            {/* Chữ F nghiêng phong cách thể thao */}
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              className="w-6 h-6 text-white drop-shadow-sm"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M7 4H19L17.5 8H11.5L10.5 11H16.5L15 15H10L8.5 20H4.5L7 4Z"
+                fill="currentColor"
+              />
+            </svg>
           </div>
           <div className="flex flex-col">
             <span className="font-headline-sm text-[18px] uppercase tracking-tight text-slate-900 flex items-center gap-1 font-black">
-              FPT SPORTS <span className="text-orange-500">CENTER</span>
+              F SPORT <span className="text-orange-500">CENTER</span>
             </span>
             <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
               FPT University Sanctuary
@@ -121,7 +132,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Nav */}
       {mobileNavOpen && (
         <div className="lg:hidden bg-white border-b border-slate-200 px-6 py-4 flex flex-col gap-3 shadow-xl">
           {navLinks.map((link) => (

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 export default function Footer() {
   return (
@@ -7,16 +8,18 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
           {/* Col 1 */}
           <div className="md:col-span-1 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center text-white font-black shadow-sm">
-                <span className="material-symbols-outlined text-[20px]">bolt</span>
+            <Link to="/" className="flex items-center gap-3 group">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white shadow-sm">
+                <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 4H19L17.5 8H11.5L10.5 11H16.5L15 15H10L8.5 20H4.5L7 4Z" fill="currentColor" />
+                </svg>
               </div>
               <span className="font-headline-sm text-[18px] uppercase text-slate-900 font-black">
-                FPT SPORTS <span className="text-orange-500">CENTER</span>
+                F SPORT <span className="text-orange-500">CENTER</span>
               </span>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Tổ hợp thể thao đa năng chuẩn quốc tế phục vụ sinh viên, giảng viên và cộng đồng yêu thể thao FPT.
+            </Link>
+            <p className="text-xs text-slate-600 leading-relaxed font-medium mt-2">
+              Tổ hợp thể thao đa năng F Sport Center chuẩn quốc tế phục vụ sinh viên, giảng viên và cộng đồng FPT.
             </p>
           </div>
 
@@ -31,7 +34,7 @@ export default function Footer() {
             <p className="text-xs text-orange-600 font-extrabold mb-2">
               Hotline: 1900 8899 (24/7)
             </p>
-            <p className="text-xs text-slate-600 font-medium">sportscenter@fpt.edu.vn</p>
+            <p className="text-xs text-slate-600 font-medium">fsportscenter@fpt.edu.vn</p>
           </div>
 
           {/* Col 3 */}
@@ -59,7 +62,7 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-slate-100 text-xs text-slate-500 font-medium">
-          <p>© 2026 FPT SPORTS CENTER · SWP391 FPT University Project</p>
+          <p>© 2026 F SPORT CENTER · SWP391 FPT University Project</p>
           <span className="font-bold text-orange-600 uppercase tracking-wider">PERFORMANCE FIRST</span>
         </div>
       </div>

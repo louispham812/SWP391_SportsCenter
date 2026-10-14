@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
 // Public Pages
@@ -22,7 +22,7 @@ import ReceptionMembersPage from './pages/receptionist/ReceptionMembersPage';
 import ReceptionClassesPage from './pages/receptionist/ReceptionClassesPage';
 import ReceptionShiftReportPage from './pages/receptionist/ReceptionShiftReportPage';
 
-// Coach Portal Pages
+// Coach Portal Pages (Chỉ giữ các trang đã tạo)
 import CoachSchedulePage from './pages/coach/CoachSchedulePage';
 import CoachStudentsPage from './pages/coach/CoachStudentsPage';
 import CoachAttendancePage from './pages/coach/CoachAttendancePage';
@@ -54,61 +54,66 @@ function RequireRole({ role, children }) {
 }
 
 function App() {
+  // Đồng bộ tiêu đề Tab trình duyệt chính xác
+  useEffect(() => {
+    document.title = 'F Sport Center - FPT Athletic Sanctuary';
+  }, []);
+
   return (
     <AppProvider>
       <BrowserRouter>
         <ToastContainer />
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/pricing" element={<PricingPage />} />
-        <Route path="/sports" element={<PublicContentPage contentType="sports" />} />
-        <Route path="/sports/:slug" element={<PublicContentPage contentType="sports" />} />
-        <Route path="/facilities" element={<PublicContentPage contentType="facilities" />} />
-        <Route path="/facilities/:slug" element={<PublicContentPage contentType="facilities" />} />
-        <Route path="/login" element={<AuthPage />} />
-        <Route path="/register" element={<AuthPage />} />
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/sports" element={<PublicContentPage contentType="sports" />} />
+          <Route path="/sports/:slug" element={<PublicContentPage contentType="sports" />} />
+          <Route path="/facilities" element={<PublicContentPage contentType="facilities" />} />
+          <Route path="/facilities/:slug" element={<PublicContentPage contentType="facilities" />} />
+          <Route path="/login" element={<AuthPage />} />
+          <Route path="/register" element={<AuthPage />} />
 
-        {/* Member Routes (Flow 1, 2, 5, 6) */}
-        <Route path="/member" element={<RequireRole role="member"><MemberDashboardPage /></RequireRole>} />
-        <Route path="/member/book" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
-        <Route path="/member/book/:bookingType/sports" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
-        <Route path="/member/book/courts/:sportId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
-        <Route path="/member/book/classes/:sportId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
-        <Route path="/member/book/checkout/:bookingType/:resourceId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
-        <Route path="/member/book/confirmation" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
-        <Route path="/member/schedule" element={<RequireRole role="member"><MemberSchedulePage /></RequireRole>} />
-        <Route path="/member/ai-assistant" element={<RequireRole role="member"><MemberAIAssistantPage /></RequireRole>} />
-        <Route path="/member/profile" element={<RequireRole role="member"><MemberProfilePage /></RequireRole>} />
+          {/* Member Routes */}
+          <Route path="/member" element={<RequireRole role="member"><MemberDashboardPage /></RequireRole>} />
+          <Route path="/member/book" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+          <Route path="/member/book/:bookingType/sports" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+          <Route path="/member/book/courts/:sportId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+          <Route path="/member/book/classes/:sportId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+          <Route path="/member/book/checkout/:bookingType/:resourceId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+          <Route path="/member/book/confirmation" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+          <Route path="/member/schedule" element={<RequireRole role="member"><MemberSchedulePage /></RequireRole>} />
+          <Route path="/member/ai-assistant" element={<RequireRole role="member"><MemberAIAssistantPage /></RequireRole>} />
+          <Route path="/member/profile" element={<RequireRole role="member"><MemberProfilePage /></RequireRole>} />
 
-        {/* Receptionist Routes (Flow 1, 3, 4) */}
-        <Route path="/receptionist" element={<RequireRole role="receptionist"><ReceptionCheckInPage /></RequireRole>} />
-        <Route path="/receptionist/pos" element={<RequireRole role="receptionist"><ReceptionPOSPage /></RequireRole>} />
-        <Route path="/receptionist/members" element={<RequireRole role="receptionist"><ReceptionMembersPage /></RequireRole>} />
-        <Route path="/receptionist/classes" element={<RequireRole role="receptionist"><ReceptionClassesPage /></RequireRole>} />
-        <Route path="/receptionist/shift" element={<RequireRole role="receptionist"><ReceptionShiftReportPage /></RequireRole>} />
+          {/* Receptionist Routes */}
+          <Route path="/receptionist" element={<RequireRole role="receptionist"><ReceptionCheckInPage /></RequireRole>} />
+          <Route path="/receptionist/pos" element={<RequireRole role="receptionist"><ReceptionPOSPage /></RequireRole>} />
+          <Route path="/receptionist/members" element={<RequireRole role="receptionist"><ReceptionMembersPage /></RequireRole>} />
+          <Route path="/receptionist/classes" element={<RequireRole role="receptionist"><ReceptionClassesPage /></RequireRole>} />
+          <Route path="/receptionist/shift" element={<RequireRole role="receptionist"><ReceptionShiftReportPage /></RequireRole>} />
 
-        {/* Coach Routes (Flow 2, 4, 5) */}
-        <Route path="/coach" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
-        <Route path="/coach/students" element={<RequireRole role="coach"><CoachStudentsPage /></RequireRole>} />
-        <Route path="/coach/attendance" element={<RequireRole role="coach"><CoachAttendancePage /></RequireRole>} />
-        <Route path="/coach/income" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
+          {/* Coach Routes */}
+          <Route path="/coach" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
+          <Route path="/coach/schedule" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
+          <Route path="/coach/students" element={<RequireRole role="coach"><CoachStudentsPage /></RequireRole>} />
+          <Route path="/coach/attendance" element={<RequireRole role="coach"><CoachAttendancePage /></RequireRole>} />
+          <Route path="/coach/income" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
 
-        {/* Admin / Center Manager Routes (Flow 1, 2, 3) */}
-        <Route path="/admin" element={<RequireRole role="admin"><AdminDashboardPage /></RequireRole>} />
-        <Route path="/admin/members" element={<RequireRole role="admin"><AdminMembersPage /></RequireRole>} />
-        <Route path="/admin/staff" element={<RequireRole role="admin"><AdminStaffPage /></RequireRole>} />
-        <Route path="/admin/staff-approvals" element={<RequireRole role="admin"><AdminStaffApprovalsPage /></RequireRole>} />
-        <Route path="/admin/facilities" element={<RequireRole role="admin"><AdminFacilitiesPage /></RequireRole>} />
-        <Route path="/admin/packages" element={<RequireRole role="admin"><AdminPackagesPage /></RequireRole>} />
-        <Route path="/admin/settings" element={<RequireRole role="admin"><AdminDashboardPage /></RequireRole>} />
+          {/* Admin / Center Manager Routes */}
+          <Route path="/admin" element={<RequireRole role="admin"><AdminDashboardPage /></RequireRole>} />
+          <Route path="/admin/members" element={<RequireRole role="admin"><AdminMembersPage /></RequireRole>} />
+          <Route path="/admin/staff" element={<RequireRole role="admin"><AdminStaffPage /></RequireRole>} />
+          <Route path="/admin/staff-approvals" element={<RequireRole role="admin"><AdminStaffApprovalsPage /></RequireRole>} />
+          <Route path="/admin/facilities" element={<RequireRole role="admin"><AdminFacilitiesPage /></RequireRole>} />
+          <Route path="/admin/packages" element={<RequireRole role="admin"><AdminPackagesPage /></RequireRole>} />
+          <Route path="/admin/settings" element={<RequireRole role="admin"><AdminDashboardPage /></RequireRole>} />
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-
-    </BrowserRouter>
+          {/* Fallback Route */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
     </AppProvider>
   );
 }
