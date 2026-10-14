@@ -4,6 +4,7 @@ import Footer from '../components/Footer';
 import Navbar from '../components/Navbar';
 import { useApp } from '../context/AppContext';
 import { apiRequest } from '../services/apiClient';
+import { getPublicPackages } from '../services/publicContentApi';
 
 const formatPrice = (price) => new Intl.NumberFormat('vi-VN', {
   style: 'currency',
@@ -23,7 +24,7 @@ export default function PricingPage() {
   const fetchPackages = () => {
     setLoading(true);
     setError('');
-    apiRequest('/packages')
+    getPublicPackages()
       .then((rows) => {
         setPackages(Array.isArray(rows) ? rows : []);
       })

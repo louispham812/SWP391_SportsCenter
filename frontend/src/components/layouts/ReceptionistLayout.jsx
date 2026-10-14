@@ -15,7 +15,7 @@ export default function ReceptionistLayout({ children }) {
   return (
     <PortalLayout
       role="receptionist"
-      roleBadge="ELITE RECEPTION"
+      roleBadge="F SPORT RECEPTION"
       currentUser={currentUser}
       menuItems={receptionistMenu}
       quickAction={{

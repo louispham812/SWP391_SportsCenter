@@ -16,7 +16,7 @@ export default function AdminLayout({ children }) {
   return (
     <PortalLayout
       role="admin"
-      roleBadge="ELITE ADMIN"
+      roleBadge="F SPORT ADMIN"
       currentUser={currentUser}
       menuItems={adminMenu}
       quickAction={{

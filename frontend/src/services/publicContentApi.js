@@ -12,3 +12,11 @@ async function fetchCollection(collection) {
 
 export const getPublicSports = () => fetchCollection('sports');
 export const getPublicFacilities = () => fetchCollection('facilities');
+export const getPublicPackages = async () => {
+  const response = await fetch(`${API_BASE_URL}/packages`);
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || 'Không thể tải dữ liệu bảng giá gói tập.');
+  }
+  return response.json();
+};

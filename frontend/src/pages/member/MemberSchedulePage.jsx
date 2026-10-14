@@ -283,13 +283,13 @@ export default function MemberSchedulePage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-secondary">LỊCH BOOKING CỦA BẠN</div>
-            <h1 className="mt-1 font-headline-xl text-2xl font-bold text-primary sm:text-3xl">Thời khóa biểu của tôi</h1>
+            <div className="text-[11px] font-black uppercase tracking-wider text-orange-600">LỊCH BOOKING CỦA BẠN</div>
+            <h1 className="mt-1 font-headline-xl text-2xl font-black uppercase tracking-tight text-slate-900 sm:text-3xl">Thời khóa biểu của tôi</h1>
             <p className="mt-1 text-sm text-slate-500">
               Theo dõi riêng lịch các lớp học và lịch đặt sân đã xác nhận từ hệ thống.
             </p>
           </div>
-          <Link to="/member/book" className="rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white">
+          <Link to="/member/book" className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white px-5 py-3 text-xs font-black uppercase tracking-wider shadow-md shadow-orange-500/20 transition-all">
             Đặt sân hoặc booking lớp
           </Link>
         </header>
@@ -391,7 +391,7 @@ export default function MemberSchedulePage() {
                   : 'Các booking đã xác nhận sẽ xuất hiện tại đây.'}
               </p>
               {selectedEntries.length === 0 && (
-                <Link to="/member/book" className="mt-5 inline-flex rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white">
+                <Link to="/member/book" className="mt-5 inline-flex rounded-xl bg-orange-500 hover:bg-orange-600 px-6 py-3 text-xs font-black uppercase tracking-wider text-white shadow-md shadow-orange-500/20 transition-all">
                   {bookingType === 'CLASS' ? 'Tìm lớp học' : 'Tìm sân chơi'}
                 </Link>
               )}

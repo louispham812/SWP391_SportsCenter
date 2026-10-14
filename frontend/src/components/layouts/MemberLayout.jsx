@@ -17,7 +17,7 @@ export default function MemberLayout({ children }) {
   return (
     <PortalLayout
       role="member"
-      roleBadge="ELITE MEMBER"
+      roleBadge="F SPORT MEMBER"
       currentUser={currentUser}
       menuItems={memberMenu}
     >

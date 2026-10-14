@@ -30,7 +30,7 @@ export default function ToastContainer() {
             <div
               className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                 isSuccess
-                  ? 'bg-[#c1f100] text-slate-950'
+                  ? 'bg-emerald-500 text-white'
                   : isError
                   ? 'bg-red-500 text-white'
                   : isWarning

@@ -152,21 +152,21 @@ export default function MemberProfilePage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-secondary bg-secondary-container/20 px-2 py-0.5 rounded">
-                FLOW 1: USER PROFILE & HEALTH CREDENTIALS
+              <span className="text-[11px] font-bold uppercase tracking-wider text-orange-600 bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-full">
+                HỒ SƠ HỘI VIÊN CHÍNH THỨC
               </span>
             </div>
-            <h1 className="font-headline-xl text-2xl sm:text-3xl font-bold text-primary">
-              Hồ Sơ Hội Viên & Sức Khỏe Thể Chất
+            <h1 className="font-headline-xl text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight">
+              Hồ Sơ Hội Viên &amp; Sức Khỏe Thể Chất
             </h1>
             <p className="text-xs sm:text-sm text-slate-500">
-              Quản lý định danh điện tử, tiền sử chấn thương PAR-Q và các chỉ số đo lường cơ thể.
+              Quản lý thẻ số cá nhân, tiền sử chấn thương PAR-Q và các chỉ số thể trạng InBody.
             </p>
           </div>
 
           <Link
             to="/pricing"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary-container text-primary font-bold text-xs uppercase tracking-wider hover:bg-secondary-fixed-dim transition-all shadow-sm self-start sm:self-auto"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-orange-500/20 self-start sm:self-auto cursor-pointer"
           >
             <span className="material-symbols-outlined text-[18px]">upgrade</span>
             <span>Nâng Cấp Hạng Thẻ (Gold/Diamond)</span>
@@ -176,16 +176,16 @@ export default function MemberProfilePage() {
         {/* Tab Selection */}
         <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
           {[
-            { id: 'profile', label: 'Thông tin cá nhân (MEM-03)', icon: 'badge' },
-            { id: 'health', label: 'Hồ sơ sức khỏe & PAR-Q (MEM-05)', icon: 'health_and_safety' },
-            { id: 'inbody', label: 'Chỉ số thể trạng InBody (MEM-21)', icon: 'monitor_weight' },
+            { id: 'profile', label: 'Thông tin cá nhân', icon: 'badge' },
+            { id: 'health', label: 'Hồ sơ sức khỏe & PAR-Q', icon: 'health_and_safety' },
+            { id: 'inbody', label: 'Chỉ số thể trạng InBody', icon: 'monitor_weight' },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
                 activeTab === tab.id
-                  ? 'bg-primary text-white shadow-sm'
+                  ? 'bg-slate-900 text-white shadow-sm'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -196,26 +196,26 @@ export default function MemberProfilePage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* CỘT TRÁI (5 cols): Thẻ Hội Viên Kỹ Thuật Số (MEM-10) */}
+          {/* CỘT TRÁI (5 cols): Thẻ Hội Viên Kỹ Thuật Số */}
           <div className="lg:col-span-5 space-y-6">
             {/* Digital Card Preview */}
-            <div className="rounded-3xl bg-gradient-to-br from-slate-900 via-primary to-slate-950 p-6 text-white shadow-2xl relative overflow-hidden border border-slate-700">
-              <div className="absolute top-0 right-0 w-36 h-36 bg-secondary-container/20 rounded-full blur-2xl pointer-events-none"></div>
+            <div className="rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950/80 p-6 text-white shadow-2xl relative overflow-hidden border border-slate-800">
+              <div className="absolute top-0 right-0 w-36 h-36 bg-orange-500/20 rounded-full blur-2xl pointer-events-none"></div>
 
               {/* Card Header */}
               <div className="flex items-center justify-between mb-8 relative z-10">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-secondary-container text-primary flex items-center justify-center font-bold">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold shadow-md">
                     <span className="material-symbols-outlined text-[18px]">bolt</span>
                   </div>
                   <div>
-                    <span className="font-headline-sm text-sm font-bold tracking-tight">ELITE SPORTS</span>
-                    <div className="text-[9px] uppercase tracking-widest text-secondary-container font-semibold">
+                    <span className="font-headline-sm text-sm font-black tracking-tight uppercase">F SPORT CENTER</span>
+                    <div className="text-[9px] uppercase tracking-widest text-orange-400 font-bold">
                       Digital Pass
                     </div>
                   </div>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-600 text-[10px] font-bold uppercase tracking-wider text-secondary-container">
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-800/90 border border-slate-700 text-[10px] font-bold uppercase tracking-wider text-orange-400">
                   {membership?.packageName || 'Chưa có gói hội viên'}
                 </span>
               </div>
@@ -223,21 +223,21 @@ export default function MemberProfilePage() {
               {/* Avatar + Chip */}
               <div className="flex items-center justify-between mb-8 relative z-10">
                 <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-full border-2 border-secondary-container overflow-hidden bg-slate-800 flex items-center justify-center">
+                  <div className="w-14 h-14 rounded-full border-2 border-orange-500 overflow-hidden bg-slate-800 flex items-center justify-center shadow-md">
                     {memberAvatar ? (
                       <img src={memberAvatar} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="font-bold text-lg text-secondary-container">
+                      <span className="font-bold text-lg text-orange-400">
                         {currentUser.avatar || currentUser.name?.slice(0, 2).toUpperCase() || 'US'}
                       </span>
                     )}
                   </div>
                   <div>
-                    <div className="text-[10px] text-slate-400 uppercase tracking-widest">Hội viên chính thức</div>
-                    <div className="font-bold text-sm uppercase">{profileForm.fullName}</div>
+                    <div className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Hội viên chính thức</div>
+                    <div className="font-bold text-sm uppercase text-white">{profileForm.fullName}</div>
                   </div>
                 </div>
-                <span className="material-symbols-outlined text-[28px] text-secondary-container">
+                <span className="material-symbols-outlined text-[28px] text-orange-400">
                   contactless
                 </span>
               </div>
@@ -249,7 +249,7 @@ export default function MemberProfilePage() {
                   <span>HẠN: {membership?.endDate || '—'}</span>
                 </div>
                 <div className="text-[10px] text-slate-400">
-                  Mã hội viên: {membership?.membershipId || currentUser.id}
+                  Mã thẻ: {membership?.membershipId || currentUser.id}
                 </div>
               </div>
             </div>
@@ -389,7 +389,7 @@ export default function MemberProfilePage() {
                         onClick={() => setHealthForm({ ...healthForm, fitnessLevel: lvl.id })}
                         className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                           healthForm.fitnessLevel === lvl.id
-                            ? 'border-secondary bg-secondary-container/20 text-primary shadow-sm'
+                            ? 'border-orange-500 bg-orange-50 text-orange-950 ring-1 ring-orange-500 shadow-sm'
                             : 'border-slate-200 hover:border-slate-300 text-slate-700'
                         }`}
                       >
@@ -408,7 +408,7 @@ export default function MemberProfilePage() {
                     rows={3}
                     value={healthForm.fitnessGoals}
                     onChange={(e) => setHealthForm({ ...healthForm, fitnessGoals: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-primary"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-orange-500"
                   />
                 </div>
 
@@ -421,16 +421,16 @@ export default function MemberProfilePage() {
                     value={healthForm.injuryHistory}
                     onChange={(e) => setHealthForm({ ...healthForm, injuryHistory: e.target.value })}
                     placeholder="VD: Thoát vị đĩa đệm L4-L5, từng mổ dây chằng chéo trước, đau khớp vai..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-primary"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-orange-500"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="py-3 px-6 rounded-xl bg-secondary-container text-primary text-xs font-bold uppercase tracking-wider hover:bg-secondary-fixed-dim transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                  className="py-3 px-6 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-md shadow-orange-500/20 flex items-center gap-2 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[18px]">verified_user</span>
-                  <span>Lưu Hồ Sơ Sức Khỏe (MEM-05)</span>
+                  <span>Lưu Hồ Sơ Sức Khỏe</span>
                 </button>
               </form>
             )}
@@ -484,22 +484,22 @@ export default function MemberProfilePage() {
                       step="0.1"
                       value={inbodyForm.pbf}
                       onChange={(e) => setInbodyForm({ ...inbodyForm, pbf: Number(e.target.value) })}
-                      className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-base font-bold outline-none text-secondary"
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-base font-bold outline-none text-orange-600"
                     />
                   </div>
                 </div>
 
-                <div className="p-3 bg-secondary-container/20 rounded-xl text-xs text-secondary font-bold flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[18px]">insights</span>
-                  <span>Chỉ số BMI tính toán tự động: {(inbodyForm.weight / Math.pow(inbodyForm.height / 100, 2)).toFixed(1)} (Bình thường / Vận động viên)</span>
+                <div className="p-3.5 bg-orange-50 border border-orange-200 rounded-2xl text-xs text-orange-800 font-bold flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[20px] text-orange-600">insights</span>
+                  <span>Chỉ số BMI tính toán tự động: {(inbodyForm.weight / Math.pow(inbodyForm.height / 100, 2)).toFixed(1)} (Bình thường / Thể hình)</span>
                 </div>
 
                 <button
                   type="submit"
-                  className="py-3 px-6 rounded-xl bg-primary text-white text-xs font-bold uppercase tracking-wider hover:bg-slate-800 transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                  className="py-3 px-6 rounded-xl bg-slate-900 hover:bg-orange-500 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center gap-2 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[18px]">save</span>
-                  <span>Cập Nhật Chỉ Số InBody (MEM-21)</span>
+                  <span>Cập Nhật Chỉ Số InBody</span>
                 </button>
               </form>
             )}
