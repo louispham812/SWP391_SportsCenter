@@ -11,6 +11,66 @@ const generateId = (prefix) => {
   return `${prefix}_${idCounter}`;
 };
 
+// ==========================================
+// MOCK DATA DEFINITIONS (DỮ LIỆU MẪU BAN ĐẦU)
+// ==========================================
+
+const mockMembersList = [
+  { id: 'mem_1', memberId: 'FPT-1001', name: 'Võ Tấn Triều', phone: '0901234567', email: 'trieuvt@fpt.edu.vn', tier: 'Diamond', status: 'active', joined: '15/12/2025', expires: '15/12/2026', enrolledClassesCount: 3, wallet: 500000 },
+  { id: 'mem_2', memberId: 'FPT-1002', name: 'Nguyễn Văn An', phone: '0912345678', email: 'annv@fpt.edu.vn', tier: 'Silver', status: 'active', joined: '10/01/2026', expires: '10/01/2027', enrolledClassesCount: 1, wallet: 100000 },
+  { id: 'mem_3', memberId: 'FPT-1003', name: 'Trần Thị Mai Anh', phone: '0922334455', email: 'anhttm@fpt.edu.vn', tier: 'Gold', status: 'active', joined: '01/02/2026', expires: '01/02/2027', enrolledClassesCount: 2, wallet: 250000 },
+];
+
+const mockCoachesList = [
+  { id: 'coa_01', name: 'HLV Lê Anh Tuấn', phone: '0905 333 444', email: 'anhtuan.le@fpt.edu.vn', specialty: 'Pickleball PPR & Biomechanics', rating: 4.9, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80' },
+  { id: 'coa_02', name: 'HLV Vũ Thu Hà', phone: '0908 555 666', email: 'thuha.vu@fpt.edu.vn', specialty: 'Yoga & Pilates Reformer', rating: 4.8, avatar: '' },
+];
+
+const mockClasses = [
+  { id: 'cls_01', sport: 'pickleball', title: 'Pickleball Căn Bản & Footwork', coachId: 'coa_01', coachName: 'HLV Lê Anh Tuấn', time: '07:00 - 08:30', day: 'Thứ Ba', room: 'Sân Mái Che Pro 01', capacity: 12, enrolled: 12, isBooked: true, students: [] },
+  { id: 'cls_02', sport: 'pickleball', title: 'Pickleball Chiến Thuật Nâng Cao', coachId: 'coa_01', coachName: 'HLV Lê Anh Tuấn', time: '18:00 - 19:30', day: 'Thứ Ba', room: 'Sân Mái Che Pro 02', capacity: 10, enrolled: 8, isBooked: false, students: [] },
+];
+
+const mockCheckIns = [
+  { id: 'chk_1', memberId: 'FPT-1001', name: 'Võ Tấn Triều', tier: 'Diamond Member', plan: 'Gói FPT Pickleball Pass & VIP Diamond', time: '06:55', method: 'Quét mã QR App', locker: '#12', status: 'valid' },
+];
+
+const mockAuditLogs = [
+  { id: 'log_1', action: 'Đăng nhập hệ thống', target: 'Cổng thông tin Coach', user: 'Lê Anh Tuấn', time: 'Vừa xong' },
+];
+
+const mockFacilities = [
+  { id: 'fac_1', name: 'Sân Mái Che Pro 01', sport: 'Pickleball', status: 'active', condition: 'Hoạt động tốt' },
+  { id: 'fac_2', name: 'Sân Mái Che Pro 02', sport: 'Pickleball', status: 'active', condition: 'Hoạt động tốt' },
+];
+
+const mockPackages = [
+  { id: 'pkg_1', name: 'Gói FPT Pickleball Pass 1 Năm', price: 2500000, type: 'tier', durationMonths: 12 },
+];
+
+const mockSports = [
+  { id: 'sp_1', name: 'Pickleball', icon: 'sports_tennis' },
+  { id: 'sp_2', name: 'Tennis', icon: 'sports_tennis' },
+];
+
+const mockVouchers = [
+  { id: 'v_1', code: 'FPTSPORTS2026', discountPercent: 10, maxDiscount: 200000, validUntil: '31/12/2026', usageLimit: 100, usedCount: 5, status: 'active', desc: 'Giảm 10% gói tập' },
+];
+
+const mockRetailInventory = [
+  { id: 'ret_1', name: 'Nước khoáng Pocari Sweat 500ml', price: 15000, stock: 100 },
+];
+
+const mockLockers = [
+  { id: 'loc_1', number: '#12', status: 'in-use', assignedTo: '#mem_1' },
+  { id: 'loc_2', number: '#13', status: 'available', assignedTo: null },
+];
+
+const mockSupportTickets = [];
+const mockRefundRequests = [];
+const mockCoachReviews = [];
+const mockPaymentHistory = [];
+
 const getAuthSession = () => {
   try {
     const session = JSON.parse(sessionStorage.getItem(AUTH_SESSION_KEY) || 'null');
@@ -31,7 +91,6 @@ const getAuthSession = () => {
 
 export function AppProvider({ children }) {
   const [authSession, setAuthSession] = useState(getAuthSession);
-  const [toasts, setToasts] = useState([]);
   const currentRole = authSession?.role || null;
   const currentUser = authSession?.user || null;
 
@@ -64,7 +123,7 @@ export function AppProvider({ children }) {
       originalPrice: 450000,
       finalPrice: 0,
       paymentMethod: 'Đặc quyền Member Pass',
-      status: 'CONFIRMED', // 'PENDING' | 'CONFIRMED' | 'CANCELLED_REFUNDED' | 'CANCELLED_EXPIRED'
+      status: 'CONFIRMED',
       hoursLeftToClass: 5,
       discountReason: 'Đặc quyền Member Pass (-100%)',
     },
@@ -247,10 +306,7 @@ export function AppProvider({ children }) {
     setAuditLogs((prev) => [log, ...prev]);
   };
 
-  // ==========================================
   // ORDERS & INVOICES MANAGEMENT
-  // ==========================================
-
   const addOrder = (newOrder) => {
     setOrders((prev) => [newOrder, ...prev]);
     addAuditLog('Tạo đơn đăng ký', `Hội viên khởi tạo đơn đăng ký #${newOrder.id} - ${newOrder.className}`);
@@ -263,10 +319,7 @@ export function AppProvider({ children }) {
     addAuditLog('Cập nhật đơn hàng', `Đơn #${orderId} chuyển trạng thái sang [${newStatus}]`);
   };
 
-  // ==========================================
-  // FLOW 1: USER & MEMBERSHIP MANAGEMENT
-  // ==========================================
-
+  // USER & MEMBERSHIP MANAGEMENT
   const updateProfile = (data) => {
     setAuthSession((prev) => {
       if (!prev) return prev;
@@ -382,10 +435,7 @@ export function AppProvider({ children }) {
     );
   };
 
-  // ==========================================
-  // FLOW 2: CLASS BOOKING & SCHEDULE MANAGEMENT
-  // ==========================================
-
+  // CLASS BOOKING & SCHEDULE MANAGEMENT
   const bookClass = (classId) => {
     setClasses((prev) =>
       prev.map((c) => {
@@ -508,10 +558,7 @@ export function AppProvider({ children }) {
     );
   };
 
-  // ==========================================
-  // FLOW 3: PAYMENT & FINANCIAL REPORTS
-  // ==========================================
-
+  // PAYMENT & FINANCIAL REPORTS
   const processPOSPayment = (cartItems, method, customerName = 'Khách lẻ vãng lai', discount = 0) => {
     const totalRaw = cartItems.reduce((acc, it) => acc + it.price * it.qty, 0);
     const finalAmount = Math.max(0, totalRaw - discount);
@@ -568,10 +615,7 @@ export function AppProvider({ children }) {
     );
   };
 
-  // ==========================================
-  // FLOW 4: TRAINING & ATTENDANCE MANAGEMENT
-  // ==========================================
-
+  // TRAINING & ATTENDANCE MANAGEMENT
   const checkInMember = (query) => {
     const cleanQ = query.trim().toLowerCase();
     const matched = members.find(
@@ -667,20 +711,14 @@ export function AppProvider({ children }) {
     showToast('Gửi đơn xin nghỉ/đổi ca', 'Đơn xin đổi ca đã chuyển đến Quản lý trung tâm để duyệt!');
   };
 
-  // ==========================================
-  // FLOW 5 & 6: AI WORKOUT & AI ASSISTANT
-  // ==========================================
-
+  // AI WORKOUT & AI ASSISTANT
   const updateAISettings = (newSettings) => {
     setAiSettings((prev) => ({ ...prev, ...newSettings }));
     addAuditLog('Cấu hình AI', 'Quản lý đã cập nhật System Prompt & chính sách cho AI Chatbot');
     showToast('Cấu hình AI thành công', 'Tham số trợ lý ảo AI và quy tắc tư vấn đã được lưu!');
   };
 
-  // ==========================================
   // MANAGER TOOLS
-  // ==========================================
-
   const addStaff = (data) => {
     const newStaffMember = {
       id: staffList.length + 1,
@@ -814,7 +852,7 @@ export function AppProvider({ children }) {
     refundRequests,
     coachReviews,
     paymentHistory,
-    orders, // Bổ sung Đơn hàng & Hóa đơn
+    orders,
     staffList,
     permissionsMatrix,
     aiSettings,

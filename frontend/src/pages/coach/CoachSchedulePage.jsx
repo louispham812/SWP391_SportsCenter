@@ -5,7 +5,6 @@ import { useApp } from '../../context/AppContext';
 
 export default function CoachSchedulePage() {
   const navigate = useNavigate();
-  const { showToast } = useApp();
 
   // Shift tuần (0 = Tuần hiện tại, -1 = Tuần trước, 1 = Tuần sau)
   const [weekOffset, setWeekOffset] = useState(0);
@@ -15,7 +14,7 @@ export default function CoachSchedulePage() {
   // Modal xem chi tiết ca dạy
   const [selectedSessionModal, setSelectedSessionModal] = useState(null);
 
-  // 1. TÍNH TOÁN DỮ LIỆU 7 NGÀY TRONG TUẦN (MỐC HÔM NAY: THỨ BA 18/11/2026)
+  // 1. TÍNH TOÁN DỮ LIỆU 7 NGÀY TRONG TUẦN
   const weekDaysInfo = useMemo(() => {
     const dayNames = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
     const baseMonday = new Date(2026, 10, 17); // 17/11/2026 là Thứ 2
@@ -112,7 +111,7 @@ export default function CoachSchedulePage() {
     return { total, completed, upcoming };
   }, [weeklySchedule]);
 
-  // Phân loại danh sách phẳng cho List View
+  // Phân loại danh sách cho List View
   const flatSessionsList = useMemo(() => {
     const list = [];
     weeklySchedule.forEach((col) => {
@@ -236,7 +235,7 @@ export default function CoachSchedulePage() {
             </div>
             <span>Tổng cộng: <strong className="text-slate-900 font-black">{statsSummary.total} ca dạy/tuần</strong></span>
           </div>
-        </header>
+        </div>
 
         {/* 1. MÀN HÌNH CHẾ ĐỘ XEM CỘT TUẦN (CALENDAR VIEW) */}
         {viewMode === 'calendar' && (
