@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 
 // Public Pages
 import LandingPage from './pages/LandingPage';
+import AboutPage from './pages/AboutPage';
 import PricingPage from './pages/PricingPage';
 import AuthPage from './pages/AuthPage';
 import PublicContentPage from './pages/PublicContentPage';
@@ -60,6 +61,7 @@ function App() {
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/pricing" element={<PricingPage />} />
         <Route path="/sports" element={<PublicContentPage contentType="sports" />} />
         <Route path="/sports/:slug" element={<PublicContentPage contentType="sports" />} />
