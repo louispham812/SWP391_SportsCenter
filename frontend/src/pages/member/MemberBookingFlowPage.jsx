@@ -8,6 +8,7 @@ import {
   getBookingQuote,
   getBookingSports,
 } from '../../services/bookingApi';
+import PaymentMethodSelector from '../../components/common/PaymentMethodSelector';
 import { getSportMedia } from '../../utils/mediaMap';
 
 const formatMoney = (amount) => new Intl.NumberFormat('vi-VN', {
@@ -404,6 +405,7 @@ function CheckoutPage({ bookingType, itemId }) {
   const endTime = searchParams.get('endTime');
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState('VIETQR');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -433,6 +435,7 @@ function CheckoutPage({ bookingType, itemId }) {
         itemId,
         startTime,
         endTime,
+        paymentMethod
       );
       navigate('/member/book/confirmation', { replace: true, state: { confirmation } });
     } catch (requestError) {
@@ -441,33 +444,100 @@ function CheckoutPage({ bookingType, itemId }) {
     }
   };
 
+  const originalPrice = quote?.originalAmount ?? quote?.amount ?? 0;
+  const discountAmt = quote?.discountAmount ?? 0;
+  const finalPrice = quote?.amount ?? quote?.finalAmount ?? 0;
+
+  const actionBtnLabel = submitting
+    ? 'Đang xử lý...'
+    : paymentMethod === 'VIETQR'
+    ? `Tôi Đã Chuyển Khoản — Xác Nhận ${formatMoney(finalPrice)}`
+    : paymentMethod === 'CASH_COUNTER'
+    ? `Giữ Chỗ (Thanh Toán Tại Quầy) — ${formatMoney(finalPrice)}`
+    : paymentMethod === 'VNPAY'
+    ? `Thanh Toán Qua VNPAY — ${formatMoney(finalPrice)}`
+    : `Xác Nhận & Thanh Toán ${formatMoney(finalPrice)}`;
+
   return (
-    <PageFrame title="Xác nhận booking & thanh toán" description="Giá được backend tính lại từ dữ liệu trong database trước khi tạo giao dịch.">
+    <PageFrame
+      title="Xác nhận booking & thanh toán"
+      description="Giá được áp dụng tự động ưu đãi thẻ hội viên và kiểm tra trực tiếp từ hệ thống."
+    >
       <ErrorNotice error={error} />
       {loading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Đang xác nhận giá và lịch...</div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
+          Đang xác nhận giá và lịch...
+        </div>
       ) : quote ? (
-        <div className="mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="text-xs font-bold uppercase tracking-wider text-orange-600">{quote.bookingType === 'COURT' ? 'Đặt sân chơi thể thao' : 'Đăng ký lớp học'}</div>
-          <h2 className="mt-2 text-2xl font-bold text-slate-900">{quote.itemName}</h2>
-          <p className="mt-1 text-sm text-slate-500">{quote.sportName}</p>
-          <dl className="mt-6 space-y-4 border-y border-slate-100 py-5 text-sm">
-            <div className="flex justify-between gap-4"><dt className="text-slate-500">Thời gian</dt><dd className="text-right font-semibold text-slate-800">{formatDate(quote.startTime)}{bookingType === 'court' && quote.endTime ? ` — ${new Date(quote.endTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : ''}</dd></div>
-            <div className="flex justify-between gap-4"><dt className="text-slate-500">Địa điểm / huấn luyện viên</dt><dd className="text-right font-semibold text-slate-800">{quote.location}</dd></div>
-            <div className="flex justify-between gap-4"><dt className="text-slate-500">Môn thể thao</dt><dd className="text-right font-semibold text-slate-800">{quote.sportName}</dd></div>
-            <div className="flex justify-between gap-4 border-t border-slate-100 pt-4"><dt className="font-bold text-slate-700">Tổng thanh toán</dt><dd className="text-xl font-extrabold text-orange-600">{formatMoney(quote.amount)}</dd></div>
-          </dl>
-          <div className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900 flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px] text-amber-700 shrink-0">info</span>
-            <span>Chế độ thanh toán SANDBOX: thao tác xác nhận tạo giao dịch thử nghiệm và booking trong database; chưa trừ tiền thật.</span>
+        <div className="mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 space-y-6">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wider text-orange-600">
+              {quote.bookingType === 'COURT' ? 'Thuê sân chơi thể thao' : 'Đăng ký lớp học'}
+            </div>
+            <h2 className="mt-2 text-2xl font-bold text-slate-900">{quote.itemName}</h2>
+            <p className="mt-1 text-sm text-slate-500">{quote.sportName}</p>
           </div>
+
+          <dl className="space-y-3 rounded-2xl bg-slate-50 border border-slate-200/80 p-5 text-sm">
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-500">Thời gian</dt>
+              <dd className="text-right font-semibold text-slate-800">
+                {formatDate(quote.startTime)}
+                {bookingType === 'court' && quote.endTime
+                  ? ` — ${new Date(quote.endTime).toLocaleTimeString('vi-VN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}`
+                  : ''}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-500">Địa điểm / HLV</dt>
+              <dd className="text-right font-semibold text-slate-800">{quote.location}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-500">Môn thể thao</dt>
+              <dd className="text-right font-semibold text-slate-800">{quote.sportName}</dd>
+            </div>
+
+            <div className="flex justify-between gap-4 border-t border-slate-200/60 pt-3">
+              <dt className="text-slate-500">Giá niêm yết</dt>
+              <dd className={`font-semibold ${discountAmt > 0 ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                {formatMoney(originalPrice)}
+              </dd>
+            </div>
+
+            {discountAmt > 0 && (
+              <div className="flex justify-between items-center rounded-lg bg-emerald-50 px-2.5 py-1 text-xs text-emerald-700">
+                <span className="flex items-center gap-1 font-semibold">
+                  <span className="material-symbols-outlined text-sm">stars</span>
+                  {quote.discountLabel || 'Ưu đãi thẻ hội viên:'}
+                </span>
+                <strong className="font-bold">-{formatMoney(discountAmt)}</strong>
+              </div>
+            )}
+
+            <div className="flex justify-between gap-4 border-t border-slate-200 pt-3">
+              <dt className="font-bold text-slate-800">Tổng thanh toán</dt>
+              <dd className="text-xl font-extrabold text-orange-600">{formatMoney(finalPrice)}</dd>
+            </div>
+          </dl>
+
+          {/* Payment Method Selector */}
+          <PaymentMethodSelector
+            selectedMethod={paymentMethod}
+            onChange={setPaymentMethod}
+            amount={finalPrice}
+            transferMemo={`VQR${quote.bookingType === 'COURT' ? 'CRT' : 'CLS'}${itemId}`}
+          />
+
           <button
             type="button"
             disabled={submitting}
             onClick={handleCheckout}
-            className="mt-5 w-full rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 transition disabled:cursor-wait disabled:opacity-60"
+            className="w-full rounded-xl bg-orange-500 hover:bg-orange-600 py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-orange-500/25 transition disabled:cursor-wait disabled:opacity-60"
           >
-            {submitting ? 'Đang xử lý...' : `Xác nhận & thanh toán ${formatMoney(quote.amount)}`}
+            {actionBtnLabel}
           </button>
         </div>
       ) : null}

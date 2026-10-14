@@ -34,7 +34,7 @@ public class User {
     @Column(length = 15)
     private String phone;
 
-    @Column(length = 255)
+    @Column(name = "avatar", columnDefinition = "NVARCHAR(MAX)")
     private String avatar;
 
     @Column(length = 20)

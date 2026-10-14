@@ -4,6 +4,7 @@ import com.sporthub.backend.dto.BookingConfirmationResponse;
 import com.sporthub.backend.dto.BookingQuoteResponse;
 import com.sporthub.backend.dto.CoachScheduleEntryResponse;
 import com.sporthub.backend.dto.CoachStudentBookingResponse;
+import com.sporthub.backend.dto.CoachPublicProfileResponse;
 import com.sporthub.backend.dto.CheckoutRequest;
 import com.sporthub.backend.entity.Booking;
 import com.sporthub.backend.entity.ClassSession;
@@ -26,6 +27,11 @@ import com.sporthub.backend.repository.PublicFacilityRepository;
 import com.sporthub.backend.repository.PublicSportRepository;
 import com.sporthub.backend.repository.SportsCourtRepository;
 import com.sporthub.backend.repository.UserRepository;
+import com.sporthub.backend.entity.UserMembership;
+import com.sporthub.backend.entity.MembershipPackage;
+import com.sporthub.backend.repository.UserMembershipRepository;
+import com.sporthub.backend.repository.MembershipPackageRepository;
+import java.math.RoundingMode;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,6 +62,8 @@ public class BookingService {
     private final SportsCourtRepository sportsCourtRepository;
     private final CourtBookingRepository courtBookingRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final UserMembershipRepository userMembershipRepository;
+    private final MembershipPackageRepository membershipPackageRepository;
 
     public BookingService(
             BookingRepository bookingRepository,
@@ -65,7 +73,9 @@ public class BookingService {
             PublicFacilityRepository publicFacilityRepository,
             SportsCourtRepository sportsCourtRepository,
             CourtBookingRepository courtBookingRepository,
-            PaymentTransactionRepository paymentTransactionRepository) {
+            PaymentTransactionRepository paymentTransactionRepository,
+            UserMembershipRepository userMembershipRepository,
+            MembershipPackageRepository membershipPackageRepository) {
         this.bookingRepository = bookingRepository;
         this.classSessionRepository = classSessionRepository;
         this.userRepository = userRepository;
@@ -74,6 +84,8 @@ public class BookingService {
         this.sportsCourtRepository = sportsCourtRepository;
         this.courtBookingRepository = courtBookingRepository;
         this.paymentTransactionRepository = paymentTransactionRepository;
+        this.userMembershipRepository = userMembershipRepository;
+        this.membershipPackageRepository = membershipPackageRepository;
     }
 
     @Transactional(readOnly = true)
@@ -287,8 +299,50 @@ public class BookingService {
         return slots;
     }
 
+    public record DiscountInfo(
+            BigDecimal finalAmount,
+            BigDecimal originalAmount,
+            BigDecimal discountAmount,
+            String discountLabel) {}
+
+    public DiscountInfo calculateDiscount(Long memberId, String bookingType, BigDecimal originalAmount) {
+        if (memberId == null || originalAmount == null || originalAmount.signum() <= 0) {
+            return new DiscountInfo(originalAmount, originalAmount, BigDecimal.ZERO, null);
+        }
+        List<UserMembership> activeMemberships = userMembershipRepository.findByUserIdOrderByEndDateDesc(memberId).stream()
+                .filter(m -> "ACTIVE".equalsIgnoreCase(m.getStatus()) && (m.getEndDate() == null || !m.getEndDate().isBefore(LocalDate.now())))
+                .toList();
+        if (activeMemberships.isEmpty()) {
+            return new DiscountInfo(originalAmount, originalAmount, BigDecimal.ZERO, null);
+        }
+        UserMembership active = activeMemberships.get(0);
+        MembershipPackage pkg = membershipPackageRepository.findById(active.getPackageId()).orElse(null);
+        String pkgName = pkg == null ? "Gói Hội Viên" : pkg.getName();
+        String upperPkg = pkgName.toUpperCase(Locale.ROOT);
+
+        int percent;
+        if (upperPkg.contains("DIAMOND") || upperPkg.contains("VIP")) {
+            percent = "COURT".equalsIgnoreCase(bookingType) ? 50 : 30;
+        } else if (upperPkg.contains("GOLD") || upperPkg.contains("VÀNG")) {
+            percent = "COURT".equalsIgnoreCase(bookingType) ? 30 : 20;
+        } else {
+            percent = "COURT".equalsIgnoreCase(bookingType) ? 15 : 10;
+        }
+
+        BigDecimal discountAmount = originalAmount.multiply(BigDecimal.valueOf(percent))
+                .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+        BigDecimal finalAmount = originalAmount.subtract(discountAmount);
+        String label = "Ưu đãi " + pkgName + " (-" + percent + "%)";
+        return new DiscountInfo(finalAmount, originalAmount, discountAmount, label);
+    }
+
     @Transactional(readOnly = true)
     public BookingQuoteResponse getQuote(String bookingType, Long itemId, LocalDateTime startTime, LocalDateTime endTime) {
+        return getQuote(bookingType, itemId, startTime, endTime, null);
+    }
+
+    @Transactional(readOnly = true)
+    public BookingQuoteResponse getQuote(String bookingType, Long itemId, LocalDateTime startTime, LocalDateTime endTime, Long memberId) {
         String normalizedType = normalizeBookingType(bookingType);
         if ("COURT".equals(normalizedType)) {
             SportsCourt court = getActiveCourt(itemId);
@@ -297,9 +351,11 @@ public class BookingService {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Khung giờ sân vừa được người khác đặt.");
             }
             PublicSport sport = getActiveSport(court.getSportId());
+            DiscountInfo discount = calculateDiscount(memberId, "COURT", court.getHourlyRate());
             return new BookingQuoteResponse(
                     normalizedType, itemId, court.getCourtName(), sport.getName(),
-                    court.getDescription(), startTime, endTime, court.getHourlyRate());
+                    court.getDescription(), startTime, endTime, discount.finalAmount(),
+                    discount.originalAmount(), discount.discountAmount(), discount.discountLabel());
         }
 
         ClassSession session = getBookableClass(itemId);
@@ -312,6 +368,9 @@ public class BookingService {
                 .orElseThrow(() -> notFound("Không tìm thấy địa điểm lớp học."));
         User coach = userRepository.findById(session.getCoachId())
                 .orElseThrow(() -> notFound("Không tìm thấy huấn luyện viên của lớp."));
+
+        BigDecimal originalPrice = requirePrice(session.getPriceAmount());
+        DiscountInfo discount = calculateDiscount(memberId, "CLASS", originalPrice);
         return new BookingQuoteResponse(
                 normalizedType,
                 itemId,
@@ -320,25 +379,28 @@ public class BookingService {
                 facility.getName() + " · HLV " + coach.getFullName(),
                 session.getStartTime(),
                 session.getEndTime(),
-                requirePrice(session.getPriceAmount()));
+                discount.finalAmount(),
+                discount.originalAmount(),
+                discount.discountAmount(),
+                discount.discountLabel());
     }
 
     @Transactional
     public BookingConfirmationResponse checkout(Long memberId, CheckoutRequest request) {
         User member = userRepository.findById(memberId)
                 .orElseThrow(() -> notFound("Không tìm thấy tài khoản hội viên."));
-        if (!"MEMBER".equalsIgnoreCase(member.getRole()) || !"ACTIVE".equalsIgnoreCase(member.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Chỉ hội viên đang hoạt động mới được thanh toán booking.");
+        if (!"ACTIVE".equalsIgnoreCase(member.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Tài khoản của bạn chưa được kích hoạt hoặc đang bị khóa.");
         }
-        if (request.paymentMethod() != null && !"SANDBOX".equalsIgnoreCase(request.paymentMethod())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Hiện chỉ hỗ trợ phương thức thanh toán sandbox.");
+        if ("COACH".equalsIgnoreCase(member.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Tài khoản Huấn luyện viên không thể đặt chỗ như hội viên.");
         }
 
         String bookingType = normalizeBookingType(request.bookingType());
         if ("COURT".equals(bookingType)) {
             return checkoutCourt(memberId, request);
         }
-        return checkoutClass(memberId, request.itemId());
+        return checkoutClass(memberId, request);
     }
 
     private BookingConfirmationResponse checkoutCourt(Long memberId, CheckoutRequest request) {
@@ -350,14 +412,15 @@ public class BookingService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Khung giờ sân vừa được người khác đặt.");
         }
         PublicSport sport = getActiveSport(court.getSportId());
-        PaymentTransaction payment = createSandboxPayment(memberId, "COURT", court.getHourlyRate());
+        DiscountInfo discount = calculateDiscount(memberId, "COURT", court.getHourlyRate());
+        PaymentTransaction payment = createPaymentTransaction(memberId, "COURT", discount.finalAmount(), request.paymentMethod());
 
         CourtBooking booking = new CourtBooking();
         booking.setMemberId(memberId);
         booking.setCourtId(court.getCourtId());
         booking.setStartTime(request.startTime());
         booking.setEndTime(request.endTime());
-        booking.setAmountPaid(court.getHourlyRate());
+        booking.setAmountPaid(discount.finalAmount());
         booking.setPaymentId(payment.getPaymentId());
         booking.setStatus("CONFIRMED");
         booking.setCreatedAt(LocalDateTime.now());
@@ -369,24 +432,25 @@ public class BookingService {
                 payment.getPaymentStatus(), payment.getReferenceCode());
     }
 
-    private BookingConfirmationResponse checkoutClass(Long memberId, Long sessionId) {
-        ClassSession session = classSessionRepository.findByIdForUpdate(sessionId)
+    private BookingConfirmationResponse checkoutClass(Long memberId, CheckoutRequest request) {
+        ClassSession session = classSessionRepository.findByIdForUpdate(request.itemId())
                 .orElseThrow(() -> notFound("Không tìm thấy lớp học."));
         validateBookableClass(session);
-        if (bookingRepository.existsByMemberIdAndSessionIdAndStatusIn(memberId, sessionId, ALL_ACTIVE_STATUSES)) {
+        if (bookingRepository.existsByMemberIdAndSessionIdAndStatusIn(memberId, session.getSessionId(), ALL_ACTIVE_STATUSES)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã đặt chỗ hoặc đang trong hàng đợi lớp này.");
         }
-        if (bookingRepository.countBySessionIdAndStatusIn(sessionId, ACTIVE_STATUSES) >= session.getMaxSlots()) {
+        if (bookingRepository.countBySessionIdAndStatusIn(session.getSessionId(), ACTIVE_STATUSES) >= session.getMaxSlots()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Lớp học vừa hết chỗ.");
         }
 
-        BigDecimal price = requirePrice(session.getPriceAmount());
+        BigDecimal originalPrice = requirePrice(session.getPriceAmount());
+        DiscountInfo discount = calculateDiscount(memberId, "CLASS", originalPrice);
         PublicSport sport = getActiveSport(session.getSportId());
         PublicFacility facility = publicFacilityRepository.findById(session.getFacilityId())
                 .orElseThrow(() -> notFound("Không tìm thấy địa điểm lớp học."));
         User coach = userRepository.findById(session.getCoachId())
                 .orElseThrow(() -> notFound("Không tìm thấy huấn luyện viên của lớp."));
-        PaymentTransaction payment = createSandboxPayment(memberId, "CLASS", price);
+        PaymentTransaction payment = createPaymentTransaction(memberId, "CLASS", discount.finalAmount(), request.paymentMethod());
 
         Booking booking = Booking.builder()
                 .memberId(memberId)
@@ -394,54 +458,78 @@ public class BookingService {
                 .bookingTime(LocalDateTime.now())
                 .status("BOOKED")
                 .attendanceStatus("PENDING")
-                .feeAmount(price)
+                .feeAmount(discount.finalAmount())
                 .paymentId(payment.getPaymentId())
                 .build();
         Booking saved = bookingRepository.save(booking);
-        session.setBookedSlots((int) bookingRepository.countBySessionIdAndStatusIn(sessionId, ACTIVE_STATUSES));
+        session.setBookedSlots((int) bookingRepository.countBySessionIdAndStatusIn(session.getSessionId(), ACTIVE_STATUSES));
         classSessionRepository.save(session);
         return new BookingConfirmationResponse(
                 "CLASS", saved.getBookingId(), payment.getPaymentId(),
                 session.getClassName(), sport.getName(),
                 facility.getName() + " · HLV " + coach.getFullName(),
-                session.getStartTime(), session.getEndTime(), price,
+                session.getStartTime(), session.getEndTime(), discount.finalAmount(),
                 payment.getPaymentStatus(), payment.getReferenceCode());
     }
 
-    private PaymentTransaction createSandboxPayment(Long memberId, String bookingType, BigDecimal amount) {
+    private PaymentTransaction createPaymentTransaction(Long memberId, String bookingType, BigDecimal amount, String paymentMethod) {
+        String method = (paymentMethod == null || paymentMethod.isBlank()) ? "SANDBOX" : paymentMethod.toUpperCase(Locale.ROOT);
+        String prefix = switch (method) {
+            case "VIETQR", "QR" -> "VQR";
+            case "VNPAY" -> "VNP";
+            case "MOMO" -> "MOM";
+            case "CASH_COUNTER", "CASH" -> "CSH";
+            default -> "SBX";
+        };
         PaymentTransaction payment = new PaymentTransaction();
         payment.setMemberId(memberId);
         payment.setBookingType(bookingType);
         payment.setAmount(amount);
-        payment.setPaymentMethod("SANDBOX");
+        payment.setPaymentMethod(method);
         payment.setPaymentStatus("PAID");
-        payment.setReferenceCode("SBX-" + UUID.randomUUID().toString().replace("-", "").toUpperCase(Locale.ROOT));
+        payment.setReferenceCode(prefix + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
         payment.setCreatedAt(LocalDateTime.now());
         return paymentTransactionRepository.save(payment);
     }
 
     @Transactional(readOnly = true)
     public List<MemberScheduleEntryResponse> getMemberScheduleEntries(Long memberId) {
-        List<Booking> classBookings = bookingRepository.findByMemberIdAndStatusIn(memberId, ACTIVE_STATUSES);
+        List<Booking> classBookings = bookingRepository.findByMemberId(memberId);
         Map<Long, ClassSession> classes = classSessionRepository.findAllById(
                         classBookings.stream().map(Booking::getSessionId).distinct().toList()).stream()
                 .collect(Collectors.toMap(ClassSession::getSessionId, Function.identity()));
+        Map<Long, User> coaches = userRepository.findAllById(
+                        classes.values().stream().map(ClassSession::getCoachId).distinct().toList()).stream()
+                .collect(Collectors.toMap(User::getUserId, Function.identity()));
+
         List<MemberScheduleEntryResponse> entries = classBookings.stream()
                 .filter(booking -> classes.containsKey(booking.getSessionId()))
                 .map(booking -> {
                     ClassSession session = classes.get(booking.getSessionId());
                     PublicSport sport = publicSportRepository.findById(session.getSportId()).orElse(null);
                     PublicFacility facility = publicFacilityRepository.findById(session.getFacilityId()).orElse(null);
+                    User coach = coaches.get(session.getCoachId());
+                    boolean isCancelled = "CANCELLED".equalsIgnoreCase(booking.getStatus());
                     return new MemberScheduleEntryResponse(
-                            "CLASS", booking.getBookingId(), session.getClassName(),
+                            "CLASS",
+                            booking.getBookingId(),
+                            session.getClassName(),
                             sport == null ? "Bộ môn" : sport.getName(),
                             facility == null ? "Địa điểm" : facility.getName(),
-                            session.getStartTime(), session.getEndTime(),
-                            booking.getFeeAmount(), booking.getStatus());
+                            session.getStartTime(),
+                            session.getEndTime(),
+                            booking.getFeeAmount(),
+                            booking.getStatus(),
+                            coach == null ? null : coach.getUserId(),
+                            coach == null ? "Huấn luyện viên" : coach.getFullName(),
+                            coach == null ? null : coach.getPhone(),
+                            coach == null ? null : coach.getAvatar(),
+                            booking.getAttendanceStatus(),
+                            booking.getCoachNote(),
+                            isCancelled ? "REFUNDED" : null);
                 }).collect(Collectors.toCollection(java.util.ArrayList::new));
 
-        List<CourtBooking> courtBookings = courtBookingRepository
-                .findByMemberIdAndStatusOrderByStartTimeAsc(memberId, "CONFIRMED");
+        List<CourtBooking> courtBookings = courtBookingRepository.findByMemberIdOrderByStartTimeAsc(memberId);
         Map<Long, SportsCourt> courts = sportsCourtRepository.findAllById(
                         courtBookings.stream().map(CourtBooking::getCourtId).distinct().toList()).stream()
                 .collect(Collectors.toMap(SportsCourt::getCourtId, Function.identity()));
@@ -449,11 +537,24 @@ public class BookingService {
             SportsCourt court = courts.get(booking.getCourtId());
             if (court == null) continue;
             PublicSport sport = publicSportRepository.findById(court.getSportId()).orElse(null);
+            boolean isCancelled = "CANCELLED".equalsIgnoreCase(booking.getStatus());
             entries.add(new MemberScheduleEntryResponse(
-                    "COURT", booking.getCourtBookingId(), court.getCourtName(),
+                    "COURT",
+                    booking.getCourtBookingId(),
+                    court.getCourtName(),
                     sport == null ? "Bộ môn" : sport.getName(),
-                    court.getDescription(), booking.getStartTime(), booking.getEndTime(),
-                    booking.getAmountPaid(), booking.getStatus()));
+                    court.getDescription(),
+                    booking.getStartTime(),
+                    booking.getEndTime(),
+                    booking.getAmountPaid(),
+                    booking.getStatus(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    isCancelled ? "REFUNDED" : null));
         }
         entries.sort((left, right) -> left.startTime().compareTo(right.startTime()));
         return entries;
@@ -576,6 +677,25 @@ public class BookingService {
         booking.setStatus("CANCELLED");
         bookingRepository.save(booking);
 
+        // Record 100% refund transaction matching original payment method
+        if (booking.getFeeAmount() != null && booking.getFeeAmount().signum() > 0) {
+            String origMethod = "SANDBOX";
+            if (booking.getPaymentId() != null) {
+                origMethod = paymentTransactionRepository.findById(booking.getPaymentId())
+                        .map(PaymentTransaction::getPaymentMethod)
+                        .orElse("SANDBOX");
+            }
+            PaymentTransaction refund = new PaymentTransaction();
+            refund.setMemberId(actorId);
+            refund.setBookingType("CLASS_REFUND");
+            refund.setAmount(booking.getFeeAmount());
+            refund.setPaymentMethod(origMethod);
+            refund.setPaymentStatus("REFUNDED");
+            refund.setReferenceCode("RFD-CLS-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
+            refund.setCreatedAt(LocalDateTime.now());
+            paymentTransactionRepository.save(refund);
+        }
+
         if (wasBooked) {
             Booking nextInLine = bookingRepository
                     .findBySessionIdAndStatusInOrderByBookingTimeAsc(booking.getSessionId(), WAITLIST_STATUSES)
@@ -610,7 +730,55 @@ public class BookingService {
         }
 
         booking.setStatus("CANCELLED");
-        return courtBookingRepository.save(booking);
+        CourtBooking saved = courtBookingRepository.save(booking);
+
+        // Record 100% refund transaction matching original payment method
+        if (booking.getAmountPaid() != null && booking.getAmountPaid().signum() > 0) {
+            String origMethod = "SANDBOX";
+            if (booking.getPaymentId() != null) {
+                origMethod = paymentTransactionRepository.findById(booking.getPaymentId())
+                        .map(PaymentTransaction::getPaymentMethod)
+                        .orElse("SANDBOX");
+            }
+            PaymentTransaction refund = new PaymentTransaction();
+            refund.setMemberId(actorId);
+            refund.setBookingType("COURT_REFUND");
+            refund.setAmount(booking.getAmountPaid());
+            refund.setPaymentMethod(origMethod);
+            refund.setPaymentStatus("REFUNDED");
+            refund.setReferenceCode("RFD-CRT-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
+            refund.setCreatedAt(LocalDateTime.now());
+            paymentTransactionRepository.save(refund);
+        }
+        return saved;
+    }
+
+    @Transactional(readOnly = true)
+    public CoachPublicProfileResponse getCoachPublicProfile(Long coachId) {
+        User coach = userRepository.findById(coachId)
+                .filter(user -> "COACH".equalsIgnoreCase(user.getRole()))
+                .orElseThrow(() -> notFound("Không tìm thấy thông tin huấn luyện viên."));
+
+        List<ClassSession> coachSessions = classSessionRepository.findAll().stream()
+                .filter(session -> java.util.Objects.equals(session.getCoachId(), coachId))
+                .filter(session -> !"CANCELLED".equalsIgnoreCase(session.getStatus()))
+                .toList();
+
+        List<Long> sportIds = coachSessions.stream().map(ClassSession::getSportId).distinct().toList();
+        List<String> sportsTaught = sportIds.isEmpty() ? List.of("Đào tạo thể thao") :
+                publicSportRepository.findAllById(sportIds).stream().map(PublicSport::getName).toList();
+
+        return new CoachPublicProfileResponse(
+                coach.getUserId(),
+                coach.getFullName(),
+                coach.getEmail(),
+                coach.getPhone(),
+                coach.getAvatar(),
+                "Huấn luyện viên Chuyên Nghiệp F Sport Center",
+                coach.getAddress() != null && !coach.getAddress().isBlank() ? coach.getAddress() :
+                        "Huấn luyện viên đạt chứng chỉ chuyên môn quốc tế với nhiều năm kinh nghiệm huấn luyện học viên tại F Sport Center.",
+                coachSessions.size(),
+                sportsTaught);
     }
 
     @Transactional

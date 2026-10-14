@@ -22,16 +22,20 @@ export const getAvailableCourtSlots = (sportId) =>
   apiRequest(`/booking-flow/courts?sportId=${encodeURIComponent(sportId)}`);
 export const getBookableClasses = (sportId) =>
   apiRequest(`/booking-flow/classes?sportId=${encodeURIComponent(sportId)}`);
+export const getAllBookableClasses = (sportId) =>
+  apiRequest(sportId ? `/booking-flow/classes?sportId=${encodeURIComponent(sportId)}` : '/booking-flow/classes');
+export const getCoachPublicProfile = (coachId) =>
+  apiRequest(`/booking-flow/coaches/${encodeURIComponent(coachId)}`);
 export const getBookingQuote = (bookingType, itemId, startTime, endTime) => {
   const query = new URLSearchParams({ bookingType, itemId: String(itemId) });
   if (startTime) query.set('startTime', startTime);
   if (endTime) query.set('endTime', endTime);
   return apiRequest(`/booking-flow/quote?${query}`);
 };
-export const checkoutBooking = (bookingType, itemId, startTime, endTime) =>
+export const checkoutBooking = (bookingType, itemId, startTime, endTime, paymentMethod = 'VIETQR') =>
   apiRequest('/booking-flow/checkout', {
     method: 'POST',
-    body: JSON.stringify({ bookingType, itemId, startTime, endTime, paymentMethod: 'SANDBOX' }),
+    body: JSON.stringify({ bookingType, itemId, startTime, endTime, paymentMethod }),
   });
 export const getMemberBookingSchedule = () => apiRequest('/booking-flow/schedule');
 export const cancelMemberBooking = (bookingType, bookingId) =>

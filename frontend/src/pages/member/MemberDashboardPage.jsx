@@ -61,29 +61,43 @@ export default function MemberDashboardPage() {
 
   const quickActions = [
     {
+      title: 'Đăng ký lớp học',
+      desc: 'Đăng ký môn học theo kỳ, chọn lịch và HLV',
+      icon: 'school',
+      path: '/member/classes',
+      color: 'bg-orange-50 text-orange-600 group-hover:bg-orange-500 group-hover:text-white',
+    },
+    {
       title: 'Đặt sân chơi',
       desc: 'Chọn bộ môn, sân tiêu chuẩn và khung giờ trống',
       icon: 'sports_tennis',
       path: '/member/book/court/sports',
-      color: 'bg-orange-50 text-orange-600 group-hover:bg-orange-500 group-hover:text-white',
-    },
-    {
-      title: 'Booking lớp học',
-      desc: 'Luyện tập cùng Huấn luyện viên chuyên môn',
-      icon: 'fitness_center',
-      path: '/member/book/class/sports',
-      color: 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white',
-    },
-    {
-      title: 'Thời khóa biểu',
-      desc: 'Theo dõi lịch sân và lớp học trong tuần',
-      icon: 'calendar_month',
-      path: '/member/schedule',
       color: 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white',
     },
     {
-      title: 'Trợ lý AI & InBody',
-      desc: 'Phân tích chỉ số cơ thể và tư vấn lộ trình',
+      title: 'Gói tập & Quyền lợi',
+      desc: 'Xem hạn dùng, gia hạn hoặc nâng cấp thẻ',
+      icon: 'card_membership',
+      path: '/member/packages',
+      color: 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white',
+    },
+    {
+      title: 'Lịch sử điểm danh',
+      desc: 'Chuyên cần buổi học và lượt qua cổng RFID',
+      icon: 'fact_check',
+      path: '/member/attendance',
+      color: 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white',
+    },
+    {
+      title: 'Kế hoạch & Đánh giá HLV',
+      desc: 'Chỉ số InBody và nhận xét trực tiếp từ HLV',
+      icon: 'monitor_weight',
+      path: '/member/workout-plans',
+      color: 'bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white',
+    },
+    {
+      title: 'Trợ lý AI thể thao',
+      desc: 'Hỏi đáp bài tập, dinh dưỡng và giải đáp lịch',
       icon: 'smart_toy',
       path: '/member/ai-assistant',
       color: 'bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white',
@@ -160,9 +174,9 @@ export default function MemberDashboardPage() {
         </div>
 
         {/* =========================================
-            2. QUICK SHORTCUTS (4 TILES)
+            2. QUICK SHORTCUTS (6 TILES)
            ========================================= */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {quickActions.map((action, idx) => (
             <Link
               key={idx}

@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface MemberCheckInRepository extends JpaRepository<MemberCheckIn, Long> {
     List<MemberCheckIn> findTop50ByOrderByCheckedInAtDesc();
+    List<MemberCheckIn> findByMemberIdOrderByCheckedInAtDesc(Long memberId);
 }

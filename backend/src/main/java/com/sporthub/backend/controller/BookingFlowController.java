@@ -41,21 +41,47 @@ public class BookingFlowController {
 
     @GetMapping("/classes")
     public ResponseEntity<List<ClassSessionResponse>> getClasses(
-            @RequestParam Long sportId,
+            @RequestParam(required = false) Long sportId,
             Authentication authentication) {
         requireMember(authentication);
+        if (sportId == null) {
+            return ResponseEntity.ok(bookingService.getUpcomingClasses(actorId(authentication), "MEMBER"));
+        }
         return ResponseEntity.ok(bookingService.getClassesForSport(sportId, actorId(authentication)));
+    }
+
+    @GetMapping("/coaches/{coachId}")
+    public ResponseEntity<com.sporthub.backend.dto.CoachPublicProfileResponse> getCoachProfile(
+            @PathVariable Long coachId) {
+        return ResponseEntity.ok(bookingService.getCoachPublicProfile(coachId));
     }
 
     @GetMapping("/quote")
     public ResponseEntity<BookingQuoteResponse> getQuote(
             @RequestParam String bookingType,
             @RequestParam Long itemId,
-            @RequestParam(required = false) LocalDateTime startTime,
-            @RequestParam(required = false) LocalDateTime endTime,
+            @RequestParam(required = false) String startTime,
+            @RequestParam(required = false) String endTime,
             Authentication authentication) {
-        requireMember(authentication);
-        return ResponseEntity.ok(bookingService.getQuote(bookingType, itemId, startTime, endTime));
+        Long memberId = null;
+        if (authentication != null && authentication.isAuthenticated() && !"anonymousUser".equals(authentication.getName())) {
+            try {
+                memberId = Long.valueOf(authentication.getName());
+            } catch (Exception ignored) {
+            }
+        }
+        LocalDateTime parsedStart = null;
+        LocalDateTime parsedEnd = null;
+        try {
+            if (startTime != null && !startTime.isBlank()) {
+                parsedStart = LocalDateTime.parse(startTime.trim().replace("Z", ""));
+            }
+            if (endTime != null && !endTime.isBlank()) {
+                parsedEnd = LocalDateTime.parse(endTime.trim().replace("Z", ""));
+            }
+        } catch (Exception ignored) {
+        }
+        return ResponseEntity.ok(bookingService.getQuote(bookingType, itemId, parsedStart, parsedEnd, memberId));
     }
 
     @PostMapping("/checkout")
@@ -92,11 +118,18 @@ public class BookingFlowController {
     }
 
     private void requireMember(Authentication authentication) {
-        boolean isMember = authentication.getAuthorities().stream()
-                .anyMatch(authority -> "ROLE_MEMBER".equals(authority.getAuthority()));
-        if (!isMember) {
+        if (authentication == null || authentication.getAuthorities() == null) {
             throw new org.springframework.web.server.ResponseStatusException(
-                    HttpStatus.FORBIDDEN, "Chỉ hội viên mới được thực hiện booking.");
+                    HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập.");
+        }
+        boolean isAuthorized = authentication.getAuthorities().stream()
+                .anyMatch(authority -> {
+                    String auth = authority.getAuthority().toUpperCase(java.util.Locale.ROOT);
+                    return auth.contains("MEMBER") || auth.contains("ADMIN") || auth.contains("MANAGER") || auth.contains("CUSTOMER") || auth.contains("USER");
+                });
+        if (!isAuthorized) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Chỉ tài khoản hội viên hoặc quản trị mới được thực hiện booking.");
         }
     }
 

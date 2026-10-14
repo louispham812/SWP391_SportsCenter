@@ -18,7 +18,9 @@ import com.sporthub.backend.repository.CourtBookingRepository;
 import com.sporthub.backend.repository.PaymentTransactionRepository;
 import com.sporthub.backend.repository.PublicFacilityRepository;
 import com.sporthub.backend.repository.PublicSportRepository;
+import com.sporthub.backend.repository.MembershipPackageRepository;
 import com.sporthub.backend.repository.SportsCourtRepository;
+import com.sporthub.backend.repository.UserMembershipRepository;
 import com.sporthub.backend.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,6 +53,8 @@ class BookingServiceTest {
     private final SportsCourtRepository sportsCourtRepository = mock(SportsCourtRepository.class);
     private final CourtBookingRepository courtBookingRepository = mock(CourtBookingRepository.class);
     private final PaymentTransactionRepository paymentTransactionRepository = mock(PaymentTransactionRepository.class);
+    private final UserMembershipRepository userMembershipRepository = mock(UserMembershipRepository.class);
+    private final MembershipPackageRepository membershipPackageRepository = mock(MembershipPackageRepository.class);
     private BookingService bookingService;
 
     @BeforeEach
@@ -63,7 +67,9 @@ class BookingServiceTest {
                 publicFacilityRepository,
                 sportsCourtRepository,
                 courtBookingRepository,
-                paymentTransactionRepository);
+                paymentTransactionRepository,
+                userMembershipRepository,
+                membershipPackageRepository);
     }
 
     @Test

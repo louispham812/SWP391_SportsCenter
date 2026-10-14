@@ -10,7 +10,13 @@ import PublicContentPage from './pages/PublicContentPage';
 
 // Member Portal Pages
 import MemberDashboardPage from './pages/member/MemberDashboardPage';
+import MemberPackagesPage from './pages/member/MemberPackagesPage';
+import MemberClassesPage from './pages/member/MemberClassesPage';
 import MemberSchedulePage from './pages/member/MemberSchedulePage';
+import MemberAttendancePage from './pages/member/MemberAttendancePage';
+import MemberWorkoutPlansPage from './pages/member/MemberWorkoutPlansPage';
+import MemberNotificationsPage from './pages/member/MemberNotificationsPage';
+import MemberTransactionsPage from './pages/member/MemberTransactionsPage';
 import MemberBookingFlowPage from './pages/member/MemberBookingFlowPage';
 import MemberAIAssistantPage from './pages/member/MemberAIAssistantPage';
 import MemberProfilePage from './pages/member/MemberProfilePage';
@@ -72,6 +78,8 @@ function App() {
 
           {/* Member Routes */}
           <Route path="/member" element={<RequireRole role="member"><MemberDashboardPage /></RequireRole>} />
+          <Route path="/member/packages" element={<RequireRole role="member"><MemberPackagesPage /></RequireRole>} />
+          <Route path="/member/classes" element={<RequireRole role="member"><MemberClassesPage /></RequireRole>} />
           <Route path="/member/book" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
           <Route path="/member/book/:bookingType/sports" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
           <Route path="/member/book/courts/:sportId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
@@ -79,6 +87,10 @@ function App() {
           <Route path="/member/book/checkout/:bookingType/:resourceId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
           <Route path="/member/book/confirmation" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
           <Route path="/member/schedule" element={<RequireRole role="member"><MemberSchedulePage /></RequireRole>} />
+          <Route path="/member/attendance" element={<RequireRole role="member"><MemberAttendancePage /></RequireRole>} />
+          <Route path="/member/workout-plans" element={<RequireRole role="member"><MemberWorkoutPlansPage /></RequireRole>} />
+          <Route path="/member/notifications" element={<RequireRole role="member"><MemberNotificationsPage /></RequireRole>} />
+          <Route path="/member/transactions" element={<RequireRole role="member"><MemberTransactionsPage /></RequireRole>} />
           <Route path="/member/ai-assistant" element={<RequireRole role="member"><MemberAIAssistantPage /></RequireRole>} />
           <Route path="/member/profile" element={<RequireRole role="member"><MemberProfilePage /></RequireRole>} />
 

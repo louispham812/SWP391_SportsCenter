@@ -9,4 +9,5 @@ import java.util.List;
 public interface PaymentTransactionRepository extends JpaRepository<PaymentTransaction, Long> {
     List<PaymentTransaction> findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
             LocalDateTime start, LocalDateTime end);
+    List<PaymentTransaction> findByMemberIdOrderByCreatedAtDesc(Long memberId);
 }

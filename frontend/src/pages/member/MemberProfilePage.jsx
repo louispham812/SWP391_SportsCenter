@@ -6,6 +6,7 @@ import {
   getMemberHealthProfile,
   getMemberMemberships,
   getMemberProfile,
+  updateMemberAvatar,
   updateMemberHealthProfile,
   updateMemberProfile,
 } from '../../services/memberApi';
@@ -18,10 +19,48 @@ export default function MemberProfilePage() {
   const [profileError, setProfileError] = useState('');
   const [membership, setMembership] = useState(null);
   const [memberAvatar, setMemberAvatar] = useState('');
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const [profileForm, setProfileForm] = useState({});
   const [healthForm, setHealthForm] = useState({});
   const [inbodyForm, setInbodyForm] = useState({});
+
+  const handleAvatarFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showToast({
+        title: 'Kích thước ảnh lớn',
+        message: 'Vui lòng chọn ảnh có dung lượng dưới 2MB.',
+        type: 'warning',
+      });
+      return;
+    }
+    setAvatarUploading(true);
+    const reader = new FileReader();
+    reader.onload = async (uploadEvent) => {
+      const base64 = uploadEvent.target.result;
+      try {
+        setMemberAvatar(base64);
+        const updated = await updateMemberAvatar(base64);
+        updateProfile({ avatar: updated.avatar });
+        showToast({
+          title: 'Cập nhật thành công',
+          message: 'Ảnh đại diện hội viên F Sport đã được lưu.',
+          type: 'success',
+        });
+      } catch (err) {
+        showToast({
+          title: 'Lỗi lưu ảnh',
+          message: err.message || 'Không thể cập nhật ảnh đại diện.',
+          type: 'error',
+        });
+      } finally {
+        setAvatarUploading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     let current = true;
@@ -258,10 +297,79 @@ export default function MemberProfilePage() {
           {/* CỘT PHẢI (7 cols): Content by Active Tab */}
           <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
             {activeTab === 'profile' && (
-              <form onSubmit={handleSaveProfile} className="space-y-4">
-                <h2 className="font-headline-sm text-lg font-bold text-primary uppercase mb-2">
-                  Cập Nhật Thông Tin Cá Nhân (MEM-03)
-                </h2>
+              <form onSubmit={handleSaveProfile} className="space-y-5">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div>
+                    <h2 className="font-headline-sm text-lg font-bold text-slate-900 uppercase">
+                      Hồ Sơ Cá Nhân & Ảnh Đại Diện
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">Cập nhật thông tin nhận diện thẻ hội viên và liên hệ tại F Sport Center.</p>
+                  </div>
+                </div>
+
+                {/* Avatar Upload Banner */}
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-center gap-4">
+                  <div className="relative group shrink-0">
+                    <div className="w-20 h-20 rounded-2xl overflow-hidden bg-slate-800 border-2 border-orange-500 shadow-md flex items-center justify-center">
+                      {memberAvatar ? (
+                        <img src={memberAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-2xl font-black text-orange-400">
+                          {currentUser.avatar || currentUser.name?.slice(0, 2).toUpperCase() || 'US'}
+                        </span>
+                      )}
+                    </div>
+                    <label
+                      htmlFor="avatar-file-input"
+                      className="absolute inset-0 bg-slate-950/60 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white"
+                    >
+                      <span className="material-symbols-outlined text-[22px]">photo_camera</span>
+                      <span className="text-[10px] font-bold mt-0.5">Thay ảnh</span>
+                    </label>
+                    <input
+                      id="avatar-file-input"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarFileChange}
+                      className="hidden"
+                    />
+                  </div>
+
+                  <div className="flex-1 text-center sm:text-left">
+                    <div className="text-xs font-bold text-slate-800">Ảnh đại diện thẻ hội viên</div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Hỗ trợ JPG, PNG, WEBP (tối đa 2MB). Hiển thị trên thẻ điện tử F Sport và hồ sơ điểm danh.</p>
+                    <div className="mt-2.5 flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                      <label
+                        htmlFor="avatar-file-input"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition shadow-sm shadow-orange-500/20 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">upload</span>
+                        <span>{avatarUploading ? 'Đang tải...' : 'Tải ảnh từ máy'}</span>
+                      </label>
+                      <span className="text-[11px] text-slate-400">hoặc chọn avatar thể thao:</span>
+                      {[
+                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+                        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
+                        'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=200&q=80',
+                        'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=200&q=80',
+                      ].map((presetUrl, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={async () => {
+                            setMemberAvatar(presetUrl);
+                            await updateMemberAvatar(presetUrl);
+                            updateProfile({ avatar: presetUrl });
+                            showToast({ title: 'Thành công', message: 'Đã đổi ảnh đại diện.', type: 'success' });
+                          }}
+                          className="w-7 h-7 rounded-full overflow-hidden border border-slate-300 hover:border-orange-500 hover:scale-110 transition shadow-xs cursor-pointer"
+                        >
+                          <img src={presetUrl} alt="Preset" className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
