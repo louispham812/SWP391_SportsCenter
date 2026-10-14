@@ -166,30 +166,31 @@ export default function AdminPackagesPage() {
       <main className="space-y-6">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-secondary">
-              QUẢN LÝ SẢN PHẨM HỘI VIÊN
-            </p>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
+              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+              F SPORT ADMIN · QUẢN LÝ GÓI TẬP
+            </div>
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Gói tập & Dịch vụ</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Danh mục, giá và trạng thái được đồng bộ trực tiếp với database.
+              Danh mục gói thẻ hội viên, chính sách giá và thời hạn trong hệ thống F Sport.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2.5">
             <button
               type="button"
               onClick={loadData}
               disabled={loading}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 shadow-sm"
             >
-              <span className="material-symbols-outlined text-lg">refresh</span>
+              <span className="material-symbols-outlined text-[18px]">refresh</span>
               Làm mới
             </button>
             <button
               type="button"
               onClick={openCreateForm}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#c3f400] px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-[#abd600]"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all"
             >
-              <span className="material-symbols-outlined text-lg">add</span>
+              <span className="material-symbols-outlined text-[18px]">add</span>
               Thêm gói mới
             </button>
           </div>
@@ -462,7 +463,7 @@ export default function AdminPackagesPage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex-1 rounded-xl bg-[#00132b] px-4 py-3 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
+                    className="flex-1 rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-3 text-sm font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all disabled:opacity-50"
                   >
                     {saving ? 'Đang lưu...' : 'Lưu vào database'}
                   </button>

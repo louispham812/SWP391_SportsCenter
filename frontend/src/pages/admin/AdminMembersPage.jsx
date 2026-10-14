@@ -103,21 +103,22 @@ export default function AdminMembersPage() {
       <main className="space-y-6">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-secondary">
-              FLOW 1: USER & MEMBERSHIP MANAGEMENT
-            </p>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
+              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+              F SPORT ADMIN · QUẢN LÝ HỘI VIÊN
+            </div>
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Quản lý danh sách hội viên</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Tìm kiếm và quản lý trạng thái tài khoản hội viên trong database.
+              Tra cứu hồ sơ thành viên, thông tin gói thẻ và trạng thái kích hoạt tài khoản.
             </p>
           </div>
           <button
             type="button"
             onClick={loadMembers}
             disabled={loading}
-            className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:self-auto"
+            className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:self-auto shadow-sm"
           >
-            <span className="material-symbols-outlined text-lg">refresh</span>
+            <span className="material-symbols-outlined text-[18px]">refresh</span>
             Làm mới
           </button>
         </header>
@@ -137,14 +138,14 @@ export default function AdminMembersPage() {
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="Tìm theo tên, email, số điện thoại hoặc mã..."
-                className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-slate-900"
+                className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
               />
             </label>
             <select
               value={filterStatus}
               onChange={changeStatusFilter}
               aria-label="Lọc theo trạng thái tài khoản"
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none"
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-orange-500"
             >
               <option value="">Tất cả trạng thái</option>
               {Object.entries(STATUS_LABELS).map(([value, label]) => (
@@ -153,7 +154,7 @@ export default function AdminMembersPage() {
             </select>
             <button
               type="submit"
-              className="rounded-xl bg-[#00132b] px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-800"
+              className="rounded-xl bg-orange-500 hover:bg-orange-600 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/20 active:scale-[0.98] transition-all"
             >
               Tìm kiếm
             </button>

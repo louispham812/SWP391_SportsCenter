@@ -101,22 +101,24 @@ export default function AdminFacilitiesPage() {
       <main className="space-y-6">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-secondary">
-              QUẢN LÝ CƠ SỞ &amp; LỊCH LỚP
-            </p>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
+              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+              F SPORT ADMIN · CƠ SỞ &amp; LỊCH LỚP
+            </div>
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
               Cơ sở, sân bãi &amp; lịch hoạt động
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              Danh sách và trạng thái được tải trực tiếp từ cơ sở dữ liệu.
+              Quản lý danh sách sân thi đấu, tình trạng sử dụng và điều phối lịch lớp học.
             </p>
           </div>
           <button
             type="button"
             onClick={() => setShowAddClassModal(true)}
             disabled={!sports.length || !coaches.length || !availableFacilities.length}
-            className="rounded-xl bg-secondary-container px-5 py-2.5 text-xs font-bold uppercase text-primary shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all disabled:cursor-not-allowed disabled:opacity-50"
           >
+            <span className="material-symbols-outlined text-[18px]">add_circle</span>
             Tạo lịch lớp mới
           </button>
         </header>
@@ -258,7 +260,7 @@ export default function AdminFacilitiesPage() {
                 <button type="button" onClick={() => setShowAddClassModal(false)}
                   className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold">Hủy</button>
                 <button type="submit" disabled={saving}
-                  className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white disabled:opacity-60">
+                  className="rounded-xl bg-orange-500 hover:bg-orange-600 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/20 active:scale-[0.98] transition-all disabled:opacity-60">
                   {saving ? 'Đang lưu...' : 'Lưu vào cơ sở dữ liệu'}
                 </button>
               </div>

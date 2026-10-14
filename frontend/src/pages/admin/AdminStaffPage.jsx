@@ -82,21 +82,22 @@ export default function AdminStaffPage() {
       <main className="space-y-6">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-secondary">
-              QUẢN LÝ TÀI KHOẢN HỆ THỐNG
-            </p>
-            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Nhân sự & Khách</h1>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
+              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+              F SPORT ADMIN · NHÂN SỰ &amp; NGƯỜI DÙNG
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Nhân sự &amp; Khách</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Danh sách nhân viên và hội viên được tải trực tiếp từ cơ sở dữ liệu.
+              Danh sách nhân viên và hội viên được tải trực tiếp từ cơ sở dữ liệu F Sport.
             </p>
           </div>
           <button
             type="button"
             onClick={loadUsers}
             disabled={loading}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
           >
-            <span className="material-symbols-outlined text-lg">refresh</span>
+            <span className="material-symbols-outlined text-[18px]">refresh</span>
             Làm mới
           </button>
         </header>
@@ -115,14 +116,14 @@ export default function AdminStaffPage() {
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="Tìm tên, email, số điện thoại hoặc mã..."
-                className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-900/10"
+                className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
               />
             </label>
             <select
               value={role}
               onChange={changeRole}
               aria-label="Lọc theo vai trò"
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-slate-500"
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-orange-500"
             >
               <option value="">Tất cả vai trò</option>
               {Object.entries(ROLE_LABELS).map(([key, label]) => (
@@ -131,7 +132,7 @@ export default function AdminStaffPage() {
             </select>
             <button
               type="submit"
-              className="rounded-xl bg-[#00132b] px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-800"
+              className="rounded-xl bg-orange-500 hover:bg-orange-600 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/20 active:scale-[0.98] transition-all"
             >
               Tìm kiếm
             </button>

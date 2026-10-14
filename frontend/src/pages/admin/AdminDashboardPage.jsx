@@ -81,23 +81,25 @@ export default function AdminDashboardPage() {
       <main className="space-y-6">
         <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-secondary">
-              Báo cáo vận hành từ cơ sở dữ liệu
-            </p>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
+              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+              F SPORT ADMIN · BÁO CÁO HIỆU SUẤT
+            </div>
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
               Báo Cáo Hiệu Suất Trung Tâm
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              Doanh thu, đăng ký mới và lịch lớp lấy từ giao dịch, hội viên và booking đã lưu.
+              Doanh thu, đăng ký hội viên mới và hiệu suất phòng học từ cơ sở dữ liệu F Sport.
             </p>
           </div>
-          <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
-            Ngày báo cáo
+          <label className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-white border border-slate-200 px-3.5 py-2 rounded-xl shadow-sm">
+            <span className="material-symbols-outlined text-orange-500 text-[18px]">event</span>
+            <span>Ngày báo cáo</span>
             <input
               type="date"
               value={reportDate}
               onChange={(event) => setReportDate(event.target.value)}
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800"
+              className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-sm text-slate-800 font-semibold outline-none focus:border-orange-500"
             />
           </label>
         </header>
@@ -108,26 +110,38 @@ export default function AdminDashboardPage() {
           </p>
         )}
         {loading ? (
-          <p role="status" className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
-            Đang tải báo cáo...
-          </p>
+          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 flex flex-col items-center justify-center gap-3">
+            <span className="material-symbols-outlined text-3xl text-orange-500 animate-spin">progress_activity</span>
+            <span>Đang tổng hợp báo cáo vận hành trung tâm...</span>
+          </div>
         ) : (
           <>
             <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {kpis.map((kpi) => (
-                <article key={kpi.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase text-slate-500">{kpi.label}</span>
-                    <span className="material-symbols-outlined text-slate-500">{kpi.icon}</span>
-                  </div>
-                  <strong className="text-2xl text-slate-900">{kpi.value}</strong>
-                </article>
-              ))}
+              {kpis.map((kpi, idx) => {
+                const colorConfig = [
+                  { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-200' },
+                  { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200' },
+                  { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200' },
+                  { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-200' },
+                ][idx % 4];
+
+                return (
+                  <article key={kpi.label} className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm hover:shadow-md transition-all">
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{kpi.label}</span>
+                      <div className={`w-9 h-9 rounded-xl ${colorConfig.bg} ${colorConfig.text} ${colorConfig.border} border flex items-center justify-center shrink-0`}>
+                        <span className="material-symbols-outlined text-[20px]">{kpi.icon}</span>
+                      </div>
+                    </div>
+                    <strong className="text-2xl font-black text-slate-900 tracking-tight">{kpi.value}</strong>
+                  </article>
+                );
+              })}
             </section>
 
             <section className="grid gap-6 lg:grid-cols-5">
-              <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
-                <h2 className="font-bold uppercase text-slate-900">Thanh toán trong ngày</h2>
+              <article className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm lg:col-span-2">
+                <h2 className="font-bold uppercase tracking-wider text-slate-900">Thanh toán trong ngày</h2>
                 <p className="mt-1 text-xs text-slate-500">
                   {report?.completedPayments || 0} giao dịch hoàn tất
                 </p>

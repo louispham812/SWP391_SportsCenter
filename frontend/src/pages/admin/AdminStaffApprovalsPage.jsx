@@ -76,12 +76,13 @@ export default function AdminStaffApprovalsPage() {
       <main className="space-y-6">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-secondary">
-              QUẢN LÝ TÀI KHOẢN NHÂN VIÊN
-            </p>
-            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Duyệt đăng ký Coach & Lễ tân</h1>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
+              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+              F SPORT ADMIN · DUYỆT NHÂN VIÊN
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Duyệt đăng ký Coach &amp; Lễ tân</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Xem các hồ sơ đang chờ và quyết định kích hoạt tài khoản.
+              Kiểm tra hồ sơ nhân sự mới và kích hoạt quyền truy cập vào hệ thống F Sport.
             </p>
           </div>
           <button
@@ -141,22 +142,25 @@ export default function AdminStaffApprovalsPage() {
                           <p className="mt-0.5 text-xs text-slate-400">{registration.phone || 'Chưa cung cấp số điện thoại'}</p>
                         </td>
                         <td className="px-5 py-4">
-                          <span className={`rounded-full px-3 py-1 text-xs font-bold ${
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold border ${
                             registration.role === 'COACH'
-                              ? 'bg-lime-100 text-lime-900'
-                              : 'bg-slate-100 text-slate-700'
+                              ? 'bg-amber-50 text-amber-800 border-amber-200'
+                              : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                           }`}>
-                            {registration.role === 'COACH' ? 'Coach' : 'Lễ tân'}
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              registration.role === 'COACH' ? 'bg-amber-500' : 'bg-emerald-500'
+                            }`}></span>
+                            {registration.role === 'COACH' ? 'Huấn luyện viên' : 'Lễ tân'}
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-slate-600">{formatDate(registration.createdAt)}</td>
+                        <td className="px-5 py-4 text-slate-600 font-medium">{formatDate(registration.createdAt)}</td>
                         <td className="px-5 py-4">
                           <div className="flex justify-end gap-2">
                             <button
                               type="button"
                               onClick={() => handleDecision(registration, 'reject')}
                               disabled={isProcessing}
-                              className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                              className="rounded-xl border border-red-200 px-3.5 py-2 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-50 transition-colors"
                             >
                               Từ chối
                             </button>
@@ -164,7 +168,7 @@ export default function AdminStaffApprovalsPage() {
                               type="button"
                               onClick={() => handleDecision(registration, 'approve')}
                               disabled={isProcessing}
-                              className="rounded-lg bg-[#00132b] px-3 py-2 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-50"
+                              className="rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/20 active:scale-[0.98] transition-all disabled:opacity-50"
                             >
                               {isProcessing ? 'Đang xử lý...' : 'Duyệt tài khoản'}
                             </button>
