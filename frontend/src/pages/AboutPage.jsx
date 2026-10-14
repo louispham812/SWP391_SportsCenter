@@ -1,18 +1,45 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { getPublicFacilities, getPublicSports } from '../services/publicContentApi';
+import { getSportMedia } from '../utils/mediaMap';
 
 export default function AboutPage() {
-  // Chỉ số ấn tượng của F Sport Center
+  const [sports, setSports] = useState([]);
+  const [facilities, setFacilities] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    Promise.all([getPublicSports(), getPublicFacilities()])
+      .then(([sportsData, facilitiesData]) => {
+        setSports(Array.isArray(sportsData) ? sportsData : []);
+        setFacilities(Array.isArray(facilitiesData) ? facilitiesData : []);
+      })
+      .catch((err) => {
+        console.error('Lỗi khi tải thông số từ backend:', err);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, []);
+
   const milestones = [
     { number: '15.000 m²', label: 'Tổng diện tích quy hoạch', icon: 'aspect_ratio' },
-    { number: '30+', label: 'Bộ môn thể thao đa dạng', icon: 'sports_tennis' },
-    { number: '50+', label: 'HLV chứng chỉ quốc tế (NASM/PPR)', icon: 'workspace_premium' },
-    { number: '98%', label: 'Hội viên trải nghiệm hài lòng', icon: 'sentiment_very_satisfied' },
+    {
+      number: !isLoading && sports.length > 0 ? `${sports.length} Bộ Môn` : '10 Bộ Môn',
+      label: 'Thể thao rèn luyện & thi đấu',
+      icon: 'sports_tennis',
+    },
+    {
+      number: !isLoading && facilities.length > 0 ? `${facilities.length} Tiện Ích` : '16 Tiện Ích',
+      label: 'Sân bãi & cơ sở vật chất 5 sao',
+      icon: 'stadium',
+    },
+    { number: '24/7', label: 'Check-in RFID & AI Smart Coach', icon: 'schedule' },
   ];
 
-  // Giá trị cốt lõi
   const coreValues = [
     {
       title: 'Hiệu Suất & Kỷ Luật',
@@ -40,7 +67,6 @@ export default function AboutPage() {
     },
   ];
 
-  // Đội ngũ ban huấn luyện tiêu biểu
   const coachesTeam = [
     {
       name: 'HLV Lê Anh Tuấn',
@@ -66,7 +92,7 @@ export default function AboutPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white flex flex-col font-body-md text-slate-800 antialiased">
+    <div className="min-h-screen bg-white flex flex-col font-body-md text-slate-800 antialiased selection:bg-orange-500 selection:text-white">
       <Navbar />
 
       <main className="w-full pt-20 flex-1">
@@ -93,7 +119,7 @@ export default function AboutPage() {
 
               <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black uppercase tracking-tight leading-tight text-white">
                 Kiến Tạo Không Gian <br />
-                <span className="text-orange-500">Thể Thao Đỉnh Cao</span> Cho Hội Viên
+                <span className="text-orange-500">Thể Thao Đỉnh Cao</span> Cho Mọi Người
               </h1>
 
               <p className="text-base sm:text-lg text-slate-300 font-medium leading-relaxed max-w-2xl">
@@ -127,7 +153,7 @@ export default function AboutPage() {
               {milestones.map((item, idx) => (
                 <div
                   key={idx}
-                  className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-2 flex flex-col justify-between"
+                  className="bg-white p-6 rounded-3xl border border-slate-200 shadow-2xs space-y-2 flex flex-col justify-between"
                 >
                   <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center font-black">
                     <span className="material-symbols-outlined text-[26px]">{item.icon}</span>
@@ -172,10 +198,10 @@ export default function AboutPage() {
             <div className="lg:col-span-6 space-y-6">
               <div className="space-y-2">
                 <span className="text-[11px] font-black uppercase tracking-wider text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200">
-                  OUR MISSION & VISION
+                  OUR MISSION &amp; VISION
                 </span>
                 <h2 className="text-2xl sm:text-4xl font-black text-slate-900 uppercase tracking-tight">
-                  Sứ Mệnh Nâng Tầm Thể Lực & Phong Độ Thi Đấu
+                  Sứ Mệnh Nâng Tầm Thể Lực &amp; Phong Độ Thi Đấu
                 </h2>
               </div>
 
@@ -208,6 +234,61 @@ export default function AboutPage() {
 
           </div>
         </section>
+
+        {/* CÁC BỘ MÔN NỔI BẬT ĐƯỢC LOAD TỪ DATABASE */}
+        {sports.length > 0 && (
+          <section className="py-16 bg-slate-50 border-y border-slate-200">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-orange-600 bg-orange-100/70 px-3 py-1 rounded-full">
+                    DATABASE CONTENT
+                  </span>
+                  <h3 className="text-xl sm:text-3xl font-black uppercase text-slate-900 mt-2">
+                    Các Bộ Môn Được Đào Tạo Trực Tiếp
+                  </h3>
+                </div>
+                <Link
+                  to="/sports"
+                  className="text-xs font-black uppercase tracking-wider text-orange-600 hover:text-orange-700 flex items-center gap-1"
+                >
+                  <span>Xem tất cả ({sports.length})</span>
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                {sports.slice(0, 5).map((sport) => {
+                  const media = getSportMedia(sport.slug);
+                  return (
+                    <Link
+                      key={sport.sportId}
+                      to={`/sports/${sport.slug}`}
+                      className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs hover:shadow-md hover:border-orange-300 transition-all group flex flex-col"
+                    >
+                      <div className="w-full h-28 overflow-hidden bg-slate-100 relative">
+                        <img
+                          src={media.image}
+                          alt={sport.name}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 to-transparent"></div>
+                        <span className="absolute bottom-2 left-2 text-[10px] font-black uppercase text-white drop-shadow-sm">
+                          {sport.tag || 'PRO'}
+                        </span>
+                      </div>
+                      <div className="p-3 text-center">
+                        <h4 className="text-xs font-black text-slate-900 group-hover:text-orange-600 transition-colors uppercase truncate">
+                          {sport.name}
+                        </h4>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* GIÁ TRỊ CỐT LÕI */}
         <section className="py-16 bg-slate-900 text-white">
@@ -301,7 +382,7 @@ export default function AboutPage() {
 
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-900">
                   <span>Khóa huấn luyện:</span>
-                  <span className="text-orange-600">Lớp Nhóm & PT 1:1</span>
+                  <span className="text-orange-600">Lớp Nhóm &amp; PT 1:1</span>
                 </div>
               </div>
             ))}
@@ -315,7 +396,7 @@ export default function AboutPage() {
               Sẵn Sàng Bứt Phá Phong Độ Thể Thao?
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-xl mx-auto">
-              Đăng ký ngay gói tập F Sport Center để nhận đặc quyền trải nghiệm trọn bộ cụm sân Pickleball, Tennis, Gym & Studio chuẩn 5 sao!
+              Đăng ký ngay gói tập F Sport Center để nhận đặc quyền trải nghiệm trọn bộ cụm sân Pickleball, Tennis, Gym &amp; Studio chuẩn 5 sao!
             </p>
             <div className="pt-2 flex flex-wrap justify-center gap-4">
               <Link
