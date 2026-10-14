@@ -1,22 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState } from 'react';
-import {
-  mockMembersList,
-  mockCoachesList,
-  mockPackages,
-  mockClasses,
-  mockFacilities,
-  mockCheckIns,
-  mockAuditLogs,
-  mockSports,
-  mockVouchers,
-  mockRetailInventory,
-  mockLockers,
-  mockSupportTickets,
-  mockRefundRequests,
-  mockCoachReviews,
-  mockPaymentHistory,
-} from '../data/mockData';
 import { apiRequest } from '../services/apiClient';
 
 const AppContext = createContext();
@@ -47,8 +30,8 @@ const getAuthSession = () => {
 };
 
 export function AppProvider({ children }) {
-  // 1. Authenticated account state, scoped to this browser tab.
   const [authSession, setAuthSession] = useState(getAuthSession);
+  const [toasts, setToasts] = useState([]);
   const currentRole = authSession?.role || null;
   const currentUser = authSession?.user || null;
 
@@ -198,16 +181,14 @@ export function AppProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
   const removeToast = (id) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts((current) => current.filter((toast) => toast.id !== id));
   };
 
   const showToast = (title, message, type = 'success') => {
-    const id = generateId('toast');
-    const newToast = { id, title, message, type };
-    setToasts((prev) => [...prev, newToast]);
-    setTimeout(() => {
-      removeToast(id);
-    }, 4500);
+    idCounter += 1;
+    const id = `toast_${Date.now()}_${idCounter}`;
+    setToasts((current) => [...current, { id, title, message, type }]);
+    setTimeout(() => removeToast(id), 4500);
   };
 
   const authenticateUser = (user, roleKey, token) => {

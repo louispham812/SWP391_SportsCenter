@@ -1,0 +1,35 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { expect } from '@playwright/test';
+
+const testDataPath = path.join(import.meta.dirname, '.member-test-data.json');
+const apiBaseUrl = process.env.E2E_API_BASE_URL || 'http://127.0.0.1:8080/api/v1';
+
+export function readMemberTestData() {
+  return JSON.parse(fs.readFileSync(testDataPath, 'utf8'));
+}
+
+export async function loginMember(page) {
+  const { email, password, name } = readMemberTestData();
+  await page.goto('/login');
+  await page.locator('#login-role').selectOption('MEMBER');
+  await page.getByPlaceholder('name@example.com / 0912...').fill(email);
+  await page.getByPlaceholder('••••••••').fill(password);
+  await page.getByRole('button', { name: 'ĐĂNG NHẬP NGAY' }).click();
+  await expect(page).toHaveURL(/\/member$/);
+  await expect(page.getByRole('heading', { name: `Xin chào, ${name}` })).toBeVisible();
+}
+
+export async function logoutMember(page) {
+  const token = await page.evaluate(() => {
+    const session = JSON.parse(sessionStorage.getItem('sports-center-auth-session') || 'null');
+    return session?.token;
+  });
+  if (token) {
+    await page.request.delete(`${apiBaseUrl}/auth/session`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+}
+
+export { apiBaseUrl };

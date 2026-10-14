@@ -20,6 +20,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
@@ -62,7 +63,7 @@ public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        String role = user.get().getRole().toUpperCase();
+        String role = user.get().getRole().toUpperCase(Locale.ROOT);
         var authentication = new UsernamePasswordAuthenticationToken(
                 user.get().getUserId().toString(),
                 null,

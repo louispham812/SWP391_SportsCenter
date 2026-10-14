@@ -10,7 +10,6 @@ import com.sporthub.backend.repository.UserRepository;
 import com.sporthub.backend.security.BearerTokenAuthenticationFilter;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
 import java.util.Locale;
 import java.util.UUID;
 import java.time.LocalDateTime;
@@ -149,8 +148,8 @@ public class AuthService {
                 user.getRole(),
                 user.getFullName(),
                 user.getEmail(),
-                user.getPhone(),
-                user.getUserId(),
-                user.getStatus());
+               user.getPhone(),
+               user.getUserId(),
+               user.getStatus());
     }
 }

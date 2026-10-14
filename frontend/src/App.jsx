@@ -25,6 +25,9 @@ import MemberPlaceholderPage from './pages/member/MemberPlaceholderPage';
 // Receptionist Portal Pages
 import ReceptionCheckInPage from './pages/receptionist/ReceptionCheckInPage';
 import ReceptionPOSPage from './pages/receptionist/ReceptionPOSPage';
+import ReceptionMembersPage from './pages/receptionist/ReceptionMembersPage';
+import ReceptionClassesPage from './pages/receptionist/ReceptionClassesPage';
+import ReceptionShiftReportPage from './pages/receptionist/ReceptionShiftReportPage';
 
 // Coach Portal Pages (ĐÃ BỔ SUNG ĐẦY ĐỦ VÀ ĐỒNG BỘ)
 import CoachDashboardPage from './pages/coach/CoachDashboardPage';
@@ -37,6 +40,7 @@ import CoachProfilePage from './pages/coach/CoachProfilePage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminMembersPage from './pages/admin/AdminMembersPage';
 import AdminStaffPage from './pages/admin/AdminStaffPage';
+import AdminStaffApprovalsPage from './pages/admin/AdminStaffApprovalsPage';
 import AdminFacilitiesPage from './pages/admin/AdminFacilitiesPage';
 import AdminPackagesPage from './pages/admin/AdminPackagesPage';
 

@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface MembershipPackageRepository extends JpaRepository<MembershipPackage, Long> {
     List<MembershipPackage> findByStatus(String status);
+    List<MembershipPackage> findAllByOrderByPackageIdDesc();
 }

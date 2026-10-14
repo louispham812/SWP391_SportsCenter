@@ -236,7 +236,7 @@ export default function CoachSchedulePage() {
             </div>
             <span>Tổng cộng: <strong className="text-slate-900 font-black">{statsSummary.total} ca dạy/tuần</strong></span>
           </div>
-        </div>
+        </header>
 
         {/* 1. MÀN HÌNH CHẾ ĐỘ XEM CỘT TUẦN (CALENDAR VIEW) */}
         {viewMode === 'calendar' && (

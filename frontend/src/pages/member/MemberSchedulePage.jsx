@@ -1,7 +1,198 @@
 import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
-import { useApp } from '../../context/AppContext';
+import { cancelMemberBooking, getMemberBookingSchedule } from '../../services/bookingApi';
+
+const DAY_START_HOUR = 6;
+const DAY_END_HOUR = 23;
+const HOUR_HEIGHT = 64;
+const WEEKDAYS = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
+
+const formatMoney = (amount) => new Intl.NumberFormat('vi-VN', {
+  style: 'currency',
+  currency: 'VND',
+  maximumFractionDigits: 0,
+}).format(amount || 0);
+
+const formatTime = (value) => new Date(value).toLocaleTimeString('vi-VN', {
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+const formatShortDate = (date) => date.toLocaleDateString('vi-VN', {
+  day: '2-digit',
+  month: '2-digit',
+});
+
+const getDateKey = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const startOfWeek = (date) => {
+  const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  return monday;
+};
+
+const getWeekDays = (weekStart) => WEEKDAYS.map((weekday, index) => {
+  const date = new Date(weekStart);
+  date.setDate(date.getDate() + index);
+  return { weekday, date, key: getDateKey(date) };
+});
+
+const getWeekLabel = (weekStart, weekEnd) => {
+  const startLabel = weekStart.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+  const endLabel = weekEnd.toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  return `${startLabel} – ${endLabel}`;
+};
+
+const getPositionedEntries = (entries) => {
+  const sortedEntries = [...entries].sort(
+    (left, right) => new Date(left.startTime).getTime() - new Date(right.startTime).getTime(),
+  );
+  const lanes = [];
+  const positionedEntries = sortedEntries.map((entry) => {
+    const start = new Date(entry.startTime).getTime();
+    const end = new Date(entry.endTime).getTime();
+    let lane = lanes.findIndex((laneEnd) => laneEnd <= start);
+    if (lane === -1) lane = lanes.length;
+    lanes[lane] = end;
+    return { entry, lane };
+  });
+
+  return positionedEntries.map((positioned) => ({
+    ...positioned,
+    laneCount: lanes.length,
+  }));
+};
+
+function ScheduleGrid({ entries, weekDays, bookingType }) {
+  const entriesByDate = useMemo(() => {
+    const groups = new Map(weekDays.map(({ key }) => [key, []]));
+    entries.forEach((entry) => {
+      const key = getDateKey(new Date(entry.startTime));
+      if (groups.has(key)) groups.get(key).push(entry);
+    });
+    return groups;
+  }, [entries, weekDays]);
+
+  const hours = Array.from(
+    { length: DAY_END_HOUR - DAY_START_HOUR },
+    (_, index) => DAY_START_HOUR + index,
+  );
+  const gridHeight = hours.length * HOUR_HEIGHT;
+  const accentClass = bookingType === 'CLASS'
+    ? 'border-l-4 border-l-violet-500 bg-violet-50 text-violet-950'
+    : 'border-l-4 border-l-sky-500 bg-sky-50 text-sky-950';
+
+  return (
+    <div className="overflow-x-auto rounded-b-2xl">
+      <div className="min-w-[980px]">
+        <div
+          className="grid border-b border-slate-200 bg-slate-50"
+          style={{ gridTemplateColumns: '68px repeat(7, minmax(125px, 1fr))' }}
+        >
+          <div className="border-r border-slate-200" aria-hidden="true" />
+          {weekDays.map(({ weekday, date, key }) => {
+            const isToday = key === getDateKey(new Date());
+            return (
+              <div
+                key={key}
+                className={`border-r border-slate-200 px-2 py-3 text-center last:border-r-0 ${isToday ? 'bg-lime-50' : ''}`}
+              >
+                <div className="text-xs font-semibold text-slate-500">{weekday}</div>
+                <div className={`mt-1 text-sm font-bold ${isToday ? 'text-lime-800' : 'text-slate-800'}`}>
+                  {formatShortDate(date)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: '68px repeat(7, minmax(125px, 1fr))' }}
+        >
+          <div className="relative border-r border-slate-200" style={{ height: gridHeight }}>
+            {hours.map((hour) => (
+              <div
+                key={hour}
+                className="absolute right-2 -translate-y-1/2 text-[11px] font-medium text-slate-400"
+                style={{ top: (hour - DAY_START_HOUR) * HOUR_HEIGHT }}
+              >
+                {String(hour).padStart(2, '0')}:00
+              </div>
+            ))}
+          </div>
+
+          {weekDays.map(({ key }) => {
+            const positionedEntries = getPositionedEntries(entriesByDate.get(key) || []);
+            return (
+              <div
+                key={key}
+                className="relative border-r border-slate-200 last:border-r-0"
+                style={{ height: gridHeight }}
+              >
+                {hours.map((hour) => (
+                  <div
+                    key={hour}
+                    className="absolute inset-x-0 border-t border-slate-100"
+                    style={{ top: (hour - DAY_START_HOUR) * HOUR_HEIGHT }}
+                    aria-hidden="true"
+                  />
+                ))}
+                {positionedEntries.map(({ entry, lane, laneCount }) => {
+                  const start = new Date(entry.startTime);
+                  const end = new Date(entry.endTime);
+                  const startMinutes = start.getHours() * 60 + start.getMinutes();
+                  const endMinutes = end.getHours() * 60 + end.getMinutes();
+                  const top = Math.max(
+                    0,
+                    ((startMinutes - DAY_START_HOUR * 60) / 60) * HOUR_HEIGHT,
+                  );
+                  const bottom = Math.min(
+                    gridHeight,
+                    ((endMinutes - DAY_START_HOUR * 60) / 60) * HOUR_HEIGHT,
+                  );
+                  const height = Math.max(48, bottom - top);
+                  const width = 100 / laneCount;
+                  const left = width * lane;
+
+                  return (
+                    <article
+                      key={`${entry.bookingType}-${entry.bookingId}`}
+                      aria-label={`${entry.title}, ${formatTime(entry.startTime)}–${formatTime(entry.endTime)}, ${entry.location}`}
+                      className={`absolute z-10 overflow-hidden rounded-md px-2 py-1.5 text-left shadow-sm ${accentClass}`}
+                      style={{
+                        top: Math.min(top, gridHeight - 48),
+                        height: Math.min(height, gridHeight - Math.min(top, gridHeight - 48)),
+                        left: `calc(${left}% + 3px)`,
+                        width: `calc(${width}% - 6px)`,
+                      }}
+                    >
+                      <h3 className="truncate text-xs font-bold leading-4">{entry.title}</h3>
+                      <p className="mt-0.5 truncate text-[11px] leading-4">{entry.sportName}</p>
+                      <p className="truncate text-[11px] leading-4">{formatTime(entry.startTime)}–{formatTime(entry.endTime)}</p>
+                      <p className="truncate text-[11px] leading-4" title={entry.location}>{entry.location}</p>
+                      <p className="truncate text-[11px] font-semibold leading-4">{formatMoney(entry.amountPaid)}</p>
+                    </article>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function MemberSchedulePage() {
   const navigate = useNavigate();

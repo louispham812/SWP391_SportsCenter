@@ -2,6 +2,13 @@ import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { useApp } from '../../context/AppContext';
+import {
+  getMemberHealthProfile,
+  getMemberMemberships,
+  getMemberProfile,
+  updateMemberHealthProfile,
+  updateMemberProfile,
+} from '../../services/memberApi';
 
 export default function MemberProfilePage() {
   const {
@@ -80,7 +87,7 @@ export default function MemberProfilePage() {
     }
   };
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
     updateProfile?.(profileForm);
     showToast?.('Lưu thành công', 'Thông tin cá nhân đã được cập nhật!', 'success');
@@ -92,12 +99,16 @@ export default function MemberProfilePage() {
     showToast?.('Lưu thành công', 'Hồ sơ sức khỏe PAR-Q đã được cập nhật!', 'success');
   };
 
-  const handleSaveInBody = (e) => {
+  const handleSaveInBody = async (e) => {
     e.preventDefault();
     const computedBmi = Number((inbodyForm.weight / Math.pow(inbodyForm.height / 100, 2)).toFixed(1));
     updateHealthProfile?.({ ...inbodyForm, bmi: computedBmi });
     showToast?.('Lưu thành công', 'Chỉ số đo InBody 770 đã được lưu!', 'success');
   };
+
+  if (profileLoading) {
+    return <MemberLayout><p role="status" className="p-6">Đang tải hồ sơ từ cơ sở dữ liệu...</p></MemberLayout>;
+  }
 
   return (
     <MemberLayout>

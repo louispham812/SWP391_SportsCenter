@@ -2,6 +2,21 @@ import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { useApp } from '../../context/AppContext';
+import { getMemberBookingSchedule } from '../../services/bookingApi';
+
+const formatBookingTime = (value) => new Date(value).toLocaleString('vi-VN', {
+  weekday: 'long',
+  day: '2-digit',
+  month: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+const formatBookingAmount = (amount) => new Intl.NumberFormat('vi-VN', {
+  style: 'currency',
+  currency: 'VND',
+  maximumFractionDigits: 0,
+}).format(amount || 0);
 
 export default function MemberDashboardPage() {
   const navigate = useNavigate();
