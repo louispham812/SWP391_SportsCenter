@@ -1,262 +1,163 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import CoachLayout from '../../components/layouts/CoachLayout';
-import { useApp } from '../../context/AppContext';
+import { getCoachStudents } from '../../services/bookingApi';
+import { generateCoachPlan } from '../../services/aiAssistantApi';
 
 export default function CoachStudentsPage() {
-  const { addAuditLog, showToast } = useApp();
-  const [students] = useState([
-    {
-      id: 1,
-      name: 'Nguyễn Minh Anh',
-      phone: '0987 654 321',
-      plan: 'Gói Pickleball Match Pass 10 Buổi',
-      completedSessions: '7 / 10',
-      goal: 'Tăng phản xạ nhanh & footwork linh hoạt',
-      inbody: { weight: '64.2 kg', smm: '32.5 kg', pbf: '17.8%' },
-    },
-    {
-      id: 2,
-      name: 'Đặng Tuấn Tú',
-      phone: '0912 345 678',
-      plan: 'PT 1:1 Biomechanics Lab 20 Buổi',
-      completedSessions: '14 / 20',
-      goal: 'Phục hồi khớp gối sau chấn thương & tăng sức mạnh chân',
-      inbody: { weight: '76.0 kg', smm: '38.2 kg', pbf: '19.4%' },
-    },
-    {
-      id: 3,
-      name: 'Trần Bảo Lâm',
-      phone: '0903 888 999',
-      plan: 'VIP Diamond All-Access',
-      completedSessions: '28 / 50',
-      goal: 'Tập luyện sức bền thi đấu giải Pickleball Hà Nội Open',
-      inbody: { weight: '71.5 kg', smm: '36.8 kg', pbf: '14.2%' },
-    },
-  ]);
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [generatingBookingId, setGeneratingBookingId] = useState(null);
+  const [plans, setPlans] = useState({});
+  const [planErrors, setPlanErrors] = useState({});
 
-  const [aiModal, setAiModal] = useState(null);
-  const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiPlanResult, setAiPlanResult] = useState(null);
+  useEffect(() => {
+    let current = true;
+    const loadStudents = async () => {
+      try {
+        const bookings = await getCoachStudents();
+        const byMember = new Map();
+        bookings.forEach((booking) => {
+          const existing = byMember.get(booking.memberId) || {
+            id: booking.memberId,
+            name: booking.memberName,
+            phone: booking.memberPhone,
+            sessions: [],
+          };
+          existing.sessions.push({
+            bookingId: booking.bookingId,
+            className: booking.className,
+            startTime: booking.startTime,
+            status: booking.attendanceStatus || booking.bookingStatus,
+          });
+          byMember.set(booking.memberId, existing);
+        });
+        if (current) setStudents([...byMember.values()]);
+      } catch (requestError) {
+        if (current) setError(requestError.message || 'Không thể tải danh sách học viên từ cơ sở dữ liệu.');
+      } finally {
+        if (current) setLoading(false);
+      }
+    };
+    loadStudents();
+    return () => {
+      current = false;
+    };
+  }, []);
 
-  const handleOpenAIModal = (student) => {
-    setAiModal(student);
-    setAiPlanResult(null);
-  };
-
-  const handleGenerateAIWorkout = () => {
-    setAiGenerating(true);
-    setTimeout(() => {
-      setAiPlanResult({
-        recommendation: `Giáo án cá nhân hóa cho học viên: ${aiModal.name} (Mục tiêu: ${aiModal.goal})`,
-        exercises: [
-          { name: 'Warm-up: Dynamic Stretch & Khởi động khớp cổ chân', sets: '1 hiệp', duration: '8 phút' },
-          { name: 'Bài 1: Agility Ladder Shuffle (Thang dây đổi hướng nhanh)', sets: '4 hiệp', reps: '30 giây/hiệp', rest: '45s' },
-          { name: 'Bài 2: Dumbbell Lateral Lunges (Chùng chân ngang tạ 8kg)', sets: '3 hiệp', reps: '12 lần/chân', rest: '60s' },
-          { name: 'Bài 3: Reactive Tennis Ball Catch (Bắt bóng phản xạ đa hướng)', sets: '3 hiệp', reps: '20 bóng', rest: '45s' },
-          { name: 'Cool-down: Giãn cơ tĩnh toàn thân & Foam Roller đùi trước', sets: '1 hiệp', duration: '10 phút' },
-        ],
-      });
-      setAiGenerating(false);
-    }, 1200);
+  const handleGeneratePlan = async (student, session) => {
+    setGeneratingBookingId(session.bookingId);
+    setPlanErrors((current) => ({ ...current, [session.bookingId]: '' }));
+    try {
+      const result = await generateCoachPlan(session.bookingId);
+      setPlans((current) => ({ ...current, [session.bookingId]: result.answer }));
+    } catch (requestError) {
+      setPlanErrors((current) => ({
+        ...current,
+        [session.bookingId]: requestError.message || 'Không thể tạo giáo án cho học viên này.',
+      }));
+    } finally {
+      setGeneratingBookingId(null);
+    }
   };
 
   return (
     <CoachLayout>
       <div className="space-y-6">
-        {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-secondary bg-secondary-container/20 px-2 py-0.5 rounded">
-                FLOW 4 & FLOW 5: TRAINING & AI WORKOUT
-              </span>
-            </div>
-            <h1 className="font-headline-xl text-2xl sm:text-3xl font-bold text-slate-900">
-              Danh Sách Học Viên Của Tôi
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500">
-              Theo dõi tiến độ, xem chỉ số InBody và sử dụng AI để tạo giáo án cá nhân hóa.
-            </p>
+        <header>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
+            <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+            F SPORT COACH · HỌC VIÊN CỦA TÔI
           </div>
-        </div>
+          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Danh Sách Học Viên Của Tôi</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Học viên có đăng ký đang hiệu lực tại các lớp huấn luyện viên được phân công.
+          </p>
+        </header>
 
-        {/* Student Cards List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {students.map((st) => (
-            <div
-              key={st.id}
-              className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-primary text-secondary-container flex items-center justify-center font-bold text-base shadow-sm">
-                      {st.name.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div>
-                      <h3 className="font-headline-sm text-base font-bold text-slate-900">
-                        {st.name}
-                      </h3>
-                      <div className="text-xs text-slate-500">{st.phone}</div>
-                    </div>
+        {error && (
+          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            {error}
+          </p>
+        )}
+        {loading ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 flex flex-col items-center justify-center gap-3">
+            <span className="material-symbols-outlined text-3xl text-orange-500 animate-spin">progress_activity</span>
+            <span>Đang tải danh sách học viên...</span>
+          </div>
+        ) : students.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 flex flex-col items-center justify-center gap-2">
+            <span className="material-symbols-outlined text-3xl text-slate-300">groups</span>
+            <span>Chưa có học viên nào đăng ký các lớp được phân công cho bạn.</span>
+          </div>
+        ) : (
+          <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {students.map((student) => (
+              <article key={student.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:border-orange-300 transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 font-black text-white text-sm shadow-sm shadow-orange-500/20 shrink-0">
+                    {student.name?.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="truncate font-bold text-slate-900">{student.name}</h2>
+                    <p className="text-xs text-slate-500">{student.phone || 'Chưa có số điện thoại'}</p>
                   </div>
                 </div>
-
-                <div className="p-3 bg-slate-50 rounded-xl space-y-1.5 text-xs text-slate-600 mb-4 border border-slate-100">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Gói tập:</span>
-                    <strong className="text-slate-900 truncate max-w-[180px]">{st.plan}</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Tiến độ buổi:</span>
-                    <strong className="text-secondary font-bold">{st.completedSessions} buổi</strong>
-                  </div>
-                  <div className="pt-1 border-t border-slate-200/60">
-                    <span className="text-slate-400 block text-[11px]">Mục tiêu chính:</span>
-                    <span className="text-slate-800 font-medium italic">{st.goal}</span>
-                  </div>
+                <div className="mt-5 border-t border-slate-100 pt-4">
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Lớp đã tham gia
+                  </p>
+                  <ul className="space-y-2.5">
+                    {student.sessions.map((session) => (
+                      <li key={`${student.id}-${session.bookingId}`} className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5">
+                        <div className="flex justify-between gap-3 text-xs">
+                          <span className="font-bold text-slate-800">
+                            {session.className} · {new Date(session.startTime).toLocaleDateString('vi-VN')}
+                          </span>
+                          <span className="shrink-0 font-semibold px-2 py-0.5 rounded-full text-[10px] bg-slate-200 text-slate-700">
+                            {session.status}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleGeneratePlan(student, session)}
+                          disabled={generatingBookingId !== null}
+                          className="mt-3 flex items-center justify-center gap-1.5 w-full rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 px-3 py-2 text-xs font-bold text-white shadow-sm shadow-orange-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">smart_toy</span>
+                          {generatingBookingId === session.bookingId ? 'Đang tạo giáo án AI...' : 'Tạo giáo án cá nhân hóa bằng AI'}
+                        </button>
+                        {planErrors[session.bookingId] && (
+                          <p role="alert" className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+                            {planErrors[session.bookingId]}
+                          </p>
+                        )}
+                        {plans[session.bookingId] && (
+                          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 text-xs text-slate-800 space-y-2">
+                            <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
+                              <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
+                              Giáo án gợi ý từ AI
+                            </div>
+                            <div className="whitespace-pre-wrap leading-relaxed text-slate-700 font-medium">
+                              {plans[session.bookingId]}
+                            </div>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-
-                {/* InBody Mini Stats */}
-                <div className="grid grid-cols-3 gap-2 text-center text-xs p-2.5 bg-slate-100 rounded-xl mb-5">
-                  <div>
-                    <div className="text-[10px] text-slate-500 uppercase font-bold">Cân nặng</div>
-                    <div className="font-bold text-slate-800 mt-0.5">{st.inbody.weight}</div>
-                  </div>
-                  <div className="border-x border-slate-200">
-                    <div className="text-[10px] text-slate-500 uppercase font-bold">Cơ nạc</div>
-                    <div className="font-bold text-secondary mt-0.5">{st.inbody.smm}</div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] text-slate-500 uppercase font-bold">Mỡ PBF</div>
-                    <div className="font-bold text-slate-800 mt-0.5">{st.inbody.pbf}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleOpenAIModal(st)}
-                  className="flex-1 py-2.5 rounded-xl bg-secondary-container hover:bg-secondary-fixed-dim text-primary text-xs font-bold uppercase transition-all shadow-sm flex items-center justify-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[16px]">psychology</span>
-                  <span>AI Gợi Ý Bài Tập</span>
-                </button>
-              </div>
-            </div>
-          ))}
+              </article>
+            ))}
+          </section>
+        )}
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-xs text-amber-900 flex items-start gap-3">
+          <span className="material-symbols-outlined text-amber-600 text-xl shrink-0">info</span>
+          <div>
+            <strong>Lưu ý bảo mật & tính an toàn:</strong> Giáo án AI chỉ dựa trên mục tiêu thể chất và thông số bài tập, tuyệt đối không gửi số điện thoại hay thông tin nhạy cảm. Huấn luyện viên kiểm duyệt trước khi hướng dẫn thực tế.
+          </div>
         </div>
       </div>
-
-      {/* Modal: AI Workout Recommendation for Coach (Flow 5) */}
-      {aiModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4 border border-slate-200 relative animate-in fade-in max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setAiModal(null)}
-              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500"
-            >
-              <span className="material-symbols-outlined text-[18px]">close</span>
-            </button>
-
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-secondary-container text-primary flex items-center justify-center font-bold">
-                <span className="material-symbols-outlined text-[24px]">smart_toy</span>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold tracking-wider text-secondary bg-secondary-container/20 px-2 py-0.5 rounded">
-                  AI WORKOUT GENERATOR (FLOW 5)
-                </span>
-                <h3 className="font-headline-sm text-lg font-bold text-slate-900 mt-0.5">
-                  Tạo Kế Hoạch Bài Tập Cho: {aiModal.name}
-                </h3>
-              </div>
-            </div>
-
-            <div className="p-3 bg-slate-50 rounded-xl text-xs space-y-1 text-slate-600 border border-slate-200">
-              <div>• Mục tiêu: <strong>{aiModal.goal}</strong></div>
-              <div>• Thể trạng: Cân nặng <strong>{aiModal.inbody.weight}</strong> | Cơ <strong>{aiModal.inbody.smm}</strong> | Mỡ <strong>{aiModal.inbody.pbf}</strong></div>
-            </div>
-
-            {!aiPlanResult ? (
-              <div className="text-center py-6 space-y-3">
-                {aiGenerating ? (
-                  <div className="space-y-2">
-                    <span className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin inline-block"></span>
-                    <div className="text-xs text-slate-600 font-bold">
-                      Hệ thống AI đang phân tích dữ liệu thể trạng và sinh giáo án...
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-xs text-slate-500 mb-4">
-                      Thuật toán AI sẽ dựa vào mục tiêu, mức độ phục hồi và lịch sử của học viên để đưa ra danh sách các bài tập tối ưu nhất.
-                    </p>
-                    <button
-                      onClick={handleGenerateAIWorkout}
-                      className="px-6 py-3 rounded-xl bg-primary text-secondary-container text-xs font-bold uppercase tracking-wider hover:bg-slate-800 transition-all shadow-md flex items-center justify-center gap-2 mx-auto"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
-                      <span>Kích Hoạt Sinh Giáo Án Bằng AI</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="p-3.5 bg-secondary-container/25 border border-secondary/30 rounded-xl text-xs text-slate-800 font-bold">
-                  {aiPlanResult.recommendation}
-                </div>
-
-                <div className="space-y-2">
-                  <div className="text-xs font-bold uppercase text-slate-500">
-                    Danh Sách Bài Tập Đề Xuất:
-                  </div>
-                  {aiPlanResult.exercises.map((ex, idx) => (
-                    <div
-                      key={idx}
-                      className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-900">{ex.name}</div>
-                        <div className="text-[11px] text-slate-500">
-                          {ex.sets} {ex.reps ? `• ${ex.reps}` : ''} {ex.duration ? `• ${ex.duration}` : ''}
-                        </div>
-                      </div>
-                      {ex.rest && (
-                        <span className="text-[11px] font-mono bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-600">
-                          Nghỉ: {ex.rest}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  <button
-                    onClick={() => {
-                      addAuditLog('Tạo giáo án AI', `HLV đã lưu & gửi giáo án AI cho học viên: ${aiModal.name}`);
-                      showToast('Lưu giáo án AI thành công', `Giáo án cá nhân hóa đã được gửi vào ứng dụng của học viên ${aiModal.name}!`, 'success');
-                      setAiModal(null);
-                    }}
-                    className="flex-1 py-3 rounded-xl bg-[#c1f100] hover:bg-[#abd600] text-slate-950 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                    <span>Lưu Giáo Án Này Vào Hồ Sơ Học Viên</span>
-                  </button>
-                  <button
-                    onClick={handleGenerateAIWorkout}
-                    className="py-3 px-4 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold uppercase hover:bg-slate-50"
-                  >
-                    Tạo lại
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </CoachLayout>
   );
 }

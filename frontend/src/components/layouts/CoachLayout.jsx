@@ -1,10 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import PortalLayout from './PortalLayout';
-import { mockUsers } from '../../data/mockData';
+import { useApp } from '../../context/AppContext';
 
 export default function CoachLayout({ children }) {
   const navigate = useNavigate();
+  const { currentUser } = useApp();
 
   const coachMenu = [
     { label: 'Lịch giảng dạy tuần', path: '/coach', icon: 'calendar_month' },
@@ -16,8 +17,8 @@ export default function CoachLayout({ children }) {
   return (
     <PortalLayout
       role="coach"
-      roleBadge="ELITE COACH"
-      currentUser={mockUsers.coach}
+      roleBadge="F SPORT COACH"
+      currentUser={currentUser}
       menuItems={coachMenu}
       quickAction={{
         label: 'Điểm Danh Ca Dạy',

@@ -26,11 +26,16 @@ public class MembershipPackage {
     @Column(name = "duration_days", nullable = false)
     private Integer durationDays;
 
+    @Builder.Default
+
     @Column(name = "access_type", length = 20)
     private String accessType = "ALL_DAY"; // ALL_DAY, PEAK, OFF_PEAK
 
     @Column(columnDefinition = "NVARCHAR(MAX)")
     private String description;
+
+
+    @Builder.Default
 
     @Column(length = 20)
     private String status = "ACTIVE"; // ACTIVE, INACTIVE

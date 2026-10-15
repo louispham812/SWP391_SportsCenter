@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { getMemberNotifications } from '../../services/memberApi';
 
 export default function PortalLayout({
   role = 'member', // 'member' | 'receptionist' | 'coach' | 'admin'
   menuItems = [],
-  roleBadge = 'ELITE PORTAL',
+  roleBadge = 'F SPORT PORTAL',
   currentUser = {},
   quickAction = null,
   children,
@@ -14,60 +15,13 @@ export default function PortalLayout({
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [liveNotifications, setLiveNotifications] = useState([]);
   const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { members, classes, switchRole, showToast } = useApp();
+  const { logout } = useApp();
 
   const searchInputRef = useRef(null);
-
-  // Initial Notifications State
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: 'Lịch học sắp diễn ra',
-      desc: 'Lớp Pickleball Chiến Thuật Pro bắt đầu lúc 18:00 tại Sân 01.',
-      time: '5 phút trước',
-      read: false,
-      icon: 'sports_tennis',
-      color: 'bg-lime-100 text-lime-800',
-      link: '/member/schedule',
-    },
-    {
-      id: 2,
-      title: 'Hội viên mới check-in',
-      desc: 'Nguyễn Minh Anh vừa check-in qua cổng RFID - Tủ đồ #24.',
-      time: '15 phút trước',
-      read: false,
-      icon: 'badge',
-      color: 'bg-emerald-100 text-emerald-800',
-      link: '/receptionist',
-    },
-    {
-      id: 3,
-      title: 'Cập nhật lịch thi đấu',
-      desc: 'HLV Lê Anh Tuấn đã phê duyệt giáo án bài tập về nhà.',
-      time: '1 giờ trước',
-      read: true,
-      icon: 'fact_check',
-      color: 'bg-blue-100 text-blue-800',
-      link: '/coach/attendance',
-    },
-    {
-      id: 4,
-      title: 'Cảnh báo thời hạn gói',
-      desc: 'Thẻ Silver Member còn 26 ngày trước khi đến hạn gia hạn.',
-      time: '1 ngày trước',
-      read: true,
-      icon: 'card_membership',
-      color: 'bg-amber-100 text-amber-800',
-      link: '/admin/packages',
-    },
-  ]);
-
-  const [notificationFilter, setNotificationFilter] = useState('all'); // 'all' | 'unread'
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
 
   // Global Keyboard Shortcut: Cmd+K / Ctrl+K
   useEffect(() => {
@@ -92,12 +46,29 @@ export default function PortalLayout({
     }
   }, [searchOpen]);
 
+  useEffect(() => {
+    if (role === 'member') {
+      getMemberNotifications()
+        .then((data) => {
+          if (Array.isArray(data)) setLiveNotifications(data);
+        })
+        .catch(() => {});
+    }
+  }, [role]);
+
   // System pages directory for quick jump
   const systemPages = [
     { title: 'Tổng quan Hội viên', subtitle: 'Bảng điều khiển cá nhân, lịch tập hôm nay', path: '/member', icon: 'dashboard', roleName: 'Hội viên' },
-    { title: 'Lịch học & Đặt lớp', subtitle: 'Thời khóa biểu, đặt chỗ và hủy lịch', path: '/member/schedule', icon: 'calendar_month', roleName: 'Hội viên' },
+    { title: 'Gói tập & Quyền lợi', subtitle: 'Xem gói tập, gia hạn và nâng cấp thẻ', path: '/member/packages', icon: 'card_membership', roleName: 'Hội viên' },
+    { title: 'Đăng ký lớp học', subtitle: 'Đăng ký và hủy lịch lớp học thể thao theo kỳ', path: '/member/classes', icon: 'school', roleName: 'Hội viên' },
+    { title: 'Đặt sân chơi', subtitle: 'Chọn môn thể thao, sân, khung giờ và thanh toán', path: '/member/book/court/sports', icon: 'sports_tennis', roleName: 'Hội viên' },
+    { title: 'Thời khóa biểu của tôi', subtitle: 'Lịch sân và lịch lớp đã thanh toán', path: '/member/schedule', icon: 'calendar_month', roleName: 'Hội viên' },
+    { title: 'Lịch sử điểm danh', subtitle: 'Chuyên cần buổi học và lượt quét cổng RFID', path: '/member/attendance', icon: 'fact_check', roleName: 'Hội viên' },
+    { title: 'Kế hoạch & Nhận xét HLV', subtitle: 'Chỉ số InBody, mục tiêu và phản hồi HLV', path: '/member/workout-plans', icon: 'monitor_weight', roleName: 'Hội viên' },
     { title: 'Tiến độ & Trợ lý AI', subtitle: 'Gợi ý bài tập AI, phân tích InBody', path: '/member/ai-assistant', icon: 'smart_toy', roleName: 'Hội viên' },
-    { title: 'Hồ sơ & Thẻ số cá nhân', subtitle: 'Mã QR check-in, lịch sử tập luyện', path: '/member/profile', icon: 'badge', roleName: 'Hội viên' },
+    { title: 'Thông báo & Nhắc nhở', subtitle: 'Lịch học sắp tới, hạn gói thẻ, nhận xét', path: '/member/notifications', icon: 'notifications', roleName: 'Hội viên' },
+    { title: 'Lịch sử giao dịch', subtitle: 'Biên lai điện tử, hoàn tiền và chi tiêu', path: '/member/transactions', icon: 'account_balance_wallet', roleName: 'Hội viên' },
+    { title: 'Hồ sơ & Thẻ số cá nhân', subtitle: 'Mã QR check-in, thông tin cá nhân', path: '/member/profile', icon: 'badge', roleName: 'Hội viên' },
     { title: 'Check-in Lễ tân tại quầy', subtitle: 'Quét thẻ RFID, tìm kiếm hội viên, mở tủ đồ', path: '/receptionist', icon: 'how_to_reg', roleName: 'Lễ tân' },
     { title: 'Bán hàng POS & Thu ngân', subtitle: 'Bán gói tập, nước uống, thiết bị thể thao', path: '/receptionist/pos', icon: 'point_of_sale', roleName: 'Lễ tân' },
     { title: 'Lịch dạy HLV trong tuần', subtitle: 'Lịch ca dạy, phòng tập, số lượng học viên', path: '/coach', icon: 'calendar_today', roleName: 'HLV' },
@@ -107,6 +78,7 @@ export default function PortalLayout({
     { title: 'Quản lý Gói tập & Dịch vụ', subtitle: 'Cấu hình giá thẻ, thời hạn, quyền lợi', path: '/admin/packages', icon: 'card_membership', roleName: 'Admin' },
     { title: 'Quản lý Lịch & Sân bãi', subtitle: 'Lịch đặt cụm sân Pickleball, Tennis, Bể bơi', path: '/admin/facilities', icon: 'stadium', roleName: 'Admin' },
     { title: 'Quản lý Nhân sự & Khách', subtitle: 'Danh sách HLV, lễ tân, tài khoản người dùng', path: '/admin/staff', icon: 'group', roleName: 'Admin' },
+    { title: 'Duyệt đăng ký nhân viên', subtitle: 'Duyệt hoặc từ chối đăng ký Coach và Lễ tân', path: '/admin/staff-approvals', icon: 'how_to_reg', roleName: 'Admin' },
     { title: 'Bảng giá hội viên công khai', subtitle: 'Trang bảng giá gói Diamond, Gold, Silver', path: '/pricing', icon: 'receipt_long', roleName: 'Public' },
   ];
 
@@ -118,25 +90,6 @@ export default function PortalLayout({
       p.subtitle.toLowerCase().includes(cleanQuery) ||
       p.roleName.toLowerCase().includes(cleanQuery)
   );
-
-  const matchedMembers = members.filter(
-    (m) =>
-      m.name.toLowerCase().includes(cleanQuery) ||
-      m.phone.includes(cleanQuery) ||
-      m.memberId.toLowerCase().includes(cleanQuery)
-  ).slice(0, 4);
-
-  const matchedClasses = classes.filter(
-    (c) =>
-      c.title.toLowerCase().includes(cleanQuery) ||
-      c.sport.toLowerCase().includes(cleanQuery) ||
-      c.coach.toLowerCase().includes(cleanQuery)
-  ).slice(0, 3);
-
-  const handleMarkAllRead = () => {
-    setNotifications(notifications.map((n) => ({ ...n, read: true })));
-    showToast('Thông báo', 'Đã đánh dấu tất cả thông báo là đã đọc!', 'info');
-  };
 
   return (
     <div className="min-h-screen bg-[#f7f9fb] font-body-md text-slate-800 antialiased flex flex-col pb-16 lg:pb-0">
@@ -152,15 +105,17 @@ export default function PortalLayout({
           {/* Brand Header */}
           <div className="px-6 pt-6 pb-4">
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 rounded-xl bg-[#00132b] flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                <span className="material-symbols-outlined text-[#c1f100] text-[24px]">bolt</span>
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 shadow-md shadow-orange-500/25 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-white drop-shadow-sm" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 4H19L17.5 8H11.5L10.5 11H16.5L15 15H10L8.5 20H4.5L7 4Z" fill="currentColor" />
+                </svg>
               </div>
               <div className="flex flex-col">
-                <span className="font-headline-sm text-[16px] text-slate-900 tracking-tight font-bold leading-tight">
-                  ELITE SPORTS
+                <span className="font-headline-sm text-[16px] text-slate-900 tracking-tight font-black leading-tight">
+                  F SPORT <span className="text-orange-500">CENTER</span>
                 </span>
-                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold mt-0.5">
-                  Athletic Performance
+                <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mt-0.5">
+                  ATHLETIC SANCTUARY
                 </span>
               </div>
             </Link>
@@ -168,12 +123,11 @@ export default function PortalLayout({
             {/* Role Context Pill */}
             <div className="mt-4 flex items-center justify-between">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs">
-                <span className="w-2 h-2 rounded-full bg-[#c1f100] shadow-[0_0_8px_#c1f100] animate-pulse"></span>
+                <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)] animate-pulse"></span>
                 <span className="font-label-sm uppercase tracking-wider font-bold text-[10px] text-slate-800">
                   {roleBadge}
                 </span>
               </div>
-
               <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                 Online
               </span>
@@ -199,13 +153,13 @@ export default function PortalLayout({
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] transition-all ${
                       isActive
-                        ? 'bg-[#c1f100] text-slate-950 font-headline-sm font-bold shadow-sm'
+                        ? 'bg-orange-500 text-white font-headline-sm font-bold shadow-sm shadow-orange-500/20'
                         : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                     }`}
                   >
                     <span
                       className={`material-symbols-outlined text-[20px] ${
-                        isActive ? 'text-slate-950 font-bold' : 'text-slate-500'
+                        isActive ? 'text-white font-bold' : 'text-slate-500'
                       }`}
                     >
                       {item.icon}
@@ -221,7 +175,7 @@ export default function PortalLayout({
         {/* User Card & Logout Bottom */}
         <div className="p-4 bg-slate-50 border-t border-slate-200">
           <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-slate-200 shadow-sm">
-            <div className="w-10 h-10 rounded-full bg-[#00132b] text-[#c1f100] flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+            <div className="w-10 h-10 rounded-full bg-slate-900 text-orange-400 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
               {currentUser.avatar || 'US'}
             </div>
             <div className="flex flex-col min-w-0 flex-1">
@@ -233,7 +187,10 @@ export default function PortalLayout({
               </span>
             </div>
             <button
-              onClick={() => navigate('/login')}
+              onClick={() => {
+                logout();
+                navigate('/login');
+              }}
               className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
               title="Đăng xuất"
               type="button"
@@ -299,7 +256,7 @@ export default function PortalLayout({
               <button
                 onClick={quickAction.onClick}
                 type="button"
-                className="h-9 px-3.5 rounded-xl bg-[#c1f100] hover:bg-[#abd600] text-slate-950 text-xs uppercase tracking-wider font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer border border-[#a7d400]"
+                className="h-9 px-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs uppercase tracking-wider font-bold flex items-center gap-1.5 transition-all shadow-sm shadow-orange-500/20 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">{quickAction.icon}</span>
                 <span className="hidden sm:inline">{quickAction.label}</span>
@@ -315,112 +272,60 @@ export default function PortalLayout({
                 }}
                 type="button"
                 className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors relative cursor-pointer"
-                title="Thông báo hệ thống"
+                title="Thông báo"
               >
                 <span className="material-symbols-outlined text-[18px]">notifications</span>
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white shadow-sm">
-                    {unreadCount}
-                  </span>
+                {liveNotifications.some((n) => !n.isRead) && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-white"></span>
                 )}
               </button>
 
               {/* Notification Flyout Menu */}
               {notificationsOpen && (
                 <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-headline-sm text-sm font-bold text-slate-900">
-                        Thông Báo Mới
-                      </h3>
-                      {unreadCount > 0 && (
-                        <span className="px-2 py-0.5 rounded-full bg-[#c1f100] text-slate-950 text-[10px] font-bold">
-                          {unreadCount} chưa đọc
-                        </span>
-                      )}
+                  <div className="pb-3 border-b border-slate-100 flex items-center justify-between">
+                    <h3 className="font-headline-sm text-sm font-bold text-slate-900">Thông báo</h3>
+                    <button
+                      onClick={() => {
+                        setNotificationsOpen(false);
+                        navigate('/member/notifications');
+                      }}
+                      className="text-[11px] font-bold text-orange-600 hover:text-orange-700"
+                    >
+                      Xem tất cả
+                    </button>
+                  </div>
+                  {liveNotifications.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-slate-500">
+                      Chưa có thông báo từ hệ thống.
                     </div>
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={handleMarkAllRead}
-                        className="text-[11px] text-emerald-800 font-bold hover:underline cursor-pointer"
-                      >
-                        Đọc tất cả
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Filter tabs */}
-                  <div className="flex gap-2 pt-2 pb-1">
-                    <button
-                      onClick={() => setNotificationFilter('all')}
-                      className={`text-xs px-2.5 py-1 rounded-lg font-semibold cursor-pointer ${
-                        notificationFilter === 'all'
-                          ? 'bg-slate-900 text-white'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      Tất cả
-                    </button>
-                    <button
-                      onClick={() => setNotificationFilter('unread')}
-                      className={`text-xs px-2.5 py-1 rounded-lg font-semibold cursor-pointer ${
-                        notificationFilter === 'unread'
-                          ? 'bg-slate-900 text-white'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      Chưa đọc ({unreadCount})
-                    </button>
-                  </div>
-
-                  {/* Notifications list */}
-                  <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 pt-1">
-                    {notifications
-                      .filter((n) => (notificationFilter === 'unread' ? !n.read : true))
-                      .map((n) => (
+                  ) : (
+                    <div className="py-2 divide-y divide-slate-100 max-h-72 overflow-y-auto">
+                      {liveNotifications.slice(0, 4).map((item) => (
                         <div
-                          key={n.id}
+                          key={item.id}
                           onClick={() => {
-                            setNotifications(
-                              notifications.map((item) =>
-                                item.id === n.id ? { ...item, read: true } : item
-                              )
-                            );
                             setNotificationsOpen(false);
-                            if (n.link) navigate(n.link);
+                            if (item.link) navigate(item.link);
+                            else navigate('/member/notifications');
                           }}
-                          className={`flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer ${
-                            !n.read ? 'bg-slate-50/70' : ''
-                          }`}
+                          className="py-2.5 px-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors"
                         >
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${n.color}`}>
-                            <span className="material-symbols-outlined text-[18px]">{n.icon}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-900 truncate">
-                                {n.title}
-                              </span>
-                              {!n.read && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#c1f100] shrink-0"></span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">
-                              {n.desc}
-                            </p>
-                            <span className="text-[10px] text-slate-400 mt-1 block font-mono">
-                              {n.time}
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-xs font-bold text-slate-900 truncate">
+                              {item.title}
                             </span>
+                            {!item.isRead && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0"></span>
+                            )}
                           </div>
+                          <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">
+                            {item.message}
+                          </p>
                         </div>
                       ))}
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-100 mt-2 text-center">
-                    <span className="text-[11px] text-slate-400">
-                      Cập nhật tự động thời gian thực qua WebSockets
-                    </span>
-                  </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -433,7 +338,7 @@ export default function PortalLayout({
                   setNotificationsOpen(false);
                 }}
                 type="button"
-                className="w-9 h-9 rounded-xl bg-[#00132b] text-[#c1f100] flex items-center justify-center font-bold text-xs shadow-sm hover:ring-2 hover:ring-[#c1f100] transition-all cursor-pointer"
+                className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center font-bold text-xs shadow-sm hover:bg-orange-100 hover:ring-2 hover:ring-orange-500 transition-all cursor-pointer"
               >
                 {currentUser.avatar || 'US'}
               </button>
@@ -446,7 +351,7 @@ export default function PortalLayout({
                     </div>
                     <div className="text-xs text-slate-500 truncate">{currentUser.email}</div>
                     <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold uppercase tracking-wider">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#c1f100]"></span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
                       {currentUser.roleTitle}
                     </div>
                   </div>
@@ -482,6 +387,7 @@ export default function PortalLayout({
                     <button
                       onClick={() => {
                         setProfileOpen(false);
+                        logout();
                         navigate('/login');
                       }}
                       className="w-full flex items-center gap-2 px-2.5 py-2 text-xs rounded-xl text-red-600 hover:bg-red-50 font-bold transition-colors text-left cursor-pointer"
@@ -525,7 +431,7 @@ export default function PortalLayout({
             >
               <div
                 className={`w-9 h-7 rounded-lg flex items-center justify-center ${
-                  isActive ? 'bg-[#c1f100]' : ''
+                  isActive ? 'bg-orange-500 text-white' : ''
                 }`}
               >
                 <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
@@ -571,7 +477,7 @@ export default function PortalLayout({
                 ref={searchInputRef}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm trang chức năng, hội viên, lịch học, gói tập... (gõ để lọc)"
+                placeholder="Tìm trang chức năng (gõ để lọc)"
                 className="w-full py-4 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
               />
               {searchQuery && (
@@ -605,7 +511,7 @@ export default function PortalLayout({
                       className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors cursor-pointer group"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-[#c1f100] text-slate-700 group-hover:text-slate-950 flex items-center justify-center transition-colors">
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-orange-500 text-slate-700 group-hover:text-white flex items-center justify-center transition-colors">
                           <span className="material-symbols-outlined text-[18px]">{page.icon}</span>
                         </div>
                         <div>
@@ -621,113 +527,12 @@ export default function PortalLayout({
                 </div>
               </div>
 
-              {/* 2. Members (if query matches) */}
-              {matchedMembers.length > 0 && (
-                <div>
-                  <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Hội Viên Tìm Thấy ({matchedMembers.length})
-                  </div>
-                  <div className="flex flex-col gap-1 mt-1">
-                    {matchedMembers.map((m) => (
-                      <button
-                        key={m.id}
-                        onClick={() => {
-                          navigate('/receptionist');
-                          setSearchOpen(false);
-                        }}
-                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-[#00132b] text-[#c1f100] flex items-center justify-center text-xs font-bold">
-                            {m.name.charAt(0)}
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold text-slate-900">{m.name}</div>
-                            <div className="text-[11px] text-slate-500 font-mono">
-                              {m.phone} • {m.memberId}
-                            </div>
-                          </div>
-                        </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-bold border border-emerald-200">
-                          {m.tier} Member
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 3. Classes (if query matches) */}
-              {matchedClasses.length > 0 && (
-                <div>
-                  <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Lớp Học Thể Thao ({matchedClasses.length})
-                  </div>
-                  <div className="flex flex-col gap-1 mt-1">
-                    {matchedClasses.map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => {
-                          navigate('/member/schedule');
-                          setSearchOpen(false);
-                        }}
-                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
-                            <span className="material-symbols-outlined text-[18px]">sports_tennis</span>
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold text-slate-900">{c.title}</div>
-                            <div className="text-[11px] text-slate-500">
-                              {c.time} • {c.room} ({c.coach})
-                            </div>
-                          </div>
-                        </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#c1f100] text-slate-950 font-bold">
-                          {c.enrolled}/{c.capacity} Chỗ
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 4. Quick Switch Roles */}
-              <div className="pt-2 border-t border-slate-100">
-                <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Chuyển Nhanh Phân Hệ (Quick Role Switch)
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
-                  {[
-                    { label: 'Hội viên', roleKey: 'member', path: '/member', icon: 'person' },
-                    { label: 'Lễ tân', roleKey: 'receptionist', path: '/receptionist', icon: 'badge' },
-                    { label: 'Huấn luyện viên', roleKey: 'coach', path: '/coach', icon: 'fitness_center' },
-                    { label: 'Quản lý Admin', roleKey: 'admin', path: '/admin', icon: 'shield_person' },
-                  ].map((r) => (
-                    <button
-                      key={r.roleKey}
-                      onClick={() => {
-                        switchRole(r.roleKey);
-                        navigate(r.path);
-                        setSearchOpen(false);
-                      }}
-                      className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-800 transition-colors cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-[18px] text-slate-600">
-                        {r.icon}
-                      </span>
-                      <span>{r.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
             {/* Micro Footer */}
             <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
               <span>Sử dụng phím <strong>ESC</strong> để đóng</span>
-              <span>Elite Sports Command Palette v2.0</span>
+              <span>F Sport Command Palette v2.0</span>
             </div>
           </div>
         </div>

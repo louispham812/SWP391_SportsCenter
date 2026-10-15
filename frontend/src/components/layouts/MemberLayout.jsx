@@ -1,33 +1,29 @@
 import React from 'react';
 import PortalLayout from './PortalLayout';
-import { mockUsers } from '../../data/mockData';
 import { useApp } from '../../context/AppContext';
 
 export default function MemberLayout({ children }) {
-  const { showToast } = useApp();
+  const { currentUser } = useApp();
   const memberMenu = [
     { label: 'Tổng quan hội viên', path: '/member', icon: 'dashboard' },
-    { label: 'Lịch học & Đặt lớp', path: '/member/schedule', icon: 'calendar_month' },
-    { label: 'Tiến độ & Trợ lý AI', path: '/member/ai-assistant', icon: 'smart_toy' },
+    { label: 'Gói tập & Quyền lợi', path: '/member/packages', icon: 'card_membership' },
+    { label: 'Đăng ký lớp học', path: '/member/classes', icon: 'school' },
+    { label: 'Đặt sân thể thao', path: '/member/book/court/sports', icon: 'sports_tennis' },
+    { label: 'Thời khóa biểu của tôi', path: '/member/schedule', icon: 'calendar_month' },
+    { label: 'Lịch sử điểm danh', path: '/member/attendance', icon: 'fact_check' },
+    { label: 'Kế hoạch & Nhận xét HLV', path: '/member/workout-plans', icon: 'monitor_weight' },
+    { label: 'Trợ lý AI thể thao', path: '/member/ai-assistant', icon: 'smart_toy' },
+    { label: 'Thông báo & Nhắc nhở', path: '/member/notifications', icon: 'notifications' },
+    { label: 'Lịch sử giao dịch', path: '/member/transactions', icon: 'account_balance_wallet' },
     { label: 'Hồ sơ & Thẻ số', path: '/member/profile', icon: 'badge' },
-    { label: 'Gói tập & Bảng giá', path: '/pricing', icon: 'card_membership' },
   ];
 
   return (
     <PortalLayout
       role="member"
-      roleBadge="ELITE MEMBER"
-      currentUser={mockUsers.member}
+      roleBadge="F SPORT MEMBER"
+      currentUser={currentUser}
       menuItems={memberMenu}
-      quickAction={{
-        label: 'Mã Thẻ QR',
-        icon: 'qr_code_scanner',
-        onClick: () => {
-          const qrBtn = document.getElementById('quick-qr-trigger');
-          if (qrBtn) qrBtn.click();
-          else showToast('Mã Check-in QR', 'Mã cá nhân của bạn là #ELT-8924. Vui lòng đưa trước máy quét tại quầy!', 'info');
-        },
-      }}
     >
       {children}
     </PortalLayout>

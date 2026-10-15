@@ -1,427 +1,846 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
+import { cancelMemberBooking, getCoachPublicProfile, getMemberBookingSchedule } from '../../services/bookingApi';
 import { useApp } from '../../context/AppContext';
 
-export default function MemberSchedulePage() {
-  const { classes, bookClass, cancelClass, joinWaitlist, coaches } = useApp();
-  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'my-bookings' | 'calendar'
-  const [selectedSport, setSelectedSport] = useState('all');
-  const [bookingSuccessModal, setBookingSuccessModal] = useState(null);
-  const [selectedCoachProfile, setSelectedCoachProfile] = useState(null);
+const WEEKDAYS = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
 
-  const handleBook = (cls) => {
-    if (cls.enrolled >= cls.capacity) {
-      joinWaitlist(cls.id);
-      return;
-    }
-    bookClass(cls.id);
-    setBookingSuccessModal(cls);
-  };
+const formatMoney = (amount) =>
+  new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(amount || 0);
 
-  const handleCancelBooking = (clsId) => {
-    if (window.confirm('Bạn có chắc chắn muốn hủy đặt chỗ buổi học này không? Chỗ sẽ được hoàn lại cho người khác.')) {
-      cancelClass(clsId);
-    }
-  };
-
-  const filteredClasses = classes.filter((c) => {
-    if (activeTab === 'my-bookings' && !c.isBooked) return false;
-    if (selectedSport !== 'all' && c.sport !== selectedSport) return false;
-    return true;
+const formatTime = (value) =>
+  new Date(value).toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
   });
 
-  const calendarDays = [
-    { dayName: 'Thứ Hai (18/11)', date: '18/11', items: [{ title: 'PT 1:1 Phục Hồi Khớp Cổ Chân', time: '16:00 - 17:30', coach: 'HLV Lê Anh Tuấn', room: 'Rehab Zone', type: 'pt' }] },
-    { dayName: 'Thứ Ba (19/11)', date: '19/11', isToday: true, items: [{ title: 'Pickleball Chiến Thuật Nâng Cao', time: '18:00 - 19:30', coach: 'HLV Lê Anh Tuấn', room: 'Sân Mái Che Pro 01', type: 'group' }] },
-    { dayName: 'Thứ Tư (20/11)', date: '20/11', items: [] },
-    { dayName: 'Thứ Năm (21/11)', date: '21/11', items: [{ title: 'Yoga Phục Hồi Thể Lực & Trị Liệu', time: '07:00 - 08:30', coach: 'HLV Vũ Thu Hà', room: 'Studio Thiền Định 02', type: 'group' }] },
-    { dayName: 'Thứ Sáu (22/11)', date: '22/11', items: [{ title: 'Bơi Sải Sức Bền Nước Ấm Bốn Mùa', time: '06:30 - 08:00', coach: 'HLV Nguyễn Đức Duy', room: 'Bể Bơi Olympic', type: 'group' }] },
-    { dayName: 'Thứ Bảy (23/11)', date: '23/11', items: [] },
-    { dayName: 'Chủ Nhật (24/11)', date: '24/11', items: [{ title: 'Giao Lưu Trận Đấu Pickleball Cup', time: '08:30 - 11:00', coach: 'Ban Huấn Luyện', room: 'Sân Pro 01 - 04', type: 'match' }] },
-  ];
+const formatShortDate = (date) =>
+  date.toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+  });
+
+const getDateKey = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const startOfWeek = (date) => {
+  const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  return monday;
+};
+
+const getWeekDays = (weekStart) =>
+  WEEKDAYS.map((weekday, index) => {
+    const date = new Date(weekStart);
+    date.setDate(date.getDate() + index);
+    return { weekday, date, key: getDateKey(date) };
+  });
+
+const getWeekLabel = (weekStart, weekEnd) => {
+  const startLabel = weekStart.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+  const endLabel = weekEnd.toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  return `${startLabel} – ${endLabel}`;
+};
+
+export default function MemberSchedulePage() {
+  const { showToast } = useApp();
+  const [scheduleEntries, setScheduleEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Filters & State
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date()));
+  const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'grid'
+  const [bookingTypeFilter, setBookingTypeFilter] = useState('ALL'); // 'ALL' | 'CLASS' | 'COURT'
+  const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'UPCOMING' | 'COMPLETED'
+
+  // Modals
+  const [selectedCoach, setSelectedCoach] = useState(null);
+  const [coachLoading, setCoachLoading] = useState(false);
+  const [cancelingBooking, setCancelingBooking] = useState(null);
+  const [submittingCancel, setSubmittingCancel] = useState(false);
+
+  const weekEnd = useMemo(() => {
+    const end = new Date(currentWeekStart);
+    end.setDate(end.getDate() + 6);
+    return end;
+  }, [currentWeekStart]);
+
+  const weekDays = useMemo(() => getWeekDays(currentWeekStart), [currentWeekStart]);
+
+  useEffect(() => {
+    loadSchedule();
+  }, []);
+
+  const loadSchedule = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getMemberBookingSchedule();
+      setScheduleEntries(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load schedule:', err);
+      setError(err.message || 'Không thể tải thời khóa biểu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePrevWeek = () => {
+    setCurrentWeekStart((prev) => {
+      const next = new Date(prev);
+      next.setDate(next.getDate() - 7);
+      return next;
+    });
+  };
+
+  const handleNextWeek = () => {
+    setCurrentWeekStart((prev) => {
+      const next = new Date(prev);
+      next.setDate(next.getDate() + 7);
+      return next;
+    });
+  };
+
+  const handleTodayWeek = () => {
+    setCurrentWeekStart(startOfWeek(new Date()));
+  };
+
+  // Click on Coach
+  const handleViewCoach = async (coachId) => {
+    if (!coachId) return;
+    setCoachLoading(true);
+    try {
+      const coachProfile = await getCoachPublicProfile(coachId);
+      setSelectedCoach(coachProfile);
+    } catch (err) {
+      showToast('Huấn luyện viên', err.message || 'Không thể tải hồ sơ huấn luyện viên.', 'warning');
+    } finally {
+      setCoachLoading(false);
+    }
+  };
+
+  // Confirm cancel booking with 100% refund
+  const handleConfirmCancel = async () => {
+    if (!cancelingBooking) return;
+    setSubmittingCancel(true);
+    try {
+      await cancelMemberBooking(cancelingBooking.bookingType, cancelingBooking.bookingId);
+      showToast(
+        'Hủy đặt chỗ thành công',
+        `Đã hủy thành công ${cancelingBooking.title}. Hệ thống đã hoàn tiền 100% vào sổ giao dịch.`,
+        'success'
+      );
+      setCancelingBooking(null);
+      await loadSchedule();
+    } catch (err) {
+      showToast('Hủy lịch thất bại', err.message || 'Không thể hủy lịch này.', 'error');
+    } finally {
+      setSubmittingCancel(false);
+    }
+  };
+
+  // Filter entries for the selected week
+  const weekStartMs = currentWeekStart.getTime();
+  const weekEndMs = new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate(), 23, 59, 59).getTime();
+  const nowMs = Date.now();
+
+  const weekEntries = useMemo(() => {
+    return scheduleEntries.filter((entry) => {
+      const startMs = new Date(entry.startTime).getTime();
+      const inWeek = startMs >= weekStartMs && startMs <= weekEndMs;
+      if (!inWeek) return false;
+
+      if (bookingTypeFilter !== 'ALL' && entry.bookingType !== bookingTypeFilter) {
+        return false;
+      }
+
+      if (statusFilter === 'UPCOMING' && startMs < nowMs) return false;
+      if (statusFilter === 'COMPLETED' && startMs >= nowMs) return false;
+
+      return true;
+    });
+  }, [scheduleEntries, weekStartMs, weekEndMs, bookingTypeFilter, statusFilter, nowMs]);
+
+  // Group entries by date key (YYYY-MM-DD)
+  const entriesByDate = useMemo(() => {
+    const map = new Map(weekDays.map((d) => [d.key, []]));
+    weekEntries.forEach((entry) => {
+      const key = getDateKey(new Date(entry.startTime));
+      if (map.has(key)) {
+        map.get(key).push(entry);
+      }
+    });
+    // Sort each day's entries by startTime
+    map.forEach((list) => {
+      list.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    });
+    return map;
+  }, [weekDays, weekEntries]);
+
+  const canCancel = (entry) => {
+    const startMs = new Date(entry.startTime).getTime();
+    const diffHours = (startMs - nowMs) / (1000 * 60 * 60);
+    return diffHours >= 2 && entry.status !== 'CANCELLED' && entry.status !== 'REFUNDED';
+  };
 
   return (
     <MemberLayout>
-      <div className="space-y-6">
-        {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300">
+        {/* =========================================
+            1. PAGE HEADER & CONTROL BAR
+           ========================================= */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-secondary bg-secondary-container/20 px-2 py-0.5 rounded">
-                FLOW 2: CLASS BOOKING & SCHEDULE MANAGEMENT
-              </span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-bold uppercase tracking-wider mb-2">
+              <span className="material-symbols-outlined text-[16px]">calendar_month</span>
+              Lịch Trình Cá Nhân
             </div>
-            <h1 className="font-headline-xl text-2xl sm:text-3xl font-bold text-primary">
-              Thời Khóa Biểu & Đặt Chỗ Lớp Học
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              Thời Khóa Biểu Tập Luyện
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500">
-              Tra cứu lịch học nhóm, kiểm tra sĩ số thời gian thực và quản lý lịch tập cá nhân.
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Theo dõi lịch học huấn luyện viên, khung giờ sân đã đặt, tình trạng chuyên cần và đánh giá sau buổi tập.
             </p>
           </div>
 
-          {/* Toggle View Tabs (MEM-13, MEM-18) */}
-          <div className="p-1 rounded-xl bg-white border border-slate-200 flex items-center shadow-sm self-start sm:self-auto">
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'all'
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+          {/* Quick Action Buttons */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <Link
+              to="/member/classes"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-md shadow-orange-500/20 transition-all cursor-pointer"
             >
-              Tất cả lớp học
-            </button>
-            <button
-              onClick={() => setActiveTab('my-bookings')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'my-bookings'
-                  ? 'bg-secondary-container text-primary shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+              <span className="material-symbols-outlined text-[18px]">school</span>
+              <span>Đăng Ký Lớp Học</span>
+            </Link>
+            <Link
+              to="/member/book/court/sports"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
             >
-              <span>Lớp đã đặt</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-primary text-secondary-container font-mono">
-                {classes.filter((c) => c.isBooked).length}
-              </span>
-            </button>
+              <span className="material-symbols-outlined text-[18px]">sports_tennis</span>
+              <span>Đặt Sân Thể Thao</span>
+            </Link>
             <button
-              onClick={() => setActiveTab('calendar')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'calendar'
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+              onClick={loadSchedule}
+              type="button"
+              className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+              title="Làm mới lịch"
             >
-              <span className="material-symbols-outlined text-[16px]">calendar_month</span>
-              <span>Lịch Tuần Cá Nhân (MEM-18)</span>
+              <span className="material-symbols-outlined text-[18px]">sync</span>
             </button>
           </div>
         </div>
 
-        {/* Filter by Sport Pills */}
-        {activeTab !== 'calendar' && (
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-            {[
-              { id: 'all', label: 'Tất cả bộ môn' },
-              { id: 'pickleball', label: 'Pickleball Pro' },
-              { id: 'tennis', label: 'Tennis Grand Slam' },
-              { id: 'yoga', label: 'Yoga & Pilates' },
-              { id: 'swimming', label: 'Bơi lội 4 Mùa' },
-              { id: 'boxing', label: 'Boxing / HIIT' },
-            ].map((sp) => (
-              <button
-                key={sp.id}
-                onClick={() => setSelectedSport(sp.id)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                  selectedSport === sp.id
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                {sp.label}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* =========================================
+            2. WEEK NAVIGATOR & VIEW SWITCHER
+           ========================================= */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Week Date Selector */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={handlePrevWeek}
+              type="button"
+              className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+              title="Tuần trước"
+            >
+              <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+            </button>
 
-        {/* TAB 1 & 2: Class Cards Grid */}
-        {activeTab !== 'calendar' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredClasses.length === 0 ? (
-              <div className="col-span-full bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3">
-                <span className="material-symbols-outlined text-[48px] text-slate-300">
-                  event_busy
-                </span>
-                <h3 className="font-headline-sm text-lg font-bold text-slate-700">
-                  Không tìm thấy lớp học phù hợp
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {activeTab === 'my-bookings'
-                    ? 'Bạn chưa đặt chỗ lớp nào. Hãy chuyển sang "Tất cả lớp học" để đăng ký nhé!'
-                    : 'Hãy chọn bộ môn khác để xem lịch tập.'}
-                </p>
-              </div>
-            ) : (
-              filteredClasses.map((cls) => {
-                const isFull = cls.enrolled >= cls.capacity;
-                const coachObj = coaches.find((c) => c.name === (cls.coachName || cls.coach));
+            <button
+              onClick={handleTodayWeek}
+              type="button"
+              className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+            >
+              Tuần Hiện Tại
+            </button>
 
-                return (
-                  <div
-                    key={cls.id}
-                    className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
-                  >
-                    <div>
-                      {/* Header Card */}
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase">
-                          {cls.day}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            cls.isBooked
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : cls.isWaitlisted
-                              ? 'bg-amber-100 text-amber-800'
-                              : isFull
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-secondary-container/40 text-secondary'
-                          }`}
-                        >
-                          {cls.isBooked
-                            ? 'Đã đặt chỗ'
-                            : cls.isWaitlisted
-                            ? 'Đang hàng đợi'
-                            : isFull
-                            ? 'Đã hết chỗ'
-                            : `Còn ${cls.capacity - cls.enrolled} slot`}
-                        </span>
-                      </div>
+            <button
+              onClick={handleNextWeek}
+              type="button"
+              className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+              title="Tuần kế tiếp"
+            >
+              <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+            </button>
 
-                      <h3 className="font-headline-sm text-base font-bold text-primary mb-1">
-                        {cls.title}
-                      </h3>
-
-                      <div className="space-y-1.5 my-3 text-xs text-slate-600">
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[16px] text-secondary">
-                            schedule
-                          </span>
-                          <strong className="text-slate-900">{cls.time}</strong>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[16px] text-slate-400">
-                            stadium
-                          </span>
-                          <span>{cls.room}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[16px] text-slate-400">
-                              person
-                            </span>
-                            <span className="font-semibold text-slate-800">{cls.coachName || cls.coach}</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedCoachProfile(coachObj || { name: cls.coachName || cls.coach, title: 'Master Coach', specialty: 'Chuyên gia huấn luyện thể thao', rating: 4.95 })}
-                            className="text-[11px] text-secondary font-bold hover:underline cursor-pointer"
-                          >
-                            Xem profile HLV (MEM-14)
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Progress bar slot */}
-                      <div className="mt-3 pt-3 border-t border-slate-100">
-                        <div className="flex justify-between text-[11px] text-slate-500 mb-1">
-                          <span>Sĩ số lớp:</span>
-                          <span className="font-bold text-slate-800">
-                            {cls.enrolled} / {cls.capacity} học viên
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                          <div
-                            className={`h-1.5 rounded-full ${
-                              isFull ? 'bg-red-500' : 'bg-secondary'
-                            }`}
-                            style={{
-                              width: `${Math.min(100, (cls.enrolled / cls.capacity) * 100)}%`,
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Booking CTA Button (MEM-15, MEM-16, MEM-17) */}
-                    <div className="mt-5 pt-3">
-                      {cls.isBooked ? (
-                        <button
-                          onClick={() => handleCancelBooking(cls.id)}
-                          className="w-full py-2.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold uppercase transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">cancel</span>
-                          <span>Hủy Đặt Chỗ (MEM-17)</span>
-                        </button>
-                      ) : isFull ? (
-                        <button
-                          onClick={() => handleBook(cls)}
-                          disabled={cls.isWaitlisted}
-                          className={`w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                            cls.isWaitlisted
-                              ? 'bg-amber-100 text-amber-800 cursor-not-allowed'
-                              : 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm'
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-[16px]">hourglass_top</span>
-                          <span>{cls.isWaitlisted ? 'Đang Trong Hàng Đợi' : 'Vào Danh Sách Chờ (MEM-16)'}</span>
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleBook(cls)}
-                          className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 bg-secondary-container hover:bg-secondary-fixed-dim text-primary shadow-sm cursor-pointer"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">how_to_reg</span>
-                          <span>Đăng Ký Tham Gia Lớp (MEM-15)</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
-
-        {/* TAB 3: PERSONAL WEEKLY CALENDAR (MEM-18) */}
-        {activeTab === 'calendar' && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="font-headline-sm text-lg font-bold text-primary uppercase">
-                  Lịch Tập Cá Nhân Trong Tuần (MEM-18)
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Lịch tổng hợp các buổi học nhóm, ca PT 1:1 và trận đấu giao hữu đã được xác nhận.
-                </p>
-              </div>
-              <span className="text-xs text-secondary font-bold bg-secondary-container/30 px-3 py-1 rounded-full">
-                Tuần 47 · Tháng 11/2026
+            <div className="ml-2 flex items-center gap-2">
+              <span className="material-symbols-outlined text-orange-500 text-[20px]">date_range</span>
+              <span className="font-headline-sm font-black text-sm sm:text-base text-slate-900 tracking-tight">
+                {getWeekLabel(currentWeekStart, weekEnd)}
               </span>
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-3">
-              {calendarDays.map((col, idx) => (
+          {/* Filters & Mode Buttons */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Type Filter */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setBookingTypeFilter('ALL')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  bookingTypeFilter === 'ALL' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Tất cả
+              </button>
+              <button
+                type="button"
+                onClick={() => setBookingTypeFilter('CLASS')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  bookingTypeFilter === 'CLASS' ? 'bg-white text-orange-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Lớp học
+              </button>
+              <button
+                type="button"
+                onClick={() => setBookingTypeFilter('COURT')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  bookingTypeFilter === 'COURT' ? 'bg-white text-emerald-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Đặt sân
+              </button>
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setViewMode('cards')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  viewMode === 'cards' ? 'bg-white text-orange-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title="Dạng thẻ ngày (Trực quan, dễ nhìn)"
+              >
+                <span className="material-symbols-outlined text-[16px]">view_agenda</span>
+                <span>Thẻ Ngày</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  viewMode === 'grid' ? 'bg-white text-orange-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title="Dạng ma trận lịch tuần"
+              >
+                <span className="material-symbols-outlined text-[16px]">grid_view</span>
+                <span>Lưới Tuần</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* =========================================
+            3. MAIN SCHEDULE CONTENT
+           ========================================= */}
+        {loading ? (
+          <div className="bg-white rounded-3xl border border-slate-200 p-16 text-center space-y-3">
+            <div className="w-10 h-10 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <p className="text-xs font-semibold text-slate-500">Đang đồng bộ thời khóa biểu từ máy chủ...</p>
+          </div>
+        ) : error ? (
+          <div className="bg-red-50 border border-red-200 rounded-3xl p-6 text-center text-xs font-bold text-red-700">
+            {error}
+          </div>
+        ) : weekEntries.length === 0 ? (
+          <div className="bg-white rounded-3xl border-2 border-dashed border-slate-200 p-12 text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center mx-auto shadow-sm">
+              <span className="material-symbols-outlined text-[36px]">event_busy</span>
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-800">Không Có Lịch Tập Trong Tuần Này</h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                Tuần từ {getWeekLabel(currentWeekStart, weekEnd)} chưa có lịch tập nào. Bạn có thể đăng ký lớp học mới hoặc đặt sân thể thao để rèn luyện!
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <Link
+                to="/member/classes"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-md shadow-orange-500/20 transition-all cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">school</span>
+                <span>Đăng Ký Lớp Ngay</span>
+              </Link>
+              <Link
+                to="/member/book/court/sports"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">sports_tennis</span>
+                <span>Đặt Sân Thể Thao</span>
+              </Link>
+            </div>
+          </div>
+        ) : viewMode === 'cards' ? (
+          /* =========================================
+              VIEW 1: DAY CARDS / AGENDA VIEW (RECOMMENDED)
+             ========================================= */
+          <div className="space-y-4">
+            {weekDays.map(({ weekday, date, key }) => {
+              const dayEntries = entriesByDate.get(key) || [];
+              const isToday = key === getDateKey(new Date());
+
+              return (
                 <div
-                  key={idx}
-                  className={`rounded-2xl p-3.5 flex flex-col gap-2.5 border transition-all ${
-                    col.isToday
-                      ? 'bg-slate-50 border-2 border-primary shadow-sm'
+                  key={key}
+                  className={`rounded-3xl border transition-all overflow-hidden ${
+                    isToday
+                      ? 'bg-orange-50/20 border-orange-300 ring-2 ring-orange-400/20 shadow-sm'
                       : 'bg-white border-slate-200'
                   }`}
                 >
-                  <div className="border-b border-slate-100 pb-2">
-                    <span className={`text-xs font-bold block ${col.isToday ? 'text-primary' : 'text-slate-800'}`}>
-                      {col.dayName}
-                    </span>
-                    {col.isToday && (
-                      <span className="text-[10px] bg-secondary-container text-primary font-bold px-1.5 py-0.2 rounded uppercase">
-                        Hôm nay
-                      </span>
-                    )}
-                  </div>
-
-                  {col.items.length === 0 ? (
-                    <div className="py-8 text-center text-slate-300 text-[11px] italic">
-                      Trống lịch
-                    </div>
-                  ) : (
-                    col.items.map((it, itIdx) => (
+                  {/* Day Header */}
+                  <div
+                    className={`px-5 py-3.5 border-b flex items-center justify-between ${
+                      isToday
+                        ? 'bg-gradient-to-r from-orange-500/10 to-amber-500/5 border-orange-200'
+                        : 'bg-slate-50/80 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
                       <div
-                        key={itIdx}
-                        className={`p-2.5 rounded-xl border text-xs space-y-1 shadow-2xs ${
-                          it.type === 'pt'
-                            ? 'bg-purple-50 border-purple-200 text-purple-950'
-                            : it.type === 'match'
-                            ? 'bg-amber-50 border-amber-200 text-amber-950'
-                            : 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                        className={`w-10 h-10 rounded-2xl flex flex-col items-center justify-center font-black ${
+                          isToday
+                            ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/30'
+                            : 'bg-slate-200 text-slate-800'
                         }`}
                       >
-                        <div className="font-bold text-[11px] leading-snug">{it.title}</div>
-                        <div className="font-mono text-[10px] font-semibold text-slate-600">{it.time}</div>
-                        <div className="text-[10px] text-slate-500 truncate">• {it.room}</div>
-                        <div className="text-[10px] font-medium text-slate-700">• {it.coach}</div>
+                        <span className="text-[10px] leading-tight uppercase font-bold">
+                          {weekday.replace('Thứ ', 'T').replace('Chủ Nhật', 'CN')}
+                        </span>
+                        <span className="text-sm leading-tight">{date.getDate()}</span>
                       </div>
-                    ))
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-black text-slate-900">{weekday}</span>
+                          <span className="text-xs text-slate-500 font-medium">
+                            Ngày {date.toLocaleDateString('vi-VN')}
+                          </span>
+                          {isToday && (
+                            <span className="px-2 py-0.5 rounded-full bg-orange-500 text-white text-[10px] font-black uppercase tracking-wider shadow-xs">
+                              Hôm nay
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-xs font-bold text-slate-500">
+                      {dayEntries.length > 0 ? (
+                        <span className="text-orange-600 font-extrabold">{dayEntries.length} lịch tập</span>
+                      ) : (
+                        <span className="text-slate-400">Không có lịch</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Day Entries List */}
+                  {dayEntries.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-400 font-medium italic">
+                      Không có hoạt động nào được lên lịch cho ngày này.
+                    </div>
+                  ) : (
+                    <div className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {dayEntries.map((entry) => {
+                        const isClass = entry.bookingType === 'CLASS';
+                        const isPast = new Date(entry.startTime).getTime() < nowMs;
+                        const isAttended = entry.attendanceStatus === 'ATTENDED' || entry.attendanceStatus === 'PRESENT';
+                        const isAbsent = entry.attendanceStatus === 'ABSENT';
+
+                        return (
+                          <div
+                            key={`${entry.bookingType}-${entry.bookingId}`}
+                            className="bg-white rounded-2xl border border-slate-200 hover:border-orange-300 p-4 sm:p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 relative group"
+                          >
+                            <div className="space-y-3">
+                              {/* Top row: Type badge + Time */}
+                              <div className="flex items-center justify-between gap-2">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${
+                                    isClass
+                                      ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                      : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                  }`}
+                                >
+                                  <span className="material-symbols-outlined text-[15px]">
+                                    {isClass ? 'school' : 'sports_tennis'}
+                                  </span>
+                                  {isClass ? 'Lớp Huấn Luyện' : 'Thuê Sân Chơi'}
+                                </span>
+
+                                <div className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 font-mono bg-slate-100 px-2.5 py-1 rounded-lg">
+                                  <span className="material-symbols-outlined text-orange-500 text-[16px]">schedule</span>
+                                  <span>
+                                    {formatTime(entry.startTime)} – {formatTime(entry.endTime)}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Title & Sport */}
+                              <div>
+                                <h3 className="font-headline-sm text-base font-black text-slate-900 group-hover:text-orange-600 transition-colors">
+                                  {entry.title}
+                                </h3>
+                                <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
+                                  <span className="inline-flex items-center gap-1 font-semibold text-slate-700">
+                                    <span className="material-symbols-outlined text-[16px] text-orange-500">
+                                      sports
+                                    </span>
+                                    {entry.sportName}
+                                  </span>
+                                  <span>•</span>
+                                  <span className="inline-flex items-center gap-1 text-slate-600">
+                                    <span className="material-symbols-outlined text-[16px] text-slate-400">
+                                      location_on
+                                    </span>
+                                    {entry.location}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Coach row (if class) */}
+                              {entry.coachName && (
+                                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-700 font-black text-xs flex items-center justify-center shrink-0">
+                                      {entry.coachName.charAt(0)}
+                                    </div>
+                                    <div>
+                                      <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+                                        Huấn luyện viên
+                                      </div>
+                                      <div className="text-xs font-bold text-slate-900">{entry.coachName}</div>
+                                    </div>
+                                  </div>
+
+                                  {entry.coachId && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleViewCoach(entry.coachId)}
+                                      className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-orange-50 hover:text-orange-600 text-slate-700 text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+                                    >
+                                      <span>Xem hồ sơ</span>
+                                      <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Coach feedback if completed session */}
+                              {entry.coachNote && (
+                                <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/80 text-xs text-amber-900 leading-relaxed flex items-start gap-2">
+                                  <span className="material-symbols-outlined text-amber-600 text-[18px] shrink-0 mt-0.5">
+                                    rate_review
+                                  </span>
+                                  <div>
+                                    <span className="font-bold">Đánh giá HLV: </span>
+                                    <span className="italic">"{entry.coachNote}"</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Bottom row: Attendance / Upcoming Status & Cancel Action */}
+                            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+                              {/* Status Tag */}
+                              <div>
+                                {isPast ? (
+                                  isAttended ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                      <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                                      Đã tham gia (Có mặt)
+                                    </span>
+                                  ) : isAbsent ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">
+                                      <span className="material-symbols-outlined text-[14px]">cancel</span>
+                                      Vắng mặt
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
+                                      <span className="material-symbols-outlined text-[14px]">history</span>
+                                      Đã hoàn thành
+                                    </span>
+                                  )
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                                    Sắp diễn ra
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Cancel Button if eligible */}
+                              {canCancel(entry) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setCancelingBooking(entry)}
+                                  className="px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 border border-red-200"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">cancel</span>
+                                  <span>Hủy lịch (Hoàn 100%)</span>
+                                </button>
+                              ) : (
+                                !isPast && (
+                                  <span className="text-[11px] text-slate-400 italic">
+                                    Không thể hủy (&lt; 2h trước giờ học)
+                                  </span>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
-              ))}
+              );
+            })}
+          </div>
+        ) : (
+          /* =========================================
+              VIEW 2: WEEKLY MATRIX / TABLE OVERVIEW
+             ========================================= */
+          <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <div className="min-w-[840px]">
+                {/* Table Header */}
+                <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center">
+                  {weekDays.map(({ weekday, date, key }) => {
+                    const isToday = key === getDateKey(new Date());
+                    return (
+                      <div
+                        key={key}
+                        className={`p-3 border-r border-slate-200 last:border-r-0 ${
+                          isToday ? 'bg-orange-50 font-bold' : ''
+                        }`}
+                      >
+                        <div className="text-xs text-slate-500 font-bold uppercase">{weekday}</div>
+                        <div className={`text-base font-black mt-0.5 ${isToday ? 'text-orange-600' : 'text-slate-900'}`}>
+                          {formatShortDate(date)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Table Body Columns */}
+                <div className="grid grid-cols-7 divide-x divide-slate-200 min-h-[360px]">
+                  {weekDays.map(({ key }) => {
+                    const dayEntries = entriesByDate.get(key) || [];
+                    return (
+                      <div key={key} className="p-2 space-y-2 bg-slate-50/20">
+                        {dayEntries.length === 0 ? (
+                          <div className="text-[11px] text-slate-300 text-center py-8 italic">Trống</div>
+                        ) : (
+                          dayEntries.map((entry) => (
+                            <div
+                              key={`${entry.bookingType}-${entry.bookingId}`}
+                              className={`p-2.5 rounded-xl border text-xs shadow-xs space-y-1.5 transition-all ${
+                                entry.bookingType === 'CLASS'
+                                  ? 'bg-blue-50/70 border-blue-200 text-blue-950'
+                                  : 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                              }`}
+                            >
+                              <div className="font-bold font-mono text-[11px] text-slate-700 flex items-center justify-between">
+                                <span>{formatTime(entry.startTime)}</span>
+                                <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-white/80">
+                                  {entry.bookingType}
+                                </span>
+                              </div>
+                              <div className="font-extrabold text-[12px] line-clamp-2 leading-tight">
+                                {entry.title}
+                              </div>
+                              <div className="text-[10px] text-slate-500 truncate">{entry.location}</div>
+                              {entry.coachName && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleViewCoach(entry.coachId)}
+                                  className="text-[10px] text-orange-600 font-bold hover:underline block truncate text-left"
+                                >
+                                  HLV: {entry.coachName}
+                                </button>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =========================================
+            4. COACH PUBLIC PROFILE MODAL
+           ========================================= */}
+        {selectedCoach && (
+          <div
+            onClick={() => setSelectedCoach(null)}
+            className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden relative animate-in zoom-in-95 duration-150"
+            >
+              {/* Header Cover */}
+              <div className="h-28 bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 p-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCoach(null)}
+                  className="w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 text-white flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              </div>
+
+              {/* Coach Avatar & Info */}
+              <div className="px-6 pb-6 pt-0 -mt-12 space-y-4">
+                <div className="flex items-end justify-between">
+                  <div className="w-20 h-20 rounded-2xl bg-slate-900 border-4 border-white text-orange-400 font-black text-2xl flex items-center justify-center shadow-lg">
+                    {selectedCoach.avatar || selectedCoach.fullName?.charAt(0) || 'HLV'}
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200">
+                    HLV Đang Giảng Dạy
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-black text-slate-900">{selectedCoach.fullName}</h3>
+                  <p className="text-xs text-orange-600 font-bold mt-0.5">
+                    Huấn Luyện Viên Thể Thao F Sport Center
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-xs text-slate-700 leading-relaxed">
+                  <span className="font-bold text-slate-900 block mb-1">Tiểu sử & Chuyên môn:</span>
+                  {selectedCoach.bio || 'Huấn luyện viên chuyên môn cao với nhiều năm kinh nghiệm đào tạo học viên đạt chuẩn thể lực và kỹ thuật chuyên nghiệp.'}
+                </div>
+
+                {/* Sports Taught */}
+                {selectedCoach.sportsTaught && selectedCoach.sportsTaught.length > 0 && (
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                      Bộ môn phụ trách
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedCoach.sportsTaught.map((sport, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2.5 py-1 rounded-xl bg-orange-50 text-orange-700 border border-orange-200 text-xs font-bold"
+                        >
+                          {sport}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Contact metadata */}
+                <div className="grid grid-cols-2 gap-3 pt-2 text-xs">
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-slate-400 block text-[10px]">Email liên hệ</span>
+                    <span className="font-bold text-slate-800 truncate block">{selectedCoach.email}</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-slate-400 block text-[10px]">Lớp đang mở</span>
+                    <span className="font-bold text-slate-800 block">
+                      {selectedCoach.activeClassesCount || 0} lớp học
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedCoach(null)}
+                  className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors cursor-pointer"
+                >
+                  Đóng thông tin
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =========================================
+            5. CANCEL BOOKING CONFIRMATION MODAL
+           ========================================= */}
+        {cancelingBooking && (
+          <div
+            onClick={() => setCancelingBooking(null)}
+            className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-4 animate-in zoom-in-95 duration-150"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+                <span className="material-symbols-outlined text-[28px]">warning</span>
+              </div>
+
+              <div className="text-center space-y-1">
+                <h3 className="text-lg font-black text-slate-900">Xác Nhận Hủy Lịch Tập?</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Bạn có chắc muốn hủy <strong>"{cancelingBooking.title}"</strong> vào lúc{' '}
+                  <strong>{formatTime(cancelingBooking.startTime)}</strong> ngày{' '}
+                  <strong>{new Date(cancelingBooking.startTime).toLocaleDateString('vi-VN')}</strong>?
+                </p>
+              </div>
+
+              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-1 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-emerald-800">
+                  <span className="material-symbols-outlined text-[16px]">verified</span>
+                  Chính sách hoàn tiền 100%
+                </div>
+                <p className="text-emerald-700 leading-relaxed text-[11px]">
+                  Do bạn thực hiện hủy trước giờ học trên 2 tiếng, toàn bộ học phí/tiền sân ({formatMoney(cancelingBooking.amountPaid)}) sẽ được hoàn 100% vào sổ giao dịch điện tử của bạn. Lịch này sẽ được xóa khỏi thời khóa biểu.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCancelingBooking(null)}
+                  disabled={submittingCancel}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+                >
+                  Giữ Lịch Lại
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmCancel}
+                  disabled={submittingCancel}
+                  className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {submittingCancel ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Đang xử lý...</span>
+                    </>
+                  ) : (
+                    <span>Xác Nhận Hủy (Hoàn 100%)</span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}
       </div>
-
-      {/* Confirmation Dialog */}
-      {bookingSuccessModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl relative animate-in fade-in">
-            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
-              <span className="material-symbols-outlined text-[36px]">check_circle</span>
-            </div>
-
-            <h3 className="font-headline-sm text-xl font-bold text-slate-900">
-              Đặt Chỗ Thành Công!
-            </h3>
-
-            <p className="text-xs text-slate-600">
-              Bạn đã đăng ký thành công lớp <strong>{bookingSuccessModal.title}</strong> vào lúc{' '}
-              <strong>{bookingSuccessModal.time}</strong> ({bookingSuccessModal.day}).
-            </p>
-
-            <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-500 text-left space-y-1">
-              <div>• Phòng tập: <strong>{bookingSuccessModal.room}</strong></div>
-              <div>• Huấn luyện viên: <strong>{bookingSuccessModal.coachName || bookingSuccessModal.coach}</strong></div>
-              <div>• Vui lòng check-in trước giờ học 10 phút qua cổng RFID để nhận tủ đồ.</div>
-            </div>
-
-            <button
-              onClick={() => setBookingSuccessModal(null)}
-              className="w-full py-3 rounded-xl bg-primary text-white text-xs font-bold uppercase tracking-wider cursor-pointer"
-            >
-              Đã Hiểu & Đóng
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Coach Profile Modal (MEM-14) */}
-      {selectedCoachProfile && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl relative animate-in zoom-in-95">
-            <button
-              onClick={() => setSelectedCoachProfile(null)}
-              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">close</span>
-            </button>
-
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-2xl bg-primary text-secondary-container flex items-center justify-center font-bold text-lg shadow-sm">
-                {selectedCoachProfile.name.slice(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <h3 className="font-headline-sm text-lg font-bold text-primary">
-                  {selectedCoachProfile.name}
-                </h3>
-                <div className="text-xs text-slate-500 font-semibold">{selectedCoachProfile.title}</div>
-                <div className="flex items-center gap-1 text-amber-500 text-xs font-bold mt-0.5">
-                  <span>★</span>
-                  <span>{selectedCoachProfile.rating || 4.95}</span>
-                  <span className="text-slate-400 font-normal">({selectedCoachProfile.studentsCount || 24} học viên)</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs text-slate-700">
-              <div>
-                <span className="font-bold text-slate-900 block mb-0.5">Chứng chỉ chuyên môn:</span>
-                <span>{selectedCoachProfile.certifications || 'PPR Certified / NASM-CPT / Biomechanics Specialist'}</span>
-              </div>
-              <div>
-                <span className="font-bold text-slate-900 block mb-0.5">Kinh nghiệm & Chuyên sâu:</span>
-                <span>{selectedCoachProfile.specialty || 'Huấn luyện chiến thuật nâng cao, chỉnh đòn phát bóng và phục hồi chấn thương khớp gối.'}</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setSelectedCoachProfile(null)}
-              className="w-full py-2.5 rounded-xl bg-primary text-white text-xs font-bold uppercase tracking-wider cursor-pointer"
-            >
-              Đóng Profile
-            </button>
-          </div>
-        </div>
-      )}
     </MemberLayout>
   );
 }

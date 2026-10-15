@@ -1,82 +1,125 @@
 package com.sporthub.backend.controller;
 
+import com.sporthub.backend.dto.ClassSessionResponse;
+import com.sporthub.backend.dto.CoachScheduleEntryResponse;
+import com.sporthub.backend.dto.CoachStudentBookingResponse;
+import com.sporthub.backend.dto.ReceptionistClassResponse;
+import com.sporthub.backend.dto.RosterBookingResponse;
 import com.sporthub.backend.entity.Booking;
-import com.sporthub.backend.entity.ClassSession;
-import com.sporthub.backend.repository.BookingRepository;
-import com.sporthub.backend.repository.ClassSessionRepository;
+import com.sporthub.backend.service.BookingService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
+
 
 @RestController
 @RequestMapping("/api/v1/bookings")
 @CrossOrigin(origins = "*")
 public class BookingController {
 
-    private final BookingRepository bookingRepository;
 
-    private final ClassSessionRepository classSessionRepository;
+    private final BookingService bookingService;
 
-    BookingController(BookingRepository bookingRepository, ClassSessionRepository classSessionRepository) {
-        this.bookingRepository = bookingRepository;
-        this.classSessionRepository = classSessionRepository;
+    public BookingController(BookingService bookingService) {
+        this.bookingService = bookingService;
     }
 
-    // API 1: Xem tất cả lớp học sắp diễn ra
     @GetMapping("/classes")
-    public ResponseEntity<List<ClassSession>> getAllClasses() {
-        return ResponseEntity.ok(classSessionRepository.findAll());
+    public ResponseEntity<List<ClassSessionResponse>> getUpcomingClasses(Authentication authentication) {
+        return ResponseEntity.ok(bookingService.getUpcomingClasses(
+                actorId(authentication), actorRole(authentication)));
     }
 
-    // API 2: Member Đăng ký vào lớp học
-    @PostMapping
-    public ResponseEntity<?> bookClass(@RequestParam Long memberId, @RequestParam Long sessionId) {
-        ClassSession session = classSessionRepository.findById(sessionId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học!"));
-
-        if (session.getBookedSlots() >= session.getMaxSlots()) {
-            return ResponseEntity.badRequest().body("Lớp học đã đủ chỗ!");
-        }
-
-        // Tăng số lượt đăng ký
-        session.setBookedSlots(session.getBookedSlots() + 1);
-        classSessionRepository.save(session);
-
-        // Tạo booking mới
-        Booking booking = Booking.builder()
-                .memberId(memberId)
-                .sessionId(sessionId)
-                .bookingTime(LocalDateTime.now())
-                .status("BOOKED")
-                .attendanceStatus("PENDING")
-                .build();
-
-        return ResponseEntity.ok(bookingRepository.save(booking));
+    @GetMapping("/coach-schedule")
+    public ResponseEntity<List<CoachScheduleEntryResponse>> getCoachSchedule(
+            @RequestParam LocalDate weekStart,
+            Authentication authentication) {
+        requireRole(authentication, "COACH");
+        return ResponseEntity.ok(bookingService.getCoachSchedule(actorId(authentication), weekStart));
     }
 
-    // API 3: Xem lịch cá nhân của Member
+    @GetMapping("/coach-students")
+    public ResponseEntity<List<CoachStudentBookingResponse>> getCoachStudents(Authentication authentication) {
+        requireRole(authentication, "COACH");
+        return ResponseEntity.ok(bookingService.getCoachStudents(actorId(authentication)));
+    }
+
+    @GetMapping("/receptionist-schedule")
+    public ResponseEntity<List<ReceptionistClassResponse>> getReceptionistSchedule(
+            @RequestParam LocalDate weekStart,
+            Authentication authentication) {
+        requireAnyRole(actorRole(authentication), "RECEPTIONIST", "MANAGER", "ADMIN");
+        return ResponseEntity.ok(bookingService.getReceptionistSchedule(weekStart));
+    }
+
     @GetMapping("/my-schedule")
-    public ResponseEntity<List<Booking>> getMySchedule(@RequestParam Long memberId) {
-        return ResponseEntity.ok(bookingRepository.findByMemberId(memberId));
+    public ResponseEntity<List<Booking>> getMySchedule(Authentication authentication) {
+        requireRole(authentication, "MEMBER");
+        return ResponseEntity.ok(bookingService.getMemberSchedule(actorId(authentication)));
     }
 
-    // API 4: Điểm danh (Cho Coach / Receptionist)
+    @DeleteMapping("/{bookingId}")
+    public ResponseEntity<Booking> cancelBooking(
+            @PathVariable Long bookingId,
+            Authentication authentication) {
+        requireRole(authentication, "MEMBER");
+        return ResponseEntity.ok(bookingService.cancelClassBooking(bookingId, actorId(authentication)));
+    }
+
+    @GetMapping("/classes/{sessionId}/roster")
+    public ResponseEntity<List<RosterBookingResponse>> getSessionRoster(
+            @PathVariable Long sessionId,
+            Authentication authentication) {
+        String role = actorRole(authentication);
+        requireAnyRole(role, "COACH", "RECEPTIONIST", "MANAGER", "ADMIN");
+        return ResponseEntity.ok(bookingService.getSessionRoster(sessionId, actorId(authentication), role));
+    }
+
     @PutMapping("/{bookingId}/attendance")
-    public ResponseEntity<?> updateAttendance(
+    public ResponseEntity<Booking> updateAttendance(
             @PathVariable Long bookingId,
             @RequestParam String status,
-            @RequestParam(required = false) String coachNote) {
+            @RequestParam(required = false) String coachNote,
+            Authentication authentication) {
+        String role = actorRole(authentication);
+        requireAnyRole(role, "COACH", "RECEPTIONIST", "MANAGER", "ADMIN");
+        return ResponseEntity.ok(bookingService.updateAttendance(
+                bookingId, actorId(authentication), role, status, coachNote));
+    }
 
-        Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin đặt chỗ!"));
-
-        booking.setAttendanceStatus(status); // PRESENT hoặc ABSENT
-        if (coachNote != null) {
-            booking.setCoachNote(coachNote);
+    private Long actorId(Authentication authentication) {
+        try {
+            return Long.valueOf(authentication.getName());
+        } catch (NumberFormatException exception) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED, "Phiên đăng nhập không hợp lệ.");
         }
+    }
 
-        return ResponseEntity.ok(bookingRepository.save(booking));
+    private String actorRole(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .map(authority -> authority.getAuthority())
+                .filter(authority -> authority.startsWith("ROLE_"))
+                .map(authority -> authority.substring("ROLE_".length()))
+                .findFirst()
+                .orElse("");
+    }
+
+    private void requireRole(Authentication authentication, String expectedRole) {
+        requireAnyRole(actorRole(authentication), expectedRole);
+    }
+
+    private void requireAnyRole(String role, String... allowedRoles) {
+        for (String allowedRole : allowedRoles) {
+            if (allowedRole.equals(role)) {
+                return;
+            }
+        }
+        throw new org.springframework.web.server.ResponseStatusException(
+                HttpStatus.FORBIDDEN, "Vai trò tài khoản không được phép thực hiện thao tác này.");
     }
 }
