@@ -15,21 +15,21 @@ public class FacilityService {
     @Autowired
     private FacilityRepository facilityRepository;
 
-    public List<FacilityDTO> getAvailableFacilities(Integer sportId) {
-        List<Facility> facilities;
-        if (sportId != null) {
-            facilities = facilityRepository.findBySportIdAndStatus(sportId, "AVAILABLE");
-        } else {
-            facilities = facilityRepository.findByStatus("AVAILABLE");
-        }
-
-        return facilities.stream().map(f -> FacilityDTO.builder()
-                .facilityId(f.getFacilityId())
-                .facilityName(f.getFacilityName())
-                .sportId(f.getSportId())
-                .capacity(f.getCapacity())
-                .status(f.getStatus())
-                .build()
-        ).collect(Collectors.toList());
+    public List<FacilityDTO> getAvailableFacilities(Long sportId) {
+    List<Facility> facilities;
+    if (sportId != null) {
+        facilities = facilityRepository.findBySportIdAndStatus(sportId, "AVAILABLE");
+    } else {
+        facilities = facilityRepository.findByStatus("AVAILABLE");
     }
+    
+    return facilities.stream().map(f -> FacilityDTO.builder()
+            .facilityId(f.getFacilityId())
+            .facilityName(f.getFacilityName())
+            .sportId(f.getSportId())
+            .capacity(f.getCapacity())
+            .status(f.getStatus())
+            .build()
+    ).collect(Collectors.toList());
+}
 }

@@ -1,4 +1,4 @@
-package com.sporthub.backend.dto;
+package com.sporthub.backend.dto; 
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -7,12 +7,13 @@ import lombok.NoArgsConstructor;
 
 @Data
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 public class FacilityDTO {
-    private Integer facilityId;
+    private Long facilityId;
     private String facilityName;
-    private Integer sportId;
+    private Long sportId;
+    private String sportName;
     private Integer capacity;
     private String status;
 }

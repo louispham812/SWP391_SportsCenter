@@ -1,29 +1,32 @@
 package com.sporthub.backend.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "facilities")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class Facility {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "facility_id")
-    private Integer facilityId;
+    private Long facilityId;
 
-    @Column(name = "facility_name")
+    @Column(name = "facility_name", nullable = false)
     private String facilityName;
 
-    @Column(name = "sport_id")
-    private Integer sportId;
+    @Column(name = "sport_id", nullable = false)
+    private Long sportId;
 
     @Column(name = "capacity")
     private Integer capacity;
 
-    @Column(name = "status")
+    @Column(name = "status", nullable = false)
     private String status;
 }

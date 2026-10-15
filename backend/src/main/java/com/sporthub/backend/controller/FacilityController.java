@@ -17,9 +17,9 @@ public class FacilityController {
     private FacilityService facilityService;
 
     @GetMapping("/available")
-    public ResponseEntity<List<FacilityDTO>> getAvailableFacilities(
-            @RequestParam(required = false) Integer sportId) {
-        List<FacilityDTO> availableFacilities = facilityService.getAvailableFacilities(sportId);
-        return ResponseEntity.ok(availableFacilities);
-    }
+public ResponseEntity<List<FacilityDTO>> getAvailableFacilities(
+        @RequestParam(required = false) Long sportId) {
+    List<FacilityDTO> availableFacilities = facilityService.getAvailableFacilities(sportId);
+    return ResponseEntity.ok(availableFacilities);
+}
 }
