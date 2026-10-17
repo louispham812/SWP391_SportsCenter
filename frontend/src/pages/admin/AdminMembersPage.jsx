@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
+import CreateUserModal from '../../components/common/CreateUserModal';
 import {
   getManagerMembers,
   lockManagerMember,
@@ -42,6 +43,7 @@ export default function AdminMembersPage() {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
   const [error, setError] = useState('');
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const loadMembers = useCallback(async () => {
     setLoading(true);
@@ -112,15 +114,25 @@ export default function AdminMembersPage() {
               Tra cứu hồ sơ thành viên, thông tin gói thẻ và trạng thái kích hoạt tài khoản.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={loadMembers}
-            disabled={loading}
-            className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:self-auto shadow-sm"
-          >
-            <span className="material-symbols-outlined text-[18px]">refresh</span>
-            Làm mới
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsCreateOpen(true)}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">person_add</span>
+              Thêm người dùng mới
+            </button>
+            <button
+              type="button"
+              onClick={loadMembers}
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:self-auto shadow-sm cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">refresh</span>
+              Làm mới
+            </button>
+          </div>
         </header>
 
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -263,6 +275,11 @@ export default function AdminMembersPage() {
           )}
         </section>
       </main>
+      <CreateUserModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onSuccess={loadMembers}
+      />
     </AdminLayout>
   );
 }

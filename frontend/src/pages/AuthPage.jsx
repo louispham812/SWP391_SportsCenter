@@ -37,13 +37,11 @@ export default function AuthPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Login form state
-  const [loginRole, setLoginRole] = useState('MEMBER');
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
   // Register form state
   const [regForm, setRegForm] = useState({
-    role: 'MEMBER',
     fullName: '',
     phone: '',
     email: '',
@@ -99,7 +97,6 @@ export default function AuthPage() {
         body: JSON.stringify({
           email: loginIdentifier.trim(),
           password: loginPassword,
-          role: loginRole,
         }),
       });
       if (!response.ok) {
@@ -130,17 +127,12 @@ export default function AuthPage() {
           phone: regForm.phone.trim(),
           email: regForm.email.trim(),
           password: regForm.password,
-          role: regForm.role,
         }),
       });
       if (!response.ok) {
         throw new Error(await getErrorMessage(response));
       }
       const user = await response.json();
-      if (user.status === 'PENDING') {
-        setAuthNotice('Đăng ký đã được lưu. Tài khoản nhân viên sẽ sử dụng được sau khi Quản lý duyệt.');
-        return;
-      }
       authenticate(user);
     } catch (error) {
       setAuthError(getRequestErrorMessage(error, 'Đăng ký'));
@@ -358,27 +350,7 @@ export default function AuthPage() {
                         {authNotice}
                       </p>
                     )}
-                    
-                    <div className="flex flex-col gap-1.5">
-                      <label htmlFor="login-role" className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
-                        Đăng nhập với vai trò
-                      </label>
-                      <select
-                        id="login-role"
-                        required
-                        value={loginRole}
-                        onChange={(e) => {
-                          setLoginRole(e.target.value);
-                          setAuthError('');
-                        }}
-                        className="w-full bg-white text-slate-900 px-4 py-3 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 shadow-2xs"
-                      >
-                        <option value="MEMBER">Khách hàng / Hội viên</option>
-                        <option value="COACH">Huấn luyện viên (Coach)</option>
-                        <option value="RECEPTIONIST">Nhân viên lễ tân</option>
-                        <option value="MANAGER">Quản lý hệ thống</option>
-                      </select>
-                    </div>
+
 
                     {/* Identifier */}
                     <div className="flex flex-col gap-1.5">
@@ -501,31 +473,6 @@ export default function AuthPage() {
                         </span>
                       </div>
 
-                      <div className="flex flex-col gap-1">
-                        <label htmlFor="register-role" className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
-                          Đăng ký vai trò *
-                        </label>
-                        <select
-                          id="register-role"
-                          required
-                          value={regForm.role}
-                          onChange={(e) => {
-                            setRegForm({ ...regForm, role: e.target.value });
-                            setAuthError('');
-                            setAuthNotice('');
-                          }}
-                          className="w-full bg-white text-slate-900 px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 shadow-2xs"
-                        >
-                          <option value="MEMBER">Khách hàng / Hội viên</option>
-                          <option value="COACH">Huấn luyện viên (Coach) — chờ Quản lý duyệt</option>
-                          <option value="RECEPTIONIST">Nhân viên lễ tân — chờ Quản lý duyệt</option>
-                        </select>
-                        {regForm.role !== 'MEMBER' && (
-                          <p className="text-[11px] text-amber-700 font-bold mt-1">
-                            Tài khoản nhân viên chỉ hoạt động sau khi được Quản lý phê duyệt.
-                          </p>
-                        )}
-                      </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         {/* Họ và tên */}

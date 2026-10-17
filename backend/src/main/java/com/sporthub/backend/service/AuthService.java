@@ -37,9 +37,8 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         String identifier = request.getEmail() == null ? "" : request.getEmail().trim();
         String password = request.getPassword();
-        String requestedRole = normalizeRole(request.getRole());
-        if (identifier.isEmpty() || password == null || password.isEmpty() || requestedRole == null) {
-            throw new IllegalArgumentException("Vui lòng nhập email/số điện thoại, mật khẩu và vai trò.");
+        if (identifier.isEmpty() || password == null || password.isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng nhập email/số điện thoại và mật khẩu.");
         }
 
         User user = userRepository.findByEmailIgnoreCase(identifier)
@@ -53,10 +52,6 @@ public class AuthService {
                 : password.equals(storedPassword));
         if (!passwordMatches) {
             throw new RuntimeException("Email hoặc mật khẩu không chính xác!");
-        }
-
-        if (!requestedRole.equalsIgnoreCase(user.getRole())) {
-            throw new RuntimeException("Tài khoản không thuộc vai trò bạn đã chọn.");
         }
 
         if (!"ACTIVE".equals(user.getStatus())) {
@@ -81,11 +76,10 @@ public class AuthService {
                 : request.getEmail().trim().toLowerCase(Locale.ROOT);
         String phone = request.getPhone() == null ? "" : request.getPhone().trim();
         String password = request.getPassword();
-        String role = normalizeRole(request.getRole());
 
         if (fullName.isEmpty() || email.isEmpty() || phone.isEmpty()
-                || password == null || password.isEmpty() || role == null) {
-            throw new IllegalArgumentException("Vui lòng điền đầy đủ các thông tin bắt buộc và chọn vai trò.");
+                || password == null || password.isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng điền đầy đủ các thông tin bắt buộc.");
         }
         if (fullName.length() > 100 || email.length() > 100 || phone.length() > 15) {
             throw new IllegalArgumentException("Tên, email hoặc số điện thoại vượt quá độ dài cho phép.");
@@ -100,23 +94,18 @@ public class AuthService {
             throw new IllegalArgumentException("Email này đã được đăng ký.");
         }
 
-        if (!MEMBER_ROLE.equals(role) && !COACH_ROLE.equals(role) && !RECEPTIONIST_ROLE.equals(role)) {
-            throw new IllegalArgumentException("Vai trò đăng ký không hợp lệ.");
-        }
-
+        // Quy định: Khách tự đăng ký -> Luôn là MEMBER (backend gán cứng, bỏ qua mọi role client gửi lên)
         User user = User.builder()
                 .fullName(fullName)
                 .email(email)
                 .phone(phone)
                 .passwordHash(passwordEncoder.encode(password))
-                .role(role)
-                .status(MEMBER_ROLE.equals(role) ? "ACTIVE" : "PENDING")
+                .role(MEMBER_ROLE)
+                .status("ACTIVE")
                 .build();
 
         User savedUser = userRepository.save(user);
-        return "ACTIVE".equals(savedUser.getStatus())
-                ? createSession(savedUser)
-                : toAuthResponse(savedUser, null);
+        return createSession(savedUser);
     }
 
     public void logout(String token) {

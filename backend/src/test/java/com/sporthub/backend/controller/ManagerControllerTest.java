@@ -185,6 +185,50 @@ class ManagerControllerTest {
         assertThrows(ResponseStatusException.class, () -> controller.approveRegistration(7L, manager));
     }
 
+    @Test
+    void managerCanCreateAnyRoleUser() {
+        com.sporthub.backend.dto.CreateUserRequest request = new com.sporthub.backend.dto.CreateUserRequest(
+                "Trần Quản Lý Mới", "manager.new@example.com", "0911222333", "SportHub@123", "MANAGER");
+        when(userRepository.existsByEmailIgnoreCase("manager.new@example.com")).thenReturn(false);
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            u.setUserId(99L);
+            return u;
+        });
+
+        var res = controller.createUser(request, manager);
+        assertEquals("MANAGER", res.role());
+        assertEquals("ACTIVE", res.status());
+    }
+
+    @Test
+    void receptionistCannotCreateManagerUser() {
+        var receptionistAuth = new UsernamePasswordAuthenticationToken(
+                "3", "", List.of(new SimpleGrantedAuthority("ROLE_RECEPTIONIST")));
+        com.sporthub.backend.dto.CreateUserRequest request = new com.sporthub.backend.dto.CreateUserRequest(
+                "Tạo Lén Manager", "stealth@example.com", "0911222444", "SportHub@123", "MANAGER");
+
+        assertThrows(ResponseStatusException.class, () -> controller.createUser(request, receptionistAuth));
+    }
+
+    @Test
+    void receptionistCanCreateCoachUser() {
+        var receptionistAuth = new UsernamePasswordAuthenticationToken(
+                "3", "", List.of(new SimpleGrantedAuthority("ROLE_RECEPTIONIST")));
+        com.sporthub.backend.dto.CreateUserRequest request = new com.sporthub.backend.dto.CreateUserRequest(
+                "HLV Mới Tuyển", "coach.new@example.com", "0911222555", "SportHub@123", "COACH");
+        when(userRepository.existsByEmailIgnoreCase("coach.new@example.com")).thenReturn(false);
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            u.setUserId(100L);
+            return u;
+        });
+
+        var res = controller.createUser(request, receptionistAuth);
+        assertEquals("COACH", res.role());
+        assertEquals("ACTIVE", res.status());
+    }
+
     private User pendingUser(String role) {
         return User.builder()
                 .userId(7L)

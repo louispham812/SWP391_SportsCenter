@@ -65,3 +65,10 @@ export const updateManagerPackageStatus = (packageId, status) =>
     method: 'PATCH',
     body: JSON.stringify({ status }),
   });
+
+export const createManagerUser = (userData) =>
+  apiRequest('/manager/users', {
+    method: 'POST',
+    body: JSON.stringify(userData),
+  });
+

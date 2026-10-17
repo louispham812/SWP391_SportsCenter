@@ -31,6 +31,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import com.sporthub.backend.dto.CreateUserRequest;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -54,6 +58,24 @@ public class ReceptionistController {
     private final UserMembershipRepository membershipRepository;
     private final MembershipPackageRepository packageRepository;
     private final MemberCheckInRepository checkInRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    public ReceptionistController(
+            UserRepository userRepository,
+            ReceptionPaymentRepository paymentRepository,
+            PaymentTransactionRepository paymentTransactionRepository,
+            UserMembershipRepository membershipRepository,
+            MembershipPackageRepository packageRepository,
+            MemberCheckInRepository checkInRepository,
+            PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.paymentRepository = paymentRepository;
+        this.paymentTransactionRepository = paymentTransactionRepository;
+        this.membershipRepository = membershipRepository;
+        this.packageRepository = packageRepository;
+        this.checkInRepository = checkInRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     public ReceptionistController(
             UserRepository userRepository,
@@ -62,12 +84,8 @@ public class ReceptionistController {
             UserMembershipRepository membershipRepository,
             MembershipPackageRepository packageRepository,
             MemberCheckInRepository checkInRepository) {
-        this.userRepository = userRepository;
-        this.paymentRepository = paymentRepository;
-        this.paymentTransactionRepository = paymentTransactionRepository;
-        this.membershipRepository = membershipRepository;
-        this.packageRepository = packageRepository;
-        this.checkInRepository = checkInRepository;
+        this(userRepository, paymentRepository, paymentTransactionRepository,
+             membershipRepository, packageRepository, checkInRepository, new BCryptPasswordEncoder());
     }
 
     @GetMapping("/members")
@@ -280,6 +298,68 @@ public class ReceptionistController {
                         "MEMBER", reportDate.atStartOfDay(), reportDate.plusDays(1).atStartOfDay()),
                 methodTotals,
                 records);
+    }
+
+    @PostMapping("/users")
+    @Transactional
+    public ReceptionistMemberResponse createUser(
+            @RequestBody CreateUserRequest request,
+            Authentication authentication) {
+        requireStaff(authentication);
+
+        String fullName = request.fullName() == null ? "" : request.fullName().trim();
+        String email = request.email() == null ? "" : request.email().trim().toLowerCase(Locale.ROOT);
+        String phone = request.phone() == null ? "" : request.phone().trim();
+        String password = request.password();
+        String targetRole = request.role() == null ? "" : request.role().trim().toUpperCase(Locale.ROOT);
+
+        if (fullName.isEmpty() || email.isEmpty() || phone.isEmpty() || password == null || password.isBlank() || targetRole.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng điền đầy đủ các thông tin bắt buộc.");
+        }
+        if (fullName.length() > 100 || email.length() > 100 || phone.length() > 15) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên, email hoặc số điện thoại vượt quá độ dài cho phép.");
+        }
+        if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Địa chỉ email không hợp lệ.");
+        }
+        if (password.length() < 8) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mật khẩu phải có ít nhất 8 ký tự.");
+        }
+        if (userRepository.existsByEmailIgnoreCase(email)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email này đã tồn tại trong hệ thống.");
+        }
+
+        boolean isManager = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(authority -> List.of("ROLE_MANAGER", "ROLE_ADMIN").contains(authority.getAuthority()));
+        if (!isManager) {
+            // Lễ tân tạo ở trang quản trị: chỉ được chọn MEMBER, COACH hoặc RECEPTIONIST
+            if (!List.of("MEMBER", "COACH", "RECEPTIONIST").contains(targetRole)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Lễ tân chỉ có quyền tạo tài khoản Hội viên, Huấn luyện viên hoặc Lễ tân.");
+            }
+        } else {
+            // Manager tạo ở trang quản trị: cả 4 vai trò
+            if (!List.of("MEMBER", "COACH", "RECEPTIONIST", "MANAGER", "ADMIN").contains(targetRole)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vai trò không hợp lệ.");
+            }
+        }
+
+        User user = User.builder()
+                .fullName(fullName)
+                .email(email)
+                .phone(phone)
+                .passwordHash(passwordEncoder.encode(password))
+                .role(targetRole)
+                .status("ACTIVE")
+                .build();
+
+        User savedUser = userRepository.save(user);
+        return new ReceptionistMemberResponse(
+                savedUser.getUserId(),
+                savedUser.getFullName(),
+                savedUser.getEmail(),
+                savedUser.getPhone(),
+                savedUser.getStatus(),
+                savedUser.getCreatedAt());
     }
 
     private void requireStaff(Authentication authentication) {
