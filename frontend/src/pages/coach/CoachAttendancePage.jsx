@@ -64,8 +64,9 @@ export default function CoachAttendancePage() {
   };
 
   const handleSaveAttendance = async (booking) => {
-    if (!['PRESENT', 'ABSENT'].includes(booking.attendanceStatus)) {
-      setError('Hãy chọn trạng thái có mặt hoặc vắng trước khi lưu.');
+    const validStatuses = ['PRESENT', 'EXCUSED_ABSENCE', 'UNEXCUSED_ABSENCE'];
+    if (!validStatuses.includes(booking.attendanceStatus)) {
+      setError('Hãy chọn trạng thái: Có mặt, Vắng có phép hoặc Vắng không phép trước khi lưu.');
       return;
     }
     setSavingBookingId(booking.bookingId);
@@ -78,10 +79,10 @@ export default function CoachAttendancePage() {
         booking.coachNote,
       );
       updateLocalRoster(booking.bookingId, {
-        attendanceStatus: saved.attendanceStatus,
-        coachNote: saved.coachNote,
+        attendanceStatus: saved.attendanceStatus || booking.attendanceStatus,
+        coachNote: saved.coachNote || booking.coachNote,
       });
-      setSuccessMessage('Đã lưu điểm danh vào hệ thống.');
+      setSuccessMessage(`Đã lưu điểm danh cho học viên ${booking.memberName || ''}.`);
     } catch (requestError) {
       setError(requestError.message || 'Không thể lưu điểm danh.');
     } finally {
@@ -90,7 +91,9 @@ export default function CoachAttendancePage() {
   };
 
   const selectedClass = classes.find((item) => item.sessionId.toString() === selectedSessionId);
-  const presentCount = roster.filter((booking) => booking.attendanceStatus === 'PRESENT').length;
+  const presentCount = roster.filter((b) => b.attendanceStatus === 'PRESENT').length;
+  const excusedCount = roster.filter((b) => b.attendanceStatus === 'EXCUSED_ABSENCE').length;
+  const unexcusedCount = roster.filter((b) => b.attendanceStatus === 'UNEXCUSED_ABSENCE' || b.attendanceStatus === 'ABSENT').length;
 
   return (
     <CoachLayout>
@@ -98,13 +101,13 @@ export default function CoachAttendancePage() {
         <header>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
             <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-            F SPORT COACH · ĐIỂM DANH &amp; NHẬN XÉT
+            F SPORT COACH · ĐIỂM DANH &amp; NHẬN XÉT (COA-05, COA-06)
           </div>
           <h1 className="font-headline-xl text-2xl font-bold text-slate-900 sm:text-3xl">
             Điểm Danh &amp; Đánh Giá Học Viên
           </h1>
           <p className="text-xs text-slate-500 sm:text-sm">
-            Ghi nhận chuyên cần thực tế và gửi phản hồi, lời dặn bài tập cho từng học viên.
+            Ghi nhận chuyên cần thực tế (Có mặt / Vắng có phép / Vắng không phép) và gửi nhận xét, bài tập dặn dò.
           </p>
         </header>
 
@@ -150,19 +153,27 @@ export default function CoachAttendancePage() {
         </section>
 
         {selectedClass && (
-          <section className="grid grid-cols-1 gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-3">
+          <section className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-4">
             <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-100">
               <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Buổi học</div>
-              <div className="mt-1 text-sm font-bold text-slate-900">{selectedClass.className}</div>
+              <div className="mt-1 text-sm font-bold text-slate-900 truncate">{selectedClass.className}</div>
             </div>
-            <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-100">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Thời gian</div>
-              <div className="mt-1 text-sm font-bold text-slate-800">{formatDateTime(selectedClass.startTime)}</div>
-            </div>
-            <div className="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-100">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Sĩ số có mặt</div>
+            <div className="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-100">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Có mặt (Present)</div>
               <div className="mt-1 text-sm font-black text-emerald-700">
-                {presentCount} / {rosterSessionId === selectedSessionId ? roster.length : 0} học viên
+                {presentCount} học viên
+              </div>
+            </div>
+            <div className="bg-blue-50/70 p-3.5 rounded-xl border border-blue-100">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-blue-700">Vắng có phép (Excused)</div>
+              <div className="mt-1 text-sm font-black text-blue-700">
+                {excusedCount} học viên (Hoàn quota)
+              </div>
+            </div>
+            <div className="bg-red-50/70 p-3.5 rounded-xl border border-red-100">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-red-700">Vắng không phép (Unexcused)</div>
+              <div className="mt-1 text-sm font-black text-red-700">
+                {unexcusedCount} học viên (Trừ quota)
               </div>
             </div>
           </section>
@@ -183,27 +194,45 @@ export default function CoachAttendancePage() {
             ) : (
               roster.map((booking) => (
                 <article key={booking.bookingId} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 hover:border-slate-300 transition-all">
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_180px_minmax(240px,1fr)_auto] lg:items-end">
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_220px_minmax(220px,1fr)_auto] lg:items-end">
                     <div>
-                      <h2 className="font-bold text-slate-900">
-                        {booking.memberName || `Hội viên #${booking.memberId}`}
-                      </h2>
+                      <div className="flex items-center gap-2">
+                        <h2 className="font-bold text-slate-900">
+                          {booking.memberName || `Hội viên #${booking.memberId}`}
+                        </h2>
+                        {booking.usesMembershipQuota ? (
+                          <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 text-[10px] font-bold border border-purple-200">
+                            Quota Gói
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold border border-slate-200">
+                            Giá Lẻ
+                          </span>
+                        )}
+                      </div>
                       <p className="mt-1 text-xs text-slate-500">
-                        {booking.memberPhone || 'Không có số điện thoại trong hồ sơ'}
+                        {booking.memberPhone || 'Không có số điện thoại'} · Mã booking: #{booking.bookingId}
                       </p>
                     </div>
                     <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                      Trạng thái
+                      Trạng thái điểm danh *
                       <select
-                        value={!booking.attendanceStatus || booking.attendanceStatus === 'PENDING' ? '' : booking.attendanceStatus}
+                        value={
+                          booking.attendanceStatus === 'ABSENT'
+                            ? 'UNEXCUSED_ABSENCE'
+                            : !booking.attendanceStatus || booking.attendanceStatus === 'PENDING'
+                            ? ''
+                            : booking.attendanceStatus
+                        }
                         onChange={(event) => updateLocalRoster(booking.bookingId, {
                           attendanceStatus: event.target.value,
                         })}
-                        className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold focus:border-orange-500 outline-none"
+                        className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold focus:border-orange-500 outline-none"
                       >
-                        <option value="">Chưa điểm danh</option>
-                        <option value="PRESENT">✅ Có mặt (Present)</option>
-                        <option value="ABSENT">❌ Vắng (Absent)</option>
+                        <option value="">-- Chọn trạng thái --</option>
+                        <option value="PRESENT">✅ Có mặt (PRESENT)</option>
+                        <option value="EXCUSED_ABSENCE">ℹ️ Vắng có phép (EXCUSED)</option>
+                        <option value="UNEXCUSED_ABSENCE">❌ Vắng không phép (UNEXCUSED)</option>
                       </select>
                     </label>
                     <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">

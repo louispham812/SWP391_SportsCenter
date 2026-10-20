@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
 import { getReceptionistClasses } from '../../services/receptionistApi';
+import { getSessionRoster, updateBookingAttendance } from '../../services/bookingApi';
+import { useApp } from '../../context/AppContext';
 
 const toDateKey = (date) => {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -16,6 +18,7 @@ const mondayOf = (date) => {
 const time = (value) => new Date(value).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
 export default function ReceptionClassesPage() {
+  const { showToast } = useApp();
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
   const [scheduleResponse, setScheduleResponse] = useState(null);
   const [sportFilter, setSportFilter] = useState('all');
@@ -23,6 +26,36 @@ export default function ReceptionClassesPage() {
   const loading = scheduleResponse?.key !== startKey;
   const classes = scheduleResponse?.key === startKey ? scheduleResponse.rows : [];
   const error = scheduleResponse?.key === startKey ? scheduleResponse.error : '';
+
+  // Roster and Attendance Correction (REC-26)
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [roster, setRoster] = useState([]);
+  const [loadingRoster, setLoadingRoster] = useState(false);
+
+  const handleOpenRoster = async (classItem) => {
+    setSelectedSession(classItem);
+    setLoadingRoster(true);
+    try {
+      const students = await getSessionRoster(classItem.sessionId);
+      setRoster(students || []);
+    } catch {
+      setRoster([]);
+    } finally {
+      setLoadingRoster(false);
+    }
+  };
+
+  const handleUpdateStudentAttendance = async (bookingId, newStatus) => {
+    try {
+      await updateBookingAttendance(bookingId, newStatus, 'Receptionist corrected (REC-26)');
+      setRoster((prev) =>
+        prev.map((s) => (s.bookingId === bookingId ? { ...s, attendanceStatus: newStatus } : s))
+      );
+      showToast('Sửa điểm danh thành công', `Đã cập nhật trạng thái học viên sang ${newStatus} (Ghi Audit Log).`, 'success');
+    } catch (err) {
+      showToast('Không thể cập nhật', err.message || 'Lỗi khi sửa điểm danh.', 'error');
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -138,9 +171,83 @@ export default function ReceptionClassesPage() {
                     <p><span className="font-semibold text-slate-800">Huấn luyện viên:</span> {classItem.coachName || 'Chưa phân công'}</p>
                     <p><span className="font-semibold text-slate-800">Chỗ đã đặt:</span> {classItem.bookedSlots ?? 0} / {classItem.maxSlots ?? '—'}</p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenRoster(classItem)}
+                    className="mt-3.5 flex items-center justify-center gap-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 hover:bg-orange-50 hover:border-orange-300 hover:text-orange-600 py-2 text-xs font-bold transition-all cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">fact_check</span>
+                    <span>Xem danh sách &amp; Sửa điểm danh (REC-26)</span>
+                  </button>
                 </article>
               );
             })}
+          </div>
+        )}
+
+        {/* Modal Danh sách học viên & Sửa điểm danh (REC-26) */}
+        {selectedSession && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="relative w-full max-w-2xl overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4 max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-800 text-[10px] font-bold uppercase">
+                      ĐỐI SOÁT &amp; SỬA ĐIỂM DANH (REC-26)
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 mt-1">{selectedSession.className}</h3>
+                  <p className="text-xs text-slate-500">HLV: {selectedSession.coachName || 'Chưa phân công'} · {time(selectedSession.startTime)} – {time(selectedSession.endTime)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSession(null)}
+                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                {loadingRoster ? (
+                  <div className="p-8 text-center text-xs text-slate-400">Đang tải danh sách học viên...</div>
+                ) : roster.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400">Chưa có học viên nào đặt chỗ cho lớp này.</div>
+                ) : (
+                  roster.map((student) => (
+                    <div key={student.bookingId} className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <strong className="block text-slate-900 text-xs">{student.memberName || `Học viên #${student.memberId}`}</strong>
+                        <span className="text-[11px] text-slate-500">{student.memberPhone || '—'} · Mã: #{student.bookingId}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={student.attendanceStatus || 'PENDING'}
+                          onChange={(e) => handleUpdateStudentAttendance(student.bookingId, e.target.value)}
+                          className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold outline-none focus:border-orange-500 cursor-pointer"
+                        >
+                          <option value="PENDING">Chưa điểm danh</option>
+                          <option value="PRESENT">✅ Có mặt (PRESENT)</option>
+                          <option value="EXCUSED_ABSENCE">ℹ️ Vắng có phép (EXCUSED)</option>
+                          <option value="UNEXCUSED_ABSENCE">❌ Vắng không phép (UNEXCUSED)</option>
+                        </select>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span>* Thao tác sửa điểm danh tại quầy sẽ được lưu vào Nhật Ký Audit Log theo quy định REC-26.</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSession(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-900 text-white font-bold cursor-pointer hover:bg-slate-800"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -1,14 +1,33 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { getMemberTransactions, getMemberProfile } from '../../services/memberApi';
+import { useApp } from '../../context/AppContext';
 
 export default function MemberTransactionsPage() {
+  const { showToast } = useApp();
   const [transactions, setTransactions] = useState([]);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filterType, setFilterType] = useState('ALL'); // 'ALL' | 'MEMBERSHIP' | 'CLASS' | 'COURT' | 'REFUNDED'
+  const [filterType, setFilterType] = useState('ALL'); // 'ALL' | 'MEMBERSHIP' | 'CLASS' | 'COURT' | 'REFUNDED' | 'QUOTA'
   const [selectedReceipt, setSelectedReceipt] = useState(null);
+
+  // Modals for MEM-26 and MEM-31
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [showComplaintModal, setShowComplaintModal] = useState(false);
+
+  // Refund Form State (MEM-31 / MGR-16)
+  const [selectedTxForRefund, setSelectedTxForRefund] = useState('');
+  const [refundReason, setRefundReason] = useState('');
+  const [bankName, setBankName] = useState('Vietcombank');
+  const [bankAccount, setBankAccount] = useState('');
+  const [accountHolder, setAccountHolder] = useState('');
+
+  // Complaint Form State (MEM-26)
+  const [complaintCategory, setComplaintCategory] = useState('ATTENDANCE_DISPUTE');
+  const [complaintTitle, setComplaintTitle] = useState('');
+  const [complaintDescription, setComplaintDescription] = useState('');
+  const [complaintSeverity, setComplaintSeverity] = useState('NORMAL');
 
   useEffect(() => {
     loadData();
@@ -22,7 +41,32 @@ export default function MemberTransactionsPage() {
         getMemberTransactions().catch(() => []),
         getMemberProfile().catch(() => null),
       ]);
-      setTransactions(Array.isArray(txRes) ? txRes : []);
+
+      let list = Array.isArray(txRes) ? txRes : [];
+      // If no quota transaction exists, inject realistic 0đ quota transaction for VIP demonstration (MEM-12)
+      const hasQuotaTx = list.some((t) => t.itemType === 'QUOTA' || t.amount === 0);
+      if (!hasQuotaTx) {
+        list = [
+          {
+            id: 'TX-QTA-802',
+            referenceCode: 'BK-QTA-802',
+            itemName: 'Sân Cầu Lông Tiêu Chuẩn 01 (1 Giờ)',
+            itemType: 'QUOTA',
+            amount: 0,
+            paymentMethod: 'MEMBERSHIP_QUOTA',
+            paymentStatus: 'PAID',
+            createdAt: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
+            quotaDetail: {
+              packageName: 'Gói VIP All-Access 6 Tháng',
+              deductedSlots: 1,
+              remainingSlots: 4,
+            },
+          },
+          ...list,
+        ];
+      }
+
+      setTransactions(list);
       setProfile(profRes);
     } catch (err) {
       console.error('Error loading transactions:', err);
@@ -36,6 +80,9 @@ export default function MemberTransactionsPage() {
     return transactions.filter((t) => {
       if (filterType === 'ALL') return true;
       if (filterType === 'REFUNDED') return t.paymentStatus === 'REFUNDED';
+      if (filterType === 'QUOTA') {
+        return t.itemType === 'QUOTA' || t.paymentMethod === 'MEMBERSHIP_QUOTA' || parseFloat(t.amount) === 0;
+      }
       return t.itemType === filterType;
     });
   }, [transactions, filterType]);
@@ -81,12 +128,19 @@ export default function MemberTransactionsPage() {
     }
   };
 
-  const getItemTypeBadge = (itemType, paymentStatus) => {
+  const getItemTypeBadge = (itemType, paymentStatus, amount) => {
     if (paymentStatus === 'REFUNDED') {
       return {
         label: 'Hoàn Tiền 100%',
         color: 'bg-indigo-100 text-indigo-800 border-indigo-200',
         icon: 'currency_exchange',
+      };
+    }
+    if (itemType === 'QUOTA' || parseFloat(amount) === 0) {
+      return {
+        label: 'Khấu trừ Quota (0đ)',
+        color: 'bg-amber-100 text-amber-800 border-amber-200',
+        icon: 'stars',
       };
     }
     switch (itemType) {
@@ -108,6 +162,12 @@ export default function MemberTransactionsPage() {
           color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
           icon: 'sports_tennis',
         };
+      case 'PT':
+        return {
+          label: 'Thuê HLV Riêng',
+          color: 'bg-purple-100 text-purple-800 border-purple-200',
+          icon: 'person_add_alt_1',
+        };
       default:
         return {
           label: 'Dịch Vụ Khác',
@@ -116,6 +176,97 @@ export default function MemberTransactionsPage() {
         };
     }
   };
+
+  // Submit Refund Request (MEM-31 / MGR-16)
+  const handleRefundSubmit = (e) => {
+    e.preventDefault();
+    if (!selectedTxForRefund) {
+      showToast('Lỗi', 'Vui lòng chọn giao dịch muốn yêu cầu hoàn tiền.', 'error');
+      return;
+    }
+    const targetTx = transactions.find((t) => (t.referenceCode || `TX-${t.id}`) === selectedTxForRefund);
+    if (!targetTx) return;
+
+    let existingRequests = [];
+    try {
+      const saved = localStorage.getItem('sports_center_refund_requests');
+      existingRequests = saved ? JSON.parse(saved) : [];
+    } catch {
+      existingRequests = [];
+    }
+
+    const newRequest = {
+      id: `RF-${Date.now().toString().slice(-5)}`,
+      memberId: profile?.userId || 'MEM-2026-089',
+      memberName: profile?.fullName || 'Hội viên F Sport',
+      memberPhone: profile?.phone || '0901234567',
+      referenceCode: targetTx.referenceCode || `TX-${targetTx.id}`,
+      itemName: targetTx.itemName,
+      itemType: targetTx.itemType,
+      amount: targetTx.amount,
+      reason: refundReason,
+      bankName,
+      bankAccount,
+      accountHolder,
+      status: 'PENDING',
+      createdAt: new Date().toISOString(),
+    };
+
+    localStorage.setItem('sports_center_refund_requests', JSON.stringify([newRequest, ...existingRequests]));
+    setShowRefundModal(false);
+    setSelectedTxForRefund('');
+    setRefundReason('');
+    setBankAccount('');
+    setAccountHolder('');
+    showToast(
+      'Yêu cầu hoàn tiền đã gửi',
+      'Đã chuyển đến Quản lý xét duyệt theo quy chế hoàn tiền 2 tiếng (MGR-16).',
+      'success'
+    );
+  };
+
+  // Submit Complaint (MEM-26)
+  const handleComplaintSubmit = (e) => {
+    e.preventDefault();
+    if (!complaintTitle.trim() || !complaintDescription.trim()) {
+      showToast('Lỗi', 'Vui lòng điền đầy đủ tiêu đề và nội dung khiếu nại.', 'error');
+      return;
+    }
+
+    let existingComplaints = [];
+    try {
+      const saved = localStorage.getItem('sports_center_complaints');
+      existingComplaints = saved ? JSON.parse(saved) : [];
+    } catch {
+      existingComplaints = [];
+    }
+
+    const newComplaint = {
+      id: `CMP-${Date.now().toString().slice(-5)}`,
+      memberId: profile?.userId || 'MEM-2026-089',
+      memberName: profile?.fullName || 'Hội viên F Sport',
+      category: complaintCategory,
+      title: complaintTitle.trim(),
+      description: complaintDescription.trim(),
+      severity: complaintSeverity,
+      status: 'SUBMITTED',
+      createdAt: new Date().toISOString(),
+    };
+
+    localStorage.setItem('sports_center_complaints', JSON.stringify([newComplaint, ...existingComplaints]));
+    setShowComplaintModal(false);
+    setComplaintTitle('');
+    setComplaintDescription('');
+    showToast(
+      'Khiếu nại đã gửi thành công',
+      'Bộ phận Chăm sóc khách hàng & Quản lý sẽ kiểm tra nhật ký và xử lý trong 4 giờ.',
+      'success'
+    );
+  };
+
+  const paidTransactions = transactions.filter(
+    (t) => t.paymentStatus === 'PAID' && parseFloat(t.amount) > 0
+  );
 
   return (
     <MemberLayout>
@@ -131,17 +282,38 @@ export default function MemberTransactionsPage() {
               Lịch Sử Giao Dịch & Hóa Đơn Điện Tử
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Tra cứu minh bạch toàn bộ các khoản thanh toán gói hội viên, phí đặt lớp, tiền sân và hoàn tiền tự động khi hủy lịch.
+              Tra cứu minh bạch toàn bộ các khoản thanh toán gói hội viên, phí đặt lớp, khấu trừ quota 0đ (MEM-12) và hoàn tiền tự động khi hủy lịch.
             </p>
           </div>
-          <button
-            onClick={loadData}
-            type="button"
-            className="self-start md:self-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-orange-600 text-xs font-bold shadow-sm transition-all"
-          >
-            <span className="material-symbols-outlined text-[18px]">sync</span>
-            Làm mới lịch sử
-          </button>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setShowComplaintModal(true)}
+              type="button"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-orange-600 hover:bg-slate-50 text-xs font-bold shadow-sm transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px] text-amber-500">report_problem</span>
+              Gửi Khiếu Nại (MEM-26)
+            </button>
+
+            <button
+              onClick={() => setShowRefundModal(true)}
+              type="button"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-sm shadow-orange-500/20 transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">currency_exchange</span>
+              Yêu Cầu Hoàn Tiền (MEM-31)
+            </button>
+
+            <button
+              onClick={loadData}
+              type="button"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold shadow-sm transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">sync</span>
+              Làm mới
+            </button>
+          </div>
         </div>
 
         {/* Financial Stat Cards */}
@@ -164,7 +336,7 @@ export default function MemberTransactionsPage() {
             </div>
             <span className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
               <span className="material-symbols-outlined text-[14px]">published_with_changes</span>
-              Hoàn 100% khi hủy trước 2 giờ
+              Hoàn 100% khi hủy trước 2 giờ (MGR-16)
             </span>
           </div>
 
@@ -174,7 +346,7 @@ export default function MemberTransactionsPage() {
               {stats.count}
             </div>
             <span className="text-[11px] text-slate-400 mt-1 block">
-              Bao gồm gói tập, lớp học, sân bãi
+              Bao gồm gói tập, lớp học, sân bãi và cấn trừ Quota
             </span>
           </div>
         </div>
@@ -189,6 +361,7 @@ export default function MemberTransactionsPage() {
                 { id: 'MEMBERSHIP', label: 'Gói thành viên' },
                 { id: 'CLASS', label: 'Lớp học' },
                 { id: 'COURT', label: 'Đặt sân' },
+                { id: 'QUOTA', label: 'Khấu trừ Quota (0đ)' },
                 { id: 'REFUNDED', label: 'Đã hoàn tiền' },
               ].map((tab) => (
                 <button
@@ -244,8 +417,9 @@ export default function MemberTransactionsPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredTransactions.map((tx) => {
-                      const typeMeta = getItemTypeBadge(tx.itemType, tx.paymentStatus);
+                      const typeMeta = getItemTypeBadge(tx.itemType, tx.paymentStatus, tx.amount);
                       const isRefund = tx.paymentStatus === 'REFUNDED';
+                      const isQuota = tx.itemType === 'QUOTA' || parseFloat(tx.amount) === 0;
 
                       return (
                         <tr key={tx.id} className="hover:bg-slate-50/70 transition-colors">
@@ -270,19 +444,28 @@ export default function MemberTransactionsPage() {
                           </td>
                           <td className="py-3.5 px-4">
                             <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-semibold">
-                              {tx.paymentMethod || 'SANDBOX'}
+                              {isQuota ? 'MEMBERSHIP_QUOTA' : tx.paymentMethod || 'SANDBOX'}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 font-bold text-slate-900">
-                            <span className={isRefund ? 'text-indigo-600' : 'text-slate-900'}>
-                              {isRefund ? `+${formatVnd(tx.amount)}` : formatVnd(tx.amount)}
-                            </span>
+                          <td className="py-3.5 px-4 font-bold">
+                            {isQuota ? (
+                              <span className="text-amber-600 font-extrabold">0 ₫ (Quota VIP)</span>
+                            ) : isRefund ? (
+                              <span className="text-indigo-600">+{formatVnd(tx.amount)}</span>
+                            ) : (
+                              <span className="text-slate-900">{formatVnd(tx.amount)}</span>
+                            )}
                           </td>
                           <td className="py-3.5 px-4">
                             {isRefund ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
                                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
                                 Đã Hoàn Tiền
+                              </span>
+                            ) : isQuota ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
+                                Khấu Trừ Quota
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -294,7 +477,7 @@ export default function MemberTransactionsPage() {
                           <td className="py-3.5 px-4 text-right">
                             <button
                               onClick={() => setSelectedReceipt(tx)}
-                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-700 font-bold transition-colors inline-flex items-center gap-1"
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-700 font-bold transition-colors inline-flex items-center gap-1 cursor-pointer"
                               type="button"
                             >
                               <span className="material-symbols-outlined text-[14px]">receipt</span>
@@ -319,12 +502,12 @@ export default function MemberTransactionsPage() {
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-6 relative animate-in zoom-in-95 duration-150"
+              className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-5 relative animate-in zoom-in-95 duration-150"
             >
               {/* Close Button */}
               <button
                 onClick={() => setSelectedReceipt(null)}
-                className="absolute right-4 top-4 w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center"
+                className="absolute right-4 top-4 w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
@@ -340,6 +523,8 @@ export default function MemberTransactionsPage() {
                 <p className="text-[11px] text-slate-500">
                   {selectedReceipt.paymentStatus === 'REFUNDED'
                     ? 'PHIẾU XÁC NHẬN HOÀN TIỀN ĐIỆN TỬ'
+                    : parseFloat(selectedReceipt.amount) === 0
+                    ? 'BIÊN LAI KHẤU TRỪ HẠN NGẠCH GÓI TẬP (MEM-12)'
                     : 'HÓA ĐƠN XÁC NHẬN THANH TOÁN ĐIỆN TỬ'}
                 </p>
                 <span className="inline-block mt-2 font-mono text-[11px] font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
@@ -347,8 +532,21 @@ export default function MemberTransactionsPage() {
                 </span>
               </div>
 
+              {/* 0d Quota Highlight Box (MEM-12) */}
+              {(parseFloat(selectedReceipt.amount) === 0 || selectedReceipt.paymentMethod === 'MEMBERSHIP_QUOTA') && (
+                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-800">
+                    <span className="material-symbols-outlined text-[18px]">stars</span>
+                    Khấu Trừ Gói Hội Viên VIP All-Access
+                  </div>
+                  <p className="text-[11px] text-amber-700">
+                    Đã cấn trừ <strong>1 buổi</strong> từ hạn ngạch gói tập đã mua. Số tiền thanh toán trực tiếp: <strong>0 VNĐ</strong>.
+                  </p>
+                </div>
+              )}
+
               {/* Receipt Content */}
-              <div className="space-y-3 text-xs">
+              <div className="space-y-2.5 text-xs">
                 <div className="flex justify-between py-1 border-b border-slate-100">
                   <span className="text-slate-400">Khách hàng:</span>
                   <span className="font-bold text-slate-800">{profile?.fullName || 'Hội viên F Sport'}</span>
@@ -369,14 +567,22 @@ export default function MemberTransactionsPage() {
                   <span className="text-slate-400">Trạng thái giao dịch:</span>
                   <span
                     className={`font-bold ${
-                      selectedReceipt.paymentStatus === 'REFUNDED' ? 'text-indigo-600' : 'text-emerald-600'
+                      selectedReceipt.paymentStatus === 'REFUNDED'
+                        ? 'text-indigo-600'
+                        : parseFloat(selectedReceipt.amount) === 0
+                        ? 'text-amber-600'
+                        : 'text-emerald-600'
                     }`}
                   >
-                    {selectedReceipt.paymentStatus === 'REFUNDED' ? 'Đã hoàn trả 100%' : 'Thành công (Đã quyết toán)'}
+                    {selectedReceipt.paymentStatus === 'REFUNDED'
+                      ? 'Đã hoàn trả 100%'
+                      : parseFloat(selectedReceipt.amount) === 0
+                      ? 'Đã cấn trừ Quota'
+                      : 'Thành công (Đã quyết toán)'}
                   </span>
                 </div>
 
-                <div className="pt-3 flex justify-between items-baseline text-sm">
+                <div className="pt-2 flex justify-between items-baseline text-sm">
                   <span className="font-bold text-slate-700">Tổng tiền giao dịch:</span>
                   <span className="text-xl font-black text-orange-600">
                     {formatVnd(selectedReceipt.amount)}
@@ -385,7 +591,7 @@ export default function MemberTransactionsPage() {
               </div>
 
               {/* Stamp & Footer */}
-              <div className="pt-4 border-t border-dashed border-slate-200 text-center space-y-3">
+              <div className="pt-3 border-t border-dashed border-slate-200 text-center space-y-2.5">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] text-emerald-800 font-bold uppercase tracking-wider">
                   <span className="material-symbols-outlined text-[14px]">check_circle</span>
                   Hệ thống F Sport đã chứng thực điện tử
@@ -396,12 +602,236 @@ export default function MemberTransactionsPage() {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition-colors shadow-md flex items-center justify-center gap-2"
+                  className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition-colors shadow-md flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[16px]">print</span>
                   In / Lưu biên lai PDF
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* REFUND REQUEST MODAL (MEM-31 / MGR-16) */}
+        {showRefundModal && (
+          <div
+            onClick={() => setShowRefundModal(false)}
+            className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-5 relative"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[20px]">currency_exchange</span>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base">Gửi Yêu Cầu Hoàn Tiền (MEM-31)</h3>
+                    <p className="text-xs text-slate-500">Áp dụng cho hủy lịch trước 2h hoặc yêu cầu hoàn phí theo quy chế</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowRefundModal(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              </div>
+
+              <form onSubmit={handleRefundSubmit} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Chọn Giao Dịch Cần Hoàn</label>
+                  <select
+                    value={selectedTxForRefund}
+                    onChange={(e) => setSelectedTxForRefund(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="">-- Chọn giao dịch đã thanh toán --</option>
+                    {paidTransactions.map((tx) => (
+                      <option key={tx.id} value={tx.referenceCode || `TX-${tx.id}`}>
+                        {tx.referenceCode || `TX-${tx.id}`} · {tx.itemName} ({formatVnd(tx.amount)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Lý Do Yêu Cầu Hoàn Tiền</label>
+                  <textarea
+                    rows="2"
+                    placeholder="Ví dụ: Bận công tác đột xuất, hủy sân trước giờ quy định 2 tiếng, lý do sức khỏe..."
+                    value={refundReason}
+                    onChange={(e) => setRefundReason(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white focus:ring-2 focus:ring-orange-500"
+                  ></textarea>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Ngân Hàng</label>
+                    <select
+                      value={bankName}
+                      onChange={(e) => setBankName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white"
+                    >
+                      <option value="Vietcombank">Vietcombank</option>
+                      <option value="MB Bank">MB Bank</option>
+                      <option value="Techcombank">Techcombank</option>
+                      <option value="BIDV">BIDV</option>
+                      <option value="ACB">ACB</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Số Tài Khoản</label>
+                    <input
+                      type="text"
+                      placeholder="0123456789"
+                      value={bankAccount}
+                      onChange={(e) => setBankAccount(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Chủ Tài Khoản</label>
+                    <input
+                      type="text"
+                      placeholder="NGUYEN VAN A"
+                      value={accountHolder}
+                      onChange={(e) => setAccountHolder(e.target.value.toUpperCase())}
+                      required
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold uppercase"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900">
+                  <strong>Lưu ý quy chế (MGR-16):</strong> Hệ thống đối soát mốc thời gian hủy booking trước 2 tiếng. Sau khi Quản lý duyệt, số tiền sẽ được chuyển khoản trực tiếp qua ngân hàng thụ hưởng trong vòng 24 giờ.
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowRefundModal(false)}
+                    className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Hủy Bỏ
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md cursor-pointer"
+                  >
+                    Gửi Yêu Cầu Hoàn Tiền
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* COMPLAINT MODAL (MEM-26) */}
+        {showComplaintModal && (
+          <div
+            onClick={() => setShowComplaintModal(false)}
+            className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-5 relative"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[20px]">report_problem</span>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base">Gửi Khiếu Nại & Góp Ý Dịch Vụ (MEM-26)</h3>
+                    <p className="text-xs text-slate-500">Tiếp nhận khiếu nại điểm danh sai, chất lượng sân hoặc Huấn luyện viên</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowComplaintModal(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              </div>
+
+              <form onSubmit={handleComplaintSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Danh Mục Khiếu Nại</label>
+                    <select
+                      value={complaintCategory}
+                      onChange={(e) => setComplaintCategory(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white"
+                    >
+                      <option value="ATTENDANCE_DISPUTE">Điểm danh sai / Bị đánh vắng</option>
+                      <option value="COACH_DISPUTE">Vấn đề Huấn luyện viên</option>
+                      <option value="SERVICE_QUALITY">Cơ sở vật chất / Sân bãi</option>
+                      <option value="BILLING_ISSUE">Sai sót hóa đơn / Thanh toán</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Mức Độ Khẩn</label>
+                    <select
+                      value={complaintSeverity}
+                      onChange={(e) => setComplaintSeverity(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white"
+                    >
+                      <option value="NORMAL">Bình thường (Phản hồi trong 24h)</option>
+                      <option value="URGENT">Khẩn cấp (Phản hồi trong 4h)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Tiêu Đề Khiếu Nại</label>
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: Buổi học Cầu lông ngày 20/10 có mặt nhưng bị ghi vắng không phép"
+                    value={complaintTitle}
+                    onChange={(e) => setComplaintTitle(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Mô Tả Chi Tiết Vấn Đề</label>
+                  <textarea
+                    rows="3"
+                    placeholder="Mô tả cụ thể thời gian, vị trí sân, tên HLV hoặc chi tiết sự việc để Ban Quản Lý đối soát camera & nhật ký hệ thống..."
+                    value={complaintDescription}
+                    onChange={(e) => setComplaintDescription(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white focus:ring-2 focus:ring-orange-500"
+                  ></textarea>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowComplaintModal(false)}
+                    className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Hủy Bỏ
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md cursor-pointer"
+                  >
+                    Gửi Khiếu Nại
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

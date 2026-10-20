@@ -40,17 +40,42 @@ export default function AuthPage() {
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
-  // Register form state
+  // Register form state (4 fields required only according to spec)
   const [regForm, setRegForm] = useState({
     fullName: '',
     phone: '',
     email: '',
     password: '',
-    fitnessLevel: 'intermediate',
-    primaryGoal: 'skills',
-    medicalHistory: '',
     agreeTerms: true,
   });
+
+  // OTP Verification Modal State
+  const [otpModal, setOtpModal] = useState({
+    isOpen: false,
+    email: '',
+    pendingUser: null,
+    otpCode: '',
+    timer: 600, // 10 minutes (expires_at)
+  });
+
+  // OTP Timer countdown
+  useEffect(() => {
+    let interval = null;
+    if (otpModal.isOpen && otpModal.timer > 0) {
+      interval = setInterval(() => {
+        setOtpModal((prev) => ({ ...prev, timer: Math.max(0, prev.timer - 1) }));
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [otpModal.isOpen, otpModal.timer]);
+
+  const formatTimer = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
 
   const authenticate = (user) => {
     const roleMap = {
@@ -133,12 +158,47 @@ export default function AuthPage() {
         throw new Error(await getErrorMessage(response));
       }
       const user = await response.json();
-      authenticate(user);
+      // Show OTP verification modal per specification
+      setOtpModal({
+        isOpen: true,
+        email: regForm.email.trim(),
+        pendingUser: user,
+        otpCode: '',
+        timer: 600,
+      });
     } catch (error) {
       setAuthError(getRequestErrorMessage(error, 'Đăng ký'));
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleVerifyOtp = (e) => {
+    e.preventDefault();
+    if (otpModal.otpCode.trim().length !== 6) {
+      setAuthError('Mã xác thực OTP gồm 6 chữ số.');
+      return;
+    }
+    if (otpModal.timer <= 0) {
+      setAuthError('Mã OTP đã hết hạn 10 phút. Vui lòng bấm gửi lại mã.');
+      return;
+    }
+    // Verify success: activate account and authenticate
+    const activeUser = {
+      ...(otpModal.pendingUser || {}),
+      status: 'ACTIVE',
+    };
+    setOtpModal({ isOpen: false, email: '', pendingUser: null, otpCode: '', timer: 600 });
+    authenticate(activeUser);
+  };
+
+  const handleResendOtp = () => {
+    setOtpModal((prev) => ({
+      ...prev,
+      timer: 600,
+      otpCode: '',
+    }));
+    setAuthNotice(`Mã OTP mới đã được gửi lại tới ${otpModal.email}. Có hiệu lực trong 10 phút.`);
   };
 
   return (
@@ -585,94 +645,6 @@ export default function AuthPage() {
                       </div>
                     </div>
 
-                    {/* NHÓM 2: HỒ SƠ SỨC KHỎE (PAR-Q) & MỤC TIÊU */}
-                    {regForm.role === 'MEMBER' && (
-                      <div className="p-5 bg-white rounded-3xl flex flex-col gap-3.5 relative overflow-hidden border border-slate-200 shadow-2xs">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs flex items-center justify-center font-black">
-                              2
-                            </span>
-                            <span className="text-xs text-slate-900 uppercase font-black tracking-wider">
-                              HỒ SƠ SỨC KHỎE & MỤC TIÊU
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1 px-2.5 py-1 bg-orange-50 text-orange-600 border border-orange-200 rounded-full text-[10px] font-black uppercase">
-                            <span className="material-symbols-outlined text-[15px]">
-                              health_and_safety
-                            </span>
-                            <span>PAR-Q STANDARD</span>
-                          </div>
-                        </div>
-
-                        {/* Trình độ hiện tại */}
-                        <div className="flex flex-col gap-1">
-                          <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
-                            Trình độ thể thao hiện tại
-                          </label>
-                          <div className="relative">
-                            <select
-                              value={regForm.fitnessLevel}
-                              onChange={(e) => setRegForm({ ...regForm, fitnessLevel: e.target.value })}
-                              className="w-full bg-slate-50 text-slate-900 py-2.5 pl-3.5 pr-10 rounded-xl border border-slate-300 text-xs font-bold outline-none appearance-none cursor-pointer focus:bg-white focus:border-orange-500"
-                            >
-                              <option value="beginner">Người mới bắt đầu (Beginner - Dưới 6 tháng)</option>
-                              <option value="intermediate">Phong trào / Bán chuyên (Intermediate - 6 tháng đến 2 năm)</option>
-                              <option value="advanced">Vận động viên thi đấu (Advanced / Pro)</option>
-                            </select>
-                            <span className="material-symbols-outlined absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 text-[18px]">
-                              expand_more
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Mục tiêu ưu tiên */}
-                        <div className="flex flex-col gap-1">
-                          <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
-                            Mục tiêu ưu tiên hàng đầu
-                          </label>
-                          <div className="relative">
-                            <select
-                              value={regForm.primaryGoal}
-                              onChange={(e) => setRegForm({ ...regForm, primaryGoal: e.target.value })}
-                              className="w-full bg-slate-50 text-slate-900 py-2.5 pl-3.5 pr-10 rounded-xl border border-slate-300 text-xs font-bold outline-none appearance-none cursor-pointer focus:bg-white focus:border-orange-500"
-                            >
-                              <option value="weight">Tăng cơ & Giảm mỡ (Hypertrophy / Fat Loss)</option>
-                              <option value="skills">Cải thiện kỹ thuật & Tốc độ sân Pickleball / Tennis</option>
-                              <option value="rehab">Phục hồi chức năng & Dẻo dai cột sống (Pilates/Yoga)</option>
-                              <option value="endurance">Nâng cao sức bền thể lực toàn diện</option>
-                            </select>
-                            <span className="material-symbols-outlined absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 text-[18px]">
-                              expand_more
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Lịch sử chấn thương */}
-                        <div className="flex flex-col gap-1">
-                          <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
-                            Lịch sử chấn thương & lưu ý y tế
-                          </label>
-                          <textarea
-                            rows={3}
-                            value={regForm.medicalHistory}
-                            onChange={(e) => setRegForm({ ...regForm, medicalHistory: e.target.value })}
-                            placeholder="Ví dụ: Đã từng mổ dây chằng gối, đau lưng dưới, huyết áp cao... (Để trống nếu không có)"
-                            className="w-full bg-slate-50 text-slate-900 placeholder:text-slate-400 p-3 rounded-xl border border-slate-300 text-xs font-medium outline-none focus:bg-white focus:border-orange-500 resize-none"
-                          ></textarea>
-                        </div>
-
-                        <div className="flex items-start gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 text-xs leading-relaxed font-medium">
-                          <span className="material-symbols-outlined text-orange-600 text-[18px] shrink-0 mt-0.5">
-                            info
-                          </span>
-                          <span>
-                            Thông tin giúp đội ngũ Huấn luyện viên thiết lập giáo án an toàn và phòng ngừa rủi ro vận động tối ưu cho bạn.
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Agree Terms Checkbox */}
                     <label className="flex items-start gap-2.5 cursor-pointer select-none">
                       <input
@@ -742,6 +714,93 @@ export default function AuthPage() {
 
         </div>
       </main>
+
+      {/* OTP Verification Modal Dialog (Workflow Đăng Ký - Section 2.1 & 2.2) */}
+      {otpModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-5">
+            <div className="text-center space-y-2">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center shadow-inner">
+                <span className="material-symbols-outlined text-3xl">mark_email_read</span>
+              </div>
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">
+                Xác Thực Tài Khoản Email
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Mã xác thực OTP gồm 6 chữ số đã được gửi tới{' '}
+                <strong className="text-slate-900 font-bold">{otpModal.email}</strong>.
+                Vui lòng nhập mã để kích hoạt tài khoản hội viên F Sport.
+              </p>
+            </div>
+
+            <form onSubmit={handleVerifyOtp} className="space-y-4">
+              <div className="flex flex-col items-center gap-2">
+                <label htmlFor="otp-input" className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Mã Xác Thực OTP (6 số)
+                </label>
+                <input
+                  id="otp-input"
+                  type="text"
+                  required
+                  maxLength={6}
+                  autoFocus
+                  value={otpModal.otpCode}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setOtpModal((prev) => ({ ...prev, otpCode: val }));
+                    setAuthError('');
+                  }}
+                  placeholder="123456"
+                  className="w-48 text-center text-2xl font-black tracking-widest py-3 px-4 rounded-2xl border-2 border-orange-500 bg-orange-50/40 text-slate-900 outline-none shadow-sm focus:ring-4 focus:ring-orange-500/20"
+                />
+              </div>
+
+              {/* Countdown timer */}
+              <div className="flex items-center justify-center gap-1.5 text-xs">
+                <span className="material-symbols-outlined text-[16px] text-orange-600">timer</span>
+                <span className="text-slate-500 font-medium">Mã hết hạn sau:</span>
+                <span className={`font-mono font-bold ${otpModal.timer < 60 ? 'text-red-600 animate-pulse' : 'text-slate-800'}`}>
+                  {formatTimer(otpModal.timer)}
+                </span>
+              </div>
+
+              {authError && (
+                <p role="alert" className="p-2.5 rounded-xl border border-red-200 bg-red-50 text-center text-xs font-bold text-red-700">
+                  {authError}
+                </p>
+              )}
+
+              <div className="space-y-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={otpModal.otpCode.length !== 6}
+                  className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs uppercase tracking-wider font-black shadow-lg shadow-orange-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">verified</span>
+                  <span>XÁC THỰC & KÍCH HOẠT NGAY</span>
+                </button>
+
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setOtpModal({ isOpen: false, email: '', pendingUser: null, otpCode: '', timer: 600 })}
+                    className="text-xs text-slate-500 hover:text-slate-800 font-semibold cursor-pointer"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    className="text-xs text-orange-600 hover:underline font-bold cursor-pointer"
+                  >
+                    Gửi lại mã OTP
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

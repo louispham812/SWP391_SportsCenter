@@ -15,19 +15,22 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState('SportHub@123');
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Optional fields per specification (Section 2.1 - B. Thông tin bổ sung)
+  const [showOptionalFields, setShowOptionalFields] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [gender, setGender] = useState('');
+  const [address, setAddress] = useState('');
+  const [rfidCode, setRfidCode] = useState('');
+  const [emergencyContactName, setEmergencyContactName] = useState('');
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
+
   useEffect(() => {
     if (isOpen) {
-      setRole('MEMBER');
-      setFullName('');
-      setPhone('');
-      setEmail('');
-      setPassword('SportHub@123'); // Mật khẩu mặc định tiện lợi
-      setShowPassword(false);
       setError('');
     }
   }, [isOpen]);
@@ -39,7 +42,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
     setError('');
 
     if (!fullName.trim() || !phone.trim() || !email.trim() || !password) {
-      setError('Vui lòng điền đầy đủ tất cả các trường thông tin.');
+      setError('Vui lòng điền đầy đủ tất cả các trường thông tin bắt buộc.');
       return;
     }
 
@@ -56,6 +59,12 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
         email: email.trim(),
         password,
         role,
+        dateOfBirth: dateOfBirth || null,
+        gender: gender || null,
+        address: address.trim() || null,
+        rfidCode: rfidCode.trim() || null,
+        emergencyContactName: emergencyContactName.trim() || null,
+        emergencyContactPhone: emergencyContactPhone.trim() || null,
       };
 
       if (currentRole === 'receptionist') {
@@ -217,6 +226,111 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
                 </span>
               </button>
             </div>
+          </div>
+
+          {/* Collapsible Optional Information Section (Section 2.1 - B. Thông tin bổ sung) */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50">
+            <button
+              type="button"
+              onClick={() => setShowOptionalFields(!showOptionalFields)}
+              className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-orange-600 text-[18px]">badge</span>
+                <span>Thông tin bổ sung (Ngày sinh, Giới tính, Địa chỉ, RFID, Liên hệ khẩn cấp)</span>
+              </div>
+              <span className="material-symbols-outlined text-[18px] text-slate-400">
+                {showOptionalFields ? 'expand_less' : 'expand_more'}
+              </span>
+            </button>
+
+            {showOptionalFields && (
+              <div className="p-4 space-y-3 bg-white border-t border-slate-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Ngày sinh */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-bold uppercase text-slate-600">Ngày sinh</label>
+                    <input
+                      type="date"
+                      value={dateOfBirth}
+                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      className="w-full bg-slate-50 text-slate-800 px-3 py-2 rounded-lg border border-slate-300 text-xs font-medium outline-none focus:bg-white focus:border-orange-500"
+                    />
+                  </div>
+
+                  {/* Giới tính */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-bold uppercase text-slate-600">Giới tính</label>
+                    <select
+                      value={gender}
+                      onChange={(e) => setGender(e.target.value)}
+                      className="w-full bg-slate-50 text-slate-800 px-3 py-2 rounded-lg border border-slate-300 text-xs font-medium outline-none focus:bg-white focus:border-orange-500 cursor-pointer"
+                    >
+                      <option value="">-- Chọn giới tính --</option>
+                      <option value="MALE">Nam (MALE)</option>
+                      <option value="FEMALE">Nữ (FEMALE)</option>
+                      <option value="OTHER">Khác (OTHER)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Mã thẻ RFID */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-bold uppercase text-slate-600">Mã thẻ RFID / Vòng tay</label>
+                    <input
+                      type="text"
+                      maxLength={100}
+                      value={rfidCode}
+                      onChange={(e) => setRfidCode(e.target.value)}
+                      placeholder="Quẹt thẻ hoặc nhập mã RFID..."
+                      className="w-full bg-slate-50 text-slate-800 px-3 py-2 rounded-lg border border-slate-300 text-xs font-medium outline-none focus:bg-white focus:border-orange-500"
+                    />
+                  </div>
+
+                  {/* Địa chỉ */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-bold uppercase text-slate-600">Địa chỉ cư trú</label>
+                    <input
+                      type="text"
+                      maxLength={500}
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="Số nhà, tên đường, quận/huyện..."
+                      className="w-full bg-slate-50 text-slate-800 px-3 py-2 rounded-lg border border-slate-300 text-xs font-medium outline-none focus:bg-white focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {/* Người liên hệ khẩn cấp */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-bold uppercase text-slate-600">Người liên hệ khẩn cấp</label>
+                    <input
+                      type="text"
+                      maxLength={100}
+                      value={emergencyContactName}
+                      onChange={(e) => setEmergencyContactName(e.target.value)}
+                      placeholder="Tên người thân / bạn bè"
+                      className="w-full bg-slate-50 text-slate-800 px-3 py-2 rounded-lg border border-slate-300 text-xs font-medium outline-none focus:bg-white focus:border-orange-500"
+                    />
+                  </div>
+
+                  {/* SĐT khẩn cấp */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-bold uppercase text-slate-600">SĐT người liên hệ khẩn cấp</label>
+                    <input
+                      type="tel"
+                      maxLength={15}
+                      value={emergencyContactPhone}
+                      onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                      placeholder="0912 999 888"
+                      className="w-full bg-slate-50 text-slate-800 px-3 py-2 rounded-lg border border-slate-300 text-xs font-medium outline-none focus:bg-white focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Actions */}

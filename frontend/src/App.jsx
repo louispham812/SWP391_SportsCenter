@@ -27,6 +27,7 @@ import ReceptionPOSPage from './pages/receptionist/ReceptionPOSPage';
 import ReceptionMembersPage from './pages/receptionist/ReceptionMembersPage';
 import ReceptionClassesPage from './pages/receptionist/ReceptionClassesPage';
 import ReceptionShiftReportPage from './pages/receptionist/ReceptionShiftReportPage';
+import ReceptionEquipmentPage from './pages/receptionist/ReceptionEquipmentPage';
 
 // Coach Portal Pages (Chỉ giữ các trang đã tạo)
 import CoachSchedulePage from './pages/coach/CoachSchedulePage';
@@ -40,6 +41,7 @@ import AdminStaffPage from './pages/admin/AdminStaffPage';
 import AdminStaffApprovalsPage from './pages/admin/AdminStaffApprovalsPage';
 import AdminFacilitiesPage from './pages/admin/AdminFacilitiesPage';
 import AdminPackagesPage from './pages/admin/AdminPackagesPage';
+import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 
 // Floating Demo Switcher & Global Notifications
 import ToastContainer from './components/ToastContainer';
@@ -84,6 +86,7 @@ function App() {
           <Route path="/member/book/:bookingType/sports" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
           <Route path="/member/book/courts/:sportId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
           <Route path="/member/book/classes/:sportId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
+          <Route path="/member/book/coaches/:sportId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
           <Route path="/member/book/checkout/:bookingType/:resourceId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
           <Route path="/member/book/confirmation" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
           <Route path="/member/schedule" element={<RequireRole role="member"><MemberSchedulePage /></RequireRole>} />
@@ -97,6 +100,7 @@ function App() {
           {/* Receptionist Routes */}
           <Route path="/receptionist" element={<RequireRole role="receptionist"><ReceptionCheckInPage /></RequireRole>} />
           <Route path="/receptionist/pos" element={<RequireRole role="receptionist"><ReceptionPOSPage /></RequireRole>} />
+          <Route path="/receptionist/equipment" element={<RequireRole role="receptionist"><ReceptionEquipmentPage /></RequireRole>} />
           <Route path="/receptionist/members" element={<RequireRole role="receptionist"><ReceptionMembersPage /></RequireRole>} />
           <Route path="/receptionist/classes" element={<RequireRole role="receptionist"><ReceptionClassesPage /></RequireRole>} />
           <Route path="/receptionist/shift" element={<RequireRole role="receptionist"><ReceptionShiftReportPage /></RequireRole>} />
@@ -115,7 +119,7 @@ function App() {
           <Route path="/admin/staff-approvals" element={<RequireRole role="admin"><AdminStaffApprovalsPage /></RequireRole>} />
           <Route path="/admin/facilities" element={<RequireRole role="admin"><AdminFacilitiesPage /></RequireRole>} />
           <Route path="/admin/packages" element={<RequireRole role="admin"><AdminPackagesPage /></RequireRole>} />
-          <Route path="/admin/settings" element={<RequireRole role="admin"><AdminDashboardPage /></RequireRole>} />
+          <Route path="/admin/settings" element={<RequireRole role="admin"><AdminSettingsPage /></RequireRole>} />
 
           {/* Fallback Route */}
           <Route path="*" element={<Navigate to="/" replace />} />
