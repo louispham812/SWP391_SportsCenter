@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.sporthub.backend.dto.CreateUserRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
@@ -45,6 +46,7 @@ public class ManagerController {
     private final PublicSportRepository sportRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Autowired
     public ManagerController(
             UserRepository userRepository,
             MembershipPackageRepository packageRepository,

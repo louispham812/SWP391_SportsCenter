@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -60,6 +61,7 @@ public class ReceptionistController {
     private final MemberCheckInRepository checkInRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Autowired
     public ReceptionistController(
             UserRepository userRepository,
             ReceptionPaymentRepository paymentRepository,
