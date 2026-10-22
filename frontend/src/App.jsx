@@ -8,6 +8,9 @@ import PricingPage from './pages/PricingPage';
 import AuthPage from './pages/AuthPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
 import OtpVerificationPage from './pages/OtpVerificationPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import VerifyCodePage from './pages/VerifyCodePage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import PublicContentPage from './pages/PublicContentPage';
 
 // Member Portal Pages
@@ -79,6 +82,9 @@ function App() {
           <Route path="/facilities/:slug" element={<PublicContentPage contentType="facilities" />} />
           <Route path="/login" element={<AuthPage />} />
           <Route path="/register" element={<AuthPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/verify-code" element={<VerifyCodePage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/change-password" element={<ChangePasswordPage />} />
           <Route path="/verify-otp" element={<OtpVerificationPage />} />
           <Route path="/otp" element={<OtpVerificationPage />} />

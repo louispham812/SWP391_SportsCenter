@@ -449,13 +449,12 @@ export default function AuthPage() {
                             Đổi mật khẩu tạm?
                           </Link>
                           <span className="text-slate-300">|</span>
-                          <button
-                            type="button"
-                            onClick={() => alert('Vui lòng liên hệ quầy Lễ tân hoặc hotline 1900 8899 để cấp lại mật khẩu.')}
-                            className="text-xs text-slate-500 hover:text-slate-800 hover:underline font-medium cursor-pointer"
+                          <Link
+                            to="/forgot-password"
+                            className="text-xs text-orange-600 hover:text-orange-700 hover:underline font-bold cursor-pointer"
                           >
                             Quên mật khẩu?
-                          </button>
+                          </Link>
                         </div>
                       </div>
                       <div className="relative flex items-center">
