@@ -203,13 +203,22 @@ export default function MemberProfilePage() {
             </p>
           </div>
 
-          <Link
-            to="/pricing"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-orange-500/20 self-start sm:self-auto cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[18px]">upgrade</span>
-            <span>Nâng Cấp Hạng Thẻ (Gold/Diamond)</span>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+            <Link
+              to="/change-password"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs uppercase tracking-wider transition-all shadow-xs cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px] text-orange-500">lock_reset</span>
+              <span>Đổi Mật Khẩu</span>
+            </Link>
+            <Link
+              to="/pricing"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-orange-500/20 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">upgrade</span>
+              <span>Nâng Cấp Hạng Thẻ (Gold/Diamond)</span>
+            </Link>
+          </div>
         </div>
 
         {/* Tab Selection */}

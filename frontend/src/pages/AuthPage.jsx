@@ -158,13 +158,13 @@ export default function AuthPage() {
         throw new Error(await getErrorMessage(response));
       }
       const user = await response.json();
-      // Show OTP verification modal per specification
-      setOtpModal({
-        isOpen: true,
-        email: regForm.email.trim(),
-        pendingUser: user,
-        otpCode: '',
-        timer: 600,
+      // Điều hướng trực tiếp sang trang OTP Screen theo yêu cầu của team backend
+      navigate('/verify-otp', {
+        state: {
+          email: regForm.email.trim(),
+          fullName: regForm.fullName.trim(),
+          pendingUser: user,
+        },
       });
     } catch (error) {
       setAuthError(getRequestErrorMessage(error, 'Đăng ký'));
@@ -441,13 +441,22 @@ export default function AuthPage() {
                         <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
                           Mật khẩu
                         </label>
-                        <button
-                          type="button"
-                          onClick={() => alert('Vui lòng liên hệ quầy Lễ tân hoặc hotline 1900 8899 để cấp lại mật khẩu.')}
-                          className="text-xs text-orange-600 hover:underline font-bold cursor-pointer"
-                        >
-                          Quên mật khẩu?
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            to="/change-password"
+                            className="text-xs text-orange-600 hover:underline font-bold cursor-pointer"
+                          >
+                            Đổi mật khẩu tạm?
+                          </Link>
+                          <span className="text-slate-300">|</span>
+                          <button
+                            type="button"
+                            onClick={() => alert('Vui lòng liên hệ quầy Lễ tân hoặc hotline 1900 8899 để cấp lại mật khẩu.')}
+                            className="text-xs text-slate-500 hover:text-slate-800 hover:underline font-medium cursor-pointer"
+                          >
+                            Quên mật khẩu?
+                          </button>
+                        </div>
                       </div>
                       <div className="relative flex items-center">
                         <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">

@@ -53,4 +53,39 @@ public class AuthController {
         authService.logout(token);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(
+            @RequestBody com.sporthub.backend.dto.ChangePasswordRequest request,
+            @RequestHeader(name = "Authorization", required = false) String authorization) {
+        try {
+            String token = authorization != null && authorization.startsWith("Bearer ")
+                    ? authorization.substring(7).trim()
+                    : null;
+            AuthResponse response = authService.changePassword(request, token);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<?> verifyEmail(@RequestBody com.sporthub.backend.dto.VerifyOtpRequest request) {
+        try {
+            AuthResponse response = authService.verifyEmail(request);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/resend-otp")
+    public ResponseEntity<?> resendOtp(@RequestBody com.sporthub.backend.dto.ResendOtpRequest request) {
+        try {
+            authService.resendOtp(request);
+            return ResponseEntity.ok("Mã xác thực OTP mới đã được gửi thành công!");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }

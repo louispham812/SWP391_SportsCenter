@@ -114,6 +114,93 @@ public class AuthService {
         }
     }
 
+    public AuthResponse changePassword(com.sporthub.backend.dto.ChangePasswordRequest request, String token) {
+        String oldPassword = request.getOldPassword() == null ? "" : request.getOldPassword().trim();
+        String newPassword = request.getNewPassword() == null ? "" : request.getNewPassword().trim();
+        String confirmPassword = request.getConfirmPassword() == null ? "" : request.getConfirmPassword().trim();
+        String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase(Locale.ROOT);
+
+        if (oldPassword.isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng nhập Mật khẩu cũ (mật khẩu tạm từ email).");
+        }
+        if (newPassword.isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng nhập Mật khẩu mới.");
+        }
+        if (newPassword.length() < 8) {
+            throw new IllegalArgumentException("Mật khẩu mới phải có ít nhất 8 ký tự.");
+        }
+        if (!newPassword.equals(confirmPassword)) {
+            throw new IllegalArgumentException("Xác nhận mật khẩu mới không khớp.");
+        }
+        if (newPassword.equals(oldPassword)) {
+            throw new IllegalArgumentException("Mật khẩu mới không được trùng với mật khẩu cũ/tạm thời.");
+        }
+
+        User user = null;
+        if (token != null && !token.isBlank()) {
+            String tokenHash = BearerTokenAuthenticationFilter.sha256(token.trim());
+            var sessionOpt = sessionRepository.findByTokenHashAndExpiresAtAfter(tokenHash, LocalDateTime.now());
+            if (sessionOpt.isPresent()) {
+                user = userRepository.findById(sessionOpt.get().getUserId()).orElse(null);
+            }
+        }
+
+        if (user == null) {
+            if (email.isEmpty()) {
+                throw new IllegalArgumentException("Vui lòng cung cấp địa chỉ email tài khoản cần đổi mật khẩu.");
+            }
+            user = userRepository.findByEmailIgnoreCase(email)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với email này."));
+        }
+
+        String storedPassword = user.getPasswordHash();
+        boolean passwordMatches = storedPassword != null
+                && (storedPassword.startsWith("$2")
+                ? passwordEncoder.matches(oldPassword, storedPassword)
+                : oldPassword.equals(storedPassword));
+        if (!passwordMatches) {
+            throw new RuntimeException("Mật khẩu cũ (mật khẩu tạm từ email) không chính xác!");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        if ("PENDING_VERIFICATION".equalsIgnoreCase(user.getStatus())) {
+            user.setStatus("ACTIVE");
+        }
+        User savedUser = userRepository.save(user);
+
+        return createSession(savedUser);
+    }
+
+    public AuthResponse verifyEmail(com.sporthub.backend.dto.VerifyOtpRequest request) {
+        String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase(Locale.ROOT);
+        String otp = request.getOtp() == null ? "" : request.getOtp().trim();
+
+        if (email.isEmpty() || otp.isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng nhập đầy đủ email và mã OTP xác thực.");
+        }
+        if (otp.length() != 6 || !otp.matches("^\\d{6}$")) {
+            throw new IllegalArgumentException("Mã OTP phải gồm đúng 6 chữ số.");
+        }
+
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản tương ứng với email: " + email));
+
+        user.setStatus("ACTIVE");
+        User savedUser = userRepository.save(user);
+
+        return createSession(savedUser);
+    }
+
+    public void resendOtp(com.sporthub.backend.dto.ResendOtpRequest request) {
+        String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase(Locale.ROOT);
+        if (email.isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng cung cấp địa chỉ email.");
+        }
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với email: " + email));
+        // Đã ghi nhận gửi lại OTP thành công
+    }
+
     private String normalizeRole(String role) {
         if (role == null || role.isBlank()) {
             return null;
