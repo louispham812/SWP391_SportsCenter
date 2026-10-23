@@ -38,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -358,6 +359,34 @@ public class BookingService {
                     discount.originalAmount(), discount.discountAmount(), discount.discountLabel());
         }
 
+        if ("PT".equals(normalizedType)) {
+            User coach = userRepository.findById(itemId)
+                    .filter(u -> "COACH".equalsIgnoreCase(u.getRole()))
+                    .orElseThrow(() -> notFound("Không tìm thấy huấn luyện viên."));
+
+            LocalDateTime start = startTime != null ? startTime : LocalDateTime.now().plusDays(1).withHour(9).withMinute(0);
+            LocalDateTime end = endTime != null ? endTime : start.plusHours(1);
+
+            BigDecimal hourlyRate = BigDecimal.valueOf(250000);
+            long minutes = Math.max(30, Duration.between(start, end).toMinutes());
+            double hours = Math.max(1.0, minutes / 60.0);
+            BigDecimal originalPrice = hourlyRate.multiply(BigDecimal.valueOf(hours)).setScale(0, RoundingMode.HALF_UP);
+
+            DiscountInfo discount = calculateDiscount(memberId, "PT", originalPrice);
+            return new BookingQuoteResponse(
+                    "PT",
+                    coach.getUserId(),
+                    "Huấn luyện 1-1 với " + coach.getFullName(),
+                    "Personal Training & Thể Lực",
+                    "Khu Gym PT & Sân Chuyên Dụng",
+                    start,
+                    end,
+                    discount.finalAmount(),
+                    discount.originalAmount(),
+                    discount.discountAmount(),
+                    discount.discountLabel());
+        }
+
         ClassSession session = getBookableClass(itemId);
         if (bookingRepository.countBySessionIdAndStatusIn(session.getSessionId(), ACTIVE_STATUSES)
                 >= session.getMaxSlots()) {
@@ -400,7 +429,67 @@ public class BookingService {
         if ("COURT".equals(bookingType)) {
             return checkoutCourt(memberId, request);
         }
+        if ("PT".equals(bookingType)) {
+            return checkoutPt(memberId, request);
+        }
         return checkoutClass(memberId, request);
+    }
+
+    private BookingConfirmationResponse checkoutPt(Long memberId, CheckoutRequest request) {
+        User coach = userRepository.findById(request.itemId())
+                .filter(u -> "COACH".equalsIgnoreCase(u.getRole()))
+                .orElseThrow(() -> notFound("Không tìm thấy huấn luyện viên."));
+
+        LocalDateTime start = request.startTime() != null ? request.startTime() : LocalDateTime.now().plusDays(1).withHour(9).withMinute(0);
+        LocalDateTime end = request.endTime() != null ? request.endTime() : start.plusHours(1);
+
+        BigDecimal hourlyRate = BigDecimal.valueOf(250000);
+        long minutes = Math.max(30, Duration.between(start, end).toMinutes());
+        double hours = Math.max(1.0, minutes / 60.0);
+        BigDecimal originalPrice = hourlyRate.multiply(BigDecimal.valueOf(hours)).setScale(0, RoundingMode.HALF_UP);
+
+        DiscountInfo discount = calculateDiscount(memberId, "PT", originalPrice);
+        PaymentTransaction payment = createPaymentTransaction(memberId, "PT", discount.finalAmount(), request.paymentMethod());
+
+        Long sportId = publicSportRepository.findAll().stream().map(PublicSport::getSportId).findFirst().orElse(1L);
+        Long facilityId = publicFacilityRepository.findAll().stream().map(PublicFacility::getFacilityId).findFirst().orElse(1L);
+
+        ClassSession session = new ClassSession();
+        session.setClassName("Huấn Luyện 1-1 (" + coach.getFullName() + ")");
+        session.setSportId(sportId);
+        session.setCoachId(coach.getUserId());
+        session.setFacilityId(facilityId);
+        session.setStartTime(start);
+        session.setEndTime(end);
+        session.setMaxSlots(1);
+        session.setBookedSlots(1);
+        session.setPriceAmount(discount.finalAmount());
+        session.setStatus("SCHEDULED");
+        ClassSession savedSession = classSessionRepository.save(session);
+
+        Booking booking = new Booking();
+        booking.setMemberId(memberId);
+        booking.setSessionId(savedSession.getSessionId());
+        booking.setBookingTime(LocalDateTime.now());
+        booking.setStatus("CONFIRMED");
+        booking.setAttendanceStatus("PENDING");
+        booking.setFeeAmount(discount.finalAmount());
+        booking.setPaymentId(payment.getPaymentId());
+        booking.setCoachNote("Buổi tập cá nhân 1-1");
+        Booking savedBooking = bookingRepository.save(booking);
+
+        return new BookingConfirmationResponse(
+                "PT",
+                savedBooking.getBookingId(),
+                payment.getPaymentId(),
+                savedSession.getClassName(),
+                "Personal Training & Thể Lực",
+                "Khu Gym PT & Sân Chuyên Dụng",
+                start,
+                end,
+                discount.finalAmount(),
+                payment.getPaymentStatus(),
+                payment.getReferenceCode());
     }
 
     private BookingConfirmationResponse checkoutCourt(Long memberId, CheckoutRequest request) {
@@ -595,8 +684,8 @@ public class BookingService {
 
     private String normalizeBookingType(String bookingType) {
         String normalized = bookingType == null ? "" : bookingType.trim().toUpperCase(Locale.ROOT);
-        if (!List.of("COURT", "CLASS").contains(normalized)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Loại booking phải là COURT hoặc CLASS.");
+        if (!List.of("COURT", "CLASS", "PT").contains(normalized)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Loại booking phải là COURT, CLASS hoặc PT.");
         }
         return normalized;
     }
@@ -779,6 +868,14 @@ public class BookingService {
                         "Huấn luyện viên đạt chứng chỉ chuyên môn quốc tế với nhiều năm kinh nghiệm huấn luyện học viên tại F Sport Center.",
                 coachSessions.size(),
                 sportsTaught);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CoachPublicProfileResponse> getAllCoachesPublicProfiles() {
+        return userRepository.findAll().stream()
+                .filter(u -> "COACH".equalsIgnoreCase(u.getRole()) && "ACTIVE".equalsIgnoreCase(u.getStatus()))
+                .map(coach -> getCoachPublicProfile(coach.getUserId()))
+                .toList();
     }
 
     @Transactional

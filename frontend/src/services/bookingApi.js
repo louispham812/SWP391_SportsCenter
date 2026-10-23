@@ -26,6 +26,7 @@ export const getAllBookableClasses = (sportId) =>
   apiRequest(sportId ? `/booking-flow/classes?sportId=${encodeURIComponent(sportId)}` : '/booking-flow/classes');
 export const getCoachPublicProfile = (coachId) =>
   apiRequest(`/booking-flow/coaches/${encodeURIComponent(coachId)}`);
+export const getBookingCoaches = () => apiRequest('/booking-flow/coaches');
 export const getBookingQuote = (bookingType, itemId, startTime, endTime) => {
   const query = new URLSearchParams({ bookingType, itemId: String(itemId) });
   if (startTime) query.set('startTime', startTime);

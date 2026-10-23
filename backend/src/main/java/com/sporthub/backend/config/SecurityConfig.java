@@ -57,7 +57,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/auth/**").permitAll()
                 .requestMatchers("/api/v1/public/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/packages", "/api/v1/packages/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/booking-flow/courts", "/api/v1/booking-flow/coaches/**", "/api/v1/booking-flow/quote").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/vouchers", "/api/v1/vouchers/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/vouchers/validate").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/booking-flow/courts", "/api/v1/booking-flow/coaches", "/api/v1/booking-flow/coaches/**", "/api/v1/booking-flow/quote").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(bearerTokenFilter, UsernamePasswordAuthenticationFilter.class);

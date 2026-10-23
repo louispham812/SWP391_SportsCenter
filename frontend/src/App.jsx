@@ -53,14 +53,15 @@ import ToastContainer from './components/ToastContainer';
 
 import { AppProvider, useApp } from './context/AppContext';
 
-function RequireRole({ role, children }) {
+function RequireRole({ role, roles, children }) {
   const { currentUser, currentRole } = useApp();
   const location = useLocation();
 
   if (!currentUser) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
-  if (currentRole !== role) {
+  const allowedRoles = roles || (role ? [role] : []);
+  if (allowedRoles.length > 0 && !allowedRoles.includes(currentRole)) {
     return <Navigate to={`/${currentRole || 'login'}`} replace />;
   }
   return children;
@@ -100,7 +101,7 @@ function App() {
           <Route path="/member/book/coaches/:sportId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
           <Route path="/member/book/checkout/:bookingType/:resourceId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
           <Route path="/member/book/confirmation" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
-          <Route path="/member/schedule" element={<RequireRole role="member"><MemberSchedulePage /></RequireRole>} />
+          <Route path="/member/schedule" element={<RequireRole roles={['member', 'coach']}><MemberSchedulePage /></RequireRole>} />
           <Route path="/member/attendance" element={<RequireRole role="member"><MemberAttendancePage /></RequireRole>} />
           <Route path="/member/workout-plans" element={<RequireRole role="member"><MemberWorkoutPlansPage /></RequireRole>} />
           <Route path="/member/notifications" element={<RequireRole role="member"><MemberNotificationsPage /></RequireRole>} />
@@ -121,7 +122,7 @@ function App() {
           <Route path="/coach/schedule" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
           <Route path="/coach/students" element={<RequireRole role="coach"><CoachStudentsPage /></RequireRole>} />
           <Route path="/coach/attendance" element={<RequireRole role="coach"><CoachAttendancePage /></RequireRole>} />
-          <Route path="/coach/income" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
+          <Route path="/coach/income" element={<RequireRole role="coach"><CoachSchedulePage initialTab="income" /></RequireRole>} />
 
           {/* Admin / Center Manager Routes */}
           <Route path="/admin" element={<RequireRole role="admin"><AdminDashboardPage /></RequireRole>} />

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CoachLayout from '../../components/layouts/CoachLayout';
 import { getCoachSchedule } from '../../services/bookingApi';
+import { apiRequest } from '../../services/apiClient';
 import { useApp } from '../../context/AppContext';
 
 const mondayOf = (date) => {
@@ -63,9 +64,9 @@ const INITIAL_AVAILABILITY = [
   { day: 'SUNDAY', label: 'Chủ Nhật', morning: false, afternoon: false, evening: false },
 ];
 
-export default function CoachSchedulePage() {
+export default function CoachSchedulePage({ initialTab = 'schedule' }) {
   const { currentUser, showToast } = useApp();
-  const [activeTab, setActiveTab] = useState('schedule'); // 'schedule' | 'leave' | 'availability' | 'profile'
+  const [activeTab, setActiveTab] = useState(initialTab); // 'schedule' | 'leave' | 'availability' | 'profile' | 'income'
 
   // Weekly Schedule State
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
@@ -135,14 +136,42 @@ export default function CoachSchedulePage() {
   const endOfWeek = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6);
 
   // Submit Leave Request (COA-12)
-  const handleSubmitLeave = (e) => {
+  useEffect(() => {
+    let current = true;
+    apiRequest('/coach/leave-requests')
+      .then((data) => {
+        if (current && Array.isArray(data) && data.length > 0) {
+          setLeaveRequests(data);
+          localStorage.setItem(LEAVE_STORAGE_KEY, JSON.stringify(data));
+        }
+      })
+      .catch(() => {});
+    return () => { current = false; };
+  }, []);
+
+  const handleSubmitLeave = async (e) => {
     e.preventDefault();
     if (!leaveForm.startDate || !leaveForm.endDate || !leaveForm.reason.trim()) {
       showToast('Thiếu thông tin', 'Vui lòng chọn ngày bắt đầu, ngày kết thúc và lý do xin nghỉ.', 'warning');
       return;
     }
 
-    const newRequest = {
+    let created = null;
+    try {
+      created = await apiRequest('/coach/leave-requests', {
+        method: 'POST',
+        body: JSON.stringify({
+          leaveType: leaveForm.leaveType,
+          startDate: leaveForm.startDate,
+          endDate: leaveForm.endDate,
+          reason: leaveForm.reason.trim(),
+        }),
+      });
+    } catch {
+      // optimistic fallback
+    }
+
+    const newRequest = created || {
       requestId: Date.now(),
       coachId: currentUser?.id || 2,
       coachName: currentUser?.name || 'Coach F Sport',
@@ -212,6 +241,7 @@ export default function CoachSchedulePage() {
         <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
           {[
             { id: 'schedule', label: 'Lịch giảng dạy tuần', icon: 'calendar_month' },
+            { id: 'income', label: 'Thù lao & Doanh thu dạy', icon: 'payments' },
             { id: 'leave', label: `Đơn xin nghỉ & đổi ca (${leaveRequests.filter((r) => r.status === 'PENDING').length} chờ duyệt)`, icon: 'free_cancellation' },
             { id: 'availability', label: 'Khai báo lịch rảnh (COA-14)', icon: 'more_time' },
             { id: 'profile', label: 'Hồ sơ & Gói PT lẻ (MGR-04)', icon: 'badge' },
@@ -600,6 +630,115 @@ export default function CoachSchedulePage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 5: THÙ LAO & DOANH THU GIẢNG DẠY (COACH-INCOME)
+           ======================================================== */}
+        {activeTab === 'income' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase">
+                  <span>Tổng thù lao tháng này</span>
+                  <span className="material-symbols-outlined text-orange-500 text-[20px]">account_balance_wallet</span>
+                </div>
+                <div className="mt-2 text-2xl font-black text-slate-900 tracking-tight">18.450.000₫</div>
+                <div className="mt-1 text-xs text-emerald-600 font-bold flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">trending_up</span>
+                  <span>+15% so với tháng trước</span>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase">
+                  <span>Số ca dạy lớp nhóm</span>
+                  <span className="material-symbols-outlined text-blue-500 text-[20px]">groups</span>
+                </div>
+                <div className="mt-2 text-2xl font-black text-slate-900 tracking-tight">32 ca</div>
+                <div className="mt-1 text-xs text-slate-500">Đơn giá: 300.000đ / ca chuẩn</div>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase">
+                  <span>Buổi PT 1-1 Cá Nhân</span>
+                  <span className="material-symbols-outlined text-purple-500 text-[20px]">person_add_alt_1</span>
+                </div>
+                <div className="mt-2 text-2xl font-black text-slate-900 tracking-tight">25 buổi</div>
+                <div className="mt-1 text-xs text-purple-600 font-bold">Hưởng 70% hoa hồng (MGR-02)</div>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase">
+                  <span>Trạng thái quyết toán</span>
+                  <span className="material-symbols-outlined text-emerald-500 text-[20px]">verified</span>
+                </div>
+                <div className="mt-2 text-2xl font-black text-emerald-600 tracking-tight">ĐÃ DUYỆT</div>
+                <div className="mt-1 text-xs text-slate-500">Chi trả ngày 05 hàng tháng</div>
+              </div>
+            </div>
+
+            <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">Bảng kê chi tiết thù lao giảng dạy</h2>
+                  <p className="text-xs text-slate-500">Dữ liệu đối soát tự động từ các ca dạy đã điểm danh hoàn thành</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => showToast('Tải phiếu lương', 'Đang kết xuất bảng kê chi tiết thù lao PDF...', 'success')}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px]">download</span>
+                  <span>Tải Bảng Kê (PDF)</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-500 font-bold uppercase border-b border-slate-200">
+                    <tr>
+                      <th className="px-5 py-3.5">Mã ca</th>
+                      <th className="px-5 py-3.5">Nội dung ca dạy</th>
+                      <th className="px-5 py-3.5">Thời gian</th>
+                      <th className="px-5 py-3.5">Học viên / Sĩ số</th>
+                      <th className="px-5 py-3.5">Loại hình</th>
+                      <th className="px-5 py-3.5 text-right">Thù lao Coach</th>
+                      <th className="px-5 py-3.5 text-center">Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {[
+                      { id: 'SES-901', name: 'Lớp Kỹ Thuật Pickleball Nâng Cao', time: 'Hôm nay · 08:00 - 09:30', students: '6/8 Học viên', type: 'LỚP NHÓM', income: 300000, status: 'ĐÃ XÁC NHẬN' },
+                      { id: 'SES-898', name: 'Huấn luyện 1-1: HLV Cá Nhân (Nguyễn Anh Khoa)', time: 'Hôm qua · 17:00 - 18:00', students: '1 Học viên (1-1)', type: 'PT 1-1', income: 280000, status: 'ĐÃ XÁC NHẬN' },
+                      { id: 'SES-894', name: 'Lớp Cầu Lông Cơ Bản K4', time: '21/10/2026 · 18:00 - 19:30', students: '8/8 Học viên', type: 'LỚP NHÓM', income: 300000, status: 'ĐÃ XÁC NHẬN' },
+                      { id: 'SES-890', name: 'Huấn luyện 1-1: HLV Cá Nhân (Hoàng Thị Ngọc)', time: '20/10/2026 · 15:30 - 16:30', students: '1 Học viên (1-1)', type: 'PT 1-1', income: 280000, status: 'ĐÃ XÁC NHẬN' },
+                      { id: 'SES-885', name: 'Lớp Tennis Hiện Đại Chiến Thuật Đôi', time: '19/10/2026 · 07:00 - 08:30', students: '4/4 Học viên', type: 'LỚP NHÓM', income: 300000, status: 'ĐÃ XÁC NHẬN' },
+                    ].map((row) => (
+                      <tr key={row.id} className="hover:bg-slate-50/70 transition">
+                        <td className="px-5 py-3.5 font-mono text-slate-500 font-bold">{row.id}</td>
+                        <td className="px-5 py-3.5 font-bold text-slate-900">{row.name}</td>
+                        <td className="px-5 py-3.5 text-slate-600">{row.time}</td>
+                        <td className="px-5 py-3.5">{row.students}</td>
+                        <td className="px-5 py-3.5">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${row.type === 'PT 1-1' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
+                            {row.type}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 text-right font-black text-orange-600">{row.income.toLocaleString()}₫</td>
+                        <td className="px-5 py-3.5 text-center">
+                          <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            {row.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
           </div>

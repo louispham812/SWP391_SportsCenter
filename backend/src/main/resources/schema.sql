@@ -441,3 +441,202 @@ BEGIN
         CONSTRAINT CK_member_check_ins_result CHECK (result IN ('VALID', 'REJECTED'))
     )
 END;
+
+-- BẢNG VOUCHERS (MÃ GIẢM GIÁ / KHUYẾN MÃI)
+IF OBJECT_ID(N'dbo.vouchers', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.vouchers (
+        voucher_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        code NVARCHAR(50) NOT NULL UNIQUE,
+        discount_type NVARCHAR(20) NOT NULL CONSTRAINT DF_vouchers_type DEFAULT N'PERCENT',
+        discount_value DECIMAL(12,2) NULL,
+        discount_percent INT NULL,
+        discount_amount DECIMAL(12,2) NULL,
+        min_purchase DECIMAL(12,2) NOT NULL CONSTRAINT DF_vouchers_min_purchase DEFAULT 0,
+        valid_from DATE NULL,
+        valid_until DATE NOT NULL,
+        usage_limit INT NOT NULL CONSTRAINT DF_vouchers_usage_limit DEFAULT 100,
+        used_count INT NOT NULL CONSTRAINT DF_vouchers_used_count DEFAULT 0,
+        applies_to NVARCHAR(50) NOT NULL CONSTRAINT DF_vouchers_applies DEFAULT N'ALL',
+        status NVARCHAR(20) NOT NULL CONSTRAINT DF_vouchers_status DEFAULT N'ACTIVE'
+    );
+END;
+
+IF COL_LENGTH('dbo.vouchers', 'discount_type') IS NULL
+    ALTER TABLE dbo.vouchers ADD discount_type NVARCHAR(20) NOT NULL CONSTRAINT DF_vouchers_type DEFAULT N'PERCENT';
+IF COL_LENGTH('dbo.vouchers', 'discount_value') IS NULL
+    ALTER TABLE dbo.vouchers ADD discount_value DECIMAL(12,2) NULL;
+IF COL_LENGTH('dbo.vouchers', 'valid_from') IS NULL
+    ALTER TABLE dbo.vouchers ADD valid_from DATE NULL;
+IF COL_LENGTH('dbo.vouchers', 'applies_to') IS NULL
+    ALTER TABLE dbo.vouchers ADD applies_to NVARCHAR(50) NOT NULL CONSTRAINT DF_vouchers_applies DEFAULT N'ALL';
+
+IF NOT EXISTS (SELECT 1 FROM dbo.vouchers WHERE code = N'TET2026')
+    INSERT INTO dbo.vouchers (code, discount_type, discount_value, discount_percent, discount_amount, min_purchase, valid_until, usage_limit, used_count, applies_to, status)
+    VALUES (N'TET2026', N'PERCENT', 20, 20, 500000, 500000, '2026-12-31', 200, 15, N'ALL', N'ACTIVE');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.vouchers WHERE code = N'GIAM50K')
+    INSERT INTO dbo.vouchers (code, discount_type, discount_value, discount_percent, discount_amount, min_purchase, valid_until, usage_limit, used_count, applies_to, status)
+    VALUES (N'GIAM50K', N'FIXED', 50000, NULL, 50000, 150000, '2026-12-31', 500, 48, N'ALL', N'ACTIVE');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.vouchers WHERE code = N'WELCOME20')
+    INSERT INTO dbo.vouchers (code, discount_type, discount_value, discount_percent, discount_amount, min_purchase, valid_until, usage_limit, used_count, applies_to, status)
+    VALUES (N'WELCOME20', N'PERCENT', 20, 20, 300000, 100000, '2026-12-31', 1000, 89, N'ALL', N'ACTIVE');
+
+-- BẢNG COACH LEAVE REQUESTS (ĐƠN XIN NGHỈ / ĐỔI CA HUẤN LUYỆN VIÊN)
+IF OBJECT_ID(N'dbo.coach_leave_requests', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.coach_leave_requests (
+        request_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        coach_id BIGINT NOT NULL,
+        coach_name NVARCHAR(100) NULL,
+        leave_type NVARCHAR(50) NOT NULL,
+        start_date DATE NOT NULL,
+        end_date DATE NOT NULL,
+        reason NVARCHAR(1000) NOT NULL,
+        status NVARCHAR(20) NOT NULL CONSTRAINT DF_coach_leave_status DEFAULT N'PENDING',
+        approved_by BIGINT NULL,
+        affected_bookings_count INT NOT NULL CONSTRAINT DF_coach_leave_affected DEFAULT 0,
+        reassigned_coach_id BIGINT NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_coach_leave_created DEFAULT SYSDATETIME()
+    );
+END;
+
+IF COL_LENGTH('dbo.coach_leave_requests', 'coach_name') IS NULL
+    ALTER TABLE dbo.coach_leave_requests ADD coach_name NVARCHAR(100) NULL;
+IF COL_LENGTH('dbo.coach_leave_requests', 'affected_bookings_count') IS NULL
+    ALTER TABLE dbo.coach_leave_requests ADD affected_bookings_count INT NOT NULL CONSTRAINT DF_coach_leave_affected DEFAULT 0;
+IF COL_LENGTH('dbo.coach_leave_requests', 'reassigned_coach_id') IS NULL
+    ALTER TABLE dbo.coach_leave_requests ADD reassigned_coach_id BIGINT NULL;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.coach_leave_requests WHERE request_id = 101)
+BEGIN
+    SET IDENTITY_INSERT dbo.coach_leave_requests ON;
+    INSERT INTO dbo.coach_leave_requests (request_id, coach_id, coach_name, leave_type, start_date, end_date, reason, status, affected_bookings_count, created_at)
+    VALUES (101, 2, N'Coach Nguyễn Văn A', N'SICK_LEAVE', '2026-10-25', '2026-10-26', N'Sốt xuất huyết cần theo dõi tại cơ sở y tế', N'PENDING', 2, '2026-10-20T08:00:00');
+    SET IDENTITY_INSERT dbo.coach_leave_requests OFF;
+END;
+
+-- BẢNG DỤNG CỤ & THIẾT BỊ CHO THUÊ (REC-13)
+IF OBJECT_ID(N'dbo.equipments', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.equipments (
+        item_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        item_name NVARCHAR(150) NOT NULL,
+        category NVARCHAR(50) NOT NULL,
+        rental_price_per_hour DECIMAL(12,2) NOT NULL,
+        total_quantity INT NOT NULL,
+        available_quantity INT NOT NULL,
+        status NVARCHAR(20) NOT NULL CONSTRAINT DF_equipments_status DEFAULT N'ACTIVE'
+    );
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.equipments WHERE item_name = N'Vợt Tennis Wilson Pro Staff')
+    INSERT INTO dbo.equipments (item_name, category, rental_price_per_hour, total_quantity, available_quantity, status)
+    VALUES (N'Vợt Tennis Wilson Pro Staff', N'Vợt', 30000, 20, 16, N'ACTIVE');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.equipments WHERE item_name = N'Vợt Pickleball Franklin Ben Johns')
+    INSERT INTO dbo.equipments (item_name, category, rental_price_per_hour, total_quantity, available_quantity, status)
+    VALUES (N'Vợt Pickleball Franklin Ben Johns', N'Vợt', 20000, 30, 24, N'ACTIVE');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.equipments WHERE item_name = N'Giày Thi Đấu Asics Court FF (Size 40-43)')
+    INSERT INTO dbo.equipments (item_name, category, rental_price_per_hour, total_quantity, available_quantity, status)
+    VALUES (N'Giày Thi Đấu Asics Court FF (Size 40-43)', N'Giày', 40000, 15, 12, N'ACTIVE');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.equipments WHERE item_name = N'Khăn Thể Thao Cao Cấp F Sport')
+    INSERT INTO dbo.equipments (item_name, category, rental_price_per_hour, total_quantity, available_quantity, status)
+    VALUES (N'Khăn Thể Thao Cao Cấp F Sport', N'Khăn', 0, 50, 42, N'ACTIVE');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.equipments WHERE item_name = N'Rổ Bóng Tennis 50 Quả (Tập phát bóng)')
+    INSERT INTO dbo.equipments (item_name, category, rental_price_per_hour, total_quantity, available_quantity, status)
+    VALUES (N'Rổ Bóng Tennis 50 Quả (Tập phát bóng)', N'Bóng', 50000, 10, 8, N'ACTIVE');
+
+IF OBJECT_ID(N'dbo.equipment_loans', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.equipment_loans (
+        loan_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        member_id BIGINT NOT NULL,
+        member_name NVARCHAR(100) NULL,
+        phone NVARCHAR(20) NULL,
+        item_id BIGINT NOT NULL,
+        item_name NVARCHAR(150) NULL,
+        quantity INT NOT NULL CONSTRAINT DF_equipment_loans_quantity DEFAULT 1,
+        rental_price_per_hour DECIMAL(12,2) NOT NULL,
+        loaned_at DATETIME2 NOT NULL CONSTRAINT DF_equipment_loans_loaned DEFAULT SYSDATETIME(),
+        returned_at DATETIME2 NULL,
+        rental_fee DECIMAL(12,2) NULL,
+        status NVARCHAR(20) NOT NULL CONSTRAINT DF_equipment_loans_status DEFAULT N'BORROWED',
+        payment_method NVARCHAR(20) NULL,
+        recorded_by BIGINT NULL
+    );
+END;
+
+IF COL_LENGTH('dbo.equipment_loans', 'member_name') IS NULL
+    ALTER TABLE dbo.equipment_loans ADD member_name NVARCHAR(100) NULL;
+IF COL_LENGTH('dbo.equipment_loans', 'phone') IS NULL
+    ALTER TABLE dbo.equipment_loans ADD phone NVARCHAR(20) NULL;
+IF COL_LENGTH('dbo.equipment_loans', 'item_name') IS NULL
+    ALTER TABLE dbo.equipment_loans ADD item_name NVARCHAR(150) NULL;
+IF COL_LENGTH('dbo.equipment_loans', 'payment_method') IS NULL
+    ALTER TABLE dbo.equipment_loans ADD payment_method NVARCHAR(20) NULL;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.equipment_loans WHERE loan_id = 501)
+BEGIN
+    SET IDENTITY_INSERT dbo.equipment_loans ON;
+    INSERT INTO dbo.equipment_loans (loan_id, member_id, member_name, phone, item_id, item_name, quantity, rental_price_per_hour, loaned_at, status)
+    VALUES (501, 1, N'Nguyễn Văn Member', N'0901 234 567', 1, N'Vợt Tennis Wilson Pro Staff', 1, 30000, DATEADD(minute, -90, SYSDATETIME()), N'BORROWED');
+    SET IDENTITY_INSERT dbo.equipment_loans OFF;
+END;
+
+-- BẢNG PHẢN HỒI & KHIẾU NẠI (SUPPORT TICKETS / COMPLAINTS)
+IF OBJECT_ID(N'dbo.support_tickets', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.support_tickets (
+        ticket_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        member_id BIGINT NOT NULL,
+        member_name NVARCHAR(100) NULL,
+        category NVARCHAR(50) NOT NULL,
+        title NVARCHAR(200) NOT NULL,
+        description NVARCHAR(MAX) NOT NULL,
+        severity NVARCHAR(20) NOT NULL CONSTRAINT DF_support_tickets_severity DEFAULT N'NORMAL',
+        status NVARCHAR(20) NOT NULL CONSTRAINT DF_support_tickets_status DEFAULT N'SUBMITTED',
+        admin_response NVARCHAR(MAX) NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_support_tickets_created DEFAULT SYSDATETIME()
+    );
+END;
+
+IF COL_LENGTH('dbo.support_tickets', 'member_name') IS NULL
+    ALTER TABLE dbo.support_tickets ADD member_name NVARCHAR(100) NULL;
+
+-- BẢNG YÊU CẦU HOÀN TIỀN (REFUND REQUESTS - MEM-31 / MGR-16)
+IF OBJECT_ID(N'dbo.refund_requests', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.refund_requests (
+        refund_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        member_id BIGINT NOT NULL,
+        member_name NVARCHAR(100) NULL,
+        phone NVARCHAR(20) NULL,
+        transaction_id BIGINT NULL,
+        reference_code NVARCHAR(50) NULL,
+        booking_description NVARCHAR(255) NULL,
+        refund_amount DECIMAL(12,2) NOT NULL,
+        reason NVARCHAR(1000) NOT NULL,
+        bank_name NVARCHAR(100) NULL,
+        bank_account NVARCHAR(50) NULL,
+        account_holder NVARCHAR(100) NULL,
+        status NVARCHAR(20) NOT NULL CONSTRAINT DF_refund_requests_status DEFAULT N'PENDING',
+        approved_by BIGINT NULL,
+        decision_note NVARCHAR(500) NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_refund_requests_created DEFAULT SYSDATETIME()
+    );
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.refund_requests WHERE refund_id = 801)
+BEGIN
+    SET IDENTITY_INSERT dbo.refund_requests ON;
+    INSERT INTO dbo.refund_requests (refund_id, member_id, member_name, phone, booking_description, refund_amount, reason, status, created_at)
+    VALUES (801, 5, N'Vũ Đức Minh', N'0933 111 222', N'Thuê sân Tennis Sân 1 (18:00 - 19:00)', 300000, N'Hủy booking đúng hạn trước 2 giờ theo chính sách MEM-30', N'PENDING', '2026-10-20T15:00:00');
+    INSERT INTO dbo.refund_requests (refund_id, member_id, member_name, phone, booking_description, refund_amount, reason, status, created_at)
+    VALUES (802, 7, N'Đỗ Hải Yến', N'0912 333 444', N'Lớp Cầu Lông Cơ Bản Kèm HLV', 180000, N'Vắng có phép được Coach xác nhận EXCUSED_ABSENCE', N'PENDING', '2026-10-19T17:30:00');
+    SET IDENTITY_INSERT dbo.refund_requests OFF;
+END;

@@ -50,6 +50,11 @@ public class BookingFlowController {
         return ResponseEntity.ok(bookingService.getClassesForSport(sportId, actorId(authentication)));
     }
 
+    @GetMapping("/coaches")
+    public ResponseEntity<List<com.sporthub.backend.dto.CoachPublicProfileResponse>> getCoaches() {
+        return ResponseEntity.ok(bookingService.getAllCoachesPublicProfiles());
+    }
+
     @GetMapping("/coaches/{coachId}")
     public ResponseEntity<com.sporthub.backend.dto.CoachPublicProfileResponse> getCoachProfile(
             @PathVariable Long coachId) {

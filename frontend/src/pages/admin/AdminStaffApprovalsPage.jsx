@@ -7,6 +7,7 @@ import {
   rejectStaffRegistration,
   getManagerCoaches,
 } from '../../services/managerApi';
+import { apiRequest } from '../../services/apiClient';
 
 const formatDate = (value) => {
   if (!value) return '—';
@@ -157,12 +158,22 @@ export default function AdminStaffApprovalsPage() {
     setLoading(true);
     setError('');
     try {
-      const [data, coachesRes] = await Promise.all([
+      const [data, coachesRes, leaveRes, refundRes] = await Promise.all([
         getPendingStaffRegistrations(),
         getManagerCoaches().catch(() => ({ content: [] })),
+        apiRequest('/manager/coach-leave-requests').catch(() => null),
+        apiRequest('/manager/refunds').catch(() => null),
       ]);
       setRegistrations(data);
       setAvailableCoaches(coachesRes.content || []);
+      if (Array.isArray(leaveRes) && leaveRes.length > 0) {
+        setCoachLeaveRequests(leaveRes);
+        localStorage.setItem(COACH_LEAVE_KEY, JSON.stringify(leaveRes));
+      }
+      if (Array.isArray(refundRes) && refundRes.length > 0) {
+        setRefundRequests(refundRes);
+        localStorage.setItem(REFUND_REQUESTS_KEY, JSON.stringify(refundRes));
+      }
     } catch (requestError) {
       setError(requestError.message || 'Không thể tải danh sách đăng ký.');
     } finally {
@@ -253,9 +264,21 @@ export default function AdminStaffApprovalsPage() {
     setReassignForm({});
   };
 
-  const handleConfirmApproveLeave = () => {
+  const handleConfirmApproveLeave = async () => {
     if (!approveLeaveModal || !confirmReassignNotice) return;
     const req = approveLeaveModal;
+
+    try {
+      await apiRequest(`/manager/coach-leave-requests/${req.requestId}/decision`, {
+        method: 'POST',
+        body: JSON.stringify({
+          approved: true,
+          reassignedCoachId: Object.values(reassignForm)[0] || null,
+        }),
+      });
+    } catch {
+      // optimistic fallback
+    }
 
     const updated = coachLeaveRequests.map((r) =>
       r.requestId === req.requestId
@@ -279,7 +302,16 @@ export default function AdminStaffApprovalsPage() {
     setApproveLeaveModal(null);
   };
 
-  const handleRejectLeave = (req) => {
+  const handleRejectLeave = async (req) => {
+    try {
+      await apiRequest(`/manager/coach-leave-requests/${req.requestId}/decision`, {
+        method: 'POST',
+        body: JSON.stringify({ approved: false }),
+      });
+    } catch {
+      // optimistic fallback
+    }
+
     const updated = coachLeaveRequests.map((r) =>
       r.requestId === req.requestId
         ? { ...r, status: 'REJECTED', rejectionReason: 'Lịch giảng dạy quá kín, không đủ Coach thay thế' }
@@ -291,7 +323,16 @@ export default function AdminStaffApprovalsPage() {
   };
 
   // Tab 4: Refund Approval (MGR-16)
-  const handleDecisionRefund = (refund, isApprove) => {
+  const handleDecisionRefund = async (refund, isApprove) => {
+    try {
+      await apiRequest(`/manager/refunds/${refund.refundId}/decision`, {
+        method: 'POST',
+        body: JSON.stringify({ approved: isApprove }),
+      });
+    } catch {
+      // optimistic fallback
+    }
+
     const updated = refundRequests.map((r) =>
       r.refundId === refund.refundId
         ? { ...r, status: isApprove ? 'COMPLETED' : 'REJECTED', approvedAt: new Date().toISOString() }

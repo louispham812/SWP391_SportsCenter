@@ -5,9 +5,11 @@ import {
   checkoutBooking,
   getAvailableCourtSlots,
   getBookableClasses,
+  getBookingCoaches,
   getBookingQuote,
   getBookingSports,
 } from '../../services/bookingApi';
+import { apiRequest } from '../../services/apiClient';
 import PaymentMethodSelector from '../../components/common/PaymentMethodSelector';
 import { getSportMedia } from '../../utils/mediaMap';
 
@@ -461,6 +463,32 @@ function CoachPicker({ _sportId }) {
     },
   ];
 
+  const [coachesList, setCoachesList] = useState(mockCoaches);
+
+  useEffect(() => {
+    let current = true;
+    getBookingCoaches()
+      .then((data) => {
+        if (current && Array.isArray(data) && data.length > 0) {
+          const mapped = data.map((c, idx) => ({
+            coachId: c.coachId,
+            name: c.fullName,
+            title: c.specialty || 'HLV Cá Nhân Chuyên Nghiệp',
+            certifications: c.bio || 'Chứng chỉ Quốc tế Chuyên sâu',
+            hourlyRate: 250000 + (idx % 3) * 50000,
+            rating: 4.9,
+            reviewCount: 25 + idx * 7,
+            specialties: c.sportsTaught?.length ? c.sportsTaught : ['Thể lực', 'Kỹ thuật chuyên sâu'],
+            availableSlots: ['08:00', '10:00', '14:30', '16:00', '18:00'],
+            avatar: c.avatar || (idx % 2 === 0 ? 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=150&auto=format&fit=crop&q=80' : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80'),
+          }));
+          setCoachesList(mapped);
+        }
+      })
+      .catch(() => {});
+    return () => { current = false; };
+  }, []);
+
   const handleSelectSlot = (coach, timeSlot) => {
     const [hh, mm] = timeSlot.split(':');
     const startObj = new Date(`${selectedDate}T${hh}:${mm}:00`);
@@ -502,7 +530,7 @@ function CoachPicker({ _sportId }) {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {mockCoaches.map((coach) => (
+        {coachesList.map((coach) => (
           <div key={coach.coachId} className="flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition">
             <div>
               <div className="flex items-center gap-4">
@@ -610,29 +638,28 @@ function CheckoutPage({ bookingType, itemId }) {
 
   useEffect(() => {
     let current = true;
-    if (bookingType.toLowerCase() === 'pt') {
-      // Mock PT quote for Coach 1-1 booking
-      setQuote({
-        bookingType: 'PT',
-        itemName: `Huấn Luyện 1-1: ${coachNameQuery || 'HLV Cá Nhân'}`,
-        sportName: 'Personal Training & Thể Lực',
-        location: 'Khu Gym PT & Sân Chuyên Dụng',
-        startTime: startTime || new Date().toISOString(),
-        endTime: endTime || new Date(Date.now() + 3600000).toISOString(),
-        amount: Number(coachRateQuery) || 350000,
-        originalAmount: Number(coachRateQuery) || 350000,
-        discountAmount: 0,
-      });
-      setLoading(false);
-      return;
-    }
-
     getBookingQuote(bookingType.toUpperCase(), itemId, startTime, endTime)
       .then((result) => {
         if (current) setQuote(result);
       })
       .catch((requestError) => {
-        if (current) setError(requestError.message || 'Không thể xác nhận giá và lịch booking.');
+        if (current) {
+          if (bookingType.toLowerCase() === 'pt') {
+            setQuote({
+              bookingType: 'PT',
+              itemName: `Huấn Luyện 1-1: ${coachNameQuery || 'HLV Cá Nhân'}`,
+              sportName: 'Personal Training & Thể Lực',
+              location: 'Khu Gym PT & Sân Chuyên Dụng',
+              startTime: startTime || new Date().toISOString(),
+              endTime: endTime || new Date(Date.now() + 3600000).toISOString(),
+              amount: Number(coachRateQuery) || 350000,
+              originalAmount: Number(coachRateQuery) || 350000,
+              discountAmount: 0,
+            });
+          } else {
+            setError(requestError.message || 'Không thể xác nhận giá và lịch booking.');
+          }
+        }
       })
       .finally(() => {
         if (current) setLoading(false);
@@ -643,11 +670,27 @@ function CheckoutPage({ bookingType, itemId }) {
   }, [bookingType, coachNameQuery, coachRateQuery, endTime, itemId, startTime]);
 
   // Handle Voucher Application (MGR-18)
-  const applyVoucher = () => {
+  const applyVoucher = async () => {
     setVoucherError('');
     if (!voucherCode.trim()) return;
 
     const code = voucherCode.trim().toUpperCase();
+    try {
+      const res = await apiRequest('/vouchers/validate', {
+        method: 'POST',
+        body: JSON.stringify({ code, amount: originalPrice }),
+      });
+      if (res && res.valid && res.voucher) {
+        setAppliedVoucher(res.voucher);
+        return;
+      } else if (res && !res.valid) {
+        setVoucherError(res.message || 'Mã ưu đãi không hợp lệ.');
+        return;
+      }
+    } catch {
+      // fallback to local
+    }
+
     let vouchers = [];
     try {
       const saved = localStorage.getItem('sports_center_vouchers');
@@ -656,14 +699,13 @@ function CheckoutPage({ bookingType, itemId }) {
       vouchers = [];
     }
 
-    // Default system fallback vouchers
     const fallbackVouchers = [
       { code: 'WELCOME20', discountType: 'PERCENT', discountValue: 20, status: 'ACTIVE' },
       { code: 'SUMMER50K', discountType: 'FIXED', discountValue: 50000, status: 'ACTIVE' },
       { code: 'EXTEND30D', discountType: 'EXTEND_DURATION', discountValue: 30, status: 'ACTIVE' },
     ];
     const allVouchers = [...fallbackVouchers, ...vouchers];
-    const found = allVouchers.find((v) => v.code.toUpperCase() === code && v.status === 'ACTIVE');
+    const found = allVouchers.find((v) => v.code.toUpperCase() === code && (v.status === 'ACTIVE' || v.active));
 
     if (!found) {
       setVoucherError('Mã ưu đãi không hợp lệ hoặc đã hết hạn.');
@@ -735,6 +777,15 @@ function CheckoutPage({ bookingType, itemId }) {
     }
 
     try {
+      const confirmation = await checkoutBooking(
+        bookingType.toUpperCase(),
+        itemId,
+        startTime,
+        endTime,
+        paymentMethod
+      );
+      navigate('/member/book/confirmation', { replace: true, state: { confirmation } });
+    } catch (requestError) {
       if (bookingType.toLowerCase() === 'pt') {
         const confirmation = {
           referenceCode: `BK-PT-${Date.now().toString().slice(-6)}`,
@@ -750,16 +801,6 @@ function CheckoutPage({ bookingType, itemId }) {
         navigate('/member/book/confirmation', { replace: true, state: { confirmation } });
         return;
       }
-
-      const confirmation = await checkoutBooking(
-        bookingType.toUpperCase(),
-        itemId,
-        startTime,
-        endTime,
-        paymentMethod
-      );
-      navigate('/member/book/confirmation', { replace: true, state: { confirmation } });
-    } catch (requestError) {
       setError(requestError.message || 'Thanh toán booking thất bại.');
       setSubmitting(false);
     }

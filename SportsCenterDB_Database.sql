@@ -753,3 +753,123 @@ BEGIN
         CONSTRAINT CK_member_check_ins_result CHECK (result IN ('VALID', 'REJECTED'))
     );
 END;
+GO
+
+-- 12. BẢNG VOUCHERS (MÃ GIẢM GIÁ / KHUYẾN MÃI)
+IF OBJECT_ID(N'dbo.vouchers', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.vouchers (
+        voucher_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        code NVARCHAR(50) NOT NULL UNIQUE,
+        discount_type NVARCHAR(20) NOT NULL CONSTRAINT DF_vouchers_type DEFAULT N'PERCENT',
+        discount_value DECIMAL(12,2) NULL,
+        discount_percent INT NULL,
+        discount_amount DECIMAL(12,2) NULL,
+        min_purchase DECIMAL(12,2) NOT NULL CONSTRAINT DF_vouchers_min_purchase DEFAULT 0,
+        valid_from DATE NULL,
+        valid_until DATE NOT NULL,
+        usage_limit INT NOT NULL CONSTRAINT DF_vouchers_usage_limit DEFAULT 100,
+        used_count INT NOT NULL CONSTRAINT DF_vouchers_used_count DEFAULT 0,
+        applies_to NVARCHAR(50) NOT NULL CONSTRAINT DF_vouchers_applies DEFAULT N'ALL',
+        status NVARCHAR(20) NOT NULL CONSTRAINT DF_vouchers_status DEFAULT N'ACTIVE'
+    );
+END;
+GO
+
+-- 13. BẢNG COACH LEAVE REQUESTS (ĐƠN XIN NGHỈ / ĐỔI CA HUẤN LUYỆN VIÊN)
+IF OBJECT_ID(N'dbo.coach_leave_requests', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.coach_leave_requests (
+        request_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        coach_id BIGINT NOT NULL,
+        coach_name NVARCHAR(100) NULL,
+        leave_type NVARCHAR(50) NOT NULL,
+        start_date DATE NOT NULL,
+        end_date DATE NOT NULL,
+        reason NVARCHAR(1000) NOT NULL,
+        status NVARCHAR(20) NOT NULL CONSTRAINT DF_coach_leave_status DEFAULT N'PENDING',
+        approved_by BIGINT NULL,
+        affected_bookings_count INT NOT NULL CONSTRAINT DF_coach_leave_affected DEFAULT 0,
+        reassigned_coach_id BIGINT NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_coach_leave_created DEFAULT SYSDATETIME()
+    );
+END;
+GO
+
+-- 14. BẢNG DỤNG CỤ & THIẾT BỊ CHO THUÊ (REC-13)
+IF OBJECT_ID(N'dbo.equipments', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.equipments (
+        item_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        item_name NVARCHAR(150) NOT NULL,
+        category NVARCHAR(50) NOT NULL,
+        rental_price_per_hour DECIMAL(12,2) NOT NULL,
+        total_quantity INT NOT NULL,
+        available_quantity INT NOT NULL,
+        status NVARCHAR(20) NOT NULL CONSTRAINT DF_equipments_status DEFAULT N'ACTIVE'
+    );
+END;
+GO
+
+IF OBJECT_ID(N'dbo.equipment_loans', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.equipment_loans (
+        loan_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        member_id BIGINT NOT NULL,
+        member_name NVARCHAR(100) NULL,
+        phone NVARCHAR(20) NULL,
+        item_id BIGINT NOT NULL,
+        item_name NVARCHAR(150) NULL,
+        quantity INT NOT NULL CONSTRAINT DF_equipment_loans_quantity DEFAULT 1,
+        rental_price_per_hour DECIMAL(12,2) NOT NULL,
+        loaned_at DATETIME2 NOT NULL CONSTRAINT DF_equipment_loans_loaned DEFAULT SYSDATETIME(),
+        returned_at DATETIME2 NULL,
+        rental_fee DECIMAL(12,2) NULL,
+        status NVARCHAR(20) NOT NULL CONSTRAINT DF_equipment_loans_status DEFAULT N'BORROWED',
+        payment_method NVARCHAR(20) NULL,
+        recorded_by BIGINT NULL
+    );
+END;
+GO
+
+-- 15. BẢNG PHẢN HỒI & KHIẾU NẠI (SUPPORT TICKETS / COMPLAINTS)
+IF OBJECT_ID(N'dbo.support_tickets', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.support_tickets (
+        ticket_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        member_id BIGINT NOT NULL,
+        member_name NVARCHAR(100) NULL,
+        category NVARCHAR(50) NOT NULL,
+        title NVARCHAR(200) NOT NULL,
+        description NVARCHAR(MAX) NOT NULL,
+        severity NVARCHAR(20) NOT NULL CONSTRAINT DF_support_tickets_severity DEFAULT N'NORMAL',
+        status NVARCHAR(20) NOT NULL CONSTRAINT DF_support_tickets_status DEFAULT N'SUBMITTED',
+        admin_response NVARCHAR(MAX) NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_support_tickets_created DEFAULT SYSDATETIME()
+    );
+END;
+GO
+
+-- 16. BẢNG YÊU CẦU HOÀN TIỀN (REFUND REQUESTS - MEM-31 / MGR-16)
+IF OBJECT_ID(N'dbo.refund_requests', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.refund_requests (
+        refund_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        member_id BIGINT NOT NULL,
+        member_name NVARCHAR(100) NULL,
+        phone NVARCHAR(20) NULL,
+        transaction_id BIGINT NULL,
+        reference_code NVARCHAR(50) NULL,
+        booking_description NVARCHAR(255) NULL,
+        refund_amount DECIMAL(12,2) NOT NULL,
+        reason NVARCHAR(1000) NOT NULL,
+        bank_name NVARCHAR(100) NULL,
+        bank_account NVARCHAR(50) NULL,
+        account_holder NVARCHAR(100) NULL,
+        status NVARCHAR(20) NOT NULL CONSTRAINT DF_refund_requests_status DEFAULT N'PENDING',
+        approved_by BIGINT NULL,
+        decision_note NVARCHAR(500) NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_refund_requests_created DEFAULT SYSDATETIME()
+    );
+END;
+GO

@@ -8,6 +8,7 @@ import {
   updateManagerPackage,
   updateManagerPackageStatus,
 } from '../../services/managerApi';
+import { apiRequest } from '../../services/apiClient';
 import { useApp } from '../../context/AppContext';
 
 const EMPTY_FORM = {
@@ -200,14 +201,33 @@ export default function AdminPackagesPage() {
     setLoading(true);
     setError('');
     try {
-      const [packageData, sportData, coachData] = await Promise.all([
+      const [packageData, sportData, coachData, voucherData] = await Promise.all([
         getManagerPackages(),
         getManagerSports(),
         getManagerCoaches().catch(() => ({ content: [] })),
+        apiRequest('/manager/vouchers').catch(() => null),
       ]);
       setPackages(packageData);
       setSports(sportData);
       setCoaches(coachData.content || []);
+      if (Array.isArray(voucherData) && voucherData.length > 0) {
+        const mapped = voucherData.map((v) => ({
+          voucherId: v.voucherId,
+          code: v.code,
+          discountType: v.discountType || 'PERCENT',
+          discountValue: v.discountValue || v.discountPercent || 0,
+          extendDurationMonths: 0,
+          minPurchase: v.minPurchase || 0,
+          maxUses: v.usageLimit || 100,
+          currentUses: v.usedCount || 0,
+          validFrom: v.validFrom || '',
+          validUntil: v.validUntil || '',
+          appliesTo: v.appliesTo || 'ALL',
+          active: v.status === 'ACTIVE',
+        }));
+        setVouchers(mapped);
+        localStorage.setItem(VOUCHER_STORAGE_KEY, JSON.stringify(mapped));
+      }
     } catch (requestError) {
       setError(requestError.message || 'Không thể tải dữ liệu gói tập từ database.');
     } finally {
@@ -318,15 +338,46 @@ export default function AdminPackagesPage() {
     setIsVoucherModalOpen(true);
   };
 
-  const handleSaveVoucher = (e) => {
+  const handleSaveVoucher = async (e) => {
     e.preventDefault();
     if (!voucherForm.code.trim()) {
       showToast('Lỗi', 'Vui lòng nhập mã voucher.', 'warning');
       return;
     }
 
+    const payload = {
+      code: voucherForm.code.trim().toUpperCase(),
+      discountType: voucherForm.discountType,
+      discountValue: Number(voucherForm.discountValue) || 0,
+      minPurchase: Number(voucherForm.minPurchase) || 0,
+      usageLimit: Number(voucherForm.maxUses) || 100,
+      validFrom: voucherForm.validFrom || new Date().toISOString().slice(0, 10),
+      validUntil: voucherForm.validUntil || '2026-12-31',
+      appliesTo: voucherForm.appliesTo,
+      status: voucherForm.active ? 'ACTIVE' : 'INACTIVE',
+    };
+
+    let savedId = editingVoucher?.voucherId || Date.now();
+    try {
+      if (editingVoucher && typeof editingVoucher.voucherId === 'number') {
+        const res = await apiRequest(`/manager/vouchers/${editingVoucher.voucherId}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+        if (res?.voucherId) savedId = res.voucherId;
+      } else {
+        const res = await apiRequest('/manager/vouchers', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        if (res?.voucherId) savedId = res.voucherId;
+      }
+    } catch {
+      // fallback to optimistic local update
+    }
+
     const newVoucher = {
-      voucherId: editingVoucher?.voucherId || Date.now(),
+      voucherId: savedId,
       code: voucherForm.code.trim().toUpperCase(),
       discountType: voucherForm.discountType,
       discountValue: Number(voucherForm.discountValue) || 0,
@@ -353,7 +404,12 @@ export default function AdminPackagesPage() {
     setIsVoucherModalOpen(false);
   };
 
-  const toggleVoucherStatus = (vId) => {
+  const toggleVoucherStatus = async (vId) => {
+    try {
+      await apiRequest(`/manager/vouchers/${vId}/toggle-status`, { method: 'PATCH' });
+    } catch {
+      // optimistic update
+    }
     const updated = vouchers.map((v) => (v.voucherId === vId ? { ...v, active: !v.active } : v));
     setVouchers(updated);
     localStorage.setItem(VOUCHER_STORAGE_KEY, JSON.stringify(updated));

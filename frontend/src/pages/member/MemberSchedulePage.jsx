@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
+import CoachLayout from '../../components/layouts/CoachLayout';
 import { cancelMemberBooking, getCoachPublicProfile, getMemberBookingSchedule } from '../../services/bookingApi';
 import { useApp } from '../../context/AppContext';
 
@@ -56,7 +57,8 @@ const getWeekLabel = (weekStart, weekEnd) => {
 };
 
 export default function MemberSchedulePage() {
-  const { showToast } = useApp();
+  const { showToast, currentRole } = useApp();
+  const LayoutComponent = currentRole === 'coach' ? CoachLayout : MemberLayout;
   const [scheduleEntries, setScheduleEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -198,7 +200,7 @@ export default function MemberSchedulePage() {
   };
 
   return (
-    <MemberLayout>
+    <LayoutComponent>
       <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300">
         {/* =========================================
             1. PAGE HEADER & CONTROL BAR
@@ -841,6 +843,6 @@ export default function MemberSchedulePage() {
           </div>
         )}
       </div>
-    </MemberLayout>
+    </LayoutComponent>
   );
 }

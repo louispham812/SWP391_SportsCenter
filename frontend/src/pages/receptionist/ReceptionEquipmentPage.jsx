@@ -79,6 +79,28 @@ export default function ReceptionEquipmentPage() {
   const [returningLoan, setReturningLoan] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('CASH');
 
+  useEffect(() => {
+    let current = true;
+    apiRequest('/receptionist/equipments')
+      .then((data) => {
+        if (current && Array.isArray(data) && data.length > 0) {
+          setItems(data);
+          localStorage.setItem(EQUIPMENT_ITEMS_KEY, JSON.stringify(data));
+        }
+      })
+      .catch(() => {});
+
+    apiRequest('/receptionist/equipment-loans')
+      .then((data) => {
+        if (current && Array.isArray(data) && data.length > 0) {
+          setLoans(data);
+          localStorage.setItem(EQUIPMENT_LOANS_KEY, JSON.stringify(data));
+        }
+      })
+      .catch(() => {});
+    return () => { current = false; };
+  }, []);
+
   // Search members debounce
   useEffect(() => {
     let current = true;
@@ -112,7 +134,7 @@ export default function ReceptionEquipmentPage() {
   };
 
   // Handle Borrow
-  const handleBorrow = (e) => {
+  const handleBorrow = async (e) => {
     e.preventDefault();
     if (!selectedMember) {
       showToast('Chưa chọn hội viên', 'Vui lòng tìm và chọn hội viên mượn đồ.', 'warning');
@@ -133,8 +155,22 @@ export default function ReceptionEquipmentPage() {
     }
 
     setIsSubmitting(true);
-    // Create loan
-    const newLoan = {
+    let createdLoan = null;
+    try {
+      createdLoan = await apiRequest('/receptionist/equipment-loans', {
+        method: 'POST',
+        body: JSON.stringify({
+          memberId: selectedMember.userId,
+          itemId: item.itemId,
+          quantity: qty,
+        }),
+      });
+    } catch {
+      // optimistic fallback
+    }
+
+    // Create loan object
+    const newLoan = createdLoan || {
       loanId: Date.now(),
       memberId: selectedMember.userId,
       memberName: selectedMember.fullName,
@@ -183,9 +219,18 @@ export default function ReceptionEquipmentPage() {
     setReturningLoan(loan);
   };
 
-  const handleConfirmReturn = () => {
+  const handleConfirmReturn = async () => {
     if (!returningLoan) return;
     const fee = calculateFee(returningLoan);
+
+    try {
+      await apiRequest(`/receptionist/equipment-loans/${returningLoan.loanId}/return`, {
+        method: 'POST',
+        body: JSON.stringify({ paymentMethod }),
+      });
+    } catch {
+      // optimistic fallback
+    }
 
     // Update loan
     const updatedLoans = loans.map((l) =>

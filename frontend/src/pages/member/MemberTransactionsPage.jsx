@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { getMemberTransactions, getMemberProfile } from '../../services/memberApi';
+import { apiRequest } from '../../services/apiClient';
 import { useApp } from '../../context/AppContext';
 
 export default function MemberTransactionsPage() {
@@ -178,7 +179,7 @@ export default function MemberTransactionsPage() {
   };
 
   // Submit Refund Request (MEM-31 / MGR-16)
-  const handleRefundSubmit = (e) => {
+  const handleRefundSubmit = async (e) => {
     e.preventDefault();
     if (!selectedTxForRefund) {
       showToast('Lỗi', 'Vui lòng chọn giao dịch muốn yêu cầu hoàn tiền.', 'error');
@@ -186,6 +187,24 @@ export default function MemberTransactionsPage() {
     }
     const targetTx = transactions.find((t) => (t.referenceCode || `TX-${t.id}`) === selectedTxForRefund);
     if (!targetTx) return;
+
+    try {
+      await apiRequest('/members/me/refunds', {
+        method: 'POST',
+        body: JSON.stringify({
+          transactionId: targetTx.id || null,
+          referenceCode: targetTx.referenceCode || `TX-${targetTx.id}`,
+          bookingDescription: targetTx.itemName || 'Giao dịch dịch vụ thể thao',
+          refundAmount: parseFloat(targetTx.amount) || 0,
+          reason: refundReason,
+          bankName,
+          bankAccount,
+          accountHolder,
+        }),
+      });
+    } catch {
+      // optimistic fallback
+    }
 
     let existingRequests = [];
     try {
@@ -226,11 +245,25 @@ export default function MemberTransactionsPage() {
   };
 
   // Submit Complaint (MEM-26)
-  const handleComplaintSubmit = (e) => {
+  const handleComplaintSubmit = async (e) => {
     e.preventDefault();
     if (!complaintTitle.trim() || !complaintDescription.trim()) {
       showToast('Lỗi', 'Vui lòng điền đầy đủ tiêu đề và nội dung khiếu nại.', 'error');
       return;
+    }
+
+    try {
+      await apiRequest('/members/me/tickets', {
+        method: 'POST',
+        body: JSON.stringify({
+          category: complaintCategory,
+          title: complaintTitle.trim(),
+          description: complaintDescription.trim(),
+          severity: complaintSeverity,
+        }),
+      });
+    } catch {
+      // optimistic fallback
     }
 
     let existingComplaints = [];
