@@ -144,7 +144,7 @@ export default function PortalLayout({
               {menuItems.map((item) => {
                 const isActive =
                   location.pathname === item.path ||
-                  (item.path !== `/${role}` && location.pathname.startsWith(item.path));
+                  (item.path !== `/${role}` && location.pathname.startsWith(`${item.path}/`));
 
                 return (
                   <Link
@@ -417,7 +417,7 @@ export default function PortalLayout({
         {menuItems.slice(0, 4).map((item) => {
           const isActive =
             location.pathname === item.path ||
-            (item.path !== `/${role}` && location.pathname.startsWith(item.path));
+            (item.path !== `/${role}` && location.pathname.startsWith(`${item.path}/`));
 
           return (
             <Link
