@@ -776,6 +776,24 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH('dbo.vouchers', 'discount_type') IS NULL
+    ALTER TABLE dbo.vouchers ADD discount_type NVARCHAR(20) NOT NULL CONSTRAINT DF_vouchers_type DEFAULT N'PERCENT';
+IF COL_LENGTH('dbo.vouchers', 'discount_value') IS NULL
+    ALTER TABLE dbo.vouchers ADD discount_value DECIMAL(12,2) NULL;
+IF COL_LENGTH('dbo.vouchers', 'discount_percent') IS NULL
+    ALTER TABLE dbo.vouchers ADD discount_percent INT NULL;
+IF COL_LENGTH('dbo.vouchers', 'discount_amount') IS NULL
+    ALTER TABLE dbo.vouchers ADD discount_amount DECIMAL(12,2) NULL;
+IF COL_LENGTH('dbo.vouchers', 'min_purchase') IS NULL
+    ALTER TABLE dbo.vouchers ADD min_purchase DECIMAL(12,2) NOT NULL CONSTRAINT DF_vouchers_min_purchase DEFAULT 0;
+IF COL_LENGTH('dbo.vouchers', 'valid_from') IS NULL
+    ALTER TABLE dbo.vouchers ADD valid_from DATE NULL;
+IF COL_LENGTH('dbo.vouchers', 'used_count') IS NULL
+    ALTER TABLE dbo.vouchers ADD used_count INT NOT NULL CONSTRAINT DF_vouchers_used_count DEFAULT 0;
+IF COL_LENGTH('dbo.vouchers', 'applies_to') IS NULL
+    ALTER TABLE dbo.vouchers ADD applies_to NVARCHAR(50) NOT NULL CONSTRAINT DF_vouchers_applies DEFAULT N'ALL';
+GO
+
 -- 13. BẢNG COACH LEAVE REQUESTS (ĐƠN XIN NGHỈ / ĐỔI CA HUẤN LUYỆN VIÊN)
 IF OBJECT_ID(N'dbo.coach_leave_requests', N'U') IS NULL
 BEGIN

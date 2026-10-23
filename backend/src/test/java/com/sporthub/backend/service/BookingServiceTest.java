@@ -251,6 +251,36 @@ class BookingServiceTest {
     }
 
     @Test
+    void courtCheckoutSupportsMultiHourConsecutiveReservation() {
+        SportsCourt court = court();
+        User member = User.builder().userId(11L).role("MEMBER").status("ACTIVE").build();
+        LocalDateTime start = LocalDate.now().plusDays(1).atTime(10, 0);
+        LocalDateTime end = start.plusHours(3);
+        when(userRepository.findById(11L)).thenReturn(Optional.of(member));
+        when(sportsCourtRepository.findByIdForUpdate(33L)).thenReturn(Optional.of(court));
+        when(courtBookingRepository.existsConfirmedOverlap(33L, start, end)).thenReturn(false);
+        when(publicSportRepository.findById(4L)).thenReturn(Optional.of(sport(4L, "Pickleball")));
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(invocation -> {
+            PaymentTransaction payment = invocation.getArgument(0);
+            payment.setPaymentId(77L);
+            return payment;
+        });
+        when(courtBookingRepository.save(any())).thenAnswer(invocation -> {
+            var booking = invocation.getArgument(0, com.sporthub.backend.entity.CourtBooking.class);
+            booking.setCourtBookingId(100L);
+            return booking;
+        });
+
+        BookingConfirmationResponse response = bookingService.checkout(
+                11L,
+                new CheckoutRequest("COURT", 33L, start, end, "SANDBOX"));
+
+        assertEquals(100L, response.bookingId());
+        assertEquals(new BigDecimal("540000"), response.amountPaid());
+        assertEquals("PAID", response.paymentStatus());
+    }
+
+    @Test
     void quoteRejectsCourtSlotThatIsNotOneHour() {
         SportsCourt court = court();
         when(sportsCourtRepository.findById(33L)).thenReturn(Optional.of(court));

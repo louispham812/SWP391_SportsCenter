@@ -67,10 +67,10 @@ function BookingHome() {
           {
             type: 'court',
             title: 'Thuê Sân Thể Thao',
-            description: 'Chọn bộ môn, sân tập tiêu chuẩn và khung giờ thi đấu 60 phút linh hoạt theo nhu cầu của bạn.',
+            description: 'Chọn bộ môn, sân tập tiêu chuẩn và đặt 1 hoặc nhiều khung giờ liên tiếp linh hoạt theo nhu cầu của bạn.',
             icon: 'sports_tennis',
             badge: 'Tự do & Chủ động',
-            features: ['Khung giờ 60 phút linh hoạt', 'Sân đạt chuẩn thi đấu', 'Xác nhận tức thì qua hệ thống'],
+            features: ['Chọn nhiều giờ liên tiếp linh hoạt', 'Sân đạt chuẩn thi đấu', 'Xác nhận tức thì qua hệ thống'],
           },
           {
             type: 'class',
@@ -261,6 +261,9 @@ function CourtPicker({ sportId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
+  const [selectedCourtId, setSelectedCourtId] = useState(null);
+  const [selectedSlots, setSelectedSlots] = useState([]);
+  const [selectionHint, setSelectionHint] = useState('');
 
   useEffect(() => {
     let current = true;
@@ -290,8 +293,86 @@ function CourtPicker({ sportId }) {
     [slots, selectedDate],
   );
 
+  const handleDateChange = (date) => {
+    setSelectedDate(date);
+    setSelectedCourtId(null);
+    setSelectedSlots([]);
+    setSelectionHint('');
+  };
+
+  const handleSlotClick = (courtId, clickedSlot, courtSlots) => {
+    setSelectionHint('');
+    if (selectedCourtId !== courtId || selectedSlots.length === 0) {
+      setSelectedCourtId(courtId);
+      setSelectedSlots([clickedSlot]);
+      return;
+    }
+
+    const existingIdx = selectedSlots.findIndex((s) => s.startTime === clickedSlot.startTime);
+    if (existingIdx !== -1) {
+      if (selectedSlots.length === 1) {
+        setSelectedCourtId(null);
+        setSelectedSlots([]);
+      } else if (existingIdx === 0) {
+        setSelectedSlots(selectedSlots.slice(1));
+      } else if (existingIdx === selectedSlots.length - 1) {
+        setSelectedSlots(selectedSlots.slice(0, -1));
+      } else {
+        setSelectedSlots(selectedSlots.slice(0, existingIdx + 1));
+      }
+      return;
+    }
+
+    const clickedIndexInCourt = courtSlots.findIndex((s) => s.startTime === clickedSlot.startTime);
+    const firstIndexInCourt = courtSlots.findIndex((s) => s.startTime === selectedSlots[0].startTime);
+    const lastIndexInCourt = courtSlots.findIndex(
+      (s) => s.startTime === selectedSlots[selectedSlots.length - 1].startTime,
+    );
+
+    const minIndex = Math.min(firstIndexInCourt, clickedIndexInCourt);
+    const maxIndex = Math.max(lastIndexInCourt, clickedIndexInCourt);
+    const candidateRange = courtSlots.slice(minIndex, maxIndex + 1);
+
+    let isConsecutive = true;
+    for (let i = 0; i < candidateRange.length - 1; i += 1) {
+      const currentEnd = new Date(candidateRange[i].endTime).getTime();
+      const nextStart = new Date(candidateRange[i + 1].startTime).getTime();
+      if (currentEnd !== nextStart) {
+        isConsecutive = false;
+        break;
+      }
+    }
+
+    if (isConsecutive) {
+      setSelectedSlots(candidateRange);
+    } else {
+      setSelectedSlots([clickedSlot]);
+      setSelectionHint(
+        'Do có khung giờ đã được đặt xen giữa, hệ thống đã chuyển sang bắt đầu chọn từ khung giờ bạn vừa nhấn.',
+      );
+    }
+  };
+
+  const handleProceedToCheckout = () => {
+    if (!selectedCourtId || selectedSlots.length === 0) return;
+    const firstSlot = selectedSlots[0];
+    const lastSlot = selectedSlots[selectedSlots.length - 1];
+    const query = new URLSearchParams({
+      startTime: firstSlot.startTime,
+      endTime: lastSlot.endTime,
+    });
+    navigate(`/member/book/checkout/court/${selectedCourtId}?${query}`);
+  };
+
+  const selectedCourtInfo = selectedSlots[0] || null;
+  const totalSelectedHours = selectedSlots.length;
+  const totalEstimatedPrice = selectedCourtInfo ? selectedCourtInfo.hourlyRate * totalSelectedHours : 0;
+
   return (
-    <PageFrame title="Chọn sân và khung giờ" description="Mỗi lượt đặt sân kéo dài 60 phút. Giá và giờ trống được kiểm tra lại khi thanh toán.">
+    <PageFrame
+      title="Chọn sân và khung giờ"
+      description="Bạn có thể chọn 1 giờ hoặc nhiều giờ liên tiếp trên cùng một sân. Nhấn vào khung giờ đầu và khung giờ cuối để nối nhanh cả dải giờ trống."
+    >
       <ErrorNotice error={error} />
       {loading ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Đang tải sân và giờ trống...</div>
@@ -304,48 +385,149 @@ function CourtPicker({ sportId }) {
               <button
                 key={date}
                 type="button"
-                onClick={() => setSelectedDate(date)}
-                className={`rounded-xl px-3.5 py-2 text-xs font-bold transition ${selectedDate === date ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/20' : 'border border-slate-200 bg-white text-slate-700 hover:border-slate-300'}`}
+                onClick={() => handleDateChange(date)}
+                className={`rounded-xl px-3.5 py-2 text-xs font-bold transition cursor-pointer ${selectedDate === date ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/20' : 'border border-slate-200 bg-white text-slate-700 hover:border-slate-300'}`}
               >
                 {new Date(`${date}T12:00:00`).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' })}
               </button>
             ))}
           </div>
-          <div className="space-y-4">
+
+          <div className="rounded-2xl border border-orange-200/80 bg-orange-50/60 px-4 py-3 text-xs text-slate-700 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-orange-600">touch_app</span>
+              <span>
+                <strong>Hướng dẫn:</strong> Nhấn chọn 1 hoặc nhiều ô giờ liên tiếp trên cùng một sân. Nếu chọn 2 ô cách nhau, các giờ trống ở giữa sẽ tự động được nối liền.
+              </span>
+            </div>
+            {selectionHint && (
+              <span className="text-orange-700 font-semibold">{selectionHint}</span>
+            )}
+          </div>
+
+          <div className="space-y-4 pb-24">
             {courts.map((courtId) => {
               const courtSlots = slots.filter((slot) => slot.courtId === courtId && slot.startTime.startsWith(selectedDate));
               const court = courtSlots[0];
+              const isCurrentCourtSelected = selectedCourtId === courtId && selectedSlots.length > 0;
               return (
-                <section key={courtId} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <section
+                  key={courtId}
+                  className={`rounded-2xl border bg-white p-5 shadow-sm transition ${
+                    isCurrentCourtSelected ? 'border-orange-500 ring-2 ring-orange-500/15' : 'border-slate-200'
+                  }`}
+                >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h2 className="font-bold text-slate-900">{court.courtName}</h2>
+                      <div className="flex items-center gap-2">
+                        <h2 className="font-bold text-slate-900">{court.courtName}</h2>
+                        {isCurrentCourtSelected && (
+                          <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-[11px] font-bold text-orange-700">
+                            Đã chọn {selectedSlots.length} giờ liên tiếp
+                          </span>
+                        )}
+                      </div>
                       <p className="mt-1 text-xs text-slate-500">{court.description}</p>
                     </div>
-                    <span className="text-sm font-extrabold text-orange-600">{formatMoney(court.hourlyRate)} / 60 phút</span>
+                    <span className="text-sm font-extrabold text-orange-600">{formatMoney(court.hourlyRate)} / giờ</span>
                   </div>
-                  <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-                    {courtSlots.map((slot) => (
-                      <button
-                        key={`${slot.courtId}-${slot.startTime}`}
-                        type="button"
-                        onClick={() => {
-                          const query = new URLSearchParams({
-                            startTime: slot.startTime,
-                            endTime: slot.endTime,
-                          });
-                          navigate(`/member/book/checkout/court/${slot.courtId}?${query}`);
-                        }}
-                        className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold text-slate-700 transition hover:border-orange-500 hover:bg-orange-500 hover:text-white hover:shadow-sm"
-                      >
-                        {new Date(slot.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                      </button>
-                    ))}
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+                    {courtSlots.map((slot) => {
+                      const isSelected =
+                        isCurrentCourtSelected && selectedSlots.some((s) => s.startTime === slot.startTime);
+                      const startStr = new Date(slot.startTime).toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      });
+                      const endStr = new Date(slot.endTime).toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      });
+                      return (
+                        <button
+                          key={`${slot.courtId}-${slot.startTime}`}
+                          type="button"
+                          onClick={() => handleSlotClick(courtId, slot, courtSlots)}
+                          className={`rounded-xl border px-2.5 py-2.5 text-xs font-bold transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                            isSelected
+                              ? 'border-orange-600 bg-orange-500 text-white shadow-sm shadow-orange-500/30 ring-2 ring-orange-500/20'
+                              : 'border-slate-200 bg-white text-slate-700 hover:border-orange-400 hover:bg-orange-50 hover:text-orange-700'
+                          }`}
+                        >
+                          <span>{startStr}</span>
+                          <span className={`text-[10px] font-medium ${isSelected ? 'text-orange-100' : 'text-slate-400'}`}>
+                            đến {endStr}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </section>
               );
             })}
           </div>
+
+          {selectedCourtInfo && totalSelectedHours > 0 && (
+            <div className="fixed bottom-4 left-4 right-4 z-40 mx-auto max-w-4xl rounded-2xl border border-slate-800 bg-slate-900/95 p-4 text-white shadow-2xl backdrop-blur-md">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                    <span className="font-bold text-orange-400 uppercase tracking-wider">{selectedCourtInfo.courtName}</span>
+                    <span>•</span>
+                    <span>
+                      {new Date(selectedSlots[0].startTime).toLocaleDateString('vi-VN', {
+                        weekday: 'short',
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-baseline gap-3">
+                    <span className="text-base font-extrabold text-white">
+                      {new Date(selectedSlots[0].startTime).toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                      {' – '}
+                      {new Date(selectedSlots[selectedSlots.length - 1].endTime).toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                    <span className="rounded-lg bg-orange-500/20 border border-orange-500/40 px-2 py-0.5 text-xs font-bold text-orange-300">
+                      {totalSelectedHours} giờ liên tiếp
+                    </span>
+                    <span className="text-sm font-bold text-emerald-400">
+                      Tạm tính: {formatMoney(totalEstimatedPrice)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCourtId(null);
+                      setSelectedSlots([]);
+                      setSelectionHint('');
+                    }}
+                    className="rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-white transition cursor-pointer"
+                  >
+                    Bỏ chọn
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleProceedToCheckout}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-orange-500/30 transition cursor-pointer"
+                  >
+                    <span>Tiếp tục thanh toán ({totalSelectedHours} giờ)</span>
+                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </PageFrame>
@@ -720,7 +902,19 @@ function CheckoutPage({ bookingType, itemId }) {
     setVoucherError('');
   };
 
-  // Price calculations
+  // Price & duration calculations
+  const bookedHours = useMemo(() => {
+    const startVal = quote?.startTime || startTime;
+    const endVal = quote?.endTime || endTime;
+    if ((quote?.bookingType || bookingType)?.toUpperCase() !== 'COURT' || !startVal || !endVal) {
+      return 1;
+    }
+    const diffHours = Math.round((new Date(endVal).getTime() - new Date(startVal).getTime()) / 3600000);
+    return Math.max(1, diffHours);
+  }, [bookingType, endTime, quote?.bookingType, quote?.endTime, quote?.startTime, startTime]);
+
+  const requiredQuota = (quote?.bookingType || bookingType)?.toUpperCase() === 'COURT' ? bookedHours : 1;
+
   const originalPrice = quote?.originalAmount ?? quote?.amount ?? 0;
   const systemDiscount = quote?.discountAmount ?? 0;
 
@@ -742,19 +936,19 @@ function CheckoutPage({ bookingType, itemId }) {
 
     // Business rule: Quota validation
     if (paymentMode === 'QUOTA') {
-      if (memberQuota.remainingQuota < 1) {
+      if (memberQuota.remainingQuota < requiredQuota) {
         setError(
-          'Số buổi trong gói hội viên của bạn không đủ (còn 0 buổi). Vui lòng thanh toán theo giá bán lẻ hoặc nạp thêm gói tập. Quy chế trung tâm nghiêm cấm tách một phần quota và bù tiền mặt.'
+          `Số buổi trong gói hội viên của bạn không đủ (cần ${requiredQuota} buổi cho ${bookedHours} giờ đặt sân, hiện còn ${memberQuota.remainingQuota} buổi). Vui lòng thanh toán theo giá bán lẻ hoặc nạp thêm gói tập. Quy chế trung tâm nghiêm cấm tách một phần quota và bù tiền mặt.`
         );
         setSubmitting(false);
         return;
       }
 
-      // Deduct 1 session from quota and persist
+      // Deduct requiredQuota sessions from quota and persist
       const updatedQuota = {
         ...memberQuota,
-        usedQuota: memberQuota.usedQuota + 1,
-        remainingQuota: memberQuota.remainingQuota - 1,
+        usedQuota: memberQuota.usedQuota + requiredQuota,
+        remainingQuota: memberQuota.remainingQuota - requiredQuota,
       };
       setMemberQuota(updatedQuota);
       localStorage.setItem('sports_center_member_quota', JSON.stringify(updatedQuota));
@@ -769,7 +963,7 @@ function CheckoutPage({ bookingType, itemId }) {
         amountPaid: 0,
         paymentStatus: 'ĐÃ KHẤU TRỪ QUOTA GÓI',
         paymentMethod: 'MEMBERSHIP_QUOTA',
-        quotaNote: `Đã cấn trừ 1 buổi từ ${memberQuota.packageName}. Số dư còn lại: ${updatedQuota.remainingQuota} buổi.`,
+        quotaNote: `Đã cấn trừ ${requiredQuota} buổi từ ${memberQuota.packageName}. Số dư còn lại: ${updatedQuota.remainingQuota} buổi.`,
       };
 
       navigate('/member/book/confirmation', { replace: true, state: { confirmation } });
@@ -809,7 +1003,7 @@ function CheckoutPage({ bookingType, itemId }) {
   const actionBtnLabel = submitting
     ? 'Đang xử lý...'
     : paymentMode === 'QUOTA'
-    ? `Xác Nhận Đặt Chỗ — Trừ 1 Buổi Gói Tập (Còn: ${memberQuota.remainingQuota - 1} buổi)`
+    ? `Xác Nhận Đặt Chỗ — Trừ ${requiredQuota} Buổi Gói Tập (Còn: ${memberQuota.remainingQuota - requiredQuota} buổi)`
     : paymentMethod === 'VIETQR'
     ? `Tôi Đã Chuyển Khoản — Xác Nhận ${formatMoney(finalPrice)}`
     : paymentMethod === 'CASH_COUNTER'
@@ -846,13 +1040,20 @@ function CheckoutPage({ bookingType, itemId }) {
             <div className="flex justify-between gap-4">
               <dt className="text-slate-500">Thời gian</dt>
               <dd className="text-right font-semibold text-slate-800">
-                {formatDate(quote.startTime)}
-                {quote.endTime
-                  ? ` — ${new Date(quote.endTime).toLocaleTimeString('vi-VN', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}`
-                  : ''}
+                <span>
+                  {formatDate(quote.startTime)}
+                  {quote.endTime
+                    ? ` — ${new Date(quote.endTime).toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}`
+                    : ''}
+                </span>
+                {quote.bookingType === 'COURT' && (
+                  <span className="ml-2 inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs font-bold text-orange-700">
+                    {bookedHours} giờ liên tiếp
+                  </span>
+                )}
               </dd>
             </div>
             <div className="flex justify-between gap-4">
@@ -865,7 +1066,9 @@ function CheckoutPage({ bookingType, itemId }) {
             </div>
 
             <div className="flex justify-between gap-4 border-t border-slate-200/60 pt-3">
-              <dt className="text-slate-500">Giá niêm yết bán lẻ</dt>
+              <dt className="text-slate-500">
+                Giá niêm yết bán lẻ{quote.bookingType === 'COURT' && bookedHours > 1 ? ` (${bookedHours} giờ)` : ''}
+              </dt>
               <dd className={`font-semibold ${paymentMode === 'QUOTA' || systemDiscount > 0 ? 'line-through text-slate-400' : 'text-slate-800'}`}>
                 {formatMoney(originalPrice)}
               </dd>
@@ -877,7 +1080,7 @@ function CheckoutPage({ bookingType, itemId }) {
                   <span className="material-symbols-outlined text-sm text-orange-600">verified</span>
                   Khấu trừ Quota Gói Hội Viên ({memberQuota.packageName}):
                 </span>
-                <strong className="font-bold text-orange-700">Trừ 1 Buổi (0đ)</strong>
+                <strong className="font-bold text-orange-700">Trừ {requiredQuota} Buổi (0đ)</strong>
               </div>
             )}
 
@@ -918,8 +1121,8 @@ function CheckoutPage({ bookingType, itemId }) {
               <button
                 type="button"
                 onClick={() => {
-                  if (memberQuota.remainingQuota < 1) {
-                    setError('Số buổi trong gói hội viên của bạn không đủ (còn 0 buổi). Vui lòng thanh toán theo giá bán lẻ hoặc nạp thêm gói tập. Quy chế trung tâm nghiêm cấm tách một phần quota và bù tiền mặt.');
+                  if (memberQuota.remainingQuota < requiredQuota) {
+                    setError(`Số buổi trong gói hội viên của bạn không đủ (cần ${requiredQuota} buổi cho ${bookedHours} giờ đặt sân, hiện còn ${memberQuota.remainingQuota} buổi). Vui lòng thanh toán theo giá bán lẻ hoặc nạp thêm gói tập. Quy chế trung tâm nghiêm cấm tách một phần quota và bù tiền mặt.`);
                     return;
                   }
                   setError('');
@@ -929,13 +1132,13 @@ function CheckoutPage({ bookingType, itemId }) {
                   paymentMode === 'QUOTA'
                     ? 'border-orange-500 bg-orange-50/50 ring-2 ring-orange-500/20'
                     : 'border-slate-200 bg-white hover:border-slate-300'
-                } ${memberQuota.remainingQuota < 1 ? 'opacity-60 cursor-not-allowed bg-slate-50' : ''}`}
+                } ${memberQuota.remainingQuota < requiredQuota ? 'opacity-60 cursor-not-allowed bg-slate-50' : ''}`}
               >
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-[18px] text-orange-600">card_membership</span>
-                      Dùng Buổi Gói Hội Viên
+                      Dùng Buổi Gói Hội Viên ({requiredQuota} buổi)
                     </span>
                     {paymentMode === 'QUOTA' && (
                       <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
@@ -945,7 +1148,7 @@ function CheckoutPage({ bookingType, itemId }) {
                 </div>
                 <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                   <span className="text-slate-500">Số dư khả dụng:</span>
-                  <span className={`font-extrabold ${memberQuota.remainingQuota > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                  <span className={`font-extrabold ${memberQuota.remainingQuota >= requiredQuota ? 'text-emerald-600' : 'text-red-500'}`}>
                     {memberQuota.remainingQuota} / {memberQuota.initialQuota} buổi
                   </span>
                 </div>

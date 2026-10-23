@@ -347,12 +347,13 @@ public class BookingService {
         String normalizedType = normalizeBookingType(bookingType);
         if ("COURT".equals(normalizedType)) {
             SportsCourt court = getActiveCourt(itemId);
-            validateCourtSlot(court, startTime, endTime);
+            long hours = validateCourtSlot(court, startTime, endTime);
             if (courtBookingRepository.existsConfirmedOverlap(itemId, startTime, endTime)) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Khung giờ sân vừa được người khác đặt.");
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Một hoặc nhiều khung giờ sân đã chọn vừa được người khác đặt.");
             }
             PublicSport sport = getActiveSport(court.getSportId());
-            DiscountInfo discount = calculateDiscount(memberId, "COURT", court.getHourlyRate());
+            BigDecimal baseAmount = court.getHourlyRate().multiply(BigDecimal.valueOf(hours));
+            DiscountInfo discount = calculateDiscount(memberId, "COURT", baseAmount);
             return new BookingQuoteResponse(
                     normalizedType, itemId, court.getCourtName(), sport.getName(),
                     court.getDescription(), startTime, endTime, discount.finalAmount(),
@@ -496,12 +497,13 @@ public class BookingService {
         SportsCourt court = sportsCourtRepository.findByIdForUpdate(request.itemId())
                 .filter(SportsCourt::isActive)
                 .orElseThrow(() -> notFound("Không tìm thấy sân đang hoạt động."));
-        validateCourtSlot(court, request.startTime(), request.endTime());
+        long hours = validateCourtSlot(court, request.startTime(), request.endTime());
         if (courtBookingRepository.existsConfirmedOverlap(court.getCourtId(), request.startTime(), request.endTime())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Khung giờ sân vừa được người khác đặt.");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Một hoặc nhiều khung giờ sân đã chọn vừa được người khác đặt.");
         }
         PublicSport sport = getActiveSport(court.getSportId());
-        DiscountInfo discount = calculateDiscount(memberId, "COURT", court.getHourlyRate());
+        BigDecimal baseAmount = court.getHourlyRate().multiply(BigDecimal.valueOf(hours));
+        DiscountInfo discount = calculateDiscount(memberId, "COURT", baseAmount);
         PaymentTransaction payment = createPaymentTransaction(memberId, "COURT", discount.finalAmount(), request.paymentMethod());
 
         CourtBooking booking = new CourtBooking();
@@ -665,21 +667,30 @@ public class BookingService {
         requirePrice(session.getPriceAmount());
     }
 
-    private void validateCourtSlot(SportsCourt court, LocalDateTime startTime, LocalDateTime endTime) {
-        if (startTime == null || endTime == null || !endTime.equals(startTime.plusHours(1))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mỗi lượt đặt sân có thời lượng cố định 60 phút.");
+    private long validateCourtSlot(SportsCourt court, LocalDateTime startTime, LocalDateTime endTime) {
+        if (startTime == null || endTime == null || !endTime.isAfter(startTime)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời gian đặt sân không hợp lệ.");
+        }
+        if (!startTime.toLocalDate().equals(endTime.toLocalDate())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lượt đặt sân phải nằm trong cùng một ngày.");
+        }
+        long minutes = Duration.between(startTime, endTime).toMinutes();
+        if (minutes < 60 || minutes % 60 != 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời lượng đặt sân phải theo từng khung 60 phút liên tiếp (1 giờ, 2 giờ, 3 giờ...).");
         }
         LocalDateTime now = LocalDateTime.now();
         if (!startTime.isAfter(now) || startTime.isAfter(now.plusDays(14))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ có thể đặt sân trong 14 ngày tới.");
         }
         if (!startTime.toLocalTime().equals(startTime.toLocalTime().withMinute(0).withSecond(0).withNano(0))
+                || !endTime.toLocalTime().equals(endTime.toLocalTime().withMinute(0).withSecond(0).withNano(0))
                 || endTime.toLocalTime().isAfter(court.getClosesAt())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Khung giờ sân không hợp lệ.");
         }
         if (startTime.toLocalTime().isBefore(court.getOpensAt())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Khung giờ nằm ngoài giờ hoạt động của sân.");
         }
+        return minutes / 60;
     }
 
     private String normalizeBookingType(String bookingType) {
