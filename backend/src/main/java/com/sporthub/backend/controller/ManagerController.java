@@ -45,24 +45,23 @@ public class ManagerController {
     private final MembershipPackageRepository packageRepository;
     private final PublicSportRepository sportRepository;
     private final PasswordEncoder passwordEncoder;
+    private final com.sporthub.backend.service.EmailService emailService;
+    private final com.sporthub.backend.service.AuditLogService auditLogService;
 
     @Autowired
     public ManagerController(
             UserRepository userRepository,
             MembershipPackageRepository packageRepository,
             PublicSportRepository sportRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            com.sporthub.backend.service.EmailService emailService,
+            com.sporthub.backend.service.AuditLogService auditLogService) {
         this.userRepository = userRepository;
         this.packageRepository = packageRepository;
         this.sportRepository = sportRepository;
         this.passwordEncoder = passwordEncoder;
-    }
-
-    public ManagerController(
-            UserRepository userRepository,
-            MembershipPackageRepository packageRepository,
-            PublicSportRepository sportRepository) {
-        this(userRepository, packageRepository, sportRepository, new BCryptPasswordEncoder());
+        this.emailService = emailService;
+        this.auditLogService = auditLogService;
     }
 
     @GetMapping("/staff-registrations")
@@ -373,6 +372,9 @@ public class ManagerController {
             }
         }
 
+        // Rule: Staff (COACH, RECEPTIONIST, MANAGER) cần đổi password lần đầu
+        boolean requirePasswordChange = List.of("COACH", "RECEPTIONIST", "MANAGER", "ADMIN").contains(targetRole);
+
         User user = User.builder()
                 .fullName(fullName)
                 .email(email)
@@ -380,9 +382,26 @@ public class ManagerController {
                 .passwordHash(passwordEncoder.encode(password))
                 .role(targetRole)
                 .status("ACTIVE")
+                .requirePasswordChange(requirePasswordChange)
                 .build();
 
         User savedUser = userRepository.save(user);
+        
+        // Rule: Gửi email mật khẩu tạm nếu là Staff
+        if (requirePasswordChange) {
+            try {
+                emailService.sendTemporaryPasswordEmail(savedUser.getEmail(), savedUser.getFullName(), password, savedUser.getRole());
+                auditLogService.logSuccess("CREATE_STAFF", savedUser.getEmail(), savedUser.getUserId(), 
+                        "Staff created | Role: " + savedUser.getRole() + " | RequirePasswordChange: true | Temporary password sent");
+            } catch (Exception e) {
+                auditLogService.logFailure("CREATE_STAFF", savedUser.getEmail(), savedUser.getUserId(), 
+                        "Staff created but email failed", e.getMessage());
+            }
+        } else {
+            auditLogService.logSuccess("CREATE_USER", savedUser.getEmail(), savedUser.getUserId(), 
+                    "User created | Role: " + savedUser.getRole());
+        }
+        
         return new ManagerUserResponse(
                 savedUser.getUserId(),
                 savedUser.getFullName(),

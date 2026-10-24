@@ -54,7 +54,11 @@ public class User {
 
     @Builder.Default
     @Column(length = 20)
-    private String status = "ACTIVE"; // ACTIVE, INACTIVE, LOCKED
+    private String status = "ACTIVE"; // ACTIVE, INACTIVE, LOCKED, PENDING
+
+    @Builder.Default
+    @Column(name = "require_password_change", nullable = false)
+    private Boolean requirePasswordChange = false;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
