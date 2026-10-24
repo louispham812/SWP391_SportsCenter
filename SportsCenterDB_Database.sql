@@ -8,7 +8,7 @@ GO
 
 
 
-\-- 1. BẢNG NGƯỜI DÙNG (Cập nhật thêm vai trò RECEPTIONIST & thông tin cá nhân)
+-- 1. BẢNG NGƯỜI DÙNG (Cập nhật thêm vai trò RECEPTIONIST & thông tin cá nhân)
 
 CREATE TABLE users (
 
@@ -40,7 +40,7 @@ GO
 
 
 
-\-- 2. HỒ SƠ SỨC KHỎE HỌC VIÊN (Dùng cho HLV & Tính năng AI Recommendation)
+-- 2. HỒ SƠ SỨC KHỎE HỌC VIÊN (Dùng cho HLV & Tính năng AI Recommendation)
 
 CREATE TABLE member_health_profiles (
 
@@ -50,9 +50,9 @@ CREATE TABLE member_health_profiles (
 
     fitness_level VARCHAR(30) DEFAULT 'BEGINNER', -- BEGINNER, AMATEUR, ADVANCED
 
-    fitness_goals NVARCHAR(MAX) NULL,             -- Mục tiêu: Giảm cân, Tăng cơ...
+    fitness_goals NVARCHAR(MAX) NULL,             -- Mục tiêu: Giảm cân, Tăng cơ...
 
-    injury_history NVARCHAR(MAX) NULL,            -- Tiền sử chấn thương
+    injury_history NVARCHAR(MAX) NULL,            -- Tiền sử chấn thương
 
     weight_kg DECIMAL(5,2) NULL,
     height_cm DECIMAL(5,2) NULL,
@@ -60,9 +60,9 @@ CREATE TABLE member_health_profiles (
     pbf_percent DECIMAL(5,2) NULL,
     bmi DECIMAL(5,2) NULL,
 
-    updated_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE(),
 
-    FOREIGN KEY (member_id) REFERENCES users(user_id) ON DELETE CASCADE
+    FOREIGN KEY (member_id) REFERENCES users(user_id) ON DELETE CASCADE
 
 );
 
@@ -70,15 +70,15 @@ GO
 
 
 
-\-- 3. BẢNG MÔN THỂ THAO
+-- 3. BẢNG MÔN THỂ THAO
 
 CREATE TABLE sports (
 
-    sport_id INT IDENTITY(1,1) PRIMARY KEY,
+    sport_id INT IDENTITY(1,1) PRIMARY KEY,
 
-    sport_name NVARCHAR(50) NOT NULL,
+    sport_name NVARCHAR(50) NOT NULL,
 
-    description NVARCHAR(MAX)
+    description NVARCHAR(MAX)
 
 );
 
@@ -86,21 +86,21 @@ GO
 
 
 
-\-- 4. BẢNG SÂN TẬP / PHÒNG TẬP
+-- 4. BẢNG SÂN TẬP / PHÒNG TẬP
 
 CREATE TABLE facilities (
 
-    facility_id INT IDENTITY(1,1) PRIMARY KEY,
+    facility_id INT IDENTITY(1,1) PRIMARY KEY,
 
-    facility_name NVARCHAR(100) NOT NULL,
+    facility_name NVARCHAR(100) NOT NULL,
 
-    sport_id INT NOT NULL,
+    sport_id INT NOT NULL,
 
-    capacity INT NOT NULL,
+    capacity INT NOT NULL,
 
-    status VARCHAR(20) DEFAULT 'AVAILABLE' CHECK (status IN ('AVAILABLE', 'MAINTENANCE')),
+    status VARCHAR(20) DEFAULT 'AVAILABLE' CHECK (status IN ('AVAILABLE', 'MAINTENANCE')),
 
-    FOREIGN KEY (sport_id) REFERENCES sports(sport_id)
+    FOREIGN KEY (sport_id) REFERENCES sports(sport_id)
 
 );
 
@@ -108,23 +108,23 @@ GO
 
 
 
-\-- 5. BẢNG MÃ GIẢM GIÁ (Voucher)
+-- 5. BẢNG MÃ GIẢM GIÁ (Voucher)
 
 CREATE TABLE vouchers (
 
-    voucher_id INT IDENTITY(1,1) PRIMARY KEY,
+    voucher_id INT IDENTITY(1,1) PRIMARY KEY,
 
-    code VARCHAR(50) NOT NULL UNIQUE,
+    code VARCHAR(50) NOT NULL UNIQUE,
 
-    discount_percent INT CHECK (discount_percent BETWEEN 1 AND 100),
+    discount_percent INT CHECK (discount_percent BETWEEN 1 AND 100),
 
-    max_discount_amount DECIMAL(10,2) NULL,
+    max_discount_amount DECIMAL(10,2) NULL,
 
-    valid_until DATE NOT NULL,
+    valid_until DATE NOT NULL,
 
-    usage_limit INT DEFAULT 100,
+    usage_limit INT DEFAULT 100,
 
-    status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'EXPIRED'))
+    status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'EXPIRED'))
 
 );
 
@@ -132,27 +132,27 @@ GO
 
 
 
-\-- 6. BẢNG GÓI TẬP (Cập nhật thêm loại khung giờ Peak/Off-peak)
+-- 6. BẢNG GÓI TẬP (Cập nhật thêm loại khung giờ Peak/Off-peak)
 
 CREATE TABLE membership_packages (
 
-    package_id INT IDENTITY(1,1) PRIMARY KEY,
+    package_id INT IDENTITY(1,1) PRIMARY KEY,
 
-    name NVARCHAR(100) NOT NULL,
+    name NVARCHAR(100) NOT NULL,
 
-    sport_id INT NULL, -- NULL nếu là gói tổng nhiều môn
+    sport_id INT NULL, -- NULL nếu là gói tổng nhiều môn
 
-    price DECIMAL(10,2) NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
 
-    duration_days INT NOT NULL,
+    duration_days INT NOT NULL,
 
-    access_type VARCHAR(20) DEFAULT 'ALL_DAY' CHECK (access_type IN ('ALL_DAY', 'PEAK', 'OFF_PEAK')),
+    access_type VARCHAR(20) DEFAULT 'ALL_DAY' CHECK (access_type IN ('ALL_DAY', 'PEAK', 'OFF_PEAK')),
 
-    description NVARCHAR(MAX),
+    description NVARCHAR(MAX),
 
-    status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE')),
 
-    FOREIGN KEY (sport_id) REFERENCES sports(sport_id)
+    FOREIGN KEY (sport_id) REFERENCES sports(sport_id)
 
 );
 
@@ -160,25 +160,25 @@ GO
 
 
 
-\-- 7. BẢNG GÓI TẬP CỦA HỌC VIÊN (Thêm trạng thái FROZEN - Bảo lưu)
+-- 7. BẢNG GÓI TẬP CỦA HỌC VIÊN (Thêm trạng thái FROZEN - Bảo lưu)
 
 CREATE TABLE user_memberships (
 
-    um_id INT IDENTITY(1,1) PRIMARY KEY,
+    um_id INT IDENTITY(1,1) PRIMARY KEY,
 
-    user_id INT NOT NULL,
+    user_id INT NOT NULL,
 
-    package_id INT NOT NULL,
+    package_id INT NOT NULL,
 
-    start_date DATE,
+    start_date DATE,
 
-    end_date DATE,
+    end_date DATE,
 
-    status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'ACTIVE', 'EXPIRED', 'FROZEN')),
+    status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'ACTIVE', 'EXPIRED', 'FROZEN')),
 
-    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
 
-    FOREIGN KEY (package_id) REFERENCES membership_packages(package_id)
+    FOREIGN KEY (package_id) REFERENCES membership_packages(package_id)
 
 );
 
@@ -186,37 +186,37 @@ GO
 
 
 
-\-- 8. BẢNG LỚP HỌC / LỊCH DẠY
+-- 8. BẢNG LỚP HỌC / LỊCH DẠY
 
 CREATE TABLE class_sessions (
 
-    session_id INT IDENTITY(1,1) PRIMARY KEY,
+    session_id INT IDENTITY(1,1) PRIMARY KEY,
 
-    class_name NVARCHAR(100) NOT NULL,
+    class_name NVARCHAR(100) NOT NULL,
 
-    sport_id INT NOT NULL,
+    sport_id INT NOT NULL,
 
-    coach_id INT NOT NULL,&#x20;
+    coach_id INT NOT NULL, 
 
-    facility_id INT NOT NULL,
+    facility_id INT NOT NULL,
 
-    start_time DATETIME NOT NULL,
+    start_time DATETIME NOT NULL,
 
-    end_time DATETIME NOT NULL,
+    end_time DATETIME NOT NULL,
 
-    max_slots INT NOT NULL,
+    max_slots INT NOT NULL,
 
-    booked_slots INT DEFAULT 0,
+    booked_slots INT DEFAULT 0,
 
-    price_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+    price_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
 
-    status VARCHAR(20) DEFAULT 'SCHEDULED' CHECK (status IN ('SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED')),
+    status VARCHAR(20) DEFAULT 'SCHEDULED' CHECK (status IN ('SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED')),
 
-    FOREIGN KEY (sport_id) REFERENCES sports(sport_id),
+    FOREIGN KEY (sport_id) REFERENCES sports(sport_id),
 
-    FOREIGN KEY (coach_id) REFERENCES users(user_id),
+    FOREIGN KEY (coach_id) REFERENCES users(user_id),
 
-    FOREIGN KEY (facility_id) REFERENCES facilities(facility_id)
+    FOREIGN KEY (facility_id) REFERENCES facilities(facility_id)
 
 );
 
@@ -224,29 +224,29 @@ GO
 
 
 
-\-- 9. BẢNG ĐẶT CHỖ (Bookings - Thêm quản lý Danh sách chờ / Waitlist)
+-- 9. BẢNG ĐẶT CHỖ (Bookings - Thêm quản lý Danh sách chờ / Waitlist)
 
 CREATE TABLE bookings (
 
-    booking_id INT IDENTITY(1,1) PRIMARY KEY,
+    booking_id INT IDENTITY(1,1) PRIMARY KEY,
 
-    member_id INT NOT NULL,
+    member_id INT NOT NULL,
 
-    session_id INT NOT NULL,
+    session_id INT NOT NULL,
 
-    booking_time DATETIME DEFAULT GETDATE(),
+    booking_time DATETIME DEFAULT GETDATE(),
 
-    status VARCHAR(20) DEFAULT 'BOOKED' CHECK (status IN ('BOOKED', 'WAITLIST', 'CANCELLED')),
+    status VARCHAR(20) DEFAULT 'BOOKED' CHECK (status IN ('BOOKED', 'WAITLIST', 'CANCELLED')),
 
-    attendance_status VARCHAR(20) DEFAULT 'PENDING' CHECK (attendance_status IN ('PENDING', 'PRESENT', 'ABSENT')),
+    attendance_status VARCHAR(20) DEFAULT 'PENDING' CHECK (attendance_status IN ('PENDING', 'PRESENT', 'ABSENT')),
 
-    coach_note NVARCHAR(MAX),
+    coach_note NVARCHAR(MAX),
 
-    homework_note NVARCHAR(MAX) NULL, -- Bài tập về nhà HLV giao
+    homework_note NVARCHAR(MAX) NULL, -- Bài tập về nhà HLV giao
 
-    FOREIGN KEY (member_id) REFERENCES users(user_id),
+    FOREIGN KEY (member_id) REFERENCES users(user_id),
 
-    FOREIGN KEY (session_id) REFERENCES class_sessions(session_id)
+    FOREIGN KEY (session_id) REFERENCES class_sessions(session_id)
 
 );
 
@@ -254,35 +254,35 @@ GO
 
 
 
-\-- 10. BẢNG THANH TOÁN (Linh hoạt cho cả Gói tập lẫn Bán lẻ/Thuê đồ)
+-- 10. BẢNG THANH TOÁN (Linh hoạt cho cả Gói tập lẫn Bán lẻ/Thuê đồ)
 
 CREATE TABLE payments (
 
-    payment_id INT IDENTITY(1,1) PRIMARY KEY,
+    payment_id INT IDENTITY(1,1) PRIMARY KEY,
 
-    member_id INT NOT NULL,
+    member_id INT NOT NULL,
 
-    um_id INT NULL,                     -- Cho phép NULL nếu thanh toán mua lẻ nước/thiết bị
+    um_id INT NULL,                     -- Cho phép NULL nếu thanh toán mua lẻ nước/thiết bị
 
-    voucher_id INT NULL,                -- Áp dụng mã giảm giá
+    voucher_id INT NULL,                -- Áp dụng mã giảm giá
 
-    amount DECIMAL(10, 2) NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
 
-    payment_method VARCHAR(20) NOT NULL CHECK (payment_method IN ('ONLINE', 'CASH', 'TRANSFER', 'POS')),
+    payment_method VARCHAR(20) NOT NULL CHECK (payment_method IN ('ONLINE', 'CASH', 'TRANSFER', 'POS')),
 
-    payment_status VARCHAR(20) DEFAULT 'PENDING' CHECK (payment_status IN ('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED')),
+    payment_status VARCHAR(20) DEFAULT 'PENDING' CHECK (payment_status IN ('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED')),
 
-    approved_by INT NULL,              -- Lễ tân hoặc Manager duyệt
+    approved_by INT NULL,              -- Lễ tân hoặc Manager duyệt
 
-    created_at DATETIME DEFAULT GETDATE(),
+    created_at DATETIME DEFAULT GETDATE(),
 
-    FOREIGN KEY (member_id) REFERENCES users(user_id),
+    FOREIGN KEY (member_id) REFERENCES users(user_id),
 
-    FOREIGN KEY (um_id) REFERENCES user_memberships(um_id),
+    FOREIGN KEY (um_id) REFERENCES user_memberships(um_id),
 
-    FOREIGN KEY (voucher_id) REFERENCES vouchers(voucher_id),
+    FOREIGN KEY (voucher_id) REFERENCES vouchers(voucher_id),
 
-    FOREIGN KEY (approved_by) REFERENCES users(user_id)
+    FOREIGN KEY (approved_by) REFERENCES users(user_id)
 
 );
 
@@ -290,29 +290,29 @@ GO
 
 
 
-\-- 11. BẢNG ĐÁNH GIÁ (Feedback HLV & Lớp học)
+-- 11. BẢNG ĐÁNH GIÁ (Feedback HLV & Lớp học)
 
 CREATE TABLE feedbacks (
 
-    feedback_id INT IDENTITY(1,1) PRIMARY KEY,
+    feedback_id INT IDENTITY(1,1) PRIMARY KEY,
 
-    member_id INT NOT NULL,
+    member_id INT NOT NULL,
 
-    session_id INT NOT NULL,
+    session_id INT NOT NULL,
 
-    coach_id INT NOT NULL,
+    coach_id INT NOT NULL,
 
-    rating INT CHECK (rating BETWEEN 1 AND 5),
+    rating INT CHECK (rating BETWEEN 1 AND 5),
 
-    comment NVARCHAR(MAX) NULL,
+    comment NVARCHAR(MAX) NULL,
 
-    created_at DATETIME DEFAULT GETDATE(),
+    created_at DATETIME DEFAULT GETDATE(),
 
-    FOREIGN KEY (member_id) REFERENCES users(user_id),
+    FOREIGN KEY (member_id) REFERENCES users(user_id),
 
-    FOREIGN KEY (session_id) REFERENCES class_sessions(session_id),
+    FOREIGN KEY (session_id) REFERENCES class_sessions(session_id),
 
-    FOREIGN KEY (coach_id) REFERENCES users(user_id)
+    FOREIGN KEY (coach_id) REFERENCES users(user_id)
 
 );
 
@@ -326,85 +326,85 @@ GO
 
 
 
-\-- =============================================================================
+-- =============================================================================
 
-\-- 1. SEED DATA FOR TABLE: users
+-- 1. SEED DATA FOR TABLE: users
 
-\-- Demo accounts use the same readable password: SportHub@123
+-- Demo accounts use the same readable password: SportHub@123
 
-\-- =============================================================================
+-- =============================================================================
 
-INSERT INTO users (full_name, email, password, phone, role, status) VALUES&#x20;
+INSERT INTO users (full_name, email, password, phone, role, status) VALUES 
 
-\-- Managers
+-- Managers
 
-(N'Nguyễn Văn Quản Lý', 'manager\@sporthub.com', 'SportHub@123', '0901234567', 'MANAGER', 'ACTIVE'),
+(N'Nguyễn Văn Quản Lý', 'manager@sporthub.com', 'SportHub@123', '0901234567', 'MANAGER', 'ACTIVE'),
 
-(N'Trần Thị Giám Đốc', 'director\@sporthub.com', 'SportHub@123', '0909876543', 'MANAGER', 'ACTIVE'),
-
-
-
-\-- Receptionists
-
-(N'Lê Thị Lễ Tân', 'reception.le\@sporthub.com', 'SportHub@123', '0912345678', 'RECEPTIONIST', 'ACTIVE'),
-
-(N'Phạm Minh Tú', 'reception.tu\@sporthub.com', 'SportHub@123', '0918765432', 'RECEPTIONIST', 'ACTIVE'),
+(N'Trần Thị Giám Đốc', 'director@sporthub.com', 'SportHub@123', '0909876543', 'MANAGER', 'ACTIVE'),
 
 
 
-\-- Coaches (HLV theo từng bộ môn)
+-- Receptionists
 
-(N'Trần Văn Minh', 'coach.minh\@sporthub.com', 'SportHub@123', '0923456789', 'COACH', 'ACTIVE'), -- HLV Tennis
+(N'Lê Thị Lễ Tân', 'reception.le@sporthub.com', 'SportHub@123', '0912345678', 'RECEPTIONIST', 'ACTIVE'),
 
-(N'Nguyễn Hoàng Nam', 'coach.nam\@sporthub.com', 'SportHub@123', '0928765432', 'COACH', 'ACTIVE'), -- HLV Pickleball
-
-(N'Võ Tấn Phát', 'coach.phat\@sporthub.com', 'SportHub@123', '0921112223', 'COACH', 'ACTIVE'), -- HLV Bóng đá
-
-(N'Đặng Thu Thảo', 'coach.thao\@sporthub.com', 'SportHub@123', '0923334445', 'COACH', 'ACTIVE'), -- HLV Cầu lông
+(N'Phạm Minh Tú', 'reception.tu@sporthub.com', 'SportHub@123', '0918765432', 'RECEPTIONIST', 'ACTIVE'),
 
 
 
-\-- Members (Hội viên / Học viên)
+-- Coaches (HLV theo từng bộ môn)
 
-(N'Nguyễn Anh Khoa', 'khoa.member\@gmail.com', 'SportHub@123', '0934567890', 'MEMBER', 'ACTIVE'),
+(N'Trần Văn Minh', 'coach.minh@sporthub.com', 'SportHub@123', '0923456789', 'COACH', 'ACTIVE'), -- HLV Tennis
 
-(N'Hoàng Thị Ngọc', 'ngoc.hoang\@gmail.com', 'SportHub@123', '0938765432', 'MEMBER', 'ACTIVE'),
+(N'Nguyễn Hoàng Nam', 'coach.nam@sporthub.com', 'SportHub@123', '0928765432', 'COACH', 'ACTIVE'), -- HLV Pickleball
 
-(N'Bùi Huy Hoàng', 'hoang.bui\@gmail.com', 'SportHub@123', '0931112233', 'MEMBER', 'ACTIVE'),
+(N'Võ Tấn Phát', 'coach.phat@sporthub.com', 'SportHub@123', '0921112223', 'COACH', 'ACTIVE'), -- HLV Bóng đá
 
-(N'Đỗ Phương Anh', 'anh.do\@gmail.com', 'SportHub@123', '0934445566', 'MEMBER', 'ACTIVE'),
-
-(N'Vũ Trọng Tuấn', 'tuan.vu\@gmail.com', 'SportHub@123', '0937778899', 'MEMBER', 'ACTIVE');
-
-GO
+(N'Đặng Thu Thảo', 'coach.thao@sporthub.com', 'SportHub@123', '0923334445', 'COACH', 'ACTIVE'), -- HLV Cầu lông
 
 
 
-\-- =============================================================================
+-- Members (Hội viên / Học viên)
 
-\-- 2. SEED DATA FOR TABLE: member_health_profiles
+(N'Nguyễn Anh Khoa', 'khoa.member@gmail.com', 'SportHub@123', '0934567890', 'MEMBER', 'ACTIVE'),
 
-\-- =============================================================================
+(N'Hoàng Thị Ngọc', 'ngoc.hoang@gmail.com', 'SportHub@123', '0938765432', 'MEMBER', 'ACTIVE'),
 
-INSERT INTO member_health_profiles (member_id, fitness_level, fitness_goals, injury_history, weight_kg, height_cm) VALUES&#x20;
+(N'Bùi Huy Hoàng', 'hoang.bui@gmail.com', 'SportHub@123', '0931112233', 'MEMBER', 'ACTIVE'),
 
-(9,  'AMATEUR',  N'Tăng sức bền, rèn kỹ thuật Pickleball', N'Tiền sử lật sơ mi cổ chân trái năm 2024', 68.5, 172.0),
+(N'Đỗ Phương Anh', 'anh.do@gmail.com', 'SportHub@123', '0934445566', 'MEMBER', 'ACTIVE'),
 
-(10, 'BEGINNER', N'Giảm cân, cải thiện vóc dáng',           N'Không có',                                58.0, 160.0),
-
-(11, 'ADVANCED', N'Thi đấu giải Tennis phong trào',         N'Đau cơ vai nhẹ sau các trận đấu kéo dài', 74.0, 178.0),
-
-(12, 'BEGINNER', N'Tập phản xạ và cardio cùng bạn bè',      N'Không có',                                52.0, 158.0);
+(N'Vũ Trọng Tuấn', 'tuan.vu@gmail.com', 'SportHub@123', '0937778899', 'MEMBER', 'ACTIVE');
 
 GO
 
 
 
-\-- =============================================================================
+-- =============================================================================
 
-\-- 3. SEED DATA FOR TABLE: sports
+-- 2. SEED DATA FOR TABLE: member_health_profiles
 
-\-- =============================================================================
+-- =============================================================================
+
+INSERT INTO member_health_profiles (member_id, fitness_level, fitness_goals, injury_history, weight_kg, height_cm) VALUES 
+
+(9,  'AMATEUR',  N'Tăng sức bền, rèn kỹ thuật Pickleball', N'Tiền sử lật sơ mi cổ chân trái năm 2024', 68.5, 172.0),
+
+(10, 'BEGINNER', N'Giảm cân, cải thiện vóc dáng',           N'Không có',                                58.0, 160.0),
+
+(11, 'ADVANCED', N'Thi đấu giải Tennis phong trào',         N'Đau cơ vai nhẹ sau các trận đấu kéo dài', 74.0, 178.0),
+
+(12, 'BEGINNER', N'Tập phản xạ và cardio cùng bạn bè',      N'Không có',                                52.0, 158.0);
+
+GO
+
+
+
+-- =============================================================================
+
+-- 3. SEED DATA FOR TABLE: sports
+
+-- =============================================================================
 
 INSERT INTO sports (sport_name, description) VALUES 
 (N'Gym & Fitness', N'Khu vực tập Gym, Cardio và rèn luyện thể lực.'),
@@ -422,140 +422,140 @@ GO
 
 
 
-\-- =============================================================================
+-- =============================================================================
 
-\-- 4. SEED DATA FOR TABLE: facilities
+-- 4. SEED DATA FOR TABLE: facilities
 
-\-- =============================================================================
+-- =============================================================================
 
-INSERT INTO facilities (facility_name, sport_id, capacity, status) VALUES&#x20;
+INSERT INTO facilities (facility_name, sport_id, capacity, status) VALUES 
 
-\-- Sân Pickleball (sport_id = 2)
+-- Sân Pickleball (sport_id = 2)
 (N'Cụm Sân Pickleball - Sân P1 (Indoor)', 2, 4, 'AVAILABLE'),
 (N'Cụm Sân Pickleball - Sân P2 (Indoor)', 2, 4, 'AVAILABLE'),
 (N'Cụm Sân Pickleball - Sân P3 (Outdoor)', 2, 4, 'MAINTENANCE'),
 
 
 
-\-- Sân Tennis (sport_id = 3)
+-- Sân Tennis (sport_id = 3)
 (N'Sân Tennis Đơn & Đôi - Sân T1',        3, 4, 'AVAILABLE'),
 (N'Sân Tennis Đơn & Đôi - Sân T2',        3, 4, 'AVAILABLE'),
 
 
 
-\-- Sân Bóng đá (sport_id = 5)
+-- Sân Bóng đá (sport_id = 5)
 (N'Sân Cỏ Nhân Tạo 7 Người - Sân A',     5, 14, 'AVAILABLE'),
 (N'Sân Cỏ Nhân Tạo 7 Người - Sân B',     5, 14, 'AVAILABLE'),
 
 
 
-\-- Sân Cầu lông (sport_id = 6)
+-- Sân Cầu lông (sport_id = 6)
 (N'Sân Cầu Lông Thảm Yonex - Sân L1',    6, 4, 'AVAILABLE'),
 (N'Sân Cầu Lông Thảm Yonex - Sân L2',    6, 4, 'AVAILABLE'),
 
 
 
-\-- Các cơ sở cho sáu bộ môn mới (sport_id = 5..10)
+-- Các cơ sở cho sáu bộ môn mới (sport_id = 5..10)
 
-(N'Sân Bóng Đá 7 Người - Sân F1',         5, 14, 'AVAILABLE'),
+(N'Sân Bóng Đá 7 Người - Sân F1',         5, 14, 'AVAILABLE'),
 
-(N'Sân Bóng Đá 7 Người - Sân F2',         5, 14, 'AVAILABLE'),
+(N'Sân Bóng Đá 7 Người - Sân F2',         5, 14, 'AVAILABLE'),
 
-(N'Sân Cầu Lông Trong Nhà - Sân B1',      6, 4, 'AVAILABLE'),
+(N'Sân Cầu Lông Trong Nhà - Sân B1',      6, 4, 'AVAILABLE'),
 
-(N'Sân Cầu Lông Trong Nhà - Sân B2',      6, 4, 'AVAILABLE'),
+(N'Sân Cầu Lông Trong Nhà - Sân B2',      6, 4, 'AVAILABLE'),
 
-(N'Sân Bóng Chuyền - Sân V1',             7, 12, 'AVAILABLE'),
+(N'Sân Bóng Chuyền - Sân V1',             7, 12, 'AVAILABLE'),
 
-(N'Sân Bóng Chuyền - Sân V2',             7, 12, 'AVAILABLE'),
+(N'Sân Bóng Chuyền - Sân V2',             7, 12, 'AVAILABLE'),
 
-(N'Khu Bóng Bàn - Bàn T1',                8, 4, 'AVAILABLE'),
+(N'Khu Bóng Bàn - Bàn T1',                8, 4, 'AVAILABLE'),
 
-(N'Khu Bóng Bàn - Bàn T2',                8, 4, 'AVAILABLE'),
+(N'Khu Bóng Bàn - Bàn T2',                8, 4, 'AVAILABLE'),
 
-(N'Hồ Bơi - Làn S1',                      9, 8, 'AVAILABLE'),
+(N'Hồ Bơi - Làn S1',                      9, 8, 'AVAILABLE'),
 
-(N'Hồ Bơi - Làn S2',                      9, 8, 'AVAILABLE'),
+(N'Hồ Bơi - Làn S2',                      9, 8, 'AVAILABLE'),
 
-(N'Đường Chạy Điền Kinh - Khu A1',        10, 12, 'AVAILABLE'),
+(N'Đường Chạy Điền Kinh - Khu A1',        10, 12, 'AVAILABLE'),
 
-(N'Đường Chạy Điền Kinh - Khu A2',        10, 12, 'AVAILABLE');
+(N'Đường Chạy Điền Kinh - Khu A2',        10, 12, 'AVAILABLE');
 
 GO
 
 
 
-\-- =============================================================================
+-- =============================================================================
 
-\-- 5. SEED DATA FOR TABLE: vouchers
+-- 5. SEED DATA FOR TABLE: vouchers
 
-\-- =============================================================================
+-- =============================================================================
 
-INSERT INTO vouchers (code, discount_percent, max_discount_amount, valid_until, usage_limit, status) VALUES&#x20;
+INSERT INTO vouchers (code, discount_percent, max_discount_amount, valid_until, usage_limit, status) VALUES 
 
 ('WELCOME2026', 20, 200000.00, '2026-12-31', 200, 'ACTIVE'),
 
 ('SPORTSHUB10', 10, 100000.00, '2026-11-30', 100, 'ACTIVE'),
 
-('VIPMEMBER',   15, 300000.00, '2026-12-31', 50,  'ACTIVE'),
+('VIPMEMBER',   15, 300000.00, '2026-12-31', 50,  'ACTIVE'),
 
-('SUMMEREND',   30, 500000.00, '2026-09-30', 0,   'EXPIRED');
-
-GO
-
-
-
-\-- =============================================================================
-
-\-- 6. SEED DATA FOR TABLE: membership_packages
-
-\-- =============================================================================
-
-INSERT INTO membership_packages (name, sport_id, price, duration_days, access_type, description, status) VALUES&#x20;
-
-\-- Gói tổng hợp
-
-(N'Thẻ Hội Viên VIP Diamond (Toàn Hệ Thống)', NULL, 2800000.00, 30, 'ALL_DAY',  N'Tập không giới hạn tất cả các bộ môn, free Locker & nước uống.', 'ACTIVE'),
-
-(N'Thẻ Hội Viên Vàng Off-Peak',               NULL, 1500000.00, 30, 'OFF_PEAK', N'Tập tất cả các môn từ 08:00 - 16:00 các ngày trong tuần.',       'ACTIVE'),
-
-
-
-\-- Gói chuyên biệt theo môn
-
-(N'Khóa Học Pickleball Căn Bản (10 Buổi)',   2,    1800000.00, 45, 'ALL_DAY',  N'Bao gồm 10 buổi học kỹ thuật cầm vợt, di chuyển cùng HLV.',     'ACTIVE'),
-
-(N'Thẻ Hội Viên Tennis Tháng',                 3,    2000000.00, 30, 'PEAK',     N'Miễn phí đặt sân Tennis vào khung giờ vàng (17:00 - 21:00).',     'ACTIVE'),
-
-(N'Gói Tập Cầu Lông Học Sinh / Sinh Viên',    6,    800000.00,  30, 'OFF_PEAK', N'Dành riêng cho HS-SV với giá ưu đãi.',                         'ACTIVE');
+('SUMMEREND',   30, 500000.00, '2026-09-30', 0,   'EXPIRED');
 
 GO
 
 
 
-\-- =============================================================================
+-- =============================================================================
 
-\-- 7. SEED DATA FOR TABLE: user_memberships
+-- 6. SEED DATA FOR TABLE: membership_packages
 
-\-- =============================================================================
+-- =============================================================================
 
-INSERT INTO user_memberships (user_id, package_id, start_date, end_date, status) VALUES&#x20;
+INSERT INTO membership_packages (name, sport_id, price, duration_days, access_type, description, status) VALUES 
 
-(9,  3, '2026-10-01', '2026-11-15', 'ACTIVE'),  -- Nguyễn Anh Khoa mua khóa Pickleball
+-- Gói tổng hợp
 
-(10, 2, '2026-10-05', '2026-11-05', 'ACTIVE'),  -- Hoàng Thị Ngọc mua gói Vàng Off-Peak
+(N'Thẻ Hội Viên VIP Diamond (Toàn Hệ Thống)', NULL, 2800000.00, 30, 'ALL_DAY',  N'Tập không giới hạn tất cả các bộ môn, free Locker & nước uống.', 'ACTIVE'),
+
+(N'Thẻ Hội Viên Vàng Off-Peak',               NULL, 1500000.00, 30, 'OFF_PEAK', N'Tập tất cả các môn từ 08:00 - 16:00 các ngày trong tuần.',       'ACTIVE'),
+
+
+
+-- Gói chuyên biệt theo môn
+
+(N'Khóa Học Pickleball Căn Bản (10 Buổi)',   2,    1800000.00, 45, 'ALL_DAY',  N'Bao gồm 10 buổi học kỹ thuật cầm vợt, di chuyển cùng HLV.',     'ACTIVE'),
+
+(N'Thẻ Hội Viên Tennis Tháng',                 3,    2000000.00, 30, 'PEAK',     N'Miễn phí đặt sân Tennis vào khung giờ vàng (17:00 - 21:00).',     'ACTIVE'),
+
+(N'Gói Tập Cầu Lông Học Sinh / Sinh Viên',    6,    800000.00,  30, 'OFF_PEAK', N'Dành riêng cho HS-SV với giá ưu đãi.',                         'ACTIVE');
+
+GO
+
+
+
+-- =============================================================================
+
+-- 7. SEED DATA FOR TABLE: user_memberships
+
+-- =============================================================================
+
+INSERT INTO user_memberships (user_id, package_id, start_date, end_date, status) VALUES 
+
+(9,  3, '2026-10-01', '2026-11-15', 'ACTIVE'),  -- Nguyễn Anh Khoa mua khóa Pickleball
+
+(10, 2, '2026-10-05', '2026-11-05', 'ACTIVE'),  -- Hoàng Thị Ngọc mua gói Vàng Off-Peak
 
 (11, 4, '2026-09-01', '2026-10-01', 'EXPIRED'), -- Bùi Huy Hoàng gói Tennis (đã hết hạn)
 
-(12, 5, '2026-10-10', '2026-11-10', 'PENDING');  -- Đỗ Phương Anh chờ xác nhận/thanh toán
+(12, 5, '2026-10-10', '2026-11-10', 'PENDING');  -- Đỗ Phương Anh chờ xác nhận/thanh toán
 
 GO
 
 
 
-\-- =============================================================================
+-- =============================================================================
 
-\-- 8. SEED DATA FOR TABLE: class_sessions
+-- 8. SEED DATA FOR TABLE: class_sessions
 
 -- =============================================================================
 
@@ -590,13 +590,13 @@ GO
 
 -- 9. SEED DATA FOR TABLE: bookings
 
-\-- =============================================================================
+-- =============================================================================
 
-INSERT INTO bookings (member_id, session_id, booking_time, status, attendance_status, coach_note, homework_note) VALUES&#x20;
+INSERT INTO bookings (member_id, session_id, booking_time, status, attendance_status, coach_note, homework_note) VALUES 
 
-\-- Đặt chỗ cho buổi tập sắp tới
+-- Đặt chỗ cho buổi tập sắp tới
 
-(9,  1, '2026-10-02 09:15:00', 'BOOKED', 'PENDING', NULL, NULL),
+(9,  1, '2026-10-02 09:15:00', 'BOOKED', 'PENDING', NULL, NULL),
 
 (10, 1, '2026-10-02 10:30:00', 'BOOKED', 'PENDING', NULL, NULL),
 
@@ -604,59 +604,59 @@ INSERT INTO bookings (member_id, session_id, booking_time, status, attendance_st
 
 
 
-\-- Buổi tập đã hoàn thành (Cầu lông/Tennis)
+-- Buổi tập đã hoàn thành (Cầu lông/Tennis)
 
-(9,  4, '2026-10-08 11:00:00', 'BOOKED', 'PRESENT', N'Động tác phát bóng tốt, cần chú ý bộ chân khi di chuyển lùi.', N'Tập nhảy dây 500 cái tại nhà'),
+(9,  4, '2026-10-08 11:00:00', 'BOOKED', 'PRESENT', N'Động tác phát bóng tốt, cần chú ý bộ chân khi di chuyển lùi.', N'Tập nhảy dây 500 cái tại nhà'),
 
 (12, 4, '2026-10-08 15:20:00', 'BOOKED', 'PRESENT', N'Cần thả lỏng cổ tay khi giao bóng.', N'Xem lại video kỹ thuật tay cầm vợt Continental'),
 
-(13, 4, '2026-10-08 16:00:00', 'BOOKED', 'ABSENT',  N'Vắng mặt không lý do.', NULL);
+(13, 4, '2026-10-08 16:00:00', 'BOOKED', 'ABSENT',  N'Vắng mặt không lý do.', NULL);
 
 GO
 
 
 
-\-- =============================================================================
+-- =============================================================================
 
-\-- 10. SEED DATA FOR TABLE: payments
+-- 10. SEED DATA FOR TABLE: payments
 
-\-- =============================================================================
+-- =============================================================================
 
-INSERT INTO payments (member_id, um_id, voucher_id, amount, payment_method, payment_status, approved_by, created_at) VALUES&#x20;
+INSERT INTO payments (member_id, um_id, voucher_id, amount, payment_method, payment_status, approved_by, created_at) VALUES 
 
-\-- Giao dịch chuyển khoản qua MoMo/VNPAY
+-- Giao dịch chuyển khoản qua MoMo/VNPAY
 
-(9,  1, 1, 1600000.00, 'ONLINE',   'COMPLETED', 3, '2026-10-01 09:30:00'),
+(9,  1, 1, 1600000.00, 'ONLINE',   'COMPLETED', 3, '2026-10-01 09:30:00'),
 
 (10, 2, 2, 1350000.00, 'TRANSFER', 'COMPLETED', 3, '2026-10-05 14:15:00'),
 
 
 
-\-- Giao dịch tiền mặt tại quầy lễ tân
+-- Giao dịch tiền mặt tại quầy lễ tân
 
-(11, 3, NULL, 2000000.00, 'CASH',     'COMPLETED', 3, '2026-09-01 08:00:00'),
+(11, 3, NULL, 2000000.00, 'CASH',     'COMPLETED', 3, '2026-09-01 08:00:00'),
 
 
 
-\-- Giao dịch quẹt thẻ POS
+-- Giao dịch quẹt thẻ POS
 
-(12, 4, NULL, 800000.00,  'POS',      'PENDING',   4, '2026-10-10 10:00:00');
+(12, 4, NULL, 800000.00,  'POS',      'PENDING',   4, '2026-10-10 10:00:00');
 
 GO
 
 
 
-\-- =============================================================================
+-- =============================================================================
 
-\-- 11. SEED DATA FOR TABLE: feedbacks
+-- 11. SEED DATA FOR TABLE: feedbacks
 
-\-- =============================================================================
+-- =============================================================================
 
-INSERT INTO feedbacks (member_id, session_id, coach_id, rating, comment, created_at) VALUES&#x20;
+INSERT INTO feedbacks (member_id, session_id, coach_id, rating, comment, created_at) VALUES 
 
-(9,  4, 5, 5, N'HLV Minh hướng dẫn rất nhiệt tình, sửa dáng giao bóng chuẩn từng chút một!', '2026-10-10 10:00:00'),
+(9,  4, 5, 5, N'HLV Minh hướng dẫn rất nhiệt tình, sửa dáng giao bóng chuẩn từng chút một!', '2026-10-10 10:00:00'),
 
-(12, 4, 5, 4, N'Buổi tập vui vẻ, không khí lớp học năng động. Sân bãi sạch đẹp.',        '2026-10-10 10:30:00');
+(12, 4, 5, 4, N'Buổi tập vui vẻ, không khí lớp học năng động. Sân bãi sạch đẹp.',        '2026-10-10 10:30:00');
 
 GO
 
