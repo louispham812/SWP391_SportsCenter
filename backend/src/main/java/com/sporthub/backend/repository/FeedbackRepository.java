@@ -7,4 +7,6 @@ import java.util.List;
 public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
     List<Feedback> findByCoachIdOrderByCreatedAtDesc(Long coachId);
     List<Feedback> findBySessionId(Long sessionId);
+    List<Feedback> findByMemberId(Long memberId);
+    boolean existsByMemberIdAndSessionId(Long memberId, Long sessionId);
 }

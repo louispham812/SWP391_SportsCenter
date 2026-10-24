@@ -3,6 +3,14 @@ import { Link } from 'react-router-dom';
 import CoachLayout from '../../components/layouts/CoachLayout';
 import { getCoachSchedule } from '../../services/bookingApi';
 import { apiRequest } from '../../services/apiClient';
+import { getMyCoachFeedbacks } from '../../services/engagementApi';
+import {
+  getCoachProfile,
+  updateCoachProfile,
+  getCoachAvailability,
+  updateCoachAvailability,
+  getCoachIncome,
+} from '../../services/coachApi';
 import { useApp } from '../../context/AppContext';
 
 const mondayOf = (date) => {
@@ -111,6 +119,137 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
     }
   });
 
+  // Profile State (COA-01)
+  const [coachProfile, setCoachProfile] = useState(null);
+  const [profileForm, setProfileForm] = useState({
+    specialty: '',
+    experienceYears: 0,
+    certifications: '',
+    bio: '',
+    phone: '',
+  });
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // Income State (COA-13)
+  const [incomeData, setIncomeData] = useState(null);
+  const [incomeLoading, setIncomeLoading] = useState(false);
+
+  // Load Coach Availability from Backend (COA-14)
+  useEffect(() => {
+    let active = true;
+    getCoachAvailability()
+      .then((res) => {
+        if (active && res?.availabilityJson) {
+          try {
+            const parsed = JSON.parse(res.availabilityJson);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setAvailability(parsed);
+              localStorage.setItem(AVAILABILITY_STORAGE_KEY, JSON.stringify(parsed));
+            }
+          } catch (e) {
+            console.warn('Lỗi phân tích availabilityJson:', e);
+          }
+        }
+      })
+      .catch((err) => console.warn('Không thể tải lịch rảnh từ DB:', err));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Load Coach Profile from Backend (COA-01)
+  useEffect(() => {
+    let active = true;
+    getCoachProfile()
+      .then((data) => {
+        if (active && data) {
+          setCoachProfile(data);
+          setProfileForm({
+            specialty: data.specialty || '',
+            experienceYears: data.experienceYears != null ? data.experienceYears : 0,
+            certifications: data.certifications || '',
+            bio: data.bio || '',
+            phone: data.phone || '',
+          });
+        }
+      })
+      .catch((err) => console.warn('Không thể tải hồ sơ HLV:', err));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Load Coach Income from Backend (COA-13)
+  useEffect(() => {
+    let active = true;
+    if (activeTab === 'income') {
+      setIncomeLoading(true);
+      getCoachIncome()
+        .then((data) => {
+          if (active && data) {
+            setIncomeData(data);
+          }
+        })
+        .catch((err) => console.warn('Không thể tải thu nhập HLV:', err))
+        .finally(() => {
+          if (active) setIncomeLoading(false);
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [activeTab]);
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    try {
+      const updated = await updateCoachProfile({
+        specialty: profileForm.specialty,
+        experienceYears: Number(profileForm.experienceYears) || 0,
+        certifications: profileForm.certifications,
+        bio: profileForm.bio,
+        phone: profileForm.phone,
+      });
+      setCoachProfile(updated);
+      setIsEditingProfile(false);
+      showToast('Cập nhật hồ sơ', 'Đã lưu thông tin chuyên môn, chứng chỉ & tiểu sử HLV thành công (COA-01).', 'success');
+    } catch (err) {
+      showToast('Lỗi cập nhật', err.message || 'Không thể lưu hồ sơ HLV.', 'danger');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleSaveAvailability = async () => {
+    try {
+      await updateCoachAvailability(JSON.stringify(availability));
+      showToast('Đã lưu thành công', 'Lịch rảnh của bạn đã được cập nhật lên hệ thống F Sport (COA-14).', 'success');
+    } catch (err) {
+      showToast('Lỗi lưu lịch', err.message || 'Không thể lưu lịch rảnh.', 'danger');
+    }
+  };
+
+  // Coach Feedback & Real Average Rating (COA-15)
+  const [feedbackStats, setFeedbackStats] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    getMyCoachFeedbacks()
+      .then((data) => {
+        if (active && data) {
+          setFeedbackStats(data);
+        }
+      })
+      .catch((err) => {
+        console.warn('Không thể tải đánh giá HLV từ API:', err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useEffect(() => {
     let active = true;
     getCoachSchedule(startKey)
@@ -206,13 +345,18 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
   };
 
   // Toggle Shift Availability (COA-14)
-  const handleToggleShift = (dayCode, shiftKey) => {
+  const handleToggleShift = async (dayCode, shiftKey) => {
     const updated = availability.map((item) =>
       item.day === dayCode ? { ...item, [shiftKey]: !item[shiftKey] } : item
     );
     setAvailability(updated);
     localStorage.setItem(AVAILABILITY_STORAGE_KEY, JSON.stringify(updated));
-    showToast('Đã lưu lịch rảnh', `Đã cập nhật ca ${shiftKey === 'morning' ? 'Sáng' : shiftKey === 'afternoon' ? 'Chiều' : 'Tối'}.`, 'success');
+    try {
+      await updateCoachAvailability(JSON.stringify(updated));
+      showToast('Đã lưu lịch rảnh', `Đã cập nhật ca ${shiftKey === 'morning' ? 'Sáng' : shiftKey === 'afternoon' ? 'Chiều' : 'Tối'} lên hệ thống (COA-14).`, 'success');
+    } catch {
+      showToast('Đã lưu cục bộ', `Đã cập nhật ca ${shiftKey === 'morning' ? 'Sáng' : shiftKey === 'afternoon' ? 'Chiều' : 'Tối'}.`, 'info');
+    }
   };
 
   return (
@@ -534,9 +678,19 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
             </div>
 
             <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h2 className="text-base font-bold text-slate-900">Khung giờ sẵn sàng nhận ca trong tuần</h2>
-                <span className="text-xs text-slate-500 font-medium">Click vào ô để bật/tắt khả năng nhận lớp</span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">Khung giờ sẵn sàng nhận ca trong tuần</h2>
+                  <p className="text-xs text-slate-500 font-medium">Click vào ô để bật/tắt ca hoặc bấm lưu để gửi lên hệ thống (COA-14)</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSaveAvailability}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-sm transition-all cursor-pointer self-start sm:self-auto"
+                >
+                  <span className="material-symbols-outlined text-[16px]">save</span>
+                  <span>Lưu Lịch Rảnh Lên Máy Chủ</span>
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
@@ -595,38 +749,91 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
         )}
 
         {/* ========================================================
-            TAB 4: HỒ SƠ HLV & GÓI PT LẺ (COA-PROFILES, PT-PRICING)
+            TAB 4: HỒ SƠ HLV & GÓI PT LẺ (COA-01, PT-PRICING)
            ======================================================== */}
         {activeTab === 'profile' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-2xl bg-orange-500 text-white font-black text-xl flex items-center justify-center shadow-md">
-                  {currentUser?.avatar || 'HLV'}
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-slate-900">{currentUser?.name || 'Huấn Luyện Viên'}</h2>
-                  <p className="text-xs text-orange-600 font-bold uppercase">Master Trainer · F Sport</p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-2xl bg-orange-500 text-white font-black text-xl flex items-center justify-center shadow-md">
+                    {coachProfile?.fullName ? coachProfile.fullName.charAt(0) : (currentUser?.name?.charAt(0) || 'H')}
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900">{coachProfile?.fullName || currentUser?.name || 'Huấn Luyện Viên'}</h2>
+                    <p className="text-xs text-orange-600 font-bold uppercase">Master Trainer · F Sport</p>
+                    <p className="text-[11px] text-slate-500">{coachProfile?.email || currentUser?.email}</p>
+                  </div>
                 </div>
               </div>
 
               <div className="space-y-3 pt-3 border-t border-slate-100 text-xs">
                 <div>
                   <span className="text-slate-400 font-bold uppercase text-[10px]">Chuyên Môn</span>
-                  <p className="font-semibold text-slate-800 mt-0.5">Pickleball Kỹ Thuật, Tennis Hiện Đại, Thể Lực &amp; Phục Hồi</p>
-                </div>
-                <div>
-                  <span className="text-slate-400 font-bold uppercase text-[10px]">Chứng Chỉ &amp; Thành Tích</span>
-                  <p className="font-semibold text-slate-800 mt-0.5">NASM-CPT, ITF Level 2 Coach, Huy Chương Vàng Đôi Nam Giải Vô Địch 2025</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">{coachProfile?.specialty || 'Chưa cập nhật chuyên môn'}</p>
                 </div>
                 <div>
                   <span className="text-slate-400 font-bold uppercase text-[10px]">Kinh Nghiệm</span>
-                  <p className="font-semibold text-slate-800 mt-0.5">6 năm giảng dạy chuyên nghiệp</p>
+                  <p className="font-semibold text-slate-800 mt-0.5">
+                    {coachProfile?.experienceYears != null ? `${coachProfile.experienceYears} năm giảng dạy chuyên nghiệp` : 'Chưa cập nhật'}
+                  </p>
                 </div>
-                <div className="flex items-center gap-1 text-amber-500 font-black text-sm pt-1">
+                <div>
+                  <span className="text-slate-400 font-bold uppercase text-[10px]">Chứng Chỉ &amp; Bằng Cấp</span>
+                  <p className="font-semibold text-slate-800 mt-0.5">{coachProfile?.certifications || 'Chưa cập nhật chứng chỉ'}</p>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-bold uppercase text-[10px]">Số Điện Thoại Liên Hệ</span>
+                  <p className="font-semibold text-slate-800 mt-0.5">{coachProfile?.phone || 'Chưa cập nhật'}</p>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-bold uppercase text-[10px]">Tiểu Sử / Giới Thiệu Bản Thân</span>
+                  <p className="font-normal text-slate-700 mt-0.5 leading-relaxed">{coachProfile?.bio || 'Chưa có tiểu sử giới thiệu.'}</p>
+                </div>
+                <div className="flex items-center gap-1.5 text-amber-500 font-black text-sm pt-1">
                   <span className="material-symbols-outlined text-[18px]">star</span>
-                  <span>4.95 / 5.0 (128 đánh giá)</span>
+                  {feedbackStats ? (
+                    feedbackStats.count > 0 ? (
+                      <span>
+                        {Number(feedbackStats.average || 0).toFixed(2)} / 5.0 ({feedbackStats.count} đánh giá)
+                      </span>
+                    ) : (
+                      <span className="text-slate-500 font-semibold text-xs">Chưa có đánh giá nào</span>
+                    )
+                  ) : (
+                    <span>4.95 / 5.0 (Đang đồng bộ...)</span>
+                  )}
                 </div>
+
+                <div className="pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingProfile(true)}
+                    className="w-full py-2.5 px-4 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">edit_note</span>
+                    <span>Cập Nhật Hồ Sơ HLV (COA-01)</span>
+                  </button>
+                </div>
+
+                {feedbackStats?.items?.length > 0 && (
+                  <div className="pt-3 border-t border-slate-100 space-y-2">
+                    <span className="text-slate-400 font-bold uppercase text-[10px]">Đánh Giá Gần Đây</span>
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                      {feedbackStats.items.slice(0, 3).map((fb, idx) => (
+                        <div key={idx} className="p-2 rounded-lg bg-amber-50/60 border border-amber-100 text-[11px]">
+                          <div className="flex items-center justify-between font-bold text-slate-800">
+                            <span>{fb.memberName || 'Học viên'}</span>
+                            <span className="text-amber-600 flex items-center font-bold">
+                              {fb.rating} <span className="material-symbols-outlined text-[13px] ml-0.5">star</span>
+                            </span>
+                          </div>
+                          {fb.comment && <p className="text-slate-600 text-[10px] italic mt-0.5">"{fb.comment}"</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
 
@@ -666,39 +873,45 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
         )}
 
         {/* ========================================================
-            TAB 5: THÙ LAO & DOANH THU GIẢNG DẠY (COACH-INCOME)
+            TAB 5: THÙ LAO & DOANH THU GIẢNG DẠY (COA-13)
            ======================================================== */}
         {activeTab === 'income' && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                 <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase">
-                  <span>Tổng thù lao tháng này</span>
+                  <span>Tổng thù lao nhận được</span>
                   <span className="material-symbols-outlined text-orange-500 text-[20px]">account_balance_wallet</span>
                 </div>
-                <div className="mt-2 text-2xl font-black text-slate-900 tracking-tight">18.450.000₫</div>
+                <div className="mt-2 text-2xl font-black text-slate-900 tracking-tight">
+                  {incomeLoading ? '...' : `${Number(incomeData?.totalIncome || 0).toLocaleString()}₫`}
+                </div>
                 <div className="mt-1 text-xs text-emerald-600 font-bold flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">trending_up</span>
-                  <span>+15% so với tháng trước</span>
+                  <span className="material-symbols-outlined text-[14px]">verified</span>
+                  <span>Định kỳ chi trả ngày 05</span>
                 </div>
               </div>
 
               <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                 <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase">
-                  <span>Số ca dạy lớp nhóm</span>
-                  <span className="material-symbols-outlined text-blue-500 text-[20px]">groups</span>
+                  <span>Tỷ lệ hoa hồng (COA-13)</span>
+                  <span className="material-symbols-outlined text-blue-500 text-[20px]">percent</span>
                 </div>
-                <div className="mt-2 text-2xl font-black text-slate-900 tracking-tight">32 ca</div>
-                <div className="mt-1 text-xs text-slate-500">Đơn giá: 300.000đ / ca chuẩn</div>
+                <div className="mt-2 text-2xl font-black text-blue-600 tracking-tight">
+                  {incomeData?.commissionRate != null ? `${Number(incomeData.commissionRate * 100).toFixed(0)}%` : '40%'}
+                </div>
+                <div className="mt-1 text-xs text-slate-500">40% doanh thu mỗi lớp nhóm</div>
               </div>
 
               <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                 <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase">
-                  <span>Buổi PT 1-1 Cá Nhân</span>
-                  <span className="material-symbols-outlined text-purple-500 text-[20px]">person_add_alt_1</span>
+                  <span>Tổng số ca giảng dạy</span>
+                  <span className="material-symbols-outlined text-purple-500 text-[20px]">groups</span>
                 </div>
-                <div className="mt-2 text-2xl font-black text-slate-900 tracking-tight">25 buổi</div>
-                <div className="mt-1 text-xs text-purple-600 font-bold">Hưởng 70% hoa hồng (MGR-02)</div>
+                <div className="mt-2 text-2xl font-black text-slate-900 tracking-tight">
+                  {incomeLoading ? '...' : `${incomeData?.totalSessions || 0} ca`}
+                </div>
+                <div className="mt-1 text-xs text-purple-600 font-bold">Thù lao sàn 200.000₫/ca</div>
               </div>
 
               <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
@@ -706,16 +919,16 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
                   <span>Trạng thái quyết toán</span>
                   <span className="material-symbols-outlined text-emerald-500 text-[20px]">verified</span>
                 </div>
-                <div className="mt-2 text-2xl font-black text-emerald-600 tracking-tight">ĐÃ DUYỆT</div>
-                <div className="mt-1 text-xs text-slate-500">Chi trả ngày 05 hàng tháng</div>
+                <div className="mt-2 text-2xl font-black text-emerald-600 tracking-tight">TỰ ĐỘNG ĐỐI SOÁT</div>
+                <div className="mt-1 text-xs text-slate-500">Hệ thống tính tự động từ lịch dạy</div>
               </div>
             </div>
 
             <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Bảng kê chi tiết thù lao giảng dạy</h2>
-                  <p className="text-xs text-slate-500">Dữ liệu đối soát tự động từ các ca dạy đã điểm danh hoàn thành</p>
+                  <h2 className="text-base font-bold text-slate-900">Bảng kê chi tiết thù lao giảng dạy (COA-13)</h2>
+                  <p className="text-xs text-slate-500">Dữ liệu đối soát tự động từ các ca dạy đã điểm danh và doanh thu học viên</p>
                 </div>
                 <button
                   type="button"
@@ -728,47 +941,56 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-500 font-bold uppercase border-b border-slate-200">
-                    <tr>
-                      <th className="px-5 py-3.5">Mã ca</th>
-                      <th className="px-5 py-3.5">Nội dung ca dạy</th>
-                      <th className="px-5 py-3.5">Thời gian</th>
-                      <th className="px-5 py-3.5">Học viên / Sĩ số</th>
-                      <th className="px-5 py-3.5">Loại hình</th>
-                      <th className="px-5 py-3.5 text-right">Thù lao Coach</th>
-                      <th className="px-5 py-3.5 text-center">Trạng thái</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {[
-                      { id: 'SES-901', name: 'Lớp Kỹ Thuật Pickleball Nâng Cao', time: 'Hôm nay · 08:00 - 09:30', students: '6/8 Học viên', type: 'LỚP NHÓM', income: 300000, status: 'ĐÃ XÁC NHẬN' },
-                      { id: 'SES-898', name: 'Huấn luyện 1-1: HLV Cá Nhân (Nguyễn Anh Khoa)', time: 'Hôm qua · 17:00 - 18:00', students: '1 Học viên (1-1)', type: 'PT 1-1', income: 280000, status: 'ĐÃ XÁC NHẬN' },
-                      { id: 'SES-894', name: 'Lớp Cầu Lông Cơ Bản K4', time: '21/10/2026 · 18:00 - 19:30', students: '8/8 Học viên', type: 'LỚP NHÓM', income: 300000, status: 'ĐÃ XÁC NHẬN' },
-                      { id: 'SES-890', name: 'Huấn luyện 1-1: HLV Cá Nhân (Hoàng Thị Ngọc)', time: '20/10/2026 · 15:30 - 16:30', students: '1 Học viên (1-1)', type: 'PT 1-1', income: 280000, status: 'ĐÃ XÁC NHẬN' },
-                      { id: 'SES-885', name: 'Lớp Tennis Hiện Đại Chiến Thuật Đôi', time: '19/10/2026 · 07:00 - 08:30', students: '4/4 Học viên', type: 'LỚP NHÓM', income: 300000, status: 'ĐÃ XÁC NHẬN' },
-                    ].map((row) => (
-                      <tr key={row.id} className="hover:bg-slate-50/70 transition">
-                        <td className="px-5 py-3.5 font-mono text-slate-500 font-bold">{row.id}</td>
-                        <td className="px-5 py-3.5 font-bold text-slate-900">{row.name}</td>
-                        <td className="px-5 py-3.5 text-slate-600">{row.time}</td>
-                        <td className="px-5 py-3.5">{row.students}</td>
-                        <td className="px-5 py-3.5">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${row.type === 'PT 1-1' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
-                            {row.type}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 text-right font-black text-orange-600">{row.income.toLocaleString()}₫</td>
-                        <td className="px-5 py-3.5 text-center">
-                          <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            {row.status}
-                          </span>
-                        </td>
+                {incomeLoading ? (
+                  <p className="p-8 text-center text-sm text-slate-500">Đang tải bảng kê thù lao...</p>
+                ) : !incomeData?.sessions || incomeData.sessions.length === 0 ? (
+                  <div className="p-10 text-center text-slate-500">
+                    <span className="material-symbols-outlined text-4xl text-slate-300">payments</span>
+                    <p className="mt-2 text-sm font-semibold">Chưa có dữ liệu thù lao</p>
+                    <p className="text-xs text-slate-400">Các ca dạy của bạn sẽ được tính thù lao ngay khi hoàn thành.</p>
+                  </div>
+                ) : (
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase border-b border-slate-200">
+                      <tr>
+                        <th className="px-5 py-3.5">Mã ca</th>
+                        <th className="px-5 py-3.5">Nội dung ca dạy</th>
+                        <th className="px-5 py-3.5">Thời gian</th>
+                        <th className="px-5 py-3.5">Học viên / Sĩ số</th>
+                        <th className="px-5 py-3.5">Đơn giá lớp</th>
+                        <th className="px-5 py-3.5">Doanh thu lớp</th>
+                        <th className="px-5 py-3.5 text-right">Thù lao HLV (40%)</th>
+                        <th className="px-5 py-3.5 text-center">Trạng thái</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {incomeData.sessions.map((row) => (
+                        <tr key={row.sessionId} className="hover:bg-slate-50/70 transition">
+                          <td className="px-5 py-3.5 font-mono text-slate-500 font-bold">SES-{row.sessionId}</td>
+                          <td className="px-5 py-3.5">
+                            <span className="font-bold text-slate-900">{row.className}</span>
+                            <div className="text-[11px] text-slate-500">
+                              {row.sportName || 'Thể thao'} • {row.courtName || 'Sân trung tâm'}
+                            </div>
+                          </td>
+                          <td className="px-5 py-3.5 text-slate-600">
+                            {row.startTime ? new Date(row.startTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                          </td>
+                          <td className="px-5 py-3.5 font-semibold">{row.studentsCount ?? row.enrolledStudents ?? 0} học viên</td>
+                          <td className="px-5 py-3.5 text-slate-600">{Number(row.priceAmount ?? row.classPrice ?? 0).toLocaleString()}₫</td>
+                          <td className="px-5 py-3.5 font-bold text-slate-900">{Number(row.sessionRevenue ?? row.totalClassRevenue ?? 0).toLocaleString()}₫</td>
+                          <td className="px-5 py-3.5 text-right font-black text-orange-600">{Number(row.coachCommission ?? row.coachIncome ?? 0).toLocaleString()}₫</td>
+                          <td className="px-5 py-3.5 text-center">
+                            <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              {row.status || 'ĐÃ XÁC NHẬN'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </section>
           </div>
@@ -861,6 +1083,106 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
                   className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer"
                 >
                   Gửi Đơn Xin Nghỉ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Edit Profile Modal (COA-01) */}
+      {isEditingProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
+                  <span className="material-symbols-outlined text-[20px]">badge</span>
+                </span>
+                <h2 className="text-base font-bold text-slate-900">Cập nhật hồ sơ Huấn luyện viên (COA-01)</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingProfile(false)}
+                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProfile} className="space-y-3.5">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold uppercase text-slate-700">Chuyên môn giảng dạy *</label>
+                <input
+                  type="text"
+                  required
+                  value={profileForm.specialty}
+                  onChange={(e) => setProfileForm({ ...profileForm, specialty: e.target.value })}
+                  placeholder="VD: Pickleball Kỹ Thuật, Tennis Hiện Đại, Gym & Phục Hồi..."
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold uppercase text-slate-700">Số năm kinh nghiệm *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    required
+                    value={profileForm.experienceYears}
+                    onChange={(e) => setProfileForm({ ...profileForm, experienceYears: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-orange-500"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold uppercase text-slate-700">Số điện thoại *</label>
+                  <input
+                    type="tel"
+                    required
+                    value={profileForm.phone}
+                    onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold uppercase text-slate-700">Chứng chỉ &amp; Bằng cấp</label>
+                <input
+                  type="text"
+                  value={profileForm.certifications}
+                  onChange={(e) => setProfileForm({ ...profileForm, certifications: e.target.value })}
+                  placeholder="VD: NASM-CPT, ITF Level 2 Coach, Huy Chương Vàng..."
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold uppercase text-slate-700">Tiểu sử / Giới thiệu</label>
+                <textarea
+                  rows={3}
+                  value={profileForm.bio}
+                  onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
+                  placeholder="Giới thiệu kinh nghiệm, phương pháp huấn luyện của bạn..."
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-orange-500 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProfile(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {savingProfile ? 'Đang lưu...' : 'Lưu Hồ Sơ (COA-01)'}
                 </button>
               </div>
             </form>

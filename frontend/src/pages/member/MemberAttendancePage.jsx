@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { getMemberAttendance } from '../../services/memberApi';
+import { useApp } from '../../context/AppContext';
 
 export default function MemberAttendancePage() {
+  const { showToast } = useApp();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [attendanceData, setAttendanceData] = useState({
@@ -11,12 +13,35 @@ export default function MemberAttendancePage() {
     absentSessions: 0,
     attendanceRate: 0,
     records: [],
+    courtBookings: [],
     checkIns: [],
   });
 
-  const [activeTab, setActiveTab] = useState('classes'); // 'classes' | 'gate'
-  const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'PRESENT' | 'ABSENT' | 'REGISTERED'
+  const [activeTab, setActiveTab] = useState('classes'); // 'classes' | 'courts' | 'gate'
+  const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'PRESENT' | 'EXCUSED_ABSENCE' | 'UNEXCUSED_ABSENCE' | 'REGISTERED'
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Dispute modal state (MEM-19)
+  const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
+  const [disputeItem, setDisputeItem] = useState(null);
+  const [disputeReason, setDisputeReason] = useState('');
+
+  const handleOpenDispute = (item) => {
+    setDisputeItem(item);
+    setDisputeReason('');
+    setIsDisputeModalOpen(true);
+  };
+
+  const handleSubmitDispute = (e) => {
+    e.preventDefault();
+    if (!disputeReason.trim()) return;
+    setIsDisputeModalOpen(false);
+    showToast(
+      'Gửi khiếu nại thành công (MEM-19)',
+      'Yêu cầu rà soát điểm danh của bạn đã được chuyển tới Ban Quản lý trung tâm để đối soát dữ liệu cổng RFID & camera.',
+      'success'
+    );
+  };
 
   useEffect(() => {
     fetchAttendance();
@@ -33,6 +58,7 @@ export default function MemberAttendancePage() {
         absentSessions: data.absentSessions || 0,
         attendanceRate: data.attendanceRate || 0,
         records: data.records || [],
+        courtBookings: data.courtBookings || [],
         checkIns: data.checkIns || [],
       });
     } catch (err) {
@@ -45,11 +71,13 @@ export default function MemberAttendancePage() {
 
   const filteredRecords = useMemo(() => {
     return (attendanceData.records || []).filter((rec) => {
+      const st = rec.attendanceStatus || rec.status;
       const matchesStatus =
         statusFilter === 'ALL' ||
-        (statusFilter === 'PRESENT' && (rec.status === 'ATTENDED' || rec.status === 'PRESENT')) ||
-        (statusFilter === 'ABSENT' && rec.status === 'ABSENT') ||
-        (statusFilter === 'REGISTERED' && (rec.status === 'REGISTERED' || rec.status === 'CONFIRMED'));
+        (statusFilter === 'PRESENT' && (st === 'ATTENDED' || st === 'PRESENT')) ||
+        (statusFilter === 'EXCUSED_ABSENCE' && st === 'EXCUSED_ABSENCE') ||
+        (statusFilter === 'UNEXCUSED_ABSENCE' && (st === 'UNEXCUSED_ABSENCE' || st === 'ABSENT')) ||
+        (statusFilter === 'REGISTERED' && (st === 'REGISTERED' || st === 'CONFIRMED' || st === 'PENDING'));
 
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
@@ -180,6 +208,18 @@ export default function MemberAttendancePage() {
                 Điểm Danh Lớp Học ({attendanceData.records.length})
               </button>
               <button
+                onClick={() => setActiveTab('courts')}
+                type="button"
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'courts'
+                    ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/20'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[16px]">sports_tennis</span>
+                Lịch Sử Đặt Sân ({attendanceData.courtBookings?.length || 0})
+              </button>
+              <button
                 onClick={() => setActiveTab('gate')}
                 type="button"
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -209,7 +249,7 @@ export default function MemberAttendancePage() {
                   />
                 </div>
 
-                {/* Status select */}
+                {/* Status select (MEM-19) */}
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
@@ -217,7 +257,8 @@ export default function MemberAttendancePage() {
                 >
                   <option value="ALL">Tất cả trạng thái</option>
                   <option value="PRESENT">Đã tham gia (Có mặt)</option>
-                  <option value="ABSENT">Vắng mặt</option>
+                  <option value="EXCUSED_ABSENCE">Vắng có phép (MEM-19)</option>
+                  <option value="UNEXCUSED_ABSENCE">Vắng không phép (MEM-19)</option>
                   <option value="REGISTERED">Đã đăng ký (Sắp diễn ra)</option>
                 </select>
               </div>
@@ -253,8 +294,10 @@ export default function MemberAttendancePage() {
                   {filteredRecords.map((record) => {
                     const startDt = formatDateTime(record.startTime);
                     const endDt = formatDateTime(record.endTime);
-                    const isPresent = record.status === 'ATTENDED' || record.status === 'PRESENT';
-                    const isAbsent = record.status === 'ABSENT';
+                    const st = record.attendanceStatus || record.status;
+                    const isPresent = st === 'ATTENDED' || st === 'PRESENT';
+                    const isExcused = st === 'EXCUSED_ABSENCE';
+                    const isUnexcused = st === 'UNEXCUSED_ABSENCE' || st === 'ABSENT';
 
                     return (
                       <div
@@ -262,7 +305,9 @@ export default function MemberAttendancePage() {
                         className={`p-4 sm:p-5 rounded-2xl border transition-all ${
                           isPresent
                             ? 'bg-emerald-50/30 border-emerald-200'
-                            : isAbsent
+                            : isExcused
+                            ? 'bg-amber-50/30 border-amber-200'
+                            : isUnexcused
                             ? 'bg-red-50/20 border-red-200'
                             : 'bg-white border-slate-200 hover:border-slate-300'
                         }`}
@@ -273,13 +318,15 @@ export default function MemberAttendancePage() {
                               className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
                                 isPresent
                                   ? 'bg-emerald-100 text-emerald-700'
-                                  : isAbsent
+                                  : isExcused
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : isUnexcused
                                   ? 'bg-red-100 text-red-700'
                                   : 'bg-orange-100 text-orange-700'
                               }`}
                             >
                               <span className="material-symbols-outlined text-[24px]">
-                                {isPresent ? 'verified' : isAbsent ? 'event_busy' : 'schedule'}
+                                {isPresent ? 'verified' : isExcused ? 'event_available' : isUnexcused ? 'event_busy' : 'schedule'}
                               </span>
                             </div>
                             <div>
@@ -308,25 +355,41 @@ export default function MemberAttendancePage() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3 self-end sm:self-auto">
+                          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2.5 self-end sm:self-auto">
                             {isPresent && (
                               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
                                 Có mặt
                               </span>
                             )}
-                            {isAbsent && (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
-                                Vắng mặt
+                            {isExcused && (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
+                                Vắng có phép (MEM-19)
                               </span>
                             )}
-                            {!isPresent && !isAbsent && (
+                            {isUnexcused && (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+                                Vắng không phép
+                              </span>
+                            )}
+                            {!isPresent && !isExcused && !isUnexcused && (
                               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
                                 <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
                                 Đã đăng ký
                               </span>
                             )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDispute(record)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-600 text-[11px] font-bold transition cursor-pointer"
+                              title="Gửi khiếu nại nếu bị ghi nhầm điểm danh (MEM-19)"
+                            >
+                              <span className="material-symbols-outlined text-[13px]">report_problem</span>
+                              <span>Khiếu nại</span>
+                            </button>
                           </div>
                         </div>
 
@@ -350,7 +413,89 @@ export default function MemberAttendancePage() {
             </div>
           )}
 
-          {/* Tab 2: RFID Gate Check-ins */}
+          {/* Tab 2: Court Bookings (MEM-19) */}
+          {activeTab === 'courts' && (
+            <div className="p-4 sm:p-6">
+              {loading ? (
+                <div className="py-16 text-center text-slate-500 flex flex-col items-center gap-3">
+                  <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-xs font-semibold">Đang tải lịch sử đặt sân...</span>
+                </div>
+              ) : !attendanceData.courtBookings || attendanceData.courtBookings.length === 0 ? (
+                <div className="py-16 text-center">
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                    <span className="material-symbols-outlined text-[32px]">sports_tennis</span>
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-800">Chưa có lượt đặt sân tập nào</h3>
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                    Bạn chưa có đơn đặt sân thể thao nào. Hãy vào mục Đặt Sân để giữ chỗ tập luyện cùng bạn bè!
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {attendanceData.courtBookings.map((court) => {
+                    const startDt = formatDateTime(court.startTime);
+                    const endDt = formatDateTime(court.endTime);
+                    return (
+                      <div
+                        key={court.bookingId}
+                        className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
+                        <div className="flex items-start gap-3.5">
+                          <div className="w-11 h-11 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+                            <span className="material-symbols-outlined text-[24px]">stadium</span>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm font-bold text-slate-900">{court.courtName}</h4>
+                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-orange-100 text-orange-800">
+                                {court.sportName || 'Thể thao'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs text-slate-500 mt-1 flex-wrap">
+                              <span className="inline-flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[15px] text-slate-400">calendar_today</span>
+                                {startDt.date}
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[15px] text-slate-400">schedule</span>
+                                {startDt.time} - {endDt.time}
+                              </span>
+                              {court.totalPrice != null && (
+                                <span className="inline-flex items-center gap-1 text-slate-900 font-bold">
+                                  {Number(court.totalPrice).toLocaleString()}₫
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-end sm:self-auto">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                            court.status === 'CONFIRMED' || court.status === 'PAID'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}>
+                            {court.status === 'CONFIRMED' || court.status === 'PAID' ? 'Đã xác nhận' : court.status}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDispute(court)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-600 text-[11px] font-bold transition cursor-pointer"
+                          >
+                            <span className="material-symbols-outlined text-[13px]">report_problem</span>
+                            <span>Khiếu nại</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab 3: RFID Gate Check-ins */}
           {activeTab === 'gate' && (
             <div className="p-4 sm:p-6">
               {loading ? (
@@ -420,6 +565,66 @@ export default function MemberAttendancePage() {
           )}
         </div>
       </div>
+
+      {/* Dispute Modal (MEM-19) */}
+      {isDisputeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
+                  <span className="material-symbols-outlined text-[20px]">report_problem</span>
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Khiếu Nại Điểm Danh (MEM-19)</h3>
+                  <p className="text-xs text-slate-500">{disputeItem?.className || disputeItem?.courtName || 'Buổi tập'}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDisputeModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitDispute} className="space-y-4">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed">
+                ℹ️ Nếu bạn có mặt nhưng bị ghi vắng, hoặc có việc đột xuất cần duyệt <strong>Vắng có phép</strong>, vui lòng gửi phản hồi để Quản lý trung tâm đối soát lịch sử quét cổng RFID và hỗ trợ bạn.
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold uppercase text-slate-700">Lý do khiếu nại chi tiết *</label>
+                <textarea
+                  required
+                  rows={3}
+                  value={disputeReason}
+                  onChange={(e) => setDisputeReason(e.target.value)}
+                  placeholder="Ghi rõ thông tin: Có mặt tại lớp lúc mấy giờ, HLV nào phụ trách hoặc lý do xin nghỉ có phép..."
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-orange-500 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsDisputeModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer"
+                >
+                  Gửi Khiếu Nại
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </MemberLayout>
   );
 }

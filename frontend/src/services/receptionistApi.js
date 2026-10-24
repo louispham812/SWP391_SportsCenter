@@ -17,3 +17,30 @@ export const createReceptionistUser = (userData) =>
     body: JSON.stringify(userData),
   });
 
+export const updateReceptionMemberAvatar = (memberId, avatar) =>
+  apiRequest(`/receptionist/members/${memberId}/avatar`, {
+    method: 'PUT',
+    body: JSON.stringify({ avatar }),
+  });
+
+export const updateReceptionMemberRfid = (memberId, rfidCode) =>
+  apiRequest(`/receptionist/members/${memberId}/rfid`, {
+    method: 'PUT',
+    body: JSON.stringify({ rfidCode }),
+  });
+
+export const lookupReceptionCard = (code) =>
+  apiRequest(`/receptionist/lookup-card?code=${encodeURIComponent(code)}`);
+
+export const sellReceptionMembership = (saleData) =>
+  apiRequest('/receptionist/memberships', {
+    method: 'POST',
+    body: JSON.stringify(saleData),
+  });
+
+export const checkInReceptionMember = (data) =>
+  apiRequest('/receptionist/check-in', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+

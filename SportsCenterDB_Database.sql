@@ -13,12 +13,18 @@ CREATE TABLE users (
     email VARCHAR(100) NOT NULL UNIQUE,
     password VARCHAR(100) NOT NULL,
     phone VARCHAR(15) NULL,
-    avatar VARCHAR(255) NULL,
+    avatar NVARCHAR(MAX) NULL,
     date_of_birth DATE NULL,
     gender NVARCHAR(20) NULL,
     address NVARCHAR(500) NULL,
     emergency_contact_name NVARCHAR(100) NULL,
     emergency_contact_phone NVARCHAR(15) NULL,
+    rfid_code NVARCHAR(64) NULL,
+    specialty NVARCHAR(200) NULL,
+    experience_years INT NULL,
+    certifications NVARCHAR(500) NULL,
+    bio NVARCHAR(MAX) NULL,
+    availability_json NVARCHAR(MAX) NULL,
     role VARCHAR(20) NOT NULL CHECK (role IN ('MANAGER', 'RECEPTIONIST', 'COACH', 'MEMBER')),
     status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE', 'LOCKED')),
     created_at DATETIME DEFAULT GETDATE()
@@ -532,6 +538,113 @@ BEGIN
         approved_by BIGINT NULL,
         decision_note NVARCHAR(500) NULL,
         created_at DATETIME2 NOT NULL CONSTRAINT DF_refund_requests_created DEFAULT SYSDATETIME()
+    );
+END;
+GO
+
+-- =============================================================================
+-- 16. BẢNG THÔNG BÁO HỆ THỐNG (NOTIFICATIONS - MEM-25, COA-16, MGR-20)
+-- =============================================================================
+IF OBJECT_ID(N'dbo.notifications', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.notifications (
+        notification_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        title NVARCHAR(200) NOT NULL,
+        message NVARCHAR(MAX) NOT NULL,
+        type VARCHAR(30) NULL,
+        is_read BIT NOT NULL CONSTRAINT DF_notifications_read DEFAULT 0,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_notifications_created DEFAULT SYSDATETIME()
+    );
+END;
+GO
+
+-- =============================================================================
+-- 17. BẢNG NHẬT KÝ HỆ THỐNG (AUDIT LOGS - MGR-14)
+-- =============================================================================
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.audit_logs (
+        log_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        actor_id BIGINT NULL,
+        actor_name NVARCHAR(100) NULL,
+        actor_role VARCHAR(20) NULL,
+        action VARCHAR(60) NOT NULL,
+        detail NVARCHAR(1000) NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_audit_logs_created DEFAULT SYSDATETIME()
+    );
+END;
+GO
+
+-- =============================================================================
+-- 18. BẢNG LỊCH BẢO TRÌ SÂN (COURT MAINTENANCE - MGR-19)
+-- =============================================================================
+IF OBJECT_ID(N'dbo.court_maintenance', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.court_maintenance (
+        maintenance_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        court_id BIGINT NOT NULL,
+        start_time DATETIME2 NOT NULL,
+        end_time DATETIME2 NOT NULL,
+        reason NVARCHAR(500) NULL,
+        created_by BIGINT NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_court_maintenance_created DEFAULT SYSDATETIME()
+    );
+END;
+GO
+
+-- =============================================================================
+-- 19. BẢNG KẾ HOẠCH TẬP PT & KẾT QUẢ BUỔI TẬP (COA-07..10, MEM-20..23)
+-- =============================================================================
+IF OBJECT_ID(N'dbo.workout_plans', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.workout_plans (
+        plan_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        member_id BIGINT NOT NULL,
+        coach_id BIGINT NULL,
+        coach_name NVARCHAR(100) NULL,
+        title NVARCHAR(200) NOT NULL,
+        goal NVARCHAR(300) NULL,
+        exercises_json NVARCHAR(MAX) NOT NULL,
+        session_result NVARCHAR(MAX) NULL,
+        coach_feedback NVARCHAR(MAX) NULL,
+        homework NVARCHAR(MAX) NULL,
+        source VARCHAR(20) NOT NULL CONSTRAINT DF_workout_plans_source DEFAULT 'COACH',
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_workout_plans_created DEFAULT SYSDATETIME()
+    );
+END;
+GO
+
+-- =============================================================================
+-- 20. BẢNG THEO DÕI TIẾN ĐỘ CƠ THỂ & 1RM (COA-08, MEM-21)
+-- =============================================================================
+IF OBJECT_ID(N'dbo.body_progress_logs', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.body_progress_logs (
+        progress_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        member_id BIGINT NOT NULL,
+        recorded_date DATE NOT NULL,
+        weight_kg DECIMAL(5,2) NULL,
+        height_cm DECIMAL(5,2) NULL,
+        smm_kg DECIMAL(5,2) NULL,
+        pbf_percent DECIMAL(5,2) NULL,
+        bmi DECIMAL(5,2) NULL,
+        max_lift_kg DECIMAL(6,2) NULL,
+        note NVARCHAR(300) NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_body_progress_created DEFAULT SYSDATETIME()
+    );
+END;
+GO
+
+-- =============================================================================
+-- 21. BẢNG CẤU HÌNH HỆ THỐNG & AI (MGR-15)
+-- =============================================================================
+IF OBJECT_ID(N'dbo.system_settings', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.system_settings (
+        setting_key VARCHAR(60) NOT NULL PRIMARY KEY,
+        setting_value NVARCHAR(MAX) NULL,
+        updated_at DATETIME2 NOT NULL CONSTRAINT DF_system_settings_created DEFAULT SYSDATETIME()
     );
 END;
 GO

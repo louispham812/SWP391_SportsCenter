@@ -72,3 +72,30 @@ export const createManagerUser = (userData) =>
     body: JSON.stringify(userData),
   });
 
+export const getManagerClassSessions = () =>
+  apiRequest('/manager/class-sessions');
+
+export const updateManagerClassSession = (sessionId, data) =>
+  apiRequest(`/manager/class-sessions/${sessionId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+
+export const cancelManagerClassSession = (sessionId, reason = 'Lý do vận hành trung tâm') =>
+  apiRequest(`/manager/class-sessions/${sessionId}?reason=${encodeURIComponent(reason)}`, {
+    method: 'DELETE',
+  });
+
+export const getStaffPerformance = () =>
+  apiRequest('/manager/staff-performance');
+
+export const getAiConfig = () =>
+  apiRequest('/manager/ai-config');
+
+export const updateAiConfig = (config) =>
+  apiRequest('/manager/ai-config', {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  });
+
+

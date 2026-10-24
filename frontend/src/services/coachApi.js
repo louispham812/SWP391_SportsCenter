@@ -21,3 +21,14 @@ export const createCoachLeaveRequest = (data) =>
     method: 'POST',
     body: JSON.stringify(data),
   });
+
+export const getCoachAvailability = () => apiRequest('/coach/availability');
+
+export const updateCoachAvailability = (availabilityJson) =>
+  apiRequest('/coach/availability', {
+    method: 'PUT',
+    body: JSON.stringify({ availabilityJson }),
+  });
+
+export const getCoachIncome = () => apiRequest('/coach/income');
+

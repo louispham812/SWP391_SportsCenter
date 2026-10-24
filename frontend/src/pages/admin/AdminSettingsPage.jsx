@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import { useApp } from '../../context/AppContext';
+import { getAuditLogs } from '../../services/engagementApi';
+import { getAiConfig, updateAiConfig } from '../../services/managerApi';
 
 // Initial Mock System Policies
 const INITIAL_POLICIES = {
@@ -206,6 +208,98 @@ export default function AdminSettingsPage() {
 
   const [auditFilter, setAuditFilter] = useState('ALL');
   const [auditSearch, setAuditSearch] = useState('');
+  const [loadingAudit, setLoadingAudit] = useState(false);
+
+  // AI Config State (MGR-15)
+  const [aiConfig, setAiConfig] = useState({
+    ai_enabled: true,
+    ai_model: 'gpt-4o-mini',
+    ai_temperature: 0.7,
+    ai_system_prompt: '',
+  });
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSaving, setAiSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (activeTab === 'ai') {
+      setAiLoading(true);
+      getAiConfig()
+        .then((data) => {
+          if (active && data) {
+            setAiConfig({
+              ai_enabled: data.ai_enabled === true || String(data.ai_enabled) === 'true',
+              ai_model: data.ai_model || 'gpt-4o-mini',
+              ai_temperature: data.ai_temperature != null ? Number(data.ai_temperature) : 0.7,
+              ai_system_prompt: data.ai_system_prompt || '',
+            });
+          }
+        })
+        .catch((err) => console.warn('Không thể tải cấu hình AI:', err))
+        .finally(() => {
+          if (active) setAiLoading(false);
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [activeTab]);
+
+  const handleSaveAiConfig = async (e) => {
+    e.preventDefault();
+    setAiSaving(true);
+    try {
+      await updateAiConfig({
+        ai_enabled: aiConfig.ai_enabled,
+        ai_model: aiConfig.ai_model,
+        ai_temperature: aiConfig.ai_temperature,
+        ai_system_prompt: aiConfig.ai_system_prompt,
+      });
+      showToast('Cấu hình AI', 'Đã lưu cài đặt Trợ lý AI và ghi nhật ký kiểm toán hệ thống thành công (MGR-15).', 'success');
+    } catch (err) {
+      showToast('Lỗi lưu cấu hình', err.message || 'Không thể cập nhật cấu hình AI.', 'danger');
+    } finally {
+      setAiSaving(false);
+    }
+  };
+
+  // Fetch real-time Audit Logs from DB via engagementApi (MGR-14)
+  useEffect(() => {
+    let active = true;
+    setLoadingAudit(true);
+    getAuditLogs()
+      .then((data) => {
+        if (active && Array.isArray(data)) {
+          const dbLogs = data.map((item) => ({
+            id: `db-${item.logId}`,
+            timestamp: item.createdAt || new Date().toISOString(),
+            userName: item.actorName || (item.actorId ? `User #${item.actorId}` : 'Hệ thống'),
+            userRole: item.actorRole || 'SYSTEM',
+            action: item.action,
+            entity: 'DATABASE',
+            entityId: `#${item.logId}`,
+            description: item.detail || item.action,
+            ipAddress: '127.0.0.1 (DB)',
+            status: 'SUCCESS',
+            isDbRecord: true,
+          }));
+          setAuditLogs((prev) => {
+            const nonDb = prev.filter((p) => typeof p.id === 'number' || !String(p.id).startsWith('db-'));
+            return [...dbLogs, ...nonDb];
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn('Không thể tải audit logs từ database:', err);
+      })
+      .finally(() => {
+        if (active) setLoadingAudit(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const savePolicies = (e) => {
     e.preventDefault();
@@ -230,9 +324,10 @@ export default function AdminSettingsPage() {
     if (auditSearch.trim()) {
       const q = auditSearch.toLowerCase();
       return (
-        log.userName.toLowerCase().includes(q) ||
-        log.description.toLowerCase().includes(q) ||
-        log.entityId.toLowerCase().includes(q)
+        (log.userName && log.userName.toLowerCase().includes(q)) ||
+        (log.description && log.description.toLowerCase().includes(q)) ||
+        (log.entityId && log.entityId.toLowerCase().includes(q)) ||
+        (log.action && log.action.toLowerCase().includes(q))
       );
     }
     return true;
@@ -295,6 +390,21 @@ export default function AdminSettingsPage() {
             Nhật Ký Kiểm Toán (Audit Logs)
             <span className="px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-bold text-slate-700">
               {auditLogs.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('ai')}
+            className={`pb-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-colors cursor-pointer whitespace-nowrap ${
+              activeTab === 'ai'
+                ? 'border-orange-500 text-orange-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[18px]">smart_toy</span>
+            Cấu Hình Trợ Lý AI (MGR-15)
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${aiConfig.ai_enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+              {aiConfig.ai_enabled ? 'Đang bật' : 'Tắt'}
             </span>
           </button>
         </div>
@@ -566,6 +676,10 @@ export default function AdminSettingsPage() {
                   className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-white text-slate-700 font-bold"
                 >
                   <option value="ALL">Tất cả hành động</option>
+                  <option value="UPDATE_SETTINGS">Cập nhật thiết lập (UPDATE_SETTINGS)</option>
+                  <option value="CREATE_FACILITY">Thêm sân bãi (CREATE_FACILITY)</option>
+                  <option value="APPROVE_REFUND">Duyệt hoàn tiền (APPROVE_REFUND)</option>
+                  <option value="SYSTEM_MAINTENANCE">Bảo trì hệ thống</option>
                   <option value="APPROVE">Duyệt (APPROVE)</option>
                   <option value="REASSIGN_COACH">Đổi Coach (REASSIGN_COACH)</option>
                   <option value="RENT_EQUIPMENT">Mượn dụng cụ</option>
@@ -607,13 +721,165 @@ export default function AdminSettingsPage() {
                         {log.entity} / {log.entityId}
                       </td>
                       <td className="py-3 px-3 text-slate-700 max-w-xs">{log.description}</td>
-                      <td className="py-3 px-3 font-mono text-slate-400 text-[11px]">{log.ipAddress}</td>
+                      <td className="py-3 px-3 font-mono text-[11px]">
+                        {log.isDbRecord ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 text-[10px]">
+                            <span className="material-symbols-outlined text-[12px]">database</span>
+                            DB SQL
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">{log.ipAddress}</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </div>
+        )}
+
+        {/* TAB 4: CẤU HÌNH TRỢ LÝ AI (MGR-15) */}
+        {activeTab === 'ai' && (
+          <form onSubmit={handleSaveAiConfig} className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span>
+                  <h2 className="text-lg font-bold text-slate-900">Cấu Hình Trợ Lý Trí Tuệ Nhân Tạo (AI Assistant)</h2>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Quản lý hoạt động của Chatbot AI tư vấn thể thao, chọn Model máy chủ và tinh chỉnh System Prompt (MGR-15).
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border ${
+                  aiConfig.ai_enabled
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    : 'bg-slate-100 text-slate-600 border-slate-200'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${aiConfig.ai_enabled ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                  {aiConfig.ai_enabled ? 'AI Trực Tuyến Đang Hoạt Động' : 'AI Đã Tạm Tắt'}
+                </span>
+              </div>
+            </div>
+
+            {aiLoading ? (
+              <div className="py-12 text-center text-sm text-slate-500">Đang tải thông số cấu hình AI từ database...</div>
+            ) : (
+              <div className="space-y-6">
+                {/* Switch bật/tắt */}
+                <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <label className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-orange-500 text-[20px]">power_settings_new</span>
+                      Kích hoạt Trợ lý AI trên toàn hệ thống
+                    </label>
+                    <p className="text-xs text-slate-500">
+                      Khi tắt, widget Chatbot trên giao diện Member sẽ ẩn hoặc thông báo tạm ngưng phục vụ.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={aiConfig.ai_enabled}
+                      onChange={(e) => setAiConfig({ ...aiConfig, ai_enabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Model AI */}
+                  <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-blue-500 text-[18px]">psychology</span>
+                      Mô hình ngôn ngữ lớn (AI Model) *
+                    </label>
+                    <select
+                      value={aiConfig.ai_model}
+                      onChange={(e) => setAiConfig({ ...aiConfig, ai_model: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 bg-white p-3 text-xs font-bold text-slate-800 outline-none focus:border-orange-500"
+                    >
+                      <option value="gpt-4o-mini">OpenAI GPT-4o Mini (Khuyên dùng - Nhanh, chuẩn xác, tiết kiệm)</option>
+                      <option value="gpt-4o">OpenAI GPT-4o (Đỉnh cao đa phương thức &amp; phân tích nâng cao)</option>
+                      <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (Xử lý ngữ cảnh siêu nhanh)</option>
+                      <option value="claude-3-5-sonnet">Anthropic Claude 3.5 Sonnet (Chất lượng phản hồi xuất sắc)</option>
+                    </select>
+                    <p className="text-[11px] text-slate-500">
+                      Mô hình được gọi để xử lý các câu hỏi về lịch học, đặt sân và chế độ tập luyện của hội viên.
+                    </p>
+                  </div>
+
+                  {/* Temperature */}
+                  <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-purple-500 text-[18px]">thermostat</span>
+                        Nhiệt độ sáng tạo (Temperature):
+                      </label>
+                      <span className="font-mono font-black text-sm text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-200">
+                        {aiConfig.ai_temperature}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.0"
+                      max="1.0"
+                      step="0.1"
+                      value={aiConfig.ai_temperature}
+                      onChange={(e) => setAiConfig({ ...aiConfig, ai_temperature: parseFloat(e.target.value) })}
+                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase">
+                      <span>0.0 (Chính xác, kỷ luật)</span>
+                      <span>0.5 (Cân bằng)</span>
+                      <span>1.0 (Sáng tạo tự do)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* System Prompt */}
+                <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-emerald-500 text-[18px]">description</span>
+                    Chỉ thị hệ thống cốt lõi (System Prompt Huấn Luyện AI) *
+                  </label>
+                  <p className="text-[11px] text-slate-500">
+                    Định hình danh tính, giọng văn, quy định phản hồi và ranh giới kiến thức cho trợ lý thể thao F Sport.
+                  </p>
+                  <textarea
+                    rows={6}
+                    required
+                    value={aiConfig.ai_system_prompt}
+                    onChange={(e) => setAiConfig({ ...aiConfig, ai_system_prompt: e.target.value })}
+                    placeholder="Nhập System Prompt huấn luyện trợ lý AI F Sport..."
+                    className="w-full rounded-xl border border-slate-300 bg-white p-3.5 text-xs font-mono text-slate-800 outline-none focus:border-orange-500 leading-relaxed resize-none shadow-xs"
+                  />
+                </div>
+
+                <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-3">
+                  <span className="material-symbols-outlined text-amber-600 text-lg shrink-0 mt-0.5">verified_user</span>
+                  <div className="leading-relaxed">
+                    <strong>Bảo mật &amp; Kiểm toán (MGR-15, MGR-14):</strong> Mọi thao tác thay đổi cấu hình Trợ lý AI đều được lưu vào cơ sở dữ liệu bảng <code>system_settings</code> và tự động ghi vết trong nhật ký <code>audit_logs</code> kèm thời gian thực, IP và mã tài khoản Quản lý.
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                  <button
+                    type="submit"
+                    disabled={aiSaving}
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm shadow-orange-500/25 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">save</span>
+                    <span>{aiSaving ? 'Đang lưu vào DB...' : 'Lưu Cấu Hình Trợ Lý AI (MGR-15)'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </form>
         )}
       </div>
     </AdminLayout>

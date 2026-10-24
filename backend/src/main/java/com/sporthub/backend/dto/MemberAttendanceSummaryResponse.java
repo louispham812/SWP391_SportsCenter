@@ -10,5 +10,6 @@ public record MemberAttendanceSummaryResponse(
         int pendingSessions,
         BigDecimal attendanceRate,
         List<MemberAttendanceRecordResponse> records,
-        List<MemberCheckInResponse> gateCheckIns) {
+        List<MemberCheckInResponse> gateCheckIns,
+        List<MemberCourtBookingAttendanceResponse> courtBookings) {
 }
