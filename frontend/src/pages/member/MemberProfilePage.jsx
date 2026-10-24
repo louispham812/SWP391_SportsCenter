@@ -476,7 +476,7 @@ export default function MemberProfilePage() {
                   className="py-3 px-6 rounded-xl bg-primary text-white text-xs font-bold uppercase tracking-wider hover:bg-slate-800 transition-all shadow-md flex items-center gap-2 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[18px]">save</span>
-                  <span>Lưu Hồ Sơ Cá Nhân (MEM-03)</span>
+                  <span>Lưu Hồ Sơ Cá Nhân</span>
                 </button>
               </form>
             )}
@@ -484,7 +484,7 @@ export default function MemberProfilePage() {
             {activeTab === 'health' && (
               <form onSubmit={handleSaveHealth} className="space-y-4">
                 <h2 className="font-headline-sm text-lg font-bold text-primary uppercase mb-2">
-                  Thiết Lập Hồ Sơ Sức Khỏe & Thể Thao (MEM-05)
+                  Thiết Lập Hồ Sơ Sức Khỏe & Thể Thao
                 </h2>
                 <p className="text-xs text-slate-500">
                   Khai báo trung thực để Huấn Luyện Viên và Trợ Lý AI thiết kế giáo án phù hợp, tránh chấn thương.
@@ -555,7 +555,7 @@ export default function MemberProfilePage() {
             {activeTab === 'inbody' && (
               <form onSubmit={handleSaveInBody} className="space-y-4">
                 <h2 className="font-headline-sm text-lg font-bold text-primary uppercase mb-2">
-                  Theo Dõi Tiến Độ Cơ Thể & InBody (MEM-21)
+                  Theo Dõi Tiến Độ Cơ Thể & InBody
                 </h2>
                 <p className="text-xs text-slate-500">
                   Cập nhật các chỉ số từ phiếu đo InBody 770 để vẽ biểu đồ và đánh giá tiến độ rèn luyện.
