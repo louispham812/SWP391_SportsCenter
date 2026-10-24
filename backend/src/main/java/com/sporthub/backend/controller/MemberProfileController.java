@@ -557,6 +557,7 @@ public class MemberProfileController {
         Long userId = memberId(authentication);
         return paymentTransactionRepository.findByMemberIdOrderByCreatedAtDesc(userId)
                 .stream()
+                .filter(tx -> tx.getBookingType() == null || !tx.getBookingType().toUpperCase().endsWith("_REFUND"))
                 .map(tx -> new MemberTransactionResponse(
                         tx.getPaymentId(),
                         tx.getReferenceCode(),
