@@ -3,10 +3,14 @@ package com.sporthub.backend.controller;
 import com.sporthub.backend.dto.CreateRefundRequest;
 import com.sporthub.backend.dto.RefundDecisionRequest;
 import com.sporthub.backend.dto.RefundRequestDTO;
+import com.sporthub.backend.entity.PaymentTransaction;
 import com.sporthub.backend.entity.RefundRequest;
 import com.sporthub.backend.entity.User;
+import com.sporthub.backend.repository.PaymentTransactionRepository;
+import com.sporthub.backend.repository.ReceptionPaymentRepository;
 import com.sporthub.backend.repository.RefundRequestRepository;
 import com.sporthub.backend.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -24,12 +28,25 @@ public class RefundRequestController {
 
     private final RefundRequestRepository refundRepository;
     private final UserRepository userRepository;
+    private final PaymentTransactionRepository paymentTransactionRepository;
+    private final ReceptionPaymentRepository paymentRepository;
+
+    @Autowired
+    public RefundRequestController(
+            RefundRequestRepository refundRepository,
+            UserRepository userRepository,
+            PaymentTransactionRepository paymentTransactionRepository,
+            ReceptionPaymentRepository paymentRepository) {
+        this.refundRepository = refundRepository;
+        this.userRepository = userRepository;
+        this.paymentTransactionRepository = paymentTransactionRepository;
+        this.paymentRepository = paymentRepository;
+    }
 
     public RefundRequestController(
             RefundRequestRepository refundRepository,
             UserRepository userRepository) {
-        this.refundRepository = refundRepository;
-        this.userRepository = userRepository;
+        this(refundRepository, userRepository, null, null);
     }
 
     @GetMapping("/api/v1/members/me/refunds")
@@ -91,6 +108,35 @@ public class RefundRequestController {
         refund.setApprovedBy(managerId);
         if (decision.decisionNote() != null) {
             refund.setDecisionNote(decision.decisionNote());
+        }
+
+        if (decision.approved()) {
+            if (paymentTransactionRepository != null) {
+                if (refund.getTransactionId() != null) {
+                    paymentTransactionRepository.findById(refund.getTransactionId()).ifPresent(tx -> {
+                        tx.setPaymentStatus("REFUNDED");
+                        paymentTransactionRepository.save(tx);
+                    });
+                }
+                if (refund.getReferenceCode() != null && !refund.getReferenceCode().isBlank()) {
+                    paymentTransactionRepository.findAll().stream()
+                            .filter(tx -> refund.getReferenceCode().equalsIgnoreCase(tx.getReferenceCode()))
+                            .findFirst()
+                            .ifPresent(tx -> {
+                                tx.setPaymentStatus("REFUNDED");
+                                paymentTransactionRepository.save(tx);
+                            });
+                }
+            }
+            if (paymentRepository != null && refund.getTransactionId() != null) {
+                try {
+                    paymentRepository.findById(Math.toIntExact(refund.getTransactionId())).ifPresent(rp -> {
+                        rp.setPaymentStatus("REFUNDED");
+                        paymentRepository.save(rp);
+                    });
+                } catch (Exception ignored) {
+                }
+            }
         }
 
         return ResponseEntity.ok(toDTO(refundRepository.save(refund)));

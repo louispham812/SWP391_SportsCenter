@@ -47,6 +47,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @RestController
@@ -64,6 +65,7 @@ public class ReceptionistController {
     private final com.sporthub.backend.repository.BookingRepository bookingRepository;
     private final com.sporthub.backend.service.EngagementService engagementService;
     private final com.sporthub.backend.repository.ClassSessionRepository classSessionRepository;
+    private final com.sporthub.backend.repository.CourtBookingRepository courtBookingRepository;
 
     @Autowired
     public ReceptionistController(
@@ -76,7 +78,8 @@ public class ReceptionistController {
             PasswordEncoder passwordEncoder,
             com.sporthub.backend.repository.BookingRepository bookingRepository,
             com.sporthub.backend.service.EngagementService engagementService,
-            com.sporthub.backend.repository.ClassSessionRepository classSessionRepository) {
+            com.sporthub.backend.repository.ClassSessionRepository classSessionRepository,
+            com.sporthub.backend.repository.CourtBookingRepository courtBookingRepository) {
         this.userRepository = userRepository;
         this.paymentRepository = paymentRepository;
         this.paymentTransactionRepository = paymentTransactionRepository;
@@ -87,6 +90,7 @@ public class ReceptionistController {
         this.bookingRepository = bookingRepository;
         this.engagementService = engagementService;
         this.classSessionRepository = classSessionRepository;
+        this.courtBookingRepository = courtBookingRepository;
     }
 
     public ReceptionistController(
@@ -97,7 +101,7 @@ public class ReceptionistController {
             MembershipPackageRepository packageRepository,
             MemberCheckInRepository checkInRepository) {
         this(userRepository, paymentRepository, paymentTransactionRepository,
-             membershipRepository, packageRepository, checkInRepository, new BCryptPasswordEncoder(), null, null, null);
+             membershipRepository, packageRepository, checkInRepository, new BCryptPasswordEncoder(), null, null, null, null);
     }
 
     @GetMapping("/members")
@@ -262,17 +266,41 @@ public class ReceptionistController {
                         payment.getPaymentStatus(),
                         payment.getCreatedAt()))
                 .forEach(allPayments::add);
+        Set<Long> cancelledCourtPaymentIds = courtBookingRepository != null
+                ? courtBookingRepository.findAll().stream()
+                        .filter(cb -> "CANCELLED".equalsIgnoreCase(cb.getStatus()))
+                        .map(com.sporthub.backend.entity.CourtBooking::getPaymentId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet())
+                : Set.of();
+
+        Set<Long> cancelledClassPaymentIds = bookingRepository != null
+                ? bookingRepository.findAll().stream()
+                        .filter(b -> "CANCELLED".equalsIgnoreCase(b.getStatus()))
+                        .map(com.sporthub.backend.entity.Booking::getPaymentId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet())
+                : Set.of();
+
         paymentTransactionRepository
                 .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
                         reportDate.atStartOfDay(), reportDate.plusDays(1).atStartOfDay())
                 .stream()
-                .map(payment -> new PaymentEntry(
-                        "booking-" + payment.getPaymentId(),
-                        payment.getMemberId(),
-                        payment.getAmount(),
-                        payment.getPaymentMethod(),
-                        payment.getPaymentStatus(),
-                        payment.getCreatedAt()))
+                .map(payment -> {
+                    String effStatus = payment.getPaymentStatus();
+                    if (cancelledCourtPaymentIds.contains(payment.getPaymentId())
+                            || cancelledClassPaymentIds.contains(payment.getPaymentId())
+                            || (payment.getBookingType() != null && payment.getBookingType().toUpperCase().endsWith("_REFUND"))) {
+                        effStatus = "REFUNDED";
+                    }
+                    return new PaymentEntry(
+                            "booking-" + payment.getPaymentId(),
+                            payment.getMemberId(),
+                            payment.getAmount(),
+                            payment.getPaymentMethod(),
+                            effStatus,
+                            payment.getCreatedAt());
+                })
                 .forEach(allPayments::add);
 
         List<PaymentEntry> completed = allPayments.stream()
@@ -591,6 +619,10 @@ public class ReceptionistController {
     }
 
     private static boolean isCompleted(PaymentEntry payment) {
+        if (payment == null || payment.status() == null) return false;
+        if ("REFUNDED".equalsIgnoreCase(payment.status()) || "CANCELLED".equalsIgnoreCase(payment.status())) {
+            return false;
+        }
         return "COMPLETED".equalsIgnoreCase(payment.status())
                 || "PAID".equalsIgnoreCase(payment.status());
     }
