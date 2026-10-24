@@ -116,6 +116,31 @@ public class FacilityManagementController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Cơ sở đang bảo trì.");
         }
 
+        List<ClassSession> existingCoachSessions = classSessionRepository.findByCoachIdOrderByStartTimeAsc(coach.getUserId());
+        List<ClassSession> allSessions = classSessionRepository.findAll();
+
+        for (int index = 0; index < request.sessionCount(); index++) {
+            LocalDateTime start = request.startTime().plusWeeks(index);
+            LocalDateTime end = request.endTime().plusWeeks(index);
+
+            boolean coachConflict = existingCoachSessions.stream()
+                    .anyMatch(existing -> !"CANCELLED".equalsIgnoreCase(existing.getStatus())
+                            && start.isBefore(existing.getEndTime()) && end.isAfter(existing.getStartTime()));
+            if (coachConflict) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Huấn luyện viên đã có ca dạy khác bị trùng giờ trong khung giờ này.");
+            }
+
+            boolean facilityConflict = allSessions.stream()
+                    .anyMatch(existing -> !"CANCELLED".equalsIgnoreCase(existing.getStatus())
+                            && existing.getFacilityId().equals(request.facilityId())
+                            && start.isBefore(existing.getEndTime()) && end.isAfter(existing.getStartTime()));
+            if (facilityConflict) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Cơ sở / sân bãi đã được xếp lịch lớp khác bị trùng giờ trong khung giờ này.");
+            }
+        }
+
         List<ClassSession> sessions = new ArrayList<>(request.sessionCount());
         for (int index = 0; index < request.sessionCount(); index++) {
             ClassSession session = new ClassSession();

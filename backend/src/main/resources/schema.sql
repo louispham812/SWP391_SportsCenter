@@ -326,6 +326,15 @@ INSERT INTO dbo.public_facilities (facility_id, slug, name, description, icon, h
 SELECT facility.facility_id, seed.slug, seed.public_name, seed.description, seed.icon, seed.highlight, 1
 FROM dbo.facilities facility
 JOIN (VALUES
+    (N''Cụm Sân Pickleball - Sân P1 (Indoor)'', N''booking-pickleball-01'', N''Cụm Sân Pickleball - Sân P1 (Indoor)'', N''Cụm sân Pickleball tiêu chuẩn trong nhà.'', N''sports_tennis'', N''Sân trong nhà''),
+    (N''Cụm Sân Pickleball - Sân P2 (Indoor)'', N''booking-pickleball-02'', N''Cụm Sân Pickleball - Sân P2 (Indoor)'', N''Cụm sân Pickleball tiêu chuẩn trong nhà.'', N''sports_tennis'', N''Sân trong nhà''),
+    (N''Cụm Sân Pickleball - Sân P3 (Outdoor)'', N''booking-pickleball-03'', N''Cụm Sân Pickleball - Sân P3 (Outdoor)'', N''Cụm sân Pickleball ngoài trời thoáng đãng.'', N''sports_tennis'', N''Sân ngoài trời''),
+    (N''Sân Tennis Đơn & Đôi - Sân T1'', N''booking-tennis-01'', N''Sân Tennis Đơn & Đôi - Sân T1'', N''Sân tennis mặt cứng tiêu chuẩn quốc tế ITF.'', N''sports_tennis'', N''Mặt sân ITF''),
+    (N''Sân Tennis Đơn & Đôi - Sân T2'', N''booking-tennis-02'', N''Sân Tennis Đơn & Đôi - Sân T2'', N''Sân tennis có mái che và hệ thống đèn LED.'', N''sports_tennis'', N''Có mái che''),
+    (N''Sân Cỏ Nhân Tạo 7 Người - Sân A'', N''booking-football-a'', N''Sân Cỏ Nhân Tạo 7 Người - Sân A'', N''Sân cỏ nhân tạo chất lượng cao.'', N''sports_soccer'', N''Cỏ nhân tạo''),
+    (N''Sân Cỏ Nhân Tạo 7 Người - Sân B'', N''booking-football-b'', N''Sân Cỏ Nhân Tạo 7 Người - Sân B'', N''Sân cỏ nhân tạo tiêu chuẩn thi đấu.'', N''sports_soccer'', N''Cỏ nhân tạo''),
+    (N''Sân Cầu Lông Thảm Yonex - Sân L1'', N''booking-badminton-l1'', N''Sân Cầu Lông Thảm Yonex - Sân L1'', N''Thảm thi đấu Yonex chống trơn trượt.'', N''sports_tennis'', N''Thảm Yonex''),
+    (N''Sân Cầu Lông Thảm Yonex - Sân L2'', N''booking-badminton-l2'', N''Sân Cầu Lông Thảm Yonex - Sân L2'', N''Thảm thi đấu Yonex tiêu chuẩn BWF.'', N''sports_tennis'', N''Thảm Yonex''),
     (N''Sân Bóng Đá 7 Người - Sân F1'', N''booking-football-01'', N''Sân bóng đá 7 người - Sân F1'', N''Sân cỏ nhân tạo phục vụ lớp học và luyện tập.'', N''sports_soccer'', N''Sân cỏ nhân tạo''),
     (N''Sân Bóng Đá 7 Người - Sân F2'', N''booking-football-02'', N''Sân bóng đá 7 người - Sân F2'', N''Sân cỏ nhân tạo có đèn buổi tối.'', N''sports_soccer'', N''Sân cỏ nhân tạo''),
     (N''Sân Cầu Lông Trong Nhà - Sân B1'', N''booking-badminton-01'', N''Sân cầu lông - Sân B1'', N''Sân cầu lông trong nhà phục vụ lớp học và luyện tập.'', N''sports_tennis'', N''Sân trong nhà''),
@@ -351,13 +360,38 @@ SET IDENTITY_INSERT dbo.public_facilities OFF;');
 WITH class_seed AS (
     SELECT *
     FROM (VALUES
-        (N'football', N'Lớp Bóng Đá Cơ Bản', N'coach.phat@sporthub.com', N'Sân Bóng Đá 7 Người - Sân F1', 1080, 90, 14, 180000),
-        (N'badminton', N'Lớp Cầu Lông Căn Bản', N'coach.thao@sporthub.com', N'Sân Cầu Lông Trong Nhà - Sân B1', 1140, 90, 8, 140000),
-        (N'volleyball', N'Lớp Bóng Chuyền Căn Bản', N'coach.nam@sporthub.com', N'Sân Bóng Chuyền - Sân V1', 1080, 90, 12, 160000),
-        (N'table-tennis', N'Lớp Bóng Bàn Căn Bản', N'coach.minh@sporthub.com', N'Khu Bóng Bàn - Bàn T1', 1140, 60, 8, 120000),
-        (N'swimming', N'Lớp Bơi Lội Căn Bản', N'coach.nam@sporthub.com', N'Hồ Bơi - Làn S1', 1020, 60, 8, 170000),
-        (N'athletics', N'Lớp Điền Kinh Căn Bản', N'coach.phat@sporthub.com', N'Đường Chạy Điền Kinh - Khu A1', 420, 60, 12, 110000)
-    ) AS seed(sport_slug, class_name, coach_email, facility_name, start_minute, duration_minute, max_slots, price_amount)
+        -- Thứ Hai (day_offset = 0)
+        (N'tennis', N'Lớp Tennis Chuyên Kỹ Thuật Serve', N'coach.minh@sporthub.com', N'Sân Tennis Đơn & Đôi - Sân T1', 0, 1020, 90, 6, 200000),
+        (N'pickleball', N'Lớp Pickleball Căn Bản K12', N'coach.nam@sporthub.com', N'Cụm Sân Pickleball - Sân P1 (Indoor)', 0, 1080, 90, 8, 150000),
+
+        -- Thứ Ba (day_offset = 1)
+        (N'athletics', N'Lớp Điền Kinh Căn Bản', N'coach.phat@sporthub.com', N'Đường Chạy Điền Kinh - Khu A1', 1, 390, 90, 12, 110000),
+        (N'badminton', N'Lớp Cầu Lông Phản Xạ Nhanh', N'coach.thao@sporthub.com', N'Sân Cầu Lông Thảm Yonex - Sân L1', 1, 1080, 90, 8, 150000),
+
+        -- Thứ Tư (day_offset = 2)
+        (N'pickleball', N'Lớp Pickleball Nâng Cao K05', N'coach.nam@sporthub.com', N'Cụm Sân Pickleball - Sân P2 (Indoor)', 2, 1080, 90, 8, 180000),
+        (N'table-tennis', N'Lớp Bóng Bàn Căn Bản', N'coach.minh@sporthub.com', N'Khu Bóng Bàn - Bàn T1', 2, 1110, 90, 8, 120000),
+
+        -- Thứ Năm (day_offset = 3)
+        (N'football', N'Lớp Bóng Đá Cơ Bản', N'coach.phat@sporthub.com', N'Sân Bóng Đá 7 Người - Sân F1', 3, 1050, 90, 14, 180000),
+
+        -- Thứ Sáu (day_offset = 4)
+        (N'swimming', N'Lớp Bơi Lội Căn Bản', N'coach.nam@sporthub.com', N'Hồ Bơi - Làn S1', 4, 990, 90, 8, 170000),
+        (N'badminton', N'Lớp Cầu Lông Căn Bản', N'coach.thao@sporthub.com', N'Sân Cầu Lông Trong Nhà - Sân B1', 4, 1110, 90, 8, 140000),
+
+        -- Thứ Bảy (day_offset = 5)
+        (N'tennis', N'Lớp Tennis Chiến Thuật Đánh Đôi', N'coach.minh@sporthub.com', N'Sân Tennis Đơn & Đôi - Sân T2', 5, 480, 90, 6, 220000),
+        (N'volleyball', N'Lớp Bóng Chuyền Căn Bản', N'coach.nam@sporthub.com', N'Sân Bóng Chuyền - Sân V1', 5, 960, 90, 12, 160000),
+
+        -- Chủ Nhật (day_offset = 6)
+        (N'football', N'Lớp Bóng Đá Thể Lực & Phối Hợp', N'coach.phat@sporthub.com', N'Sân Bóng Đá 7 Người - Sân F1', 6, 480, 90, 14, 180000),
+        (N'badminton', N'Lớp Cầu Lông Đánh Đôi Nâng Cao', N'coach.thao@sporthub.com', N'Sân Cầu Lông Trong Nhà - Sân B1', 6, 960, 90, 8, 160000)
+    ) AS seed(sport_slug, class_name, coach_email, facility_name, day_offset, start_minute, duration_minute, max_slots, price_amount)
+),
+week_offsets AS (
+    SELECT 0 AS week_offset
+    UNION ALL
+    SELECT 1 AS week_offset
 )
 INSERT INTO dbo.class_sessions (
     class_name, sport_id, coach_id, facility_id, start_time, end_time,
@@ -368,12 +402,14 @@ SELECT seed.class_name, sport.sport_id, COALESCE(preferredCoach.user_id, anyCoac
        DATEADD(MINUTE, seed.duration_minute, classTime.start_time),
        seed.max_slots, 0, 'SCHEDULED', seed.price_amount
 FROM class_seed seed
+CROSS JOIN week_offsets w
 JOIN dbo.public_sports sport ON sport.slug = seed.sport_slug
 JOIN dbo.sports legacySport ON legacySport.sport_id = sport.sport_id
 JOIN dbo.facilities facility ON facility.facility_name = seed.facility_name
 CROSS APPLY (
     SELECT DATEADD(MINUTE, seed.start_minute,
-                   DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))) AS start_time
+           DATEADD(DAY, (w.week_offset * 7) + seed.day_offset,
+           DATEADD(WEEK, DATEDIFF(WEEK, '1900-01-01', GETDATE()), '1900-01-01'))) AS start_time
 ) classTime
 OUTER APPLY (
     SELECT TOP (1) coach.user_id
@@ -394,9 +430,8 @@ WHERE COALESCE(preferredCoach.user_id, anyCoach.user_id) IS NOT NULL
   AND NOT EXISTS (
       SELECT 1
       FROM dbo.class_sessions existing
-      WHERE existing.sport_id = sport.sport_id
-        AND existing.class_name = seed.class_name
-        AND existing.start_time > GETDATE()
+      WHERE existing.coach_id = COALESCE(preferredCoach.user_id, anyCoach.user_id)
+        AND existing.start_time = classTime.start_time
   );
 
 IF OBJECT_ID(N'dbo.class_sessions', N'U') IS NOT NULL

@@ -11,7 +11,7 @@ export default function CoachLayout({ children }) {
     { label: 'Lịch giảng dạy tuần', path: '/coach', icon: 'calendar_month' },
     { label: 'Học viên của tôi', path: '/coach/students', icon: 'groups' },
     { label: 'Điểm danh & Nhận xét', path: '/coach/attendance', icon: 'fact_check' },
-    { label: 'Lịch toàn trung tâm', path: '/member/schedule', icon: 'stadium' },
+    // { label: 'Lịch toàn trung tâm', path: '/member/schedule', icon: 'stadium' },
   ];
 
   return (
