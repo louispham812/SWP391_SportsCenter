@@ -1,4 +1,4 @@
-CREATE DATABASE SportsCenterDB;
+﻿CREATE DATABASE SportsCenterDB;
 
 GO
 
