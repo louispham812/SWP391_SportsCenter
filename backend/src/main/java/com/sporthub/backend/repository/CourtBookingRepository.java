@@ -34,4 +34,17 @@ public interface CourtBookingRepository extends JpaRepository<CourtBooking, Long
 
     List<CourtBooking> findByCourtIdAndStatusAndStartTimeBetween(
             Long courtId, String status, LocalDateTime from, LocalDateTime to);
+
+    @Query("""
+            select count(booking) > 0
+            from CourtBooking booking
+            where booking.memberId = :memberId
+              and booking.status = 'CONFIRMED'
+              and booking.startTime < :endTime
+              and booking.endTime > :startTime
+            """)
+    boolean existsConfirmedOverlapForMember(
+            @Param("memberId") Long memberId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime);
 }
