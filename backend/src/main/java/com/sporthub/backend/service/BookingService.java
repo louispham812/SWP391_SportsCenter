@@ -41,6 +41,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -179,10 +180,17 @@ public class BookingService {
             return List.of();
         }
 
+        // Deduplicate bookings by memberId + sessionId to prevent duplicated student cards
+        Map<String, Booking> distinctBookings = new LinkedHashMap<>();
+        for (Booking booking : bookings) {
+            String key = booking.getMemberId() + "_" + booking.getSessionId();
+            distinctBookings.put(key, booking);
+        }
+
         Map<Long, User> members = userRepository.findAllById(
-                        bookings.stream().map(Booking::getMemberId).distinct().toList()).stream()
+                        distinctBookings.values().stream().map(Booking::getMemberId).distinct().toList()).stream()
                 .collect(Collectors.toMap(User::getUserId, Function.identity()));
-        return bookings.stream()
+        return distinctBookings.values().stream()
                 .sorted((left, right) -> {
                     int sessionOrder = sessionsById.get(left.getSessionId()).getStartTime()
                             .compareTo(sessionsById.get(right.getSessionId()).getStartTime());
@@ -199,6 +207,8 @@ public class BookingService {
                             booking.getMemberId(),
                             member == null ? null : member.getFullName(),
                             member == null ? null : member.getPhone(),
+                            member == null ? null : member.getEmail(),
+                            member == null ? null : member.getAvatar(),
                             session.getSessionId(),
                             session.getClassName(),
                             session.getStartTime(),
@@ -444,6 +454,24 @@ public class BookingService {
         LocalDateTime start = request.startTime() != null ? request.startTime() : LocalDateTime.now().plusDays(1).withHour(9).withMinute(0);
         LocalDateTime end = request.endTime() != null ? request.endTime() : start.plusHours(1);
 
+        LocalDateTime now = LocalDateTime.now();
+        if (start == null || !start.isAfter(now)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời gian bắt đầu buổi tập PT phải ở trong tương lai.");
+        }
+        if (end == null || !end.isAfter(start)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời gian kết thúc phải sau thời gian bắt đầu.");
+        }
+
+        if (classSessionRepository.existsOverlappingSessionForCoach(coach.getUserId(), start, end)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Huấn luyện viên đã có lịch giảng dạy hoặc huấn luyện trong khung giờ này.");
+        }
+        if (bookingRepository.existsOverlappingBookingForMember(memberId, ALL_ACTIVE_STATUSES, start, end)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có lịch tham gia lớp học khác trong khung giờ này.");
+        }
+        if (courtBookingRepository.existsConfirmedOverlapForMember(memberId, start, end)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có lịch đặt sân thi đấu trong khung giờ này.");
+        }
+
         BigDecimal hourlyRate = BigDecimal.valueOf(250000);
         long minutes = Math.max(30, Duration.between(start, end).toMinutes());
         double hours = Math.max(1.0, minutes / 60.0);
@@ -452,8 +480,17 @@ public class BookingService {
         DiscountInfo discount = calculateDiscount(memberId, "PT", originalPrice);
         PaymentTransaction payment = createPaymentTransaction(memberId, "PT", discount.finalAmount(), request.paymentMethod());
 
-        Long sportId = publicSportRepository.findAll().stream().map(PublicSport::getSportId).findFirst().orElse(1L);
-        Long facilityId = publicFacilityRepository.findAll().stream().map(PublicFacility::getFacilityId).findFirst().orElse(1L);
+        List<ClassSession> coachSessions = classSessionRepository.findByCoachIdOrderByStartTimeAsc(coach.getUserId());
+        Long sportId = coachSessions.stream()
+                .map(ClassSession::getSportId)
+                .filter(id -> id != null)
+                .findFirst()
+                .orElseGet(() -> publicSportRepository.findAll().stream().map(PublicSport::getSportId).findFirst().orElse(1L));
+        Long facilityId = coachSessions.stream()
+                .map(ClassSession::getFacilityId)
+                .filter(id -> id != null)
+                .findFirst()
+                .orElseGet(() -> publicFacilityRepository.findAll().stream().map(PublicFacility::getFacilityId).findFirst().orElse(1L));
 
         ClassSession session = new ClassSession();
         session.setClassName("Huấn Luyện 1-1 (" + coach.getFullName() + ")");
@@ -479,13 +516,18 @@ public class BookingService {
         booking.setCoachNote("Buổi tập cá nhân 1-1");
         Booking savedBooking = bookingRepository.save(booking);
 
+        PublicSport sport = publicSportRepository.findById(sportId).orElse(null);
+        PublicFacility facility = publicFacilityRepository.findById(facilityId).orElse(null);
+        String sportName = sport != null ? sport.getName() : "Personal Training & Thể Lực";
+        String facilityName = (facility != null ? facility.getName() : "Khu Gym PT & Sân Chuyên Dụng") + " · HLV " + coach.getFullName();
+
         return new BookingConfirmationResponse(
                 "PT",
                 savedBooking.getBookingId(),
                 payment.getPaymentId(),
                 savedSession.getClassName(),
-                "Personal Training & Thể Lực",
-                "Khu Gym PT & Sân Chuyên Dụng",
+                sportName,
+                facilityName,
                 start,
                 end,
                 discount.finalAmount(),
@@ -500,6 +542,12 @@ public class BookingService {
         long hours = validateCourtSlot(court, request.startTime(), request.endTime());
         if (courtBookingRepository.existsConfirmedOverlap(court.getCourtId(), request.startTime(), request.endTime())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Một hoặc nhiều khung giờ sân đã chọn vừa được người khác đặt.");
+        }
+        if (bookingRepository.existsOverlappingBookingForMember(memberId, ALL_ACTIVE_STATUSES, request.startTime(), request.endTime())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có lịch tham gia lớp học trong khung giờ này.");
+        }
+        if (courtBookingRepository.existsConfirmedOverlapForMember(memberId, request.startTime(), request.endTime())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có một lịch đặt sân khác trong khung giờ này.");
         }
         PublicSport sport = getActiveSport(court.getSportId());
         BigDecimal baseAmount = court.getHourlyRate().multiply(BigDecimal.valueOf(hours));
@@ -532,6 +580,12 @@ public class BookingService {
         }
         if (bookingRepository.countBySessionIdAndStatusIn(session.getSessionId(), ACTIVE_STATUSES) >= session.getMaxSlots()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Lớp học vừa hết chỗ.");
+        }
+        if (bookingRepository.existsOverlappingBookingForMember(memberId, ALL_ACTIVE_STATUSES, session.getStartTime(), session.getEndTime())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có lịch tham gia lớp học khác trong khung giờ này.");
+        }
+        if (courtBookingRepository.existsConfirmedOverlapForMember(memberId, session.getStartTime(), session.getEndTime())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có lịch đặt sân thi đấu trong khung giờ này.");
         }
 
         BigDecimal originalPrice = requirePrice(session.getPriceAmount());

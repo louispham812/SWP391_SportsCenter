@@ -3,8 +3,11 @@ package com.sporthub.backend.controller;
 import com.sporthub.backend.dto.CoachLeaveRequestDTO;
 import com.sporthub.backend.dto.CreateLeaveRequest;
 import com.sporthub.backend.dto.LeaveDecisionRequest;
+import com.sporthub.backend.entity.ClassSession;
 import com.sporthub.backend.entity.CoachLeaveRequest;
 import com.sporthub.backend.entity.User;
+import com.sporthub.backend.repository.BookingRepository;
+import com.sporthub.backend.repository.ClassSessionRepository;
 import com.sporthub.backend.repository.CoachLeaveRequestRepository;
 import com.sporthub.backend.repository.UserRepository;
 import org.springframework.http.HttpStatus;
@@ -24,12 +27,18 @@ public class CoachLeaveController {
 
     private final CoachLeaveRequestRepository leaveRepository;
     private final UserRepository userRepository;
+    private final ClassSessionRepository classSessionRepository;
+    private final BookingRepository bookingRepository;
 
     public CoachLeaveController(
             CoachLeaveRequestRepository leaveRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            ClassSessionRepository classSessionRepository,
+            BookingRepository bookingRepository) {
         this.leaveRepository = leaveRepository;
         this.userRepository = userRepository;
+        this.classSessionRepository = classSessionRepository;
+        this.bookingRepository = bookingRepository;
     }
 
     @GetMapping("/api/v1/coach/leave-requests")
@@ -59,6 +68,18 @@ public class CoachLeaveController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ngày kết thúc không được trước ngày bắt đầu.");
         }
 
+        LocalDateTime startDt = req.startDate().atStartOfDay();
+        LocalDateTime endDt = req.endDate().plusDays(1).atStartOfDay();
+        List<ClassSession> affectedSessions = classSessionRepository.findAll().stream()
+                .filter(s -> java.util.Objects.equals(s.getCoachId(), coachId))
+                .filter(s -> !"CANCELLED".equalsIgnoreCase(s.getStatus()))
+                .filter(s -> s.getStartTime() != null && !s.getStartTime().isBefore(startDt) && s.getStartTime().isBefore(endDt))
+                .toList();
+
+        List<Long> sessionIds = affectedSessions.stream().map(ClassSession::getSessionId).toList();
+        int affectedCount = sessionIds.isEmpty() ? 0 :
+                bookingRepository.findBySessionIdInAndStatusIn(sessionIds, List.of("BOOKED", "CONFIRMED")).size();
+
         CoachLeaveRequest request = CoachLeaveRequest.builder()
                 .coachId(coachId)
                 .coachName(coach.getFullName())
@@ -67,7 +88,7 @@ public class CoachLeaveController {
                 .endDate(req.endDate())
                 .reason(req.reason().trim())
                 .status("PENDING")
-                .affectedBookingsCount(2) // Default simulated estimate
+                .affectedBookingsCount(affectedCount)
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -92,7 +113,25 @@ public class CoachLeaveController {
         Long managerId = getUserId(auth);
         req.setStatus(decision.approved() ? "APPROVED" : "REJECTED");
         req.setApprovedBy(managerId);
-        if (decision.reassignedCoachId() != null) {
+
+        if (decision.approved() && decision.reassignedCoachId() != null) {
+            User replacementCoach = userRepository.findById(decision.reassignedCoachId())
+                    .filter(u -> "COACH".equalsIgnoreCase(u.getRole()))
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Huấn luyện viên thay thế không hợp lệ."));
+            req.setReassignedCoachId(replacementCoach.getUserId());
+
+            LocalDateTime startDt = req.getStartDate().atStartOfDay();
+            LocalDateTime endDt = req.getEndDate().plusDays(1).atStartOfDay();
+            List<ClassSession> sessionsToReassign = classSessionRepository.findAll().stream()
+                    .filter(s -> java.util.Objects.equals(s.getCoachId(), req.getCoachId()))
+                    .filter(s -> !"CANCELLED".equalsIgnoreCase(s.getStatus()))
+                    .filter(s -> s.getStartTime() != null && !s.getStartTime().isBefore(startDt) && s.getStartTime().isBefore(endDt))
+                    .toList();
+            for (ClassSession s : sessionsToReassign) {
+                s.setCoachId(replacementCoach.getUserId());
+            }
+            classSessionRepository.saveAll(sessionsToReassign);
+        } else if (decision.reassignedCoachId() != null) {
             req.setReassignedCoachId(decision.reassignedCoachId());
         }
 

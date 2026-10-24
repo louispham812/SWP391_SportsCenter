@@ -7,7 +7,7 @@ export const SPORT_MEDIA_MAP = {
     features: ['Máy Technogym Ý', 'Đo InBody 770', 'Tạ tự do Olympic'],
   },
   'pickleball': {
-    image: 'https://images.unsplash.com/photo-1628891890467-b79f2c8ba9dc?auto=format&fit=crop&w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1737477003413-285d443f7fde?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D',
     banner: 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=1600&q=80',
     category: 'Vợt & Phản xạ',
     features: ['Chuẩn USAPA', 'Mái che chống chói', 'Đèn LED thi đấu'],
@@ -25,7 +25,7 @@ export const SPORT_MEDIA_MAP = {
     features: ['Máy Pilates Reformer', 'Studio cách âm', 'Thảm định tuyến'],
   },
   'football': {
-    image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1628891890467-b79f2c8ba9dc?auto=format&fit=crop&w=800&q=80',
     banner: 'https://images.unsplash.com/photo-1489944445391-11dd35574549?auto=format&fit=crop&w=1600&q=80',
     category: 'Đồng đội & Tốc độ',
     features: ['Cỏ nhân tạo FIFA', 'Sân 5 và 7 người', 'Đèn chiếu cao áp'],
