@@ -22,6 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.sporthub.backend.entity.PaymentTransaction;
+import com.sporthub.backend.repository.PaymentTransactionRepository;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -38,6 +41,7 @@ public class FacilityManagementController {
     private final ClassSessionRepository classSessionRepository;
     private final BookingRepository bookingRepository;
     private final EngagementService engagementService;
+    private final PaymentTransactionRepository paymentTransactionRepository;
 
     @Autowired
     public FacilityManagementController(
@@ -46,13 +50,15 @@ public class FacilityManagementController {
             UserRepository userRepository,
             ClassSessionRepository classSessionRepository,
             BookingRepository bookingRepository,
-            EngagementService engagementService) {
+            EngagementService engagementService,
+            PaymentTransactionRepository paymentTransactionRepository) {
         this.facilityRepository = facilityRepository;
         this.sportRepository = sportRepository;
         this.userRepository = userRepository;
         this.classSessionRepository = classSessionRepository;
         this.bookingRepository = bookingRepository;
         this.engagementService = engagementService;
+        this.paymentTransactionRepository = paymentTransactionRepository;
     }
 
     public FacilityManagementController(
@@ -60,7 +66,7 @@ public class FacilityManagementController {
             SportRepository sportRepository,
             UserRepository userRepository,
             ClassSessionRepository classSessionRepository) {
-        this(facilityRepository, sportRepository, userRepository, classSessionRepository, null, null);
+        this(facilityRepository, sportRepository, userRepository, classSessionRepository, null, null, null);
     }
 
     @GetMapping("/facilities")
@@ -298,6 +304,27 @@ public class FacilityManagementController {
                 for (Booking b : bookings) {
                     b.setStatus("CANCELLED");
                     bookingRepository.save(b);
+
+                    if (paymentTransactionRepository != null) {
+                        if (b.getPaymentId() != null) {
+                            paymentTransactionRepository.findById(b.getPaymentId()).ifPresent(orig -> {
+                                orig.setPaymentStatus("REFUNDED");
+                                paymentTransactionRepository.save(orig);
+                            });
+                        }
+                        if (b.getFeeAmount() != null && b.getFeeAmount().signum() > 0) {
+                            PaymentTransaction refund = new PaymentTransaction();
+                            refund.setMemberId(b.getMemberId());
+                            refund.setBookingType("CLASS_REFUND");
+                            refund.setAmount(b.getFeeAmount());
+                            refund.setPaymentMethod("SANDBOX");
+                            refund.setPaymentStatus("REFUNDED");
+                            refund.setReferenceCode("RFD-CLS-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
+                            refund.setCreatedAt(LocalDateTime.now());
+                            paymentTransactionRepository.save(refund);
+                        }
+                    }
+
                     engagementService.notifyUser(b.getMemberId(), "Thông Báo Hủy Lớp Học: " + session.getClassName(),
                             "Lớp học '" + session.getClassName() + "' vào lúc " + session.getStartTime().toString().replace("T", " ")
                                     + " đã bị hủy. Học phí/lượt học của bạn đã được hoàn lại. Lý do: " + reason, "MEMBER");

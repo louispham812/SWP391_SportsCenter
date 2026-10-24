@@ -390,7 +390,11 @@ public class EngagementController {
             BigDecimal posSales = BigDecimal.ZERO;
             int txCount = 0;
             if (paymentRepository != null) {
-                var payments = paymentRepository.findAll();
+                var payments = paymentRepository.findAll().stream()
+                        .filter(p -> ("COMPLETED".equalsIgnoreCase(p.getPaymentStatus()) || "PAID".equalsIgnoreCase(p.getPaymentStatus()))
+                                && !"REFUNDED".equalsIgnoreCase(p.getPaymentStatus())
+                                && !"CANCELLED".equalsIgnoreCase(p.getPaymentStatus()))
+                        .toList();
                 posSales = payments.stream()
                         .map(p -> p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);

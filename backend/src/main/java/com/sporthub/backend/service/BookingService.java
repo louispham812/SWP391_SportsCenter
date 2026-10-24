@@ -853,6 +853,14 @@ public class BookingService {
         booking.setStatus("CANCELLED");
         bookingRepository.save(booking);
 
+        // Update original payment transaction status to REFUNDED
+        if (booking.getPaymentId() != null) {
+            paymentTransactionRepository.findById(booking.getPaymentId()).ifPresent(orig -> {
+                orig.setPaymentStatus("REFUNDED");
+                paymentTransactionRepository.save(orig);
+            });
+        }
+
         // Record 100% refund transaction matching original payment method
         if (booking.getFeeAmount() != null && booking.getFeeAmount().signum() > 0) {
             String origMethod = "SANDBOX";
@@ -907,6 +915,14 @@ public class BookingService {
 
         booking.setStatus("CANCELLED");
         CourtBooking saved = courtBookingRepository.save(booking);
+
+        // Update original payment transaction status to REFUNDED
+        if (booking.getPaymentId() != null) {
+            paymentTransactionRepository.findById(booking.getPaymentId()).ifPresent(orig -> {
+                orig.setPaymentStatus("REFUNDED");
+                paymentTransactionRepository.save(orig);
+            });
+        }
 
         // Record 100% refund transaction matching original payment method
         if (booking.getAmountPaid() != null && booking.getAmountPaid().signum() > 0) {

@@ -38,7 +38,7 @@ export default function MemberDashboardPage() {
         if (!isMounted) return;
         const now = Date.now();
         const upcoming = Array.isArray(schedule)
-          ? schedule.filter((booking) => new Date(booking.endTime).getTime() >= now)
+          ? schedule.filter((booking) => new Date(booking.endTime).getTime() >= now && booking.status !== 'CANCELLED')
           : [];
         setBookings(upcoming);
 
