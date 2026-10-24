@@ -576,99 +576,38 @@ GO
 
 \-- 8. SEED DATA FOR TABLE: class_sessions
 
-\-- =============================================================================
+-- =============================================================================
 
-INSERT INTO class_sessions (class_name, sport_id, coach_id, facility_id, start_time, end_time, max_slots, booked_slots, status) VALUES&#x20;
+-- Danh sách lớp học và phân ca giảng dạy không trùng giờ cho HLV
+INSERT INTO class_sessions (class_name, sport_id, coach_id, facility_id, start_time, end_time, max_slots, booked_slots, status, price_amount) VALUES 
+-- Thứ Hai: Tennis Serve (Coach 5) & Pickleball K12 (Coach 6)
+(N'Lớp Tennis Chuyên Kỹ Thuật Serve', 2, 5, 4, '2026-10-12 17:00:00', '2026-10-12 18:30:00', 6, 2, 'SCHEDULED', 200000),
+(N'Lớp Pickleball Căn Bản K12',        1, 6, 1, '2026-10-12 18:00:00', '2026-10-12 19:30:00', 8, 3, 'SCHEDULED', 150000),
 
-\-- Lớp Pickleball
+-- Thứ Ba: Điền Kinh (Coach 7) & Cầu Lông Phản Xạ (Coach 8)
+(N'Lớp Điền Kinh Căn Bản',           10, 7, 20, '2026-10-13 06:30:00', '2026-10-13 08:00:00', 12, 0, 'SCHEDULED', 110000),
+(N'Lớp Cầu Lông Phản Xạ Nhanh',       4, 8,  8, '2026-10-13 18:00:00', '2026-10-13 19:30:00',  8, 1, 'SCHEDULED', 150000),
 
-(N'Lớp Pickleball Căn Bản K12',  1, 6, 1, '2026-10-12 18:00:00', '2026-10-12 19:30:00', 4, 3, 'SCHEDULED'),
+-- Thứ Tư: Pickleball K05 (Coach 6) & Bóng Bàn (Coach 5)
+(N'Lớp Pickleball Nâng Cao K05',      1, 6, 2, '2026-10-14 18:00:00', '2026-10-14 19:30:00', 8, 4, 'SCHEDULED', 180000),
+(N'Lớp Bóng Bàn Căn Bản',             8, 5, 16, '2026-10-14 18:30:00', '2026-10-14 20:00:00', 8, 0, 'SCHEDULED', 120000),
 
-(N'Lớp Pickleball Nâng Cao K05', 1, 6, 2, '2026-10-13 19:30:00', '2026-10-13 21:00:00', 4, 4, 'SCHEDULED'),
+-- Thứ Năm: Bóng Đá Cơ Bản (Coach 7)
+(N'Lớp Bóng Đá Cơ Bản',                5, 7, 10, '2026-10-15 17:30:00', '2026-10-15 19:00:00', 14, 1, 'SCHEDULED', 180000),
 
+-- Thứ Sáu: Bơi Lội (Coach 6) & Cầu Lông Căn Bản (Coach 8)
+(N'Lớp Bơi Lội Căn Bản',               9, 6, 18, '2026-10-16 16:30:00', '2026-10-16 18:00:00',  8, 0, 'SCHEDULED', 170000),
+(N'Lớp Cầu Lông Căn Bản',              6, 8, 12, '2026-10-16 18:30:00', '2026-10-16 20:00:00',  8, 0, 'SCHEDULED', 140000),
 
-
-\-- Lớp Tennis
-
-(N'Lớp Tennis Chuyên Kỹ Thuật Serve', 2, 5, 4, '2026-10-12 17:00:00', '2026-10-12 18:30:00', 4, 2, 'SCHEDULED'),
-
-(N'Lớp Tennis Chiến Thuật Đánh Đôi', 2, 5, 5, '2026-10-10 08:00:00', '2026-10-10 09:30:00', 4, 4, 'COMPLETED'),
-
-
-
-\-- Lớp Cầu lông
-
-(N'Lớp Cầu Lông Phản Xạ Nhanh', 4, 8, 8, '2026-10-14 18:00:00', '2026-10-14 19:30:00', 4, 1, 'SCHEDULED');
-
-GO
-
-
-
-\-- Các lớp mẫu có lịch trong tương lai cho sáu bộ môn mới
-
-INSERT INTO class_sessions (
-
- class_name, sport_id, coach_id, facility_id, start_time, end_time,
-
- max_slots, booked_slots, status, price_amount
-
-) VALUES
-
-(N'Lớp Bóng Đá Cơ Bản', 5, 7, 10,
-
-DATEADD(HOUR, 18, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
-
-DATEADD(MINUTE, 90, DATEADD(HOUR, 18, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
-
-14, 0, 'SCHEDULED', 180000),
-
-(N'Lớp Cầu Lông Căn Bản', 6, 8, 12,
-
-DATEADD(HOUR, 19, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
-
-DATEADD(MINUTE, 90, DATEADD(HOUR, 19, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
-
-8, 0, 'SCHEDULED', 140000),
-
-(N'Lớp Bóng Chuyền Căn Bản', 7, 6, 14,
-
-DATEADD(HOUR, 18, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
-
-DATEADD(MINUTE, 90, DATEADD(HOUR, 18, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
-
-12, 0, 'SCHEDULED', 160000),
-
-(N'Lớp Bóng Bàn Căn Bản', 8, 5, 16,
-
-DATEADD(HOUR, 19, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
-
-DATEADD(MINUTE, 60, DATEADD(HOUR, 19, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
-
-8, 0, 'SCHEDULED', 120000),
-
-(N'Lớp Bơi Lội Căn Bản', 9, 6, 18,
-
-DATEADD(HOUR, 17, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
-
-DATEADD(MINUTE, 60, DATEADD(HOUR, 17, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
-
-8, 0, 'SCHEDULED', 170000),
-
-(N'Lớp Điền Kinh Căn Bản', 10, 7, 20,
-
-DATEADD(HOUR, 7, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime))),
-
-DATEADD(MINUTE, 60, DATEADD(HOUR, 7, DATEADD(DAY, 3, CAST(CAST(GETDATE() AS date) AS datetime)))),
-
-12, 0, 'SCHEDULED', 110000);
+-- Thứ Bảy: Tennis Đánh Đôi (Coach 5) & Bóng Chuyền (Coach 6)
+(N'Lớp Tennis Chiến Thuật Đánh Đôi',  2, 5,  5, '2026-10-17 08:00:00', '2026-10-17 09:30:00',  6, 4, 'COMPLETED', 220000),
+(N'Lớp Bóng Chuyền Căn Bản',          7, 6, 14, '2026-10-17 16:00:00', '2026-10-17 17:30:00', 12, 0, 'SCHEDULED', 160000);
 
 GO
 
+-- =============================================================================
 
-
-\-- =============================================================================
-
-\-- 9. SEED DATA FOR TABLE: bookings
+-- 9. SEED DATA FOR TABLE: bookings
 
 \-- =============================================================================
 

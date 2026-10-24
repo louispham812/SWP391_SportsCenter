@@ -84,4 +84,37 @@ class FacilityManagementControllerTest {
 
         assertEquals(400, exception.getStatusCode().value());
     }
+
+    @Test
+    void classCreationRejectsOverlappingCoachSession() {
+        Facility facility = new Facility();
+        facility.setFacilityId(7L);
+        facility.setSportId(3L);
+        facility.setStatus("AVAILABLE");
+        when(facilityRepository.findById(7L)).thenReturn(Optional.of(facility));
+        when(sportRepository.findById(3L)).thenReturn(Optional.of(new Sport()));
+        when(userRepository.findById(9L)).thenReturn(Optional.of(
+                User.builder().userId(9L).role("COACH").build()));
+
+        LocalDateTime startTime = LocalDateTime.now().plusDays(2).withSecond(0).withNano(0);
+        com.sporthub.backend.entity.ClassSession existingSession = new com.sporthub.backend.entity.ClassSession();
+        existingSession.setSessionId(101L);
+        existingSession.setCoachId(9L);
+        existingSession.setFacilityId(8L);
+        existingSession.setStartTime(startTime.minusMinutes(30));
+        existingSession.setEndTime(startTime.plusMinutes(30));
+        existingSession.setStatus("SCHEDULED");
+
+        when(classSessionRepository.findByCoachIdOrderByStartTimeAsc(9L)).thenReturn(List.of(existingSession));
+
+        CreateClassSessionRequest request = new CreateClassSessionRequest(
+                "Lớp cầu lông nâng cao", 3L, 9L, 7L, startTime, startTime.plusHours(1),
+                1, 12, new BigDecimal("150000"));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.createClassSession(request, manager));
+
+        assertEquals(409, exception.getStatusCode().value());
+    }
 }

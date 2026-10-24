@@ -340,41 +340,61 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
                         </div>
                       ) : (
                         <div className="mt-3 space-y-3">
-                          {day.classes.map((classItem, idx) => {
+                          {[...day.classes]
+                            .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+                            .map((classItem, idx) => {
                             const isNext = isToday && idx === 0;
+                            const hasConflict = day.classes.some(
+                              (other) =>
+                                other.sessionId !== classItem.sessionId &&
+                                new Date(classItem.startTime) < new Date(other.endTime) &&
+                                new Date(classItem.endTime) > new Date(other.startTime)
+                            );
                             return (
                               <article
                                 key={classItem.sessionId}
                                 className={`rounded-xl border p-3.5 transition-all ${
-                                  isNext
+                                  hasConflict
+                                    ? 'border-rose-400 bg-rose-50/60 ring-1 ring-rose-400'
+                                    : isNext
                                     ? 'border-orange-500 bg-slate-900 text-white shadow-md'
                                     : 'border-slate-200 bg-slate-50/70 hover:bg-slate-100/70'
                                 }`}
                               >
-                                <div className="flex items-center justify-between">
+                                <div className="flex flex-wrap items-center justify-between gap-1">
                                   <span
                                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                      isNext ? 'bg-orange-500 text-white' : 'bg-orange-100 text-orange-800'
+                                      hasConflict
+                                        ? 'bg-rose-100 text-rose-800'
+                                        : isNext
+                                        ? 'bg-orange-500 text-white'
+                                        : 'bg-orange-100 text-orange-800'
                                     }`}
                                   >
                                     <span className="material-symbols-outlined text-[13px]">schedule</span>
                                     {formatTime(classItem.startTime)} – {formatTime(classItem.endTime)}
                                   </span>
-                                  {isNext && (
+                                  {hasConflict && (
+                                    <span className="inline-flex items-center gap-0.5 rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-600 border border-rose-300">
+                                      <span className="material-symbols-outlined text-[12px]">warning</span>
+                                      Trùng giờ
+                                    </span>
+                                  )}
+                                  {isNext && !hasConflict && (
                                     <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
                                       Ca kế tiếp
                                     </span>
                                   )}
                                 </div>
-                                <h3 className={`mt-2 text-xs font-bold leading-snug ${isNext ? 'text-white' : 'text-slate-900'}`}>
+                                <h3 className={`mt-2 text-xs font-bold leading-snug ${isNext && !hasConflict ? 'text-white' : 'text-slate-900'}`}>
                                   {classItem.className}
                                 </h3>
-                                <p className={`mt-1 text-[11px] ${isNext ? 'text-slate-300' : 'text-slate-500'}`}>
+                                <p className={`mt-1 text-[11px] ${isNext && !hasConflict ? 'text-slate-300' : 'text-slate-500'}`}>
                                   {classItem.sportName || 'Lớp thể thao'} · {classItem.facilityName || 'Cơ sở F Sport'}
                                 </p>
                                 <div className="mt-3 pt-2.5 border-t border-slate-200/40 flex items-center justify-between">
-                                  <span className={`text-[11px] font-semibold ${isNext ? 'text-orange-300' : 'text-slate-600'}`}>
-                                    Sĩ số: <strong className={isNext ? 'text-white' : 'text-slate-900'}>{classItem.bookedSlots ?? 0}</strong> / {classItem.maxSlots ?? '—'}
+                                  <span className={`text-[11px] font-semibold ${isNext && !hasConflict ? 'text-orange-300' : 'text-slate-600'}`}>
+                                    Sĩ số: <strong className={isNext && !hasConflict ? 'text-white' : 'text-slate-900'}>{classItem.bookedSlots ?? 0}</strong> / {classItem.maxSlots ?? '—'}
                                   </span>
                                 </div>
                                 <Link
