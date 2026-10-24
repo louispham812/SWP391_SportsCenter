@@ -724,3 +724,60 @@ IF NOT EXISTS (SELECT 1 FROM dbo.refund_requests WHERE refund_id = 801)
     INSERT INTO dbo.refund_requests (refund_id, member_id, member_name, phone, booking_description, refund_amount, reason, status, created_at)
     VALUES (802, 7, N''Đỗ Hải Yến'', N''0912 333 444'', N''Lớp Cầu Lông Cơ Bản Kèm HLV'', 180000, N''Vắng có phép được Coach xác nhận EXCUSED_ABSENCE'', N''PENDING'', ''2026-10-19T17:30:00'');
     SET IDENTITY_INSERT dbo.refund_requests OFF;');
+
+
+-- ============================================================================
+-- VERIFICATION TOKENS TABLE (for OTP and Reset Password)
+-- ============================================================================
+IF OBJECT_ID(N'dbo.verification_tokens', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.verification_tokens (
+        token_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        email NVARCHAR(100) NOT NULL,
+        token_hash NVARCHAR(64) NOT NULL,
+        token_type NVARCHAR(20) NOT NULL,  -- 'PASSWORD_RESET', 'EMAIL_VERIFICATION', 'RESET_TOKEN'
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_verification_tokens_created_at DEFAULT GETDATE(),
+        expires_at DATETIME2 NOT NULL,
+        used_at DATETIME2 NULL,
+        failed_attempts INT NOT NULL CONSTRAINT DF_verification_tokens_failed_attempts DEFAULT 0,
+        locked BIT NOT NULL CONSTRAINT DF_verification_tokens_locked DEFAULT 0
+    );
+    
+    CREATE INDEX idx_email_type ON dbo.verification_tokens(email, token_type);
+    CREATE INDEX idx_token_hash ON dbo.verification_tokens(token_hash);
+    CREATE INDEX idx_expires_at ON dbo.verification_tokens(expires_at);
+END;
+
+-- ============================================================================
+-- ADD require_password_change COLUMN TO users TABLE
+-- ============================================================================
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.users', N'require_password_change') IS NULL
+BEGIN
+    ALTER TABLE dbo.users 
+        ADD require_password_change BIT NOT NULL 
+        CONSTRAINT DF_users_require_password_change DEFAULT 0;
+END;
+
+-- ============================================================================
+-- AUDIT LOG TABLE (for tracking authentication events)
+-- ============================================================================
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.audit_logs (
+        log_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        log_type NVARCHAR(50) NOT NULL,  -- 'OTP_GENERATED', 'OTP_VERIFIED', 'PASSWORD_RESET', 'LOGIN', etc.
+        user_email NVARCHAR(100) NULL,
+        user_id BIGINT NULL,
+        ip_address NVARCHAR(50) NULL,
+        user_agent NVARCHAR(500) NULL,
+        action_detail NVARCHAR(MAX) NULL,
+        status NVARCHAR(20) NOT NULL,  -- 'SUCCESS', 'FAILED'
+        error_message NVARCHAR(500) NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_audit_logs_created_at DEFAULT GETDATE()
+    );
+    
+    CREATE INDEX idx_log_type ON dbo.audit_logs(log_type);
+    CREATE INDEX idx_user_email ON dbo.audit_logs(user_email);
+    CREATE INDEX idx_created_at ON dbo.audit_logs(created_at);
+END;

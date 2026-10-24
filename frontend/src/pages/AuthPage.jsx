@@ -127,7 +127,29 @@ export default function AuthPage() {
       if (!response.ok) {
         throw new Error(await getErrorMessage(response));
       }
-      authenticate(await response.json());
+      
+      const user = await response.json();
+      
+      // ✅ CHECK requirePasswordChange flag (Staff cần đổi password lần đầu)
+      if (user.requirePasswordChange === true) {
+        // Lưu token tạm để /change-password dùng
+        localStorage.setItem('authToken', user.token);
+        localStorage.setItem('tempUserEmail', user.email);
+        
+        navigate('/change-password', {
+          state: {
+            email: user.email,
+            fullName: user.fullName,
+            fromLogin: true,
+            message: 'Bạn cần đổi mật khẩu tạm thời để tiếp tục sử dụng hệ thống.'
+          }
+        });
+        return;
+      }
+      
+      // Normal flow: authenticate user
+      authenticate(user);
+      
     } catch (error) {
       setAuthError(getRequestErrorMessage(error, 'Đăng nhập'));
     } finally {
