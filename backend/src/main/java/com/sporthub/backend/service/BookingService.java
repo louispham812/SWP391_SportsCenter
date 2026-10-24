@@ -371,6 +371,9 @@ public class BookingService {
         if ("COURT".equals(normalizedType)) {
             SportsCourt court = getActiveCourt(itemId);
             long hours = validateCourtSlot(court, startTime, endTime);
+            if (isUnderMaintenance(court.getCourtId(), startTime, endTime)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Sân đang trong lịch bảo trì, vui lòng chọn sân hoặc khung giờ khác.");
+            }
             if (courtBookingRepository.existsConfirmedOverlap(itemId, startTime, endTime)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Một hoặc nhiều khung giờ sân đã chọn vừa được người khác đặt.");
             }
@@ -838,6 +841,12 @@ public class BookingService {
                 .orElseThrow(() -> notFound("Không tìm thấy lớp học liên quan."));
         if ("CANCELLED".equalsIgnoreCase(booking.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Đặt chỗ này đã được hủy.");
+        }
+        if ("PRESENT".equalsIgnoreCase(booking.getAttendanceStatus()) || "ATTENDED".equalsIgnoreCase(booking.getAttendanceStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Không thể hủy buổi học đã được điểm danh tham gia.");
+        }
+        if ("COMPLETED".equalsIgnoreCase(session.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Không thể hủy buổi học đã hoàn thành.");
         }
         if (!ACTIVE_STATUSES.contains(booking.getStatus().toUpperCase(Locale.ROOT))
                 && !WAITLIST_STATUSES.contains(booking.getStatus().toUpperCase(Locale.ROOT))) {

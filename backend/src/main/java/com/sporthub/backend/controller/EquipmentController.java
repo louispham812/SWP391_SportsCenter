@@ -68,6 +68,12 @@ public class EquipmentController {
     public ResponseEntity<EquipmentResponse> updateEquipment(@PathVariable Long id, @RequestBody Equipment req) {
         Equipment eq = equipmentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy dụng cụ."));
+        if (req.getTotalQuantity() != null && req.getTotalQuantity() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tổng số lượng không thể âm.");
+        }
+        if (req.getAvailableQuantity() != null && req.getAvailableQuantity() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số lượng khả dụng không thể âm.");
+        }
         if (req.getItemName() != null) eq.setItemName(req.getItemName());
         if (req.getCategory() != null) eq.setCategory(req.getCategory());
         if (req.getRentalPricePerHour() != null) eq.setRentalPricePerHour(req.getRentalPricePerHour());
@@ -98,7 +104,10 @@ public class EquipmentController {
         Equipment item = equipmentRepository.findById(req.itemId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy dụng cụ."));
 
-        int qty = req.quantity() == null || req.quantity() <= 0 ? 1 : req.quantity();
+        if (req.quantity() != null && req.quantity() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số lượng mượn phải lớn hơn 0.");
+        }
+        int qty = req.quantity() == null ? 1 : req.quantity();
         if (item.getAvailableQuantity() < qty) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Dụng cụ không đủ số lượng còn trống (chỉ còn " + item.getAvailableQuantity() + ").");
         }
@@ -165,7 +174,11 @@ public class EquipmentController {
 
         // Return stock to equipment
         equipmentRepository.findById(loan.getItemId()).ifPresent(item -> {
-            item.setAvailableQuantity(item.getAvailableQuantity() + loan.getQuantity());
+            int newAvailable = item.getAvailableQuantity() + loan.getQuantity();
+            if (item.getTotalQuantity() != null && newAvailable > item.getTotalQuantity()) {
+                newAvailable = item.getTotalQuantity();
+            }
+            item.setAvailableQuantity(newAvailable);
             equipmentRepository.save(item);
         });
 

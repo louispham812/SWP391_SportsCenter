@@ -69,6 +69,21 @@ public class RefundRequestController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lý do hoàn tiền không được để trống.");
         }
 
+        if (req.transactionId() != null) {
+            boolean alreadyPending = refundRepository.findByMemberIdOrderByCreatedAtDesc(memberId).stream()
+                    .anyMatch(r -> req.transactionId().equals(r.getTransactionId()) && "PENDING".equalsIgnoreCase(r.getStatus()));
+            if (alreadyPending) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Giao dịch này đang có một yêu cầu hoàn tiền chờ xử lý.");
+            }
+        }
+        if (req.referenceCode() != null && !req.referenceCode().isBlank()) {
+            boolean alreadyPending = refundRepository.findByMemberIdOrderByCreatedAtDesc(memberId).stream()
+                    .anyMatch(r -> req.referenceCode().equalsIgnoreCase(r.getReferenceCode()) && "PENDING".equalsIgnoreCase(r.getStatus()));
+            if (alreadyPending) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Mã giao dịch này đang có một yêu cầu hoàn tiền chờ xử lý.");
+            }
+        }
+
         RefundRequest refund = RefundRequest.builder()
                 .memberId(memberId)
                 .memberName(user.getFullName())
@@ -102,6 +117,10 @@ public class RefundRequestController {
             Authentication auth) {
         RefundRequest refund = refundRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu hoàn tiền."));
+
+        if (!"PENDING".equalsIgnoreCase(refund.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Yêu cầu hoàn tiền này đã được xử lý trước đó.");
+        }
 
         Long managerId = getUserId(auth);
         refund.setStatus(decision.approved() ? "APPROVED" : "REJECTED");

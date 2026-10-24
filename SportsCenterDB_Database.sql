@@ -648,3 +648,17 @@ BEGIN
     );
 END;
 GO
+
+-- =============================================================================
+-- 22. DONG BO BOOKED_SLOTS CHO CLASS_SESSIONS VOI BOOKINGS THUC TE
+-- =============================================================================
+UPDATE s
+SET s.booked_slots = ISNULL(b.actual_count, 0)
+FROM dbo.class_sessions s
+LEFT JOIN (
+    SELECT session_id, COUNT(*) AS actual_count
+    FROM dbo.bookings
+    WHERE status IN ('BOOKED', 'CONFIRMED')
+    GROUP BY session_id
+) b ON s.session_id = b.session_id;
+GO

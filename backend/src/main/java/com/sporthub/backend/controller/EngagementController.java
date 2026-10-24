@@ -327,12 +327,15 @@ public class EngagementController {
 
         for (User coach : coaches) {
             List<ClassSession> sessions = classSessionRepository.findByCoachIdOrderByStartTimeAsc(coach.getUserId());
-            int sessionCount = sessions.size();
+            int sessionCount = (int) sessions.stream().filter(s -> !"CANCELLED".equalsIgnoreCase(s.getStatus())).count();
             int totalStudents = 0;
             BigDecimal coachRevenue = BigDecimal.ZERO;
             BigDecimal coachCommission = BigDecimal.ZERO;
 
             for (ClassSession s : sessions) {
+                if ("CANCELLED".equalsIgnoreCase(s.getStatus())) {
+                    continue;
+                }
                 List<Booking> bookings = bookingRepository.findBySessionIdInAndStatusIn(
                         List.of(s.getSessionId()), List.of("BOOKED", "CONFIRMED"));
                 int students = bookings.size();
@@ -342,7 +345,7 @@ public class EngagementController {
                 coachRevenue = coachRevenue.add(sRevenue);
 
                 BigDecimal commission = sRevenue.multiply(BigDecimal.valueOf(40)).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                if (commission.compareTo(BigDecimal.valueOf(200000)) < 0 && !"CANCELLED".equalsIgnoreCase(s.getStatus())) {
+                if (commission.compareTo(BigDecimal.valueOf(200000)) < 0) {
                     commission = BigDecimal.valueOf(200000);
                 }
                 coachCommission = coachCommission.add(commission);
@@ -382,18 +385,24 @@ public class EngagementController {
                 .toList();
 
         List<Map<String, Object>> recStats = new ArrayList<>();
-        int totalCheckIns = memberCheckInRepository != null ? memberCheckInRepository.findAll().size() : 0;
         int recCount = Math.max(1, receptionists.size());
 
         for (User rec : receptionists) {
-            int checkIns = totalCheckIns / recCount;
+            int checkIns = 0;
+            if (memberCheckInRepository != null) {
+                checkIns = (int) memberCheckInRepository.findAll().stream()
+                        .filter(c -> recCount == 1 || (c.getRecordedBy() != null && c.getRecordedBy().equals(rec.getUserId())))
+                        .count();
+            }
             BigDecimal posSales = BigDecimal.ZERO;
             int txCount = 0;
             if (paymentRepository != null) {
+                Integer recUserId = Math.toIntExact(rec.getUserId());
                 var payments = paymentRepository.findAll().stream()
                         .filter(p -> ("COMPLETED".equalsIgnoreCase(p.getPaymentStatus()) || "PAID".equalsIgnoreCase(p.getPaymentStatus()))
                                 && !"REFUNDED".equalsIgnoreCase(p.getPaymentStatus())
                                 && !"CANCELLED".equalsIgnoreCase(p.getPaymentStatus()))
+                        .filter(p -> recCount == 1 || (p.getApprovedBy() != null && p.getApprovedBy().equals(recUserId)))
                         .toList();
                 posSales = payments.stream()
                         .map(p -> p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO)

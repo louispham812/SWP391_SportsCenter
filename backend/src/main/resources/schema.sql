@@ -833,3 +833,14 @@ IF OBJECT_ID(N'dbo.system_settings', N'U') IS NULL
         setting_value NVARCHAR(MAX) NULL,
         updated_at DATETIME2 NOT NULL CONSTRAINT DF_system_settings_updated DEFAULT SYSDATETIME()
     );
+
+-- ===== Dong bo booked_slots cua class_sessions voi so luong bookings thuc te =====
+UPDATE s
+SET s.booked_slots = ISNULL(b.actual_count, 0)
+FROM dbo.class_sessions s
+LEFT JOIN (
+    SELECT session_id, COUNT(*) AS actual_count
+    FROM dbo.bookings
+    WHERE status IN ('BOOKED', 'CONFIRMED')
+    GROUP BY session_id
+) b ON s.session_id = b.session_id;
