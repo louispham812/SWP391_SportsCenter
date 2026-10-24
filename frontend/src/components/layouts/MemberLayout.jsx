@@ -14,6 +14,7 @@ export default function MemberLayout({ children }) {
     { label: 'Kế hoạch & Nhận xét HLV', path: '/member/workout-plans', icon: 'monitor_weight' },
     { label: 'Trợ lý AI thể thao', path: '/member/ai-assistant', icon: 'smart_toy' },
     { label: 'Thông báo & Nhắc nhở', path: '/member/notifications', icon: 'notifications' },
+    { label: 'Đánh giá HLV & lớp học', path: '/member/reviews', icon: 'star' },
     { label: 'Lịch sử giao dịch', path: '/member/transactions', icon: 'account_balance_wallet' },
     { label: 'Hồ sơ & Thẻ số', path: '/member/profile', icon: 'badge' },
   ];

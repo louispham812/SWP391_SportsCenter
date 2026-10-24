@@ -9,5 +9,9 @@ public record CoachProfileUpdateRequest(
         String gender,
         String address,
         String emergencyContactName,
-        String emergencyContactPhone) {
+        String emergencyContactPhone,
+        String specialty,
+        Integer experienceYears,
+        String certifications,
+        String bio) {
 }

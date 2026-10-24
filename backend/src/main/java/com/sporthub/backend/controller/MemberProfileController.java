@@ -4,6 +4,7 @@ import com.sporthub.backend.dto.AvatarUpdateRequest;
 import com.sporthub.backend.dto.MemberAttendanceRecordResponse;
 import com.sporthub.backend.dto.MemberAttendanceSummaryResponse;
 import com.sporthub.backend.dto.MemberCheckInResponse;
+import com.sporthub.backend.dto.MemberCourtBookingAttendanceResponse;
 import com.sporthub.backend.dto.MemberHealthProfileRequest;
 import com.sporthub.backend.dto.MemberMembershipResponse;
 import com.sporthub.backend.dto.MemberNotificationResponse;
@@ -14,23 +15,28 @@ import com.sporthub.backend.dto.MemberProfileResponse;
 import com.sporthub.backend.dto.MemberTransactionResponse;
 import com.sporthub.backend.entity.Booking;
 import com.sporthub.backend.entity.ClassSession;
+import com.sporthub.backend.entity.CourtBooking;
 import com.sporthub.backend.entity.MemberHealthProfile;
 import com.sporthub.backend.entity.MembershipPackage;
 import com.sporthub.backend.entity.PaymentTransaction;
 import com.sporthub.backend.entity.PublicSport;
 import com.sporthub.backend.entity.ReceptionPayment;
+import com.sporthub.backend.entity.SportsCourt;
 import com.sporthub.backend.entity.User;
 import com.sporthub.backend.entity.UserMembership;
 import com.sporthub.backend.repository.BookingRepository;
 import com.sporthub.backend.repository.ClassSessionRepository;
+import com.sporthub.backend.repository.CourtBookingRepository;
 import com.sporthub.backend.repository.MemberCheckInRepository;
 import com.sporthub.backend.repository.MemberHealthProfileRepository;
 import com.sporthub.backend.repository.MembershipPackageRepository;
 import com.sporthub.backend.repository.PaymentTransactionRepository;
 import com.sporthub.backend.repository.PublicSportRepository;
 import com.sporthub.backend.repository.ReceptionPaymentRepository;
+import com.sporthub.backend.repository.SportsCourtRepository;
 import com.sporthub.backend.repository.UserMembershipRepository;
 import com.sporthub.backend.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,6 +67,36 @@ public class MemberProfileController {
     private final ClassSessionRepository classSessionRepository;
     private final MemberCheckInRepository memberCheckInRepository;
     private final PublicSportRepository publicSportRepository;
+    private final CourtBookingRepository courtBookingRepository;
+    private final SportsCourtRepository sportsCourtRepository;
+
+    @Autowired
+    public MemberProfileController(
+            UserRepository userRepository,
+            MemberHealthProfileRepository healthRepository,
+            UserMembershipRepository membershipRepository,
+            MembershipPackageRepository packageRepository,
+            ReceptionPaymentRepository paymentRepository,
+            PaymentTransactionRepository paymentTransactionRepository,
+            BookingRepository bookingRepository,
+            ClassSessionRepository classSessionRepository,
+            MemberCheckInRepository memberCheckInRepository,
+            PublicSportRepository publicSportRepository,
+            CourtBookingRepository courtBookingRepository,
+            SportsCourtRepository sportsCourtRepository) {
+        this.userRepository = userRepository;
+        this.healthRepository = healthRepository;
+        this.membershipRepository = membershipRepository;
+        this.packageRepository = packageRepository;
+        this.paymentRepository = paymentRepository;
+        this.paymentTransactionRepository = paymentTransactionRepository;
+        this.bookingRepository = bookingRepository;
+        this.classSessionRepository = classSessionRepository;
+        this.memberCheckInRepository = memberCheckInRepository;
+        this.publicSportRepository = publicSportRepository;
+        this.courtBookingRepository = courtBookingRepository;
+        this.sportsCourtRepository = sportsCourtRepository;
+    }
 
     public MemberProfileController(
             UserRepository userRepository,
@@ -73,16 +109,9 @@ public class MemberProfileController {
             ClassSessionRepository classSessionRepository,
             MemberCheckInRepository memberCheckInRepository,
             PublicSportRepository publicSportRepository) {
-        this.userRepository = userRepository;
-        this.healthRepository = healthRepository;
-        this.membershipRepository = membershipRepository;
-        this.packageRepository = packageRepository;
-        this.paymentRepository = paymentRepository;
-        this.paymentTransactionRepository = paymentTransactionRepository;
-        this.bookingRepository = bookingRepository;
-        this.classSessionRepository = classSessionRepository;
-        this.memberCheckInRepository = memberCheckInRepository;
-        this.publicSportRepository = publicSportRepository;
+        this(userRepository, healthRepository, membershipRepository, packageRepository,
+             paymentRepository, paymentTransactionRepository, bookingRepository,
+             classSessionRepository, memberCheckInRepository, publicSportRepository, null, null);
     }
 
     @GetMapping
@@ -206,8 +235,13 @@ public class MemberProfileController {
                 .filter(item -> "ACTIVE".equalsIgnoreCase(item.getStatus()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Gói tập không còn được mở bán."));
 
+        // Chỉ so sánh với gói đang hoạt động CÙNG bộ môn; gói khác bộ môn là quyền lợi độc lập,
+        // không bị chặn "gói thấp hơn" hay bị thay thế.
         List<UserMembership> activeMemberships = membershipRepository.findByUserIdOrderByEndDateDesc(userId).stream()
                 .filter(m -> "ACTIVE".equalsIgnoreCase(m.getStatus()) && (m.getEndDate() == null || !m.getEndDate().isBefore(LocalDate.now())))
+                .filter(m -> packageRepository.findById(m.getPackageId())
+                        .map(p -> java.util.Objects.equals(p.getSportId(), membershipPackage.getSportId()))
+                        .orElse(false))
                 .toList();
 
         UserMembership targetMembership;
@@ -343,6 +377,12 @@ public class MemberProfileController {
                 attended++;
             } else if ("ABSENT".equals(status)) {
                 absent++;
+                String note = booking.getCoachNote() != null ? booking.getCoachNote() : "";
+                if (note.contains("[Vắng có phép]") || note.toLowerCase(Locale.ROOT).contains("có phép")) {
+                    status = "EXCUSED_ABSENCE";
+                } else {
+                    status = "UNEXCUSED_ABSENCE";
+                }
             } else {
                 pending++;
             }
@@ -377,6 +417,31 @@ public class MemberProfileController {
                         "Cổng trung tâm F Sport Center"))
                 .toList();
 
+        List<MemberCourtBookingAttendanceResponse> courtBookings = new ArrayList<>();
+        if (courtBookingRepository != null) {
+            Map<Long, SportsCourt> courtMap = sportsCourtRepository != null
+                    ? sportsCourtRepository.findAll().stream().collect(Collectors.toMap(SportsCourt::getCourtId, Function.identity()))
+                    : Map.of();
+            courtBookings = courtBookingRepository.findByMemberIdOrderByStartTimeAsc(userId).stream()
+                    .map(cb -> {
+                        SportsCourt court = courtMap.get(cb.getCourtId());
+                        String cName = court != null ? court.getCourtName() : "Sân #" + cb.getCourtId();
+                        String sName = (court != null && sportMap.containsKey(court.getSportId()))
+                                ? sportMap.get(court.getSportId()) : "Thể thao";
+                        return new MemberCourtBookingAttendanceResponse(
+                                cb.getCourtBookingId(),
+                                cb.getCourtId(),
+                                cName,
+                                sName,
+                                cb.getStartTime(),
+                                cb.getEndTime(),
+                                cb.getAmountPaid(),
+                                cb.getStatus()
+                        );
+                    })
+                    .toList();
+        }
+
         return new MemberAttendanceSummaryResponse(
                 records.size(),
                 attended,
@@ -384,7 +449,8 @@ public class MemberProfileController {
                 pending,
                 rate,
                 records,
-                gateCheckIns);
+                gateCheckIns,
+                courtBookings);
     }
 
     @GetMapping("/notifications")
@@ -554,6 +620,104 @@ public class MemberProfileController {
                 user.getRole(),
                 user.getStatus(),
                 user.getCreatedAt());
+    }
+
+    public record DigitalCardResponse(
+            Long userId,
+            String fullName,
+            String email,
+            String phone,
+            String avatar,
+            String rfidCode,
+            String qrToken,
+            String tier,
+            List<Map<String, Object>> activePackages,
+            List<Map<String, Object>> todayBookings
+    ) {}
+
+    @GetMapping("/digital-card")
+    @Transactional
+    public DigitalCardResponse getDigitalCard(Authentication authentication) {
+        Long uid = memberId(authentication);
+        User user = findMember(uid);
+        LocalDate today = LocalDate.now();
+
+        // 1. Quét chuyển gói quá hạn sang EXPIRED
+        List<UserMembership> allMemberships = membershipRepository.findByUserIdOrderByEndDateDesc(uid);
+        for (UserMembership m : allMemberships) {
+            if ("ACTIVE".equalsIgnoreCase(m.getStatus()) && m.getEndDate() != null && m.getEndDate().isBefore(today)) {
+                m.setStatus("EXPIRED");
+                membershipRepository.save(m);
+            }
+        }
+
+        // 2. Lấy các gói còn hiệu lực
+        List<UserMembership> activeList = membershipRepository.findByUserIdOrderByEndDateDesc(uid).stream()
+                .filter(m -> "ACTIVE".equalsIgnoreCase(m.getStatus()) && (m.getEndDate() == null || !m.getEndDate().isBefore(today)))
+                .toList();
+
+        String tier = "MEMBER";
+        List<Map<String, Object>> activePackages = new ArrayList<>();
+        for (UserMembership m : activeList) {
+            MembershipPackage pkg = packageRepository.findById(m.getPackageId()).orElse(null);
+            String pkgName = pkg != null ? pkg.getName() : "Gói tập";
+            if (pkgName.toUpperCase(Locale.ROOT).contains("VIP") || pkgName.toUpperCase(Locale.ROOT).contains("DIAMOND")
+                    || (pkg != null && "ALL_ACCESS".equalsIgnoreCase(pkg.getAccessType()))) {
+                tier = "VIP";
+            } else if ("MEMBER".equals(tier)) {
+                tier = "STANDARD";
+            }
+            long daysLeft = m.getEndDate() != null ? Math.max(0, ChronoUnit.DAYS.between(today, m.getEndDate()) + 1) : 0;
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("membershipId", m.getMembershipId());
+            row.put("packageId", m.getPackageId());
+            row.put("packageName", pkgName);
+            row.put("startDate", m.getStartDate());
+            row.put("endDate", m.getEndDate());
+            row.put("daysRemaining", daysLeft);
+            activePackages.add(row);
+        }
+
+        // 3. Lấy booking hôm nay
+        LocalDateTime startOfToday = today.atStartOfDay();
+        LocalDateTime endOfToday = today.plusDays(1).atStartOfDay();
+        List<Map<String, Object>> todayBookings = new ArrayList<>();
+        if (bookingRepository != null) {
+            for (Booking b : bookingRepository.findByMemberId(uid)) {
+                if ("CANCELLED".equalsIgnoreCase(b.getStatus())) continue;
+                if (b.getSessionId() != null) {
+                    ClassSession s = classSessionRepository.findById(b.getSessionId()).orElse(null);
+                    if (s != null && s.getStartTime() != null
+                            && !s.getStartTime().isBefore(startOfToday) && s.getStartTime().isBefore(endOfToday)) {
+                        Map<String, Object> row = new LinkedHashMap<>();
+                        row.put("bookingId", b.getBookingId());
+                        row.put("sessionId", s.getSessionId());
+                        row.put("type", "CLASS");
+                        row.put("title", s.getClassName());
+                        row.put("startTime", s.getStartTime());
+                        row.put("endTime", s.getEndTime());
+                        row.put("status", b.getStatus());
+                        row.put("attendanceStatus", b.getAttendanceStatus());
+                        todayBookings.add(row);
+                    }
+                }
+            }
+        }
+
+        String qrToken = "SPORTHUB-MEMBER-" + uid;
+
+        return new DigitalCardResponse(
+                user.getUserId(),
+                user.getFullName(),
+                user.getEmail(),
+                user.getPhone(),
+                user.getAvatar(),
+                user.getRfidCode(),
+                qrToken,
+                tier,
+                activePackages,
+                todayBookings
+        );
     }
 
     private boolean isNonNegative(BigDecimal value) {

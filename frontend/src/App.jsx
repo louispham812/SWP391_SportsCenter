@@ -49,6 +49,12 @@ import AdminPackagesPage from './pages/admin/AdminPackagesPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 
 // Floating Demo Switcher & Global Notifications
+import CoachNotificationsPage from './pages/coach/CoachNotificationsPage';
+import CoachReviewsPage from './pages/coach/CoachReviewsPage';
+import MemberReviewsPage from './pages/member/MemberReviewsPage';
+import AdminBroadcastPage from './pages/admin/AdminBroadcastPage';
+import AdminAuditLogPage from './pages/admin/AdminAuditLogPage';
+import AdminMaintenancePage from './pages/admin/AdminMaintenancePage';
 import ToastContainer from './components/ToastContainer';
 
 import { AppProvider, useApp } from './context/AppContext';
@@ -109,6 +115,7 @@ function App() {
           <Route path="/member/ai-assistant" element={<RequireRole role="member"><MemberAIAssistantPage /></RequireRole>} />
           <Route path="/member/profile" element={<RequireRole role="member"><MemberProfilePage /></RequireRole>} />
 
+          <Route path="/member/reviews" element={<RequireRole role="member"><MemberReviewsPage /></RequireRole>} />
           {/* Receptionist Routes */}
           <Route path="/receptionist" element={<RequireRole role="receptionist"><ReceptionCheckInPage /></RequireRole>} />
           <Route path="/receptionist/pos" element={<RequireRole role="receptionist"><ReceptionPOSPage /></RequireRole>} />
@@ -124,6 +131,8 @@ function App() {
           <Route path="/coach/attendance" element={<RequireRole role="coach"><CoachAttendancePage /></RequireRole>} />
           <Route path="/coach/income" element={<RequireRole role="coach"><CoachSchedulePage initialTab="income" /></RequireRole>} />
 
+          <Route path="/coach/notifications" element={<RequireRole role="coach"><CoachNotificationsPage /></RequireRole>} />
+          <Route path="/coach/reviews" element={<RequireRole role="coach"><CoachReviewsPage /></RequireRole>} />
           {/* Admin / Center Manager Routes */}
           <Route path="/admin" element={<RequireRole role="admin"><AdminDashboardPage /></RequireRole>} />
           <Route path="/admin/members" element={<RequireRole role="admin"><AdminMembersPage /></RequireRole>} />
@@ -133,6 +142,9 @@ function App() {
           <Route path="/admin/packages" element={<RequireRole role="admin"><AdminPackagesPage /></RequireRole>} />
           <Route path="/admin/settings" element={<RequireRole role="admin"><AdminSettingsPage /></RequireRole>} />
 
+          <Route path="/admin/broadcast" element={<RequireRole role="admin"><AdminBroadcastPage /></RequireRole>} />
+          <Route path="/admin/audit-logs" element={<RequireRole role="admin"><AdminAuditLogPage /></RequireRole>} />
+          <Route path="/admin/maintenance" element={<RequireRole role="admin"><AdminMaintenancePage /></RequireRole>} />
           {/* Fallback Route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

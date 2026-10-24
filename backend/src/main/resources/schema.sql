@@ -26,6 +26,15 @@ BEGIN
     )
 END;
 
+IF OBJECT_ID(N'dbo.facilities', N'U') IS NULL
+    CREATE TABLE dbo.facilities (
+        facility_id INT IDENTITY(1,1) PRIMARY KEY,
+        facility_name NVARCHAR(100) NOT NULL,
+        sport_id INT NOT NULL,
+        capacity INT NOT NULL,
+        status VARCHAR(20) DEFAULT 'AVAILABLE'
+    );
+
 IF OBJECT_ID(N'dbo.sports_courts', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.sports_courts (
@@ -132,6 +141,24 @@ IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
 IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
    AND COL_LENGTH(N'dbo.users', N'emergency_contact_phone') IS NULL
     ALTER TABLE dbo.users ADD emergency_contact_phone NVARCHAR(15) NULL;
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.users', N'rfid_code') IS NULL
+    ALTER TABLE dbo.users ADD rfid_code NVARCHAR(64) NULL;
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.users', N'specialty') IS NULL
+    ALTER TABLE dbo.users ADD specialty NVARCHAR(200) NULL;
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.users', N'experience_years') IS NULL
+    ALTER TABLE dbo.users ADD experience_years INT NULL;
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.users', N'certifications') IS NULL
+    ALTER TABLE dbo.users ADD certifications NVARCHAR(500) NULL;
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.users', N'bio') IS NULL
+    ALTER TABLE dbo.users ADD bio NVARCHAR(MAX) NULL;
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.users', N'availability_json') IS NULL
+    ALTER TABLE dbo.users ADD availability_json NVARCHAR(MAX) NULL;
 
 IF OBJECT_ID(N'dbo.member_health_profiles', N'U') IS NOT NULL
    AND COL_LENGTH(N'dbo.member_health_profiles', N'smm_kg') IS NULL
@@ -724,3 +751,85 @@ IF NOT EXISTS (SELECT 1 FROM dbo.refund_requests WHERE refund_id = 801)
     INSERT INTO dbo.refund_requests (refund_id, member_id, member_name, phone, booking_description, refund_amount, reason, status, created_at)
     VALUES (802, 7, N''Đỗ Hải Yến'', N''0912 333 444'', N''Lớp Cầu Lông Cơ Bản Kèm HLV'', 180000, N''Vắng có phép được Coach xác nhận EXCUSED_ABSENCE'', N''PENDING'', ''2026-10-19T17:30:00'');
     SET IDENTITY_INSERT dbo.refund_requests OFF;');
+
+
+-- ===== Bo sung: users.avatar luu anh base64 (NVARCHAR(MAX)) =====
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.users') AND name = N'avatar' AND max_length <> -1)
+    ALTER TABLE dbo.users ALTER COLUMN avatar NVARCHAR(MAX) NULL;
+
+-- ===== Thong bao in-app (MEM-25, COA-16, MGR-20) =====
+IF OBJECT_ID(N'dbo.notifications', N'U') IS NULL
+    CREATE TABLE dbo.notifications (
+        notification_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        title NVARCHAR(200) NOT NULL,
+        message NVARCHAR(MAX) NOT NULL,
+        type VARCHAR(30) NULL,
+        is_read BIT NOT NULL CONSTRAINT DF_notifications_read DEFAULT 0,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_notifications_created DEFAULT SYSDATETIME()
+    );
+
+-- ===== Nhat ky he thong (MGR-14) =====
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NULL
+    CREATE TABLE dbo.audit_logs (
+        log_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        actor_id BIGINT NULL,
+        actor_name NVARCHAR(100) NULL,
+        actor_role VARCHAR(20) NULL,
+        action VARCHAR(60) NOT NULL,
+        detail NVARCHAR(1000) NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_audit_logs_created DEFAULT SYSDATETIME()
+    );
+
+-- ===== Lich bao tri san (MGR-19) =====
+IF OBJECT_ID(N'dbo.court_maintenance', N'U') IS NULL
+    CREATE TABLE dbo.court_maintenance (
+        maintenance_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        court_id BIGINT NOT NULL,
+        start_time DATETIME2 NOT NULL,
+        end_time DATETIME2 NOT NULL,
+        reason NVARCHAR(500) NULL,
+        created_by BIGINT NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_court_maintenance_created DEFAULT SYSDATETIME()
+    );
+
+-- ===== Ke hoach tap PT & Ket qua buoi tap (COA-07..10, MEM-20, MEM-22, MEM-23) =====
+IF OBJECT_ID(N'dbo.workout_plans', N'U') IS NULL
+    CREATE TABLE dbo.workout_plans (
+        plan_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        member_id BIGINT NOT NULL,
+        coach_id BIGINT NULL,
+        coach_name NVARCHAR(100) NULL,
+        title NVARCHAR(200) NOT NULL,
+        goal NVARCHAR(300) NULL,
+        exercises_json NVARCHAR(MAX) NOT NULL,
+        session_result NVARCHAR(MAX) NULL,
+        coach_feedback NVARCHAR(MAX) NULL,
+        homework NVARCHAR(MAX) NULL,
+        source VARCHAR(20) NOT NULL CONSTRAINT DF_workout_plans_source DEFAULT 'COACH',
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_workout_plans_created DEFAULT SYSDATETIME()
+    );
+
+-- ===== Theo doi tien do co the & 1RM (COA-08, MEM-21) =====
+IF OBJECT_ID(N'dbo.body_progress_logs', N'U') IS NULL
+    CREATE TABLE dbo.body_progress_logs (
+        progress_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        member_id BIGINT NOT NULL,
+        recorded_date DATE NOT NULL,
+        weight_kg DECIMAL(5,2) NULL,
+        height_cm DECIMAL(5,2) NULL,
+        smm_kg DECIMAL(5,2) NULL,
+        pbf_percent DECIMAL(5,2) NULL,
+        bmi DECIMAL(5,2) NULL,
+        max_lift_kg DECIMAL(6,2) NULL,
+        note NVARCHAR(300) NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_body_progress_created DEFAULT SYSDATETIME()
+    );
+
+-- ===== Cau hinh he thong (MGR-15) =====
+IF OBJECT_ID(N'dbo.system_settings', N'U') IS NULL
+    CREATE TABLE dbo.system_settings (
+        setting_key VARCHAR(60) NOT NULL PRIMARY KEY,
+        setting_value NVARCHAR(MAX) NULL,
+        updated_at DATETIME2 NOT NULL CONSTRAINT DF_system_settings_updated DEFAULT SYSDATETIME()
+    );

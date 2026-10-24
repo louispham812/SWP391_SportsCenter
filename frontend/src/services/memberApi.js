@@ -35,3 +35,5 @@ export const getMemberAttendance = () => apiRequest('/members/me/attendance');
 export const getMemberNotifications = () => apiRequest('/members/me/notifications');
 
 export const getMemberTransactions = () => apiRequest('/members/me/transactions');
+
+export const getMemberDigitalCard = () => apiRequest('/members/me/digital-card');

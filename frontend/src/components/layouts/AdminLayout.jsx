@@ -12,6 +12,9 @@ export default function AdminLayout({ children }) {
     { label: 'Duyệt & Phê duyệt', path: '/admin/staff-approvals', icon: 'how_to_reg' },
     { label: 'Quản lý Hội viên', path: '/admin/members', icon: 'shield_person' },
     { label: 'Cài đặt & Phân quyền', path: '/admin/settings', icon: 'settings' },
+    { label: 'Thông báo hàng loạt', path: '/admin/broadcast', icon: 'campaign' },
+    { label: 'Nhật ký hệ thống', path: '/admin/audit-logs', icon: 'history' },
+    { label: 'Bảo trì sân bãi', path: '/admin/maintenance', icon: 'build' },
   ];
 
   return (

@@ -67,6 +67,18 @@ public class BookingService {
     private final UserMembershipRepository userMembershipRepository;
     private final MembershipPackageRepository membershipPackageRepository;
 
+    // Tùy chọn (setter/field injection) để giữ nguyên constructor cho unit test.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.sporthub.backend.repository.CourtMaintenanceRepository courtMaintenanceRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private EngagementService engagementService;
+
+    private boolean isUnderMaintenance(Long courtId, LocalDateTime start, LocalDateTime end) {
+        return courtMaintenanceRepository != null
+                && !courtMaintenanceRepository
+                        .findByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(courtId, end, start).isEmpty();
+    }
+
     public BookingService(
             BookingRepository bookingRepository,
             ClassSessionRepository classSessionRepository,
@@ -294,7 +306,8 @@ public class BookingService {
             LocalDateTime end = slot.plusHours(1);
             LocalDateTime candidate = slot;
             boolean occupied = existingBookings.stream().anyMatch(booking ->
-                    booking.getStartTime().isBefore(end) && booking.getEndTime().isAfter(candidate));
+                    booking.getStartTime().isBefore(end) && booking.getEndTime().isAfter(candidate))
+                    || isUnderMaintenance(court.getCourtId(), candidate, end);
             if (slot.isAfter(now) && !occupied) {
                 slots.add(new CourtSlotResponse(
                         court.getCourtId(),
@@ -540,6 +553,9 @@ public class BookingService {
                 .filter(SportsCourt::isActive)
                 .orElseThrow(() -> notFound("Không tìm thấy sân đang hoạt động."));
         long hours = validateCourtSlot(court, request.startTime(), request.endTime());
+        if (isUnderMaintenance(court.getCourtId(), request.startTime(), request.endTime())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Sân đang trong lịch bảo trì, vui lòng chọn sân hoặc khung giờ khác.");
+        }
         if (courtBookingRepository.existsConfirmedOverlap(court.getCourtId(), request.startTime(), request.endTime())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Một hoặc nhiều khung giờ sân đã chọn vừa được người khác đặt.");
         }
@@ -609,6 +625,12 @@ public class BookingService {
         Booking saved = bookingRepository.save(booking);
         session.setBookedSlots((int) bookingRepository.countBySessionIdAndStatusIn(session.getSessionId(), ACTIVE_STATUSES));
         classSessionRepository.save(session);
+        if (engagementService != null) {
+            engagementService.notifyUser(session.getCoachId(), "Học viên mới đăng ký lớp",
+                    "Có học viên vừa đăng ký lớp \"" + session.getClassName() + "\" (" + session.getStartTime() + ").", "SCHEDULE");
+            engagementService.notifyUser(memberId, "Đăng ký lớp thành công",
+                    "Bạn đã đăng ký lớp \"" + session.getClassName() + "\" lúc " + session.getStartTime() + ".", "BOOKING");
+        }
         return new BookingConfirmationResponse(
                 "CLASS", saved.getBookingId(), payment.getPaymentId(),
                 session.getClassName(), sport.getName(),
@@ -946,8 +968,18 @@ public class BookingService {
     @Transactional
     public Booking updateAttendance(Long bookingId, Long actorId, String actorRole, String status, String coachNote) {
         String normalizedStatus = status == null ? "" : status.trim().toUpperCase(Locale.ROOT);
+        // Lễ tân gửi EXCUSED_ABSENCE / UNEXCUSED_ABSENCE: lưu thành ABSENT và ghi rõ loại vắng vào ghi chú.
+        String absenceTag = null;
+        if ("EXCUSED_ABSENCE".equals(normalizedStatus)) {
+            normalizedStatus = "ABSENT";
+            absenceTag = "[Vắng có phép]";
+        } else if ("UNEXCUSED_ABSENCE".equals(normalizedStatus)) {
+            normalizedStatus = "ABSENT";
+            absenceTag = "[Vắng không phép]";
+        }
         if (!List.of("PRESENT", "ABSENT").contains(normalizedStatus)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trạng thái điểm danh phải là PRESENT hoặc ABSENT.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Trạng thái điểm danh phải là PRESENT, ABSENT, EXCUSED_ABSENCE hoặc UNEXCUSED_ABSENCE.");
         }
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> notFound("Không tìm thấy thông tin đặt chỗ."));
@@ -961,10 +993,19 @@ public class BookingService {
         }
 
         booking.setAttendanceStatus(normalizedStatus);
-        if (coachNote != null) {
-            booking.setCoachNote(coachNote.trim());
+        if (coachNote != null || absenceTag != null) {
+            String note = coachNote == null ? "" : coachNote.trim().replaceFirst("^\\[Vắng (có|không) phép\\]\\s*", "");
+            booking.setCoachNote(absenceTag == null ? note : (absenceTag + " " + note).trim());
         }
-        return bookingRepository.save(booking);
+        Booking updatedBooking = bookingRepository.save(booking);
+        if (engagementService != null) {
+            engagementService.audit(actorId, actorRole, "ATTENDANCE_UPDATED",
+                    "booking=" + bookingId + ", status=" + normalizedStatus + (absenceTag == null ? "" : " " + absenceTag));
+            engagementService.notifyUser(booking.getMemberId(), "Cập nhật điểm danh",
+                    "Buổi học \"" + session.getClassName() + "\": " + ("PRESENT".equals(normalizedStatus) ? "có mặt" : "vắng mặt")
+                            + (absenceTag == null ? "" : " " + absenceTag) + ".", "ATTENDANCE");
+        }
+        return updatedBooking;
     }
 
     private ResponseStatusException notFound(String message) {

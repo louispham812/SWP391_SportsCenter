@@ -6,6 +6,9 @@ import {
   getManagerDomainSports,
   getManagerFacilities,
   updateManagerFacilityStatus,
+  getManagerClassSessions,
+  updateManagerClassSession,
+  cancelManagerClassSession,
 } from '../../services/managerApi';
 import { useApp } from '../../context/AppContext';
 
@@ -78,6 +81,98 @@ export default function AdminFacilitiesPage() {
     endTime: '',
     reason: '',
   });
+
+  // Class Sessions Management State (MGR-08)
+  const [classSessions, setClassSessions] = useState([]);
+  const [classesLoading, setClassesLoading] = useState(false);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [isEditSessionModalOpen, setIsEditSessionModalOpen] = useState(false);
+  const [editSessionForm, setEditSessionForm] = useState({
+    coachId: '',
+    facilityId: '',
+    startTime: '',
+    endTime: '',
+  });
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [sessionToCancel, setSessionToCancel] = useState(null);
+  const [cancelReason, setCancelReason] = useState('Bảo trì cơ sở vật chất hoặc điều chuyển lịch trung tâm');
+  const [processingAction, setProcessingAction] = useState(false);
+
+  const loadClassSessions = useCallback(async () => {
+    setClassesLoading(true);
+    try {
+      const data = await getManagerClassSessions();
+      setClassSessions(data || []);
+    } catch (err) {
+      console.warn('Không thể tải danh sách ca học:', err);
+    } finally {
+      setClassesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadClassSessions();
+  }, [loadClassSessions]);
+
+  const handleOpenEditSession = (session) => {
+    setSelectedSession(session);
+    setEditSessionForm({
+      coachId: session.coachId ? String(session.coachId) : '',
+      facilityId: session.facilityId ? String(session.facilityId) : '',
+      startTime: session.startTime ? session.startTime.slice(0, 16) : '',
+      endTime: session.endTime ? session.endTime.slice(0, 16) : '',
+    });
+    setIsEditSessionModalOpen(true);
+  };
+
+  const handleSaveEditSession = async (e) => {
+    e.preventDefault();
+    setProcessingAction(true);
+    try {
+      await updateManagerClassSession(selectedSession.sessionId, {
+        coachId: Number(editSessionForm.coachId),
+        facilityId: Number(editSessionForm.facilityId),
+        startTime: editSessionForm.startTime,
+        endTime: editSessionForm.endTime,
+      });
+      showToast(
+        'Đổi ca thành công (MGR-08)',
+        `Đã dời giờ / đổi HLV cho ca "${selectedSession.className}". Hệ thống tự động gửi thông báo in-app đến HLV và toàn bộ học viên!`,
+        'success'
+      );
+      setIsEditSessionModalOpen(false);
+      loadClassSessions();
+    } catch (err) {
+      showToast('Lỗi dời ca', err.message || 'Không thể cập nhật ca học.', 'danger');
+    } finally {
+      setProcessingAction(false);
+    }
+  };
+
+  const handleOpenCancelSession = (session) => {
+    setSessionToCancel(session);
+    setCancelReason('Bảo trì cơ sở vật chất hoặc điều chuyển lịch trung tâm');
+    setIsCancelModalOpen(true);
+  };
+
+  const handleConfirmCancelSession = async (e) => {
+    e.preventDefault();
+    setProcessingAction(true);
+    try {
+      await cancelManagerClassSession(sessionToCancel.sessionId, cancelReason);
+      showToast(
+        'Hủy ca học thành công (MGR-08)',
+        `Đã hủy ca "${sessionToCancel.className}". Hệ thống đã tự động gửi thông báo in-app tới HLV và toàn bộ học viên đã đăng ký!`,
+        'success'
+      );
+      setIsCancelModalOpen(false);
+      loadClassSessions();
+    } catch (err) {
+      showToast('Lỗi hủy ca', err.message || 'Không thể hủy ca học.', 'danger');
+    } finally {
+      setProcessingAction(false);
+    }
+  };
 
   const loadFacilities = useCallback(async () => {
     setError('');
@@ -222,6 +317,7 @@ export default function AdminFacilitiesPage() {
         <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
           {[
             { id: 'facilities', label: `Cơ sở sân bãi (${facilities.length})`, icon: 'stadium' },
+            { id: 'classes', label: `Quản lý ca học nhóm (${classSessions.length}) - MGR-08`, icon: 'calendar_month' },
             { id: 'maintenance', label: `Lịch bảo trì sân (${maintenances.length}) - MGR-19`, icon: 'construction' },
           ].map((tab) => (
             <button
@@ -300,6 +396,139 @@ export default function AdminFacilitiesPage() {
               </section>
             )}
           </div>
+        )}
+
+        {/* Tab 3: Class Sessions Management (MGR-08) */}
+        {activeTab === 'classes' && (
+          <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-4">
+            <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
+                  <h2 className="text-base font-bold text-slate-900">Danh Sách Ca Học Nhóm Đang Mở (MGR-08)</h2>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Quản lý dời giờ, đổi Huấn luyện viên, chuyển sân hoặc hủy ca học. Hệ thống sẽ tự động gửi thông báo in-app realtime cho HLV và toàn bộ học viên!
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={loadClassSessions}
+                  disabled={classesLoading}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[16px]">refresh</span>
+                  <span>Tải lại</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddClassModal(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px]">add_circle</span>
+                  <span>Tạo ca học mới</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              {classesLoading ? (
+                <p className="p-8 text-center text-sm text-slate-500">Đang tải danh sách ca học nhóm...</p>
+              ) : classSessions.length === 0 ? (
+                <div className="p-10 text-center text-slate-500">
+                  <span className="material-symbols-outlined text-4xl text-slate-300">event_busy</span>
+                  <p className="mt-2 text-sm font-semibold">Chưa có ca học nhóm nào</p>
+                  <p className="text-xs text-slate-400">Bấm "Tạo ca học mới" để mở lớp huấn luyện.</p>
+                </div>
+              ) : (
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-500 font-bold uppercase border-b border-slate-200 text-[11px]">
+                    <tr>
+                      <th className="px-5 py-3.5">Mã ca</th>
+                      <th className="px-5 py-3.5">Tên Lớp Học</th>
+                      <th className="px-5 py-3.5">Bộ Môn &amp; Sân</th>
+                      <th className="px-5 py-3.5">Huấn Luyện Viên</th>
+                      <th className="px-5 py-3.5">Thời Gian</th>
+                      <th className="px-5 py-3.5 text-center">Sĩ Số</th>
+                      <th className="px-5 py-3.5 text-right">Học Phí</th>
+                      <th className="px-5 py-3.5 text-center">Trạng Thái</th>
+                      <th className="px-5 py-3.5 text-right">Thao Tác (MGR-08)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {classSessions.map((session) => {
+                      const isCancelled = session.status === 'CANCELLED';
+                      return (
+                        <tr key={session.sessionId} className={`hover:bg-slate-50/70 transition ${isCancelled ? 'opacity-60 bg-slate-50/40' : ''}`}>
+                          <td className="px-5 py-3.5 font-mono text-slate-400 font-bold">SES-{session.sessionId}</td>
+                          <td className="px-5 py-3.5">
+                            <span className="font-bold text-slate-900 block">{session.className}</span>
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-800 uppercase mr-1.5">
+                              {session.sportName || 'Thể thao'}
+                            </span>
+                            <span className="text-slate-600 font-medium">{session.facilityName || 'Sân trung tâm'}</span>
+                          </td>
+                          <td className="px-5 py-3.5 font-semibold text-slate-800">
+                            {session.coachName || 'Chưa gán HLV'}
+                          </td>
+                          <td className="px-5 py-3.5 text-slate-600 text-[11px]">
+                            {session.startTime ? new Date(session.startTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                            {' → '}
+                            {session.endTime ? new Date(session.endTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                          </td>
+                          <td className="px-5 py-3.5 text-center font-bold">
+                            <span className={session.bookedSlots >= session.maxSlots ? 'text-red-600' : 'text-slate-800'}>
+                              {session.bookedSlots || 0} / {session.maxSlots}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3.5 text-right font-bold text-slate-900">
+                            {Number(session.priceAmount || 0).toLocaleString()}₫
+                          </td>
+                          <td className="px-5 py-3.5 text-center">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                              isCancelled
+                                ? 'bg-red-50 text-red-700 border-red-200'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            }`}>
+                              {isCancelled ? 'Đã Hủy' : session.status || 'ACTIVE'}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3.5 text-right">
+                            {!isCancelled ? (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditSession(session)}
+                                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-orange-50 hover:text-orange-700 text-slate-700 text-[11px] font-bold transition cursor-pointer"
+                                  title="Dời giờ / Đổi sân / Đổi HLV (MGR-08)"
+                                >
+                                  Sửa giờ/HLV
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenCancelSession(session)}
+                                  className="px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-[11px] font-bold transition cursor-pointer"
+                                  title="Hủy ca học & phát thông báo in-app (MGR-08)"
+                                >
+                                  Hủy ca
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 text-[11px] italic">Không khả dụng</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </section>
         )}
 
         {/* Tab 2: Maintenance Windows (MGR-19) */}
@@ -565,6 +794,170 @@ export default function AdminFacilitiesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* Modal Sửa Giờ / Đổi HLV / Đổi Sân (MGR-08) */}
+        {isEditSessionModalOpen && selectedSession && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
+                    <span className="material-symbols-outlined text-[20px]">edit_calendar</span>
+                  </span>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Dời Giờ / Đổi HLV Ca Học (MGR-08)</h3>
+                    <p className="text-xs text-slate-500 font-mono">SES-{selectedSession.sessionId}: {selectedSession.className}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditSessionModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEditSession} className="space-y-4">
+                <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-[11px] text-blue-900 leading-relaxed">
+                  ℹ️ <strong>Thông báo tự động:</strong> Khi bạn lưu giờ mới hoặc HLV mới, hệ thống sẽ tự động phát thông báo in-app realtime đến HLV phụ trách và toàn bộ học viên đã đăng ký ca này.
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold uppercase text-slate-700">Thời gian bắt đầu *</label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={editSessionForm.startTime}
+                      onChange={(e) => setEditSessionForm({ ...editSessionForm, startTime: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold uppercase text-slate-700">Thời gian kết thúc *</label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={editSessionForm.endTime}
+                      onChange={(e) => setEditSessionForm({ ...editSessionForm, endTime: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold uppercase text-slate-700">Huấn luyện viên phụ trách *</label>
+                  <select
+                    required
+                    value={editSessionForm.coachId}
+                    onChange={(e) => setEditSessionForm({ ...editSessionForm, coachId: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs font-bold text-slate-800 outline-none focus:border-orange-500"
+                  >
+                    <option value="">-- Chọn HLV phụ trách --</option>
+                    {coaches.map((c) => (
+                      <option key={c.userId} value={c.userId}>
+                        {c.fullName} ({c.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold uppercase text-slate-700">Sân bãi / Phòng tập *</label>
+                  <select
+                    required
+                    value={editSessionForm.facilityId}
+                    onChange={(e) => setEditSessionForm({ ...editSessionForm, facilityId: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs font-bold text-slate-800 outline-none focus:border-orange-500"
+                  >
+                    <option value="">-- Chọn sân bãi --</option>
+                    {facilities.map((f) => (
+                      <option key={f.facilityId} value={f.facilityId}>
+                        {f.facilityName} ({f.sportName || 'Đa năng'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditSessionModalOpen(false)}
+                    className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={processingAction}
+                    className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {processingAction ? 'Đang cập nhật...' : 'Lưu Thay Đổi (MGR-08)'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Hủy Ca Học & Gửi Thông Báo (MGR-08) */}
+        {isCancelModalOpen && sessionToCancel && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="relative w-full max-w-md overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold">
+                    <span className="material-symbols-outlined text-[20px]">warning</span>
+                  </span>
+                  <h3 className="text-base font-bold text-slate-900">Xác Nhận Hủy Ca Học (MGR-08)</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCancelModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+
+              <form onSubmit={handleConfirmCancelSession} className="space-y-4">
+                <div className="p-3 bg-red-50/70 border border-red-200 rounded-xl text-xs text-red-900 leading-relaxed">
+                  ⚠️ <strong>Cảnh báo:</strong> Ca học <strong>{sessionToCancel.className}</strong> (SES-{sessionToCancel.sessionId}) sẽ được đánh dấu <code>CANCELLED</code>. Hệ thống sẽ tự động gửi thông báo in-app thông tri tới HLV <strong>{sessionToCancel.coachName || 'HLV'}</strong> và toàn bộ học viên đã đăng ký kèm lý do hủy dưới đây.
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold uppercase text-slate-700">Lý do hủy ca học *</label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    placeholder="Nhập lý do hủy ca học gửi đến học viên..."
+                    className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-red-500 resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsCancelModalOpen(false)}
+                    className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Đóng
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={processingAction}
+                    className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {processingAction ? 'Đang xử lý...' : 'Xác Nhận Hủy Ca'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
       </main>

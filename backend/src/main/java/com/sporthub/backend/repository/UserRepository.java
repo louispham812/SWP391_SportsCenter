@@ -12,7 +12,9 @@ import java.util.List;
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmailIgnoreCase(String email);
     Optional<User> findByPhone(String phone);
+    Optional<User> findByRfidCode(String rfidCode);
     boolean existsByEmailIgnoreCase(String email);
+    boolean existsByRfidCodeAndUserIdNot(String rfidCode, Long userId);
 
     @Query("""
             select user from User user

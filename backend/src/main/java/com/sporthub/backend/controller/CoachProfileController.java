@@ -2,6 +2,7 @@ package com.sporthub.backend.controller;
 
 import com.sporthub.backend.dto.AvatarUpdateRequest;
 import com.sporthub.backend.dto.CoachFeedbackDTO;
+import com.sporthub.backend.dto.CoachIncomeResponse;
 import com.sporthub.backend.dto.CoachProfileResponse;
 import com.sporthub.backend.dto.CoachProfileUpdateRequest;
 import com.sporthub.backend.entity.Booking;
@@ -21,6 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -65,11 +68,9 @@ public class CoachProfileController {
         Long coachId = getActorId(auth);
         User coach = findCoach(coachId);
 
-        if (request.fullName() == null || request.fullName().trim().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Họ và tên không được để trống.");
+        if (request.fullName() != null && !request.fullName().trim().isBlank()) {
+            coach.setFullName(request.fullName().trim());
         }
-
-        coach.setFullName(request.fullName().trim());
         if (request.phone() != null) {
             coach.setPhone(request.phone().trim());
         }
@@ -86,9 +87,102 @@ public class CoachProfileController {
         if (request.emergencyContactPhone() != null) {
             coach.setEmergencyContactPhone(request.emergencyContactPhone().trim());
         }
+        if (request.specialty() != null) {
+            coach.setSpecialty(request.specialty().trim());
+        }
+        if (request.experienceYears() != null) {
+            coach.setExperienceYears(request.experienceYears());
+        }
+        if (request.certifications() != null) {
+            coach.setCertifications(request.certifications().trim());
+        }
+        if (request.bio() != null) {
+            coach.setBio(request.bio().trim());
+        }
 
         userRepository.save(coach);
         return ResponseEntity.ok(buildCoachProfileResponse(coachId));
+    }
+
+    @GetMapping("/availability")
+    @Transactional(readOnly = true)
+    public ResponseEntity<Map<String, Object>> getAvailability(Authentication auth) {
+        Long coachId = getActorId(auth);
+        User coach = findCoach(coachId);
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("coachId", coachId);
+        res.put("availabilityJson", coach.getAvailabilityJson() != null ? coach.getAvailabilityJson() : "{}");
+        return ResponseEntity.ok(res);
+    }
+
+    @PutMapping("/availability")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> updateAvailability(
+            @RequestBody Map<String, String> request,
+            Authentication auth) {
+        Long coachId = getActorId(auth);
+        User coach = findCoach(coachId);
+        String json = request.get("availabilityJson");
+        coach.setAvailabilityJson(json != null ? json : "{}");
+        userRepository.save(coach);
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("coachId", coachId);
+        res.put("availabilityJson", coach.getAvailabilityJson());
+        res.put("updated", true);
+        return ResponseEntity.ok(res);
+    }
+
+    @GetMapping("/income")
+    @Transactional(readOnly = true)
+    public ResponseEntity<CoachIncomeResponse> getIncomeSummary(Authentication auth) {
+        Long coachId = getActorId(auth);
+        findCoach(coachId);
+
+        List<ClassSession> sessions = classSessionRepository.findByCoachIdOrderByStartTimeAsc(coachId);
+        BigDecimal totalRevenue = BigDecimal.ZERO;
+        BigDecimal totalIncome = BigDecimal.ZERO;
+        int totalStudents = 0;
+        BigDecimal commissionRate = BigDecimal.valueOf(40); // 40% hoa hồng
+
+        List<CoachIncomeResponse.SessionIncomeDetail> details = new ArrayList<>();
+        for (ClassSession s : sessions) {
+            List<Booking> bookings = bookingRepository.findBySessionIdInAndStatusIn(
+                    List.of(s.getSessionId()), ACTIVE_STATUSES);
+            int students = bookings.size();
+            totalStudents += students;
+
+            BigDecimal price = s.getPriceAmount() != null ? s.getPriceAmount() : BigDecimal.valueOf(100000);
+            BigDecimal sessionRevenue = price.multiply(BigDecimal.valueOf(students));
+            totalRevenue = totalRevenue.add(sessionRevenue);
+
+            // Thù lao 40% doanh thu lớp hoặc tối thiểu 200,000đ/ca nếu lớp không bị hủy
+            BigDecimal commission = sessionRevenue.multiply(commissionRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            if (commission.compareTo(BigDecimal.valueOf(200000)) < 0 && !"CANCELLED".equalsIgnoreCase(s.getStatus())) {
+                commission = BigDecimal.valueOf(200000);
+            }
+            totalIncome = totalIncome.add(commission);
+
+            details.add(new CoachIncomeResponse.SessionIncomeDetail(
+                    s.getSessionId(),
+                    s.getClassName(),
+                    s.getStartTime(),
+                    s.getEndTime(),
+                    s.getStatus(),
+                    students,
+                    price,
+                    sessionRevenue,
+                    commission
+            ));
+        }
+
+        return ResponseEntity.ok(new CoachIncomeResponse(
+                totalIncome,
+                totalRevenue,
+                sessions.size(),
+                totalStudents,
+                commissionRate,
+                details
+        ));
     }
 
     @PutMapping("/avatar")
@@ -152,8 +246,11 @@ public class CoachProfileController {
                         f.getCreatedAt()))
                 .toList();
 
-        String specialty = sportsTaught.isEmpty() ? "Đào tạo Thể thao & Thể lực" :
-                String.join(", ", sportsTaught) + " · Thể Lực & Phục Hồi";
+        String specialty = (coach.getSpecialty() != null && !coach.getSpecialty().isBlank())
+                ? coach.getSpecialty()
+                : (sportsTaught.isEmpty() ? "Đào tạo Thể thao & Thể lực" : String.join(", ", sportsTaught) + " · Thể Lực & Phục Hồi");
+
+        int expYears = coach.getExperienceYears() != null ? coach.getExperienceYears() : 5;
 
         return new CoachProfileResponse(
                 coach.getUserId(),
@@ -170,7 +267,10 @@ public class CoachProfileController {
                 coach.getStatus(),
                 coach.getCreatedAt(),
                 specialty,
-                6, // 6 năm kinh nghiệm
+                expYears,
+                coach.getCertifications(),
+                coach.getBio(),
+                coach.getAvailabilityJson(),
                 sportsTaught,
                 activeSessions.size(),
                 totalStudentsCount,
