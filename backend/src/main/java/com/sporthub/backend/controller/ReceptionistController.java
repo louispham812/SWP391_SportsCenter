@@ -213,9 +213,24 @@ public class ReceptionistController {
 
         LocalDate startDate = today;
         if (!existingActive.isEmpty()) {
-            LocalDate maxEnd = existingActive.get(0).getEndDate();
-            if (maxEnd != null && !maxEnd.isBefore(today)) {
-                startDate = maxEnd.plusDays(1);
+            UserMembership currentMembership = existingActive.get(0);
+            MembershipPackage currentPackage = packageRepository.findById(currentMembership.getPackageId()).orElse(null);
+            if (currentPackage != null) {
+                if (membershipPackage.getPackageId().equals(currentPackage.getPackageId())) {
+                    // Gia hạn cùng gói: nối tiếp ngày
+                    LocalDate maxEnd = currentMembership.getEndDate();
+                    if (maxEnd != null && !maxEnd.isBefore(today)) {
+                        startDate = maxEnd.plusDays(1);
+                    }
+                } else if (membershipPackage.getPrice().compareTo(currentPackage.getPrice()) < 0) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Hội viên đang sử dụng gói " + currentPackage.getName() + ". Không thể mua gói thấp hơn gói hiện tại.");
+                } else {
+                    // Nâng cấp lên gói cao hơn: hết hạn gói cũ hôm nay, kích hoạt gói mới ngay lập tức
+                    currentMembership.setStatus("EXPIRED");
+                    membershipRepository.save(currentMembership);
+                    startDate = today;
+                }
             }
         }
         LocalDate endDate = startDate.plusDays(Math.max(1, membershipPackage.getDurationDays()) - 1);

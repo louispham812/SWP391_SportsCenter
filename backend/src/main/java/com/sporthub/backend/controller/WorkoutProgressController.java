@@ -206,6 +206,18 @@ public class WorkoutProgressController {
 
         LocalDate recordedDate = (req != null && req.recordedDate() != null) ? req.recordedDate() : LocalDate.now();
 
+        if (req != null) {
+            if (req.weightKg() != null && req.weightKg().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cân nặng phải lớn hơn 0.");
+            }
+            if (req.heightCm() != null && req.heightCm().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chiều cao phải lớn hơn 0.");
+            }
+            if (req.maxLiftKg() != null && req.maxLiftKg().compareTo(BigDecimal.ZERO) < 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mức tạ 1RM không thể âm.");
+            }
+        }
+
         // Tự động tính BMI nếu chưa có nhưng có weight và height
         BigDecimal bmi = req != null ? req.bmi() : null;
         if (bmi == null && req != null && req.weightKg() != null && req.heightCm() != null && req.heightCm().compareTo(BigDecimal.ZERO) > 0) {
