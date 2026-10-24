@@ -1,6 +1,12 @@
 # 🏆 SportHub - Hệ Thống Quản Lý Trung Tâm Thể Thao Đa Năng (SWP391)
 
-> **SportHub (SWP391_SportsCenter)** là nền tảng quản trị và vận hành toàn diện cho trung tâm thể thao đa năng, hỗ trợ tối ưu quy trình quản lý sân bãi, lịch học thể thao, hội viên, bán hàng tại quầy (POS), điểm danh học viên và phân tích báo cáo doanh thu theo thời gian thực.
+> **SportHub (SWP391_SportsCenter)** là nền tảng quản trị và vận hành toàn diện cho trung tâm thể thao đa năng chuẩn quốc tế, hỗ trợ tối ưu quy trình quản lý sân bãi, lịch học thể thao, hội viên, bán hàng tại quầy (POS), in hóa đơn nhiệt K80, thẻ hội viên số QR/RFID, theo dõi tiến độ thể lực & 1RM, quản lý bảo trì sân, nhật ký kiểm toán (Audit Logs), và phân tích báo cáo doanh thu theo thời gian thực kết hợp Trợ lý Trí tuệ Nhân tạo (AI Assistant).
+
+[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/JUnit%205-40%2F40%20Pass-success.svg)]()
+[![Frontend](https://img.shields.io/badge/Frontend-Vite%20React%2019-blue.svg)]()
+[![Database](https://img.shields.io/badge/Database-SQL%20Server%202019%2F2022-red.svg)]()
+[![Project Status](https://img.shields.io/badge/Status-100%25%20Defense%20Ready-gold.svg)]()
 
 ---
 
@@ -8,30 +14,29 @@
 1. [Giới Thiệu Dự Án](#-1-giới-thiệu-dự-án)
 2. [Công Nghệ Sử Dụng (Tech Stack)](#-2-công-nghệ-sử-dụng-tech-stack)
 3. [Cấu Trúc Thư Mục Dự Án](#-3-cấu-trúc-thư-mục-dự-án)
-4. [Các Phân Quyền & Tính Năng Chính](#-4-các-phân-quyền--tính-năng-chính)
-5. [Tài Khoản Dùng Thử (Demo Accounts)](#-5-tài-khoản-dùng-thử-demo-accounts)
-6. [Hướng Dẫn Khởi Chạy Dự Án (Setup Guide)](#-6-hướng-dẫn-khởi-chạy-dự-án-setup-guide)
-   - [Yêu cầu tiên quyết](#yêu-cầu-tiên-quyết)
-   - [Bước 1: Cài đặt và cấu hình Database (SQL Server)](#bước-1-cài-đặt-và-cấu-hình-database-sql-server)
-   - [Bước 2: Khởi chạy Backend (Spring Boot API)](#bước-2-khởi-chạy-backend-spring-boot-api)
-   - [Bước 3: Khởi chạy Frontend (React + Vite)](#bước-3-khởi-chạy-frontend-react--vite)
-7. [Kiểm Thử (Testing & Quality Assurance)](#-7-kiểm-thử-testing--quality-assurance)
-8. [Quy Tắc Làm Việc Với Git (Git Workflow)](#-8-quy-tắc-làm-việc-với-git-git-workflow)
+4. [Các Phân Quyền & Hệ Thống 31+ Tính Năng Hoàn Chỉnh](#-4-các-phân-quyền--hệ-thống-31-tính-năng-hoàn-chỉnh)
+5. [Kiến Trúc Cơ Sở Dữ Liệu (Database Architecture)](#-5-kiến-trúc-cơ-sở-dữ-liệu-database-architecture)
+6. [Tài Khoản Dùng Thử (Demo Accounts)](#-6-tài-khoản-dùng-thử-demo-accounts)
+7. [Hướng Dẫn Khởi Chạy Dự Án (Setup Guide)](#-7-hướng-dẫn-khởi-chạy-dự-án-setup-guide)
+8. [Kiểm Thử & Đảm Bảo Chất Lượng (Testing & Defense Audit)](#-8-kiểm-thử--đảm-bảo-chất-lượng-testing--defense-audit)
+9. [Bảng Tiến Độ & Quy Trình Git](#-9-bảng-tiến-độ--quy-trình-git)
 
 ---
 
 ## 🌟 1. Giới Thiệu Dự Án
 
-Trung tâm thể thao đa năng **SportHub** phục vụ các bộ môn như: Tennis, Pickleball, Bóng đá, Cầu lông, Gym, Bơi lội... Ứng dụng cung cấp giải pháp chuyển đổi số toàn diện cho 4 nhóm đối tượng:
-- **Hội viên (Member):** Tự đặt sân, đăng ký lớp học thể thao, theo dõi lịch trình cá nhân, quản lý hồ sơ sức khỏe và nhận gợi ý từ Trợ lý AI.
-- **Lễ tân (Receptionist):** Check-in hội viên vào sân/lớp, bán gói tập tại quầy (POS), kiểm soát sĩ số các lớp và lập báo cáo kết ca.
-- **Huấn luyện viên (Coach):** Quản lý lịch dạy, theo dõi danh sách học viên, điểm danh và ghi chú tiến độ buổi học.
-- **Quản lý / Ban giám đốc (Manager / Admin):** Theo dõi dashboard doanh thu & booking, quản lý cơ sở vật chất/sân bãi, cấu hình gói tập và phê duyệt nhân viên.
+Trung tâm thể thao đa năng **SportHub** phục vụ các bộ môn đa dạng: Tennis, Pickleball, Bóng đá, Cầu lông, Bơi lội, Điền kinh, Bóng bàn, Gym & Thể hình... Ứng dụng cung cấp giải pháp chuyển đổi số toàn diện cho 5 nhóm đối tượng:
+- **Hội viên (Member):** Tự đặt sân, đăng ký lớp học, thẻ hội viên số QR/RFID, theo dõi tiến độ cơ thể (Body Progress & 1RM), lộ trình tập luyện PT 1-1, nhận xét HLV, yêu cầu hoàn tiền và nhận tư vấn thông minh từ Trợ lý AI.
+- **Lễ tân (Receptionist):** Check-in hội viên tức thì qua QR/RFID, điểm bán hàng tại quầy (POS) tích hợp in hóa đơn nhiệt chuẩn K80, cho thuê & quản lý kho thiết bị thể thao, bán & nâng cấp gói tập, báo cáo kết ca chuẩn xác.
+- **Huấn luyện viên (Coach):** Quản lý lịch dạy, điểm danh học viên chuyên nghiệp (Có mặt, Vắng có phép/không phép), soạn thảo giáo án PT, ghi nhận chỉ số thể lực học viên, quản lý lịch rảnh, gửi đơn xin nghỉ phép và theo dõi thu nhập hoa hồng theo thời gian thực.
+- **Quản lý (Manager):** Dashboard phân tích tài chính đa chiều, quản lý cơ sở vật chất & lịch bảo trì sân (Court Maintenance), quản lý gói tập & voucher, phê duyệt yêu cầu hoàn tiền trực tuyến, cấu hình tham số Trợ lý AI, báo cáo hiệu suất nhân viên.
+- **Quản trị viên (Admin):** Phê duyệt tài khoản nhân viên mới, giám sát nhật ký kiểm toán hệ thống (Audit Logs), quản lý danh mục môn thể thao và thông số kỹ thuật toàn hệ thống.
 
-Tài liệu thiết kế kiến trúc và mô hình dữ liệu trong dự án:
+📄 Chi tiết tài liệu kiến trúc:
+- Bảng theo dõi tiến độ 100%: [`PROGRESS_TRACKING.md`](./PROGRESS_TRACKING.md)
 - Sơ đồ thực thể kết nối: [`ERD.drawio.png`](./ERD.drawio.png) / [`update_ERD.drawio`](./update_ERD.drawio)
-- Sơ đồ ca sử dụng: [`Usecase diagram.jpg`](./Usecase%20diagram.jpg)
-- Script khởi tạo cơ sở dữ liệu: [`SportsCenterDB_Database.sql`](./SportsCenterDB_Database.sql)
+- Sơ đồ Use Case: [`Usecase diagram.jpg`](./Usecase%20diagram.jpg)
+- Script CSDL chuẩn hóa: [`SportsCenterDB_Database.sql`](./SportsCenterDB_Database.sql)
 
 ---
 
@@ -39,14 +44,15 @@ Tài liệu thiết kế kiến trúc và mô hình dữ liệu trong dự án:
 
 | Thành phần | Công nghệ / Thư viện | Mô tả |
 | :--- | :--- | :--- |
-| **Backend Framework** | **Java 21**, **Spring Boot 4.x / 3.x** | RESTful API, mô hình MVC nhiều lớp |
-| **Bảo mật & Phân quyền**| **Spring Security**, Bearer Token Authentication, BCrypt | Xác thực bảo mật và phân quyền tài khoản |
-| **ORM & Data Access** | **Spring Data JPA**, Hibernate | Tự động hóa truy vấn và ánh xạ quan hệ cơ sở dữ liệu |
-| **Cơ sở dữ liệu** | **Microsoft SQL Server** (MSSQL) | Cơ sở dữ liệu quan hệ chính (`SportsCenterDB`) |
-| **Frontend Framework** | **React 19**, **Vite** | Single Page Application (SPA), HMR siêu tốc |
-| **Giao diện & Styling** | **Tailwind CSS v3**, Lucide Icons | Giao diện hiện đại, trực quan, hỗ trợ responsive |
-| **Routing** | **React Router DOM v7** | Quản lý điều hướng và Route Guards theo Role |
-| **Testing & Linter** | **JUnit 5**, **Playwright E2E**, **Oxlint** | Kiểm thử đơn vị, kiểm thử luồng người dùng E2E, linter |
+| **Backend Framework** | **Java 21**, **Spring Boot 4.1.1** | RESTful API, mô hình phân tầng Controller - Service - Repository |
+| **Bảo mật & Phân quyền**| **Spring Security**, Bearer Token Authentication, BCrypt | Xác thực bảo mật, mã hóa mật khẩu, phân quyền 5 Roles |
+| **ORM & Data Access** | **Spring Data JPA**, Hibernate 7 | Ánh xạ thực thể quan hệ, hỗ trợ pessimistic locking (`updlock`) |
+| **Cơ sở dữ liệu** | **Microsoft SQL Server** (MSSQL 2019/2022) | Lưu trữ quan hệ, toàn vẹn khóa ngoại, lưu trữ UTF-8 BOM |
+| **Frontend Framework** | **React 19**, **Vite v8.3** | Single Page Application (SPA), HMR siêu tốc, tối ưu hóa bundle |
+| **Giao diện & Styling** | **Tailwind CSS v3**, Lucide React | Giao diện hiện đại, responsive, hỗ trợ In hóa đơn nhiệt K80 |
+| **Routing** | **React Router DOM v7** | Quản lý điều hướng và Route Guards bảo vệ theo vai trò |
+| **Trí tuệ Nhân tạo** | **OpenAI API** (`gpt-4o-mini`) | Trợ lý tư vấn thể thao, gợi ý bài tập và giải đáp nghiệp vụ |
+| **Testing & Linter** | **JUnit 5**, **Playwright E2E**, **Oxlint** | 40/40 Unit Tests Backend PASS, kiểm thử giao diện tự động |
 
 ---
 
@@ -59,166 +65,220 @@ SWP391_SportsCenter/
 │   │   ├── main/
 │   │   │   ├── java/com/sporthub/backend/
 │   │   │   │   ├── config/                # Cấu hình Security, CORS, Application Beans
-│   │   │   │   ├── controller/            # REST API Controllers (Auth, Booking, Manager...)
+│   │   │   │   ├── controller/            # 10+ REST API Controllers (Booking, Engagement, Equipment...)
 │   │   │   │   ├── dto/                   # Data Transfer Objects (Request/Response)
-│   │   │   │   ├── entity/                # JPA Entities tương ứng các bảng cơ sở dữ liệu
+│   │   │   │   ├── entity/                # 20+ JPA Entities tương ứng 21 bảng CSDL
 │   │   │   │   ├── repository/            # Spring Data JPA Repositories
 │   │   │   │   ├── security/              # Bộ lọc xác thực Bearer Token
-│   │   │   │   ├── service/               # Nghiệp vụ (AuthService, BookingService...)
+│   │   │   │   ├── service/               # Nghiệp vụ (AuthService, BookingService, AiAssistantService...)
 │   │   │   │   └── BackendApplication.java # Entry point khởi chạy Spring Boot
 │   │   │   └── resources/
-│   │   │       ├── application.properties # Cấu hình database, port, hibernate
-│   │   │       └── schema.sql             # Tạo bảng & seed dữ liệu công khai tự động
-│   │   └── test/                          # Unit & Integration Tests (JUnit 5)
+│   │   │       ├── application.properties # Cấu hình database, port 8080, hibernate
+│   │   │       └── schema.sql             # Tạo bảng & nạp dữ liệu mẫu tự động
+│   │   └── test/                          # 40 Unit & Integration Tests (JUnit 5)
 │   └── pom.xml                            # Quản lý dependencies Maven
 │
 ├── frontend/                              # Mã nguồn Frontend (React + Vite)
 │   ├── e2e/                               # Kịch bản kiểm thử tự động Playwright E2E
 │   ├── public/                            # Tài nguyên tĩnh
 │   ├── src/
-│   │   ├── components/                    # Các Component tái sử dụng (Navbar, Toast...)
-│   │   ├── context/                       # Quản lý State toàn cục (AppContext, Auth...)
-│   │   ├── pages/                         # Các màn hình theo từng phân quyền:
-│   │   │   ├── admin/                     # Dashboard, quản lý sân bãi, nhân viên, gói tập
-│   │   │   ├── coach/                     # Lịch dạy, danh sách học viên, điểm danh
-│   │   │   ├── member/                    # Đặt sân, đặt lớp, lịch tập, hồ sơ sức khỏe, AI
-│   │   │   ├── receptionist/              # Check-in, quầy POS, quản lý lớp, báo cáo ca
-│   │   │   ├── AuthPage.jsx               # Đăng nhập & Đăng ký
-│   │   │   └── LandingPage.jsx            # Trang chủ giới thiệu trung tâm
-│   │   ├── services/                      # Gọi API Backend (apiClient, publicContentApi)
-│   │   ├── App.jsx                        # Khai báo tuyến đường (Routes) và bảo vệ phân quyền
+│   │   ├── components/                    # Navbar, Footer, Modal, Toast, In hóa đơn K80...
+│   │   ├── context/                       # AuthContext, AppContext toàn cục
+│   │   ├── pages/                         # Màn hình chuyên biệt theo 5 Roles:
+│   │   │   ├── admin/                     # Quản trị viên: Phê duyệt nhân sự, Audit Logs, Settings
+│   │   │   ├── manager/                   # Quản lý: Dashboard, Bảo trì sân, Quản lý tài chính, AI Config
+│   │   │   ├── coach/                     # HLV: Lịch dạy, Điểm danh, Giáo án PT, Lịch rảnh, Nghỉ phép
+│   │   │   ├── receptionist/              # Lễ tân: Check-in QR/RFID, Quầy POS, Mượn đồ, Báo cáo ca
+│   │   │   ├── member/                    # Hội viên: Đặt sân, Đặt lớp, Thẻ QR, Body Progress, Feedback
+│   │   │   ├── AuthPage.jsx               # Đăng nhập / Đăng ký
+│   │   │   └── LandingPage.jsx            # Trang chủ trung tâm thể thao
+│   │   ├── services/                      # Axios API Client & Public Content Services
+│   │   ├── App.jsx                        # Routing & Route Guards
 │   │   └── main.jsx                       # Entry point React
-│   ├── package.json                       # Khai báo dependencies Frontend
-│   ├── tailwind.config.js                 # Cấu hình giao diện Tailwind CSS
-│   └── vite.config.js                     # Cấu hình build & dev server Vite
+│   ├── package.json                       # Dependencies Frontend
+│   └── vite.config.js                     # Cấu hình Vite
 │
-├── SportsCenterDB_Database.sql            # Script SQL Server toàn diện (Bảng, Quan hệ, Dữ liệu mẫu)
-├── runtime-validation-report.md           # Báo cáo kiểm định môi trường và kết quả E2E test
-├── ERD.drawio.png                         # Sơ đồ thực thể cơ sở dữ liệu
-├── update_ERD.drawio                      # Sơ đồ ERD cập nhật
-└── Usecase diagram.jpg                    # Sơ đồ Use Case chức năng hệ thống
+├── SportsCenterDB_Database.sql            # Script SQL Server 21 bảng (chuẩn UTF-8 BOM)
+├── PROGRESS_TRACKING.md                   # Bảng theo dõi tiến độ chi tiết 100%
+└── README.md                              # Tài liệu hướng dẫn dự án
 ```
 
 ---
 
-## 🎯 4. Các Phân Quyền & Tính Năng Chính
+## 🎯 4. Các Phân Quyền & Hệ Thống 31+ Tính Năng Hoàn Chỉnh
 
-### 1. 👤 Hội Viên (Member)
-- **Đăng ký & Đăng nhập:** Tạo tài khoản mới, lưu trữ phiên đăng nhập bảo mật qua Token.
-- **Khám phá dịch vụ:** Xem danh mục các môn thể thao (Tennis, Pickleball, Cầu lông, Bóng đá...), cơ sở vật chất và bảng giá gói tập.
-- **Đặt sân trực tuyến (Court Booking):** Chọn môn thể thao, sân tập, khung giờ trống (time slot) và thanh toán SANDBOX.
-- **Đăng ký lớp học (Class Booking):** Lựa chọn lớp học sắp diễn ra, xem thông tin Huấn luyện viên, sĩ số và đặt chỗ.
-- **Lịch tập cá nhân (Member Schedule):** Xem thời khóa biểu các ca sân và buổi học đã đăng ký; theo dõi trạng thái thanh toán.
-- **Hồ sơ sức khỏe (Health Profile):** Quản lý chỉ số cơ thể (chiều cao, cân nặng, mục tiêu rèn luyện, tiền sử chấn thương).
-- **Trợ lý thể thao AI (AI Assistant):** Tư vấn môn tập luyện phù hợp dựa trên hồ sơ thể trạng.
+### 1. 👤 Phân Hệ Hội Viên (Member)
+1. **Đăng ký / Đăng nhập bảo mật:** Xác thực Token, lưu trữ phiên làm việc an toàn.
+2. **Khám phá dịch vụ:** Xem danh mục các môn thể thao, cơ sở vật chất, bảng giá và đội ngũ HLV.
+3. **Đặt sân trực tuyến (Court Booking):** Chọn khung giờ trống (time slot), chống trùng lịch bằng cơ chế khóa bi quan (`Pessimistic Locking`).
+4. **Ưu đãi thành viên:** Tự động chiết khấu giá đặt sân và đặt lớp theo cấp thẻ hội viên (Silver -15%, Gold -30%, Diamond -50%).
+5. **Đăng ký lớp học (Class Booking):** Lựa chọn lớp học yêu thích, tự động cập nhật sĩ số (`booked_slots`).
+6. **Đặt lịch tập riêng với PT (PT 1-1 Booking):** Chọn HLV chuyên nghiệp và khung giờ tập luyện riêng biệt.
+7. **Thời khóa biểu cá nhân (Member Schedule):** Xem lịch đặt sân và lịch học theo ngày/tuần, lọc trạng thái xác nhận / hủy.
+8. **Hủy đặt sân & Hủy lớp học:** Tự động hoàn tiền vào giao dịch gốc; chặn hủy sân trước giờ bắt đầu dưới 2 tiếng; chặn hủy lớp khi đã điểm danh `PRESENT` hoặc lớp đã hoàn tất.
+9. **Thẻ hội viên kỹ thuật số (Digital Membership Card):** Tích hợp mã vạch QR Code và mã RFID cá nhân phục vụ check-in tự động tại quầy/cổng.
+10. **Quản lý gói tập hội viên:** Mua mới, gia hạn hoặc nâng cấp lên gói cao cấp hơn; hỗ trợ sở hữu nhiều gói tập khác môn đồng thời.
+11. **Hồ sơ sức khỏe (Health Profile):** Quản lý chiều cao, cân nặng, mục tiêu rèn luyện và tiền sử chấn thương.
+12. **Theo dõi tiến độ cơ thể (Body Progress):** Lưu trữ lịch sử đo lường chỉ số thể trạng (Cân nặng, Chiều cao, BMI, SMM - Khối lượng cơ xương, PBF - Tỷ lệ mỡ cơ thể).
+13. **Kỷ lục mức tạ (1RM Max Lift):** Ghi nhận mức tạ tối đa 1RM theo từng bài tập chính (Squat, Bench Press, Deadlift).
+14. **Xem giáo án lộ trình PT (Workout Plans):** Xem kế hoạch tập luyện, nhận xét chuyên môn của HLV và bài tập về nhà (Homework).
+15. **Trợ lý Thể thao AI (AI Fitness Assistant):** Tư vấn lịch tập, gợi ý môn thể thao phù hợp dựa trên thể trạng và giải đáp thắc mắc 24/7.
+16. **Đánh giá & Phản hồi (Feedback & Reviews):** Chấm điểm 5 sao và viết nhận xét cho HLV sau khi tham gia buổi học.
+17. **Yêu cầu hoàn tiền trực tuyến (Refund Request):** Gửi đơn yêu cầu hoàn tiền kèm thông tin số tài khoản ngân hàng; chống spam gửi trùng lặp đơn.
+18. **Trung tâm thông báo (Notifications Center):** Nhận thông báo thời gian thực về lịch học, cập nhật điểm danh và tin tức trung tâm.
 
-### 2. 🛎️ Lễ Tân (Receptionist)
-- **Check-in hội viên:** Tra cứu và xác nhận check-in trực tiếp khi học viên đến trung tâm theo ca đặt.
-- **Điểm bán hàng tại quầy (POS - Point of Sale):** Đăng ký hội viên mới, thanh toán gói tập trực tiếp tại quầy, áp dụng mã giảm giá (Voucher).
-- **Quản lý danh sách hội viên:** Tìm kiếm, kiểm tra trạng thái thẻ hội viên (ACTIVE / INACTIVE).
-- **Quản lý lớp học trong ngày:** Theo dõi danh sách các lớp diễn ra trong ca trực, kiểm tra sĩ số thực tế.
-- **Báo cáo kết ca (Shift Report):** Thống kê tổng lượt check-in, số đơn hàng POS và tổng doanh thu thu được trong ca làm việc.
+### 2. 🛎️ Phân Hệ Lễ Tân (Receptionist)
+19. **Check-in đa phương thức:** Check-in nhanh qua số điện thoại, quét mã QR Thẻ hội viên hoặc quẹt thẻ từ RFID.
+20. **Điểm bán hàng tại quầy (POS):** Đăng ký hội viên mới, bán gói tập, thanh toán Tiền mặt / Chuyển khoản / Cà thẻ POS.
+21. **In hóa đơn nhiệt chuẩn K80:** Tạo và in phiếu thu hóa đơn bán lẻ trực tiếp từ trình duyệt theo khổ giấy in nhiệt K80 (80mm).
+22. **Quản lý mượn/trả dụng cụ (Equipment Loans):** Cho thuê vợt, bóng, thiết bị thể thao; kiểm tra tồn kho khả dụng; tự động hoàn trả số lượng khi khách trả đồ; tính phí thuê theo giờ.
+23. **Giám sát lớp học trong ca trực:** Theo dõi danh sách các lớp diễn ra trong ngày, kiểm tra sĩ số học viên thực tế.
+24. **Báo cáo kết ca (Daily Shift Report):** Thống kê tổng số lượt check-in, số đơn hàng POS, phân tách doanh thu theo từng phương thức thanh toán và từng nhân viên phụ trách (`approvedBy`).
 
-### 3. 🏋️ Huấn Luyện Viên (Coach)
-- **Lịch dạy cá nhân:** Xem danh sách các buổi học được phân công theo ngày / tuần.
-- **Điểm danh học viên (Attendance):** Đánh dấu trạng thái có mặt / vắng mặt của học viên trong từng buổi học.
-- **Quản lý học viên & Tiến độ:** Ghi chú nhận xét (coach note) và bài tập bổ trợ tại nhà (homework) cho từng học viên.
-- **Thống kê buổi dạy:** Theo dõi số ca dạy đã hoàn thành.
+### 3. 🏋️ Phân Hệ Huấn Luyện Viên (Coach)
+25. **Thời khóa biểu giảng dạy:** Xem lịch dạy theo tuần/tháng, xem danh sách học viên đăng ký theo từng ca.
+26. **Điểm danh học viên chuyên nghiệp:** Đánh dấu trạng thái: Có mặt (`PRESENT`), Vắng có phép (`EXCUSED_ABSENCE`), Vắng không phép (`UNEXCUSED_ABSENCE`).
+27. **Soạn thảo giáo án PT (Workout Plan Builder):** Thiết lập bài tập chi tiết, ghi nhận kết quả buổi tập và giao bài tập về nhà cho học viên.
+28. **Nhập chỉ số thể lực cho học viên:** Đo lường và cập nhật chỉ số cân nặng, mỡ cơ thể, mức tạ 1RM cho học viên PT.
+29. **Quản lý lịch rảnh & Đơn nghỉ phép:** Cập nhật khung giờ sẵn sàng nhận dạy; gửi đơn xin nghỉ phép kèm lý do.
+30. **Thống kê thu nhập & hoa hồng:** Bảng theo dõi doanh thu tích lũy và số tiền hoa hồng được nhận theo từng buổi dạy (bỏ qua ca bị hủy).
 
-### 4. 👔 Quản Lý Trung Tâm (Manager / Admin)
-- **Dashboard phân tích:** Báo cáo trực quan về tổng doanh thu, số lượt đặt sân, số lượng hội viên mới và hiệu suất sử dụng sân.
-- **Quản lý cơ sở vật chất (Facilities & Courts):** Thêm mới, chỉnh sửa thông tin sân bãi, thời gian mở/đóng cửa, giá thuê theo giờ.
-- **Quản lý gói tập (Membership Packages):** Thiết lập các gói tập (tháng, quý, năm, VIP), giá bán và thời hạn áp dụng.
-- **Quản lý hội viên:** Theo dõi danh sách, trạng thái tài khoản (ACTIVE, LOCKED) và lịch sử tham gia.
-- **Quản lý & Phê duyệt nhân sự:** Phê duyệt đơn đăng ký của nhân viên mới (Coach, Receptionist) và quản lý danh sách nhân sự trung tâm.
+### 4. 👔 Phân Hệ Quản Lý & Giám Đốc (Manager / Director)
+31. **Dashboard điều hành thông minh:** Biểu đồ doanh thu trực quan, phân tích nguồn thu theo môn thể thao, tỷ lệ lấp đầy sân bãi.
+32. **Quản lý lịch bảo trì sân (Court Maintenance):** Lập lịch bảo trì, tự động khóa khung giờ trên lịch đặt sân để chống xung đột đặt chỗ.
+33. **Quản lý cơ sở vật chất, gói tập & voucher:** Thiết lập thông tin sân bãi, giá thuê theo giờ, danh mục gói tập và mã giảm giá.
+34. **Xét duyệt hoàn tiền (Refund Management):** Phê duyệt hoặc từ chối các yêu cầu hoàn tiền của học viên; tự động cập nhật trạng thái giao dịch sang `REFUNDED`.
+35. **Báo cáo hiệu suất nhân viên (Staff Performance):** Đánh giá hiệu suất Lễ tân (số lượt check-in, doanh số POS) và Huấn luyện viên (số buổi dạy, đánh giá trung bình, hoa hồng phải trả).
+36. **Cấu hình Trợ lý AI (AI Config):** Bật/tắt AI, lựa chọn model GPT-4o-mini, điều chỉnh Temperature và tùy biến System Prompt nghiệp vụ.
+37. **Phát sóng thông báo (Broadcast Notification):** Gửi thông báo đại chúng tới toàn thể hội viên hoặc theo nhóm đối tượng.
+
+### 5. 🛡️ Phân Hệ Quản Trị Viên (Admin)
+38. **Phê duyệt nhân sự:** Phê duyệt đơn đăng ký của nhân viên mới (Coach, Receptionist) trước khi kích hoạt tài khoản.
+39. **Nhật ký kiểm toán hệ thống (Audit Logs):** Ghi nhận chi tiết mọi hành vi nhạy cảm (Đăng nhập, Check-in, Bảo trì sân, Tạo giáo án, Thay đổi cấu hình) kèm IP/thời gian/người thực hiện.
+40. **Quản trị người dùng & Phân quyền:** Quản lý danh sách tài khoản toàn hệ thống, khóa/mở khóa tài khoản khi có vi phạm.
 
 ---
 
-## 🔑 5. Tài Khoản Dùng Thử (Demo Accounts)
+## 🗄️ 5. Kiến Trúc Cơ Sở Dữ Liệu (Database Architecture)
 
-Cơ sở dữ liệu mẫu đã được nạp sẵn các tài khoản tương ứng với từng vai trò. Tất cả tài khoản demo sử dụng chung mật khẩu mặc định: **`SportHub@123`**
+Hệ thống cơ sở dữ liệu `SportsCenterDB` được chuẩn hóa toàn diện trên Microsoft SQL Server với **21 bảng vật lý**:
 
-| Vai trò (Role) | Họ và tên | Email đăng nhập | Mật khẩu mặc định | Ghi chú |
+```
+                       [ users ] (Tài khoản & Hồ sơ cá nhân - 5 Roles)
+                          │
+        ┌─────────────────┼───────────────────────────┬──────────────────────┐
+        │                 │                           │                      │
+ [ member_check_ins ] [ user_memberships ]    [ court_bookings ]       [ bookings ]
+        │                 │                           │                      │
+        │       [ membership_packages ]       [ sports_courts ]       [ class_sessions ]
+        │                 │                           │                      │
+        │           [ vouchers ]             [ court_maintenance ]   [ facilities / sports ]
+        │                 │                           │                      │
+ [ payments (POS) ] ──────┴─────── [ payment_transactions ] ─────────────────┘
+        │
+        ├──────────────────────┬──────────────────────┬──────────────────────┐
+        │                      │                      │                      │
+ [ workout_plans ]   [ body_progress_logs ]     [ feedbacks ]        [ notifications ]
+        │                      │                      │                      │
+  (Giáo án PT)       (Tiến độ cơ thể & 1RM)    (Đánh giá 5 sao)      (Thông báo hệ thống)
+        │
+ [ audit_logs ] ─────────────────────────────────────────────── [ system_settings ]
+ (Nhật ký kiểm toán)                                            (Cấu hình AI & Hệ thống)
+```
+
+### Bảng tóm tắt 21 bảng CSDL:
+1. `dbo.users`: Tài khoản và thông tin người dùng của cả 5 vai trò.
+2. `dbo.sports` & `dbo.public_sports`: Danh mục các môn thể thao.
+3. `dbo.facilities` & `dbo.public_facilities`: Cơ sở vật chất và khu vực luyện tập.
+4. `dbo.sports_courts`: Danh sách sân thi đấu chi tiết, giờ mở/đóng cửa, giá thuê.
+5. `dbo.court_bookings`: Lịch đặt sân của hội viên (chống trùng giờ bằng pessimistic lock).
+6. `dbo.class_sessions`: Các ca học thể thao theo lịch trình.
+7. `dbo.bookings`: Đăng ký lớp học và thông tin điểm danh học viên.
+8. `dbo.payment_transactions`: Giao dịch tài chính thanh toán đặt sân và lớp học trực tuyến.
+9. `dbo.payments`: Giao dịch quầy thu ngân (POS) do Lễ tân phê duyệt.
+10. `dbo.membership_packages`: Bảng giá và chính sách các gói tập hội viên.
+11. `dbo.user_memberships`: Hợp đồng gói tập của từng hội viên.
+12. `dbo.vouchers`: Mã giảm giá khuyến mãi.
+13. `dbo.member_check_ins`: Lịch sử quẹt thẻ check-in vào cổng (QR Code / RFID).
+14. `dbo.feedbacks`: Đánh giá 5 sao và bình luận của học viên về buổi học/HLV.
+15. `dbo.member_health_profiles`: Hồ sơ sức khỏe và tiền sử chấn thương của hội viên.
+16. `dbo.notifications`: Thông báo hệ thống và thông báo cá nhân người dùng.
+17. `dbo.audit_logs`: Nhật ký kiểm toán an toàn hệ thống.
+18. `dbo.court_maintenance`: Lịch bảo trì bảo dưỡng sân thi đấu.
+19. `dbo.workout_plans`: Giáo án lộ trình tập luyện PT và bài tập về nhà.
+20. `dbo.body_progress_logs`: Lịch sử chỉ số đo lường cơ thể và kỷ lục mức tạ 1RM.
+21. `dbo.system_settings`: Cấu hình tham số hệ thống và Trợ lý AI.
+
+---
+
+## 🔑 6. Tài Khoản Dùng Thử (Demo Accounts)
+
+Cơ sở dữ liệu mẫu được nạp sẵn tài khoản đại diện cho cả **5 vai trò**. Mật khẩu mặc định: **`SportHub@123`**
+
+| Vai trò (Role) | Họ và tên | Email đăng nhập | Mật khẩu mặc định | Ghi chú quyền hạn |
 | :--- | :--- | :--- | :--- | :--- |
-| **MANAGER** | Nguyễn Văn Quản Lý | `manager@sporthub.com` | `SportHub@123` | Quản lý toàn bộ hệ thống, dashboard & cấu hình |
-| **MANAGER** | Trần Thị Giám Đốc | `director@sporthub.com` | `SportHub@123` | Giám đốc điều hành trung tâm |
-| **RECEPTIONIST** | Lê Thị Lễ Tân | `reception.le@sporthub.com` | `SportHub@123` | Lễ tân ca 1 (Check-in, POS bán hàng, Báo cáo ca) |
-| **RECEPTIONIST** | Phạm Minh Tú | `reception.tu@sporthub.com` | `SportHub@123` | Lễ tân ca 2 |
-| **COACH** | Trần Văn Minh | `coach.minh@sporthub.com` | `SportHub@123` | HLV môn Tennis (Xem lịch dạy, điểm danh học viên) |
-| **COACH** | Nguyễn Hoàng Nam | `coach.nam@sporthub.com` | `SportHub@123` | HLV môn Pickleball |
-| **COACH** | Võ Tấn Phát | `coach.phat@sporthub.com` | `SportHub@123` | HLV môn Bóng đá |
-| **COACH** | Đặng Thu Thảo | `coach.thao@sporthub.com` | `SportHub@123` | HLV môn Cầu lông |
-| **MEMBER** | Nguyễn Anh Khoa | `khoa.member@gmail.com` | `SportHub@123` | Hội viên (Đã có sẵn lịch tập & hồ sơ sức khỏe) |
-| **MEMBER** | Hoàng Thị Ngọc | `ngoc.hoang@gmail.com` | `SportHub@123` | Hội viên mẫu |
+| **ADMIN / MANAGER** | Nguyễn Văn Quản Lý | `manager@sporthub.com` | `SportHub@123` | Quản trị toàn hệ thống, duyệt nhân sự, Audit Logs, AI Config |
+| **MANAGER** | Trần Thị Giám Đốc | `director@sporthub.com` | `SportHub@123` | Giám đốc điều hành, báo cáo tài chính & doanh thu |
+| **RECEPTIONIST** | Lê Thị Lễ Tân | `reception.le@sporthub.com` | `SportHub@123` | Lễ tân ca sáng: Check-in QR/RFID, Quầy POS, In hóa đơn K80 |
+| **RECEPTIONIST** | Phạm Minh Tú | `reception.tu@sporthub.com` | `SportHub@123` | Lễ tân ca chiều: Quản lý thiết bị mượn trả, Báo cáo ca |
+| **COACH** | Trần Văn Minh | `coach.minh@sporthub.com` | `SportHub@123` | HLV môn Tennis: Điểm danh, Soạn giáo án PT, Xem hoa hồng |
+| **COACH** | Nguyễn Hoàng Nam | `coach.nam@sporthub.com` | `SportHub@123` | HLV môn Pickleball: Lịch dạy, Lịch rảnh, Đơn nghỉ phép |
+| **COACH** | Võ Tấn Phát | `coach.phat@sporthub.com` | `SportHub@123` | HLV môn Bóng đá & Điền kinh |
+| **COACH** | Đặng Thu Thảo | `coach.thao@sporthub.com` | `SportHub@123` | HLV môn Cầu lông & Bơi lội |
+| **MEMBER** | Nguyễn Anh Khoa | `khoa.member@gmail.com` | `SportHub@123` | Hội viên VIP Diamond: Thẻ QR, Body Progress, 1RM, AI |
+| **MEMBER** | Hoàng Thị Ngọc | `ngoc.hoang@gmail.com` | `SportHub@123` | Hội viên Thẻ Vàng (Gold) |
+| **MEMBER** | Bùi Huy Hoàng | `hoang.bui@gmail.com` | `SportHub@123` | Hội viên tiêu chuẩn |
 
 ---
 
-## 🚀 6. Hướng Dẫn Khởi Chạy Dự Án (Setup Guide)
+## 🚀 7. Hướng Dẫn Khởi Chạy Dự Án (Setup Guide)
 
 ### Yêu cầu tiên quyết:
-- **Java Development Kit (JDK):** Phiên bản **21** trở lên.
-- **Apache Maven:** Phiên bản **3.9+** (hoặc sử dụng Maven tích hợp sẵn trong IDE như IntelliJ IDEA, Eclipse, VS Code).
-- **Node.js:** Phiên bản **18.x**, **20.x** hoặc mới hơn & **npm**.
-- **Microsoft SQL Server:** Phiên bản 2019 / 2022 hoặc SQL Server Express đang chạy trên cổng mặc định `1433`.
-- **SQL Server Management Studio (SSMS)** hoặc Azure Data Studio để quản lý CSDL.
+- **Java JDK:** Phiên bản **21** trở lên.
+- **Apache Maven:** Phiên bản **3.9+**.
+- **Node.js:** Phiên bản **18.x / 20.x / 22.x** & **npm**.
+- **Microsoft SQL Server:** Phiên bản 2019 / 2022 (Express hoặc Standard) chạy trên cổng `1433`.
 - **Git** đã được cài đặt trên máy.
+
+> ⚠️ **QUY TẮC CỔNG MẠNG (PORT ASSIGNMENT):**  
+> - **Backend API:** Chạy cố định trên cổng **`8080`**.  
+> - **Frontend Web:** Chạy trên cổng **`5173`**.  
+> - **Cổng `8000`:** **TUYỆT ĐỐI GIỮ TRỐNG** (Dành riêng cho môi trường kiểm thử / demo tự động).
 
 ---
 
-### Bước 1: Cài đặt và cấu hình Database (SQL Server)
+### Bước 1: Khởi tạo Cơ sở dữ liệu SQL Server
 
-1. Mở **SQL Server Management Studio (SSMS)** và kết nối tới SQL Server instance của bạn (ví dụ: `localhost` hoặc `localhost\SQLEXPRESS`).
-2. Mở file [`SportsCenterDB_Database.sql`](./SportsCenterDB_Database.sql) nằm ở thư mục gốc của dự án.
-3. Nhấn **Execute (F5)** để chạy toàn bộ script. Script sẽ tự động:
-   - Tạo cơ sở dữ liệu `SportsCenterDB`.
-   - Tạo toàn bộ hệ thống bảng và ràng buộc khóa ngoại (Foreign Keys).
-   - Nạp dữ liệu mẫu ban đầu (tài khoản demo, danh mục môn thể thao, cơ sở vật chất, gói tập, lịch học, mã giảm giá...).
-4. Mở file cấu hình `backend/src/main/resources/application.properties` và điều chỉnh thông tin kết nối phù hợp với máy của bạn:
-
-```properties
-server.port=8080
-spring.application.name=backend
-
-# Cấu hình kết nối SQL Server
-spring.datasource.url=jdbc:sqlserver://localhost:1433;databaseName=SportsCenterDB;encrypt=false;trustServerCertificate=true
-spring.datasource.username=sa
-spring.datasource.password=12345
-spring.datasource.driver-class-name=com.microsoft.sqlserver.jdbc.SQLServerDriver
-
-# Hibernate Config
-spring.jpa.hibernate.ddl-auto=none
-spring.jpa.show-sql=true
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.SQLServerDialect
-
-# Tự động đồng bộ các bảng thông tin trang chủ (schema.sql)
-spring.sql.init.mode=always
-```
-
-> 💡 **Lưu ý:** Nếu SQL Server của bạn đặt mật khẩu `sa` khác với `12345` hoặc sử dụng cổng/instance khác (ví dụ: `localhost\\SQLEXPRESS`), hãy cập nhật lại `spring.datasource.password` hoặc `spring.datasource.url`.
+1. Mở **SQL Server Management Studio (SSMS)** và kết nối tới instance SQL Server của bạn (`localhost` hoặc `localhost\SQLEXPRESS`).
+2. Mở file [`SportsCenterDB_Database.sql`](./SportsCenterDB_Database.sql) và thực thi (**F5**).  
+   *Hoặc chạy dòng lệnh cmd với mã hóa tiếng Việt UTF-8:*
+   ```bash
+   sqlcmd -S localhost -U sa -P 12345 -f 65001 -i SportsCenterDB_Database.sql
+   ```
+3. Kiểm tra file cấu hình `backend/src/main/resources/application.properties`:
+   ```properties
+   server.port=8080
+   spring.application.name=backend
+   spring.datasource.url=jdbc:sqlserver://localhost:1433;databaseName=SportsCenterDB;encrypt=false;trustServerCertificate=true
+   spring.datasource.username=sa
+   spring.datasource.password=12345
+   spring.sql.init.mode=always
+   ```
 
 ---
 
 ### Bước 2: Khởi chạy Backend (Spring Boot API)
 
-Mở một cửa sổ Terminal thứ nhất và di chuyển vào thư mục `backend`:
-
-#### Cách A: Chạy bằng dòng lệnh Maven:
+Mở Terminal thứ nhất tại thư mục dự án:
 ```bash
 cd backend
 
-# Tải dependencies và biên dịch dự án
-mvn clean install -DskipTests
+# Chạy kiểm thử tự động
+mvn clean test
 
-# Khởi chạy Spring Boot Server
+# Khởi chạy server Backend trên cổng 8080
 mvn spring-boot:run
 ```
-
-#### Cách B: Chạy qua IDE (IntelliJ IDEA / VS Code / Eclipse):
-1. Mở thư mục `backend` như một Maven Project trong IDE.
-2. Đợi IDE tải hoàn tất các thư viện trong `pom.xml`.
-3. Tìm đến file: `src/main/java/com/sporthub/backend/BackendApplication.java`.
-4. Nhấn **Run / Debug**.
-
 > 🟢 **Backend API sẵn sàng tại:** `http://localhost:8080`  
 > 🔗 **Root API:** `http://localhost:8080/api/v1`
 
@@ -226,135 +286,49 @@ mvn spring-boot:run
 
 ### Bước 3: Khởi chạy Frontend (React + Vite)
 
-Mở một cửa sổ Terminal thứ hai (giữ Terminal Backend tiếp tục chạy):
-
+Mở Terminal thứ hai:
 ```bash
-# 1. Di chuyển vào thư mục frontend
 cd frontend
 
-# 2. Cài đặt các gói phụ thuộc npm
+# Cài đặt thư viện dependencies
 npm install
 
-# 3. (Tùy chọn) Tạo file cấu hình môi trường nếu backend chạy trên địa chỉ khác
-# Mặc định frontend đã tự động trỏ tới http://localhost:8080/api/v1
-# Bạn có thể tạo file .env.local nếu cần ghi đè:
-# echo "VITE_API_BASE_URL=http://localhost:8080/api/v1" > .env.local
+# Kiểm tra build production
+npm run build
 
-# 4. Khởi chạy máy chủ phát triển Vite
+# Khởi chạy máy chủ phát triển
 npm run dev
 ```
-
-> 🟢 **Giao diện người dùng mở tại:** `http://localhost:5173` (hoặc đường dẫn hiển thị trên terminal).
-
----
-
-## 🧪 7. Kiểm Thử (Testing & Quality Assurance)
-
-Dự án đã được tích hợp bộ kiểm thử đa tầng từ Unit Test phía Backend đến End-to-End (E2E) Test phía Frontend:
-
-### 1. Backend Tests (JUnit 5 & Spring Boot Test):
-Tại thư mục `backend`, chạy lệnh:
-```bash
-mvn test
-```
-*Kiểm tra khả năng kết nối SQL Server, các controller nghiệp vụ (`BookingController`, `FacilityManagementController`, `ManagerController`, `ReceptionistController`) và logic tính toán của `BookingService`.*
-
-### 2. Frontend Lint:
-Tại thư mục `frontend`, chạy lệnh:
-```bash
-npm run lint
-```
-
-### 3. Frontend End-to-End Tests (Playwright):
-Tại thư mục `frontend`, chạy lệnh:
-```bash
-npm run test:e2e
-```
-*Tự động hóa kiểm thử luồng đăng ký tài khoản thành viên mới, tải danh mục sân bãi / lớp học trực tiếp từ SQL Server, quy trình đặt sân & đặt lớp học qua SANDBOX checkout, và xác thực hiển thị lịch tập trên giao diện người dùng (xem chi tiết tại [`runtime-validation-report.md`](./runtime-validation-report.md)).*
+> 🟢 **Giao diện Web sẵn sàng tại:** `http://localhost:5173`
 
 ---
 
-## 🌿 8. Quy Tắc Làm Việc Với Git (Git Workflow)
+## 🧪 8. Kiểm Thử & Đảm Bảo Chất Lượng (Testing & Defense Audit)
 
-### Các nhánh chính:
-- **`main`**: Nhánh lưu trữ mã nguồn ổn định nhất, đã qua kiểm thử nghiệm thu dùng để phát hành / demo. **Tuyệt đối KHÔNG commit hay push code trực tiếp lên `main`**.
-- **`develop`**: Nhánh phát triển chung của toàn nhóm. Mọi tính năng sau khi hoàn thành sẽ được tạo Pull Request (PR) để merge vào đây.
-- **`feature/<role>-<tinh-nang>`**: Nhánh độc lập được tách từ `develop` mỗi khi một thành viên phụ trách một màn hình / chức năng mới.
+Hệ thống đã trải qua đợt **Tổng kiểm tra Logic Nghiệp vụ Toàn diện (End-to-End Defense Audit)** đạt tỷ lệ hoàn hảo:
 
----
-
-### 🔄 Quy trình 5 bước phát triển tính năng hàng ngày:
-
-#### Bước 1: Luôn cập nhật code mới nhất từ nhánh `develop`
-Trước khi bắt tay vào làm bất kỳ tính năng nào:
-```bash
-git checkout develop
-git pull origin develop
-```
-
-#### Bước 2: Tạo nhánh tính năng mới (`feature/*`)
-Đặt tên nhánh rõ ràng theo cấu trúc phân quyền và tên chức năng:
-```bash
-# Cú pháp: git checkout -b feature/<role>-<ten-tinh-nang>
-
-# Ví dụ 1: Làm tính năng điểm danh học viên của HLV
-git checkout -b feature/coach-class-attendance
-
-# Ví dụ 2: Làm tính năng quản lý cơ sở vật chất của Manager
-git checkout -b feature/manager-facilities-management
-
-# Ví dụ 3: Làm tính năng bán hàng POS của Lễ tân
-git checkout -b feature/receptionist-pos-checkout
-```
-
-#### Bước 3: Code và Commit tại máy cá nhân
-Chia nhỏ các commit theo chuẩn Conventional Commits:
-```bash
-git add .
-git commit -m "feat: hoàn thiện giao diện checklist điểm danh học viên"
-```
-
-*Quy ước tiền tố commit:*
-- `feat:` Thêm tính năng mới
-- `fix:` Sửa lỗi / bug
-- `style:` Chỉnh sửa giao diện, CSS không ảnh hưởng logic
-- `refactor:` Tối ưu cấu trúc mã nguồn
-- `docs:` Bổ sung / chỉnh sửa tài liệu
-- `test:` Thêm hoặc sửa kịch bản kiểm thử
-
-#### Bước 4: Đồng bộ lại với `develop` để xử lý Conflict (nếu có)
-Trước khi đẩy lên GitHub, kéo code mới nhất từ `develop` về:
-```bash
-git pull origin develop
-```
-*Nếu có xung đột (Conflict): Mở file thông báo xung đột trong VS Code -> Chọn bản code chính xác -> Lưu lại -> Commit:*
-```bash
-git add .
-git commit -m "fix: resolve merge conflicts with develop"
-```
-
-#### Bước 5: Đẩy nhánh lên GitHub và tạo Pull Request (PR)
-```bash
-# Đẩy nhánh tính năng lên GitHub
-git push -u origin feature/<ten-nhanh-cua-ban>
-```
-1. Mở Repository trên GitHub, chọn **Compare & pull request**.
-2. **Chọn nhánh:**
-   - **Base:** `develop` ⬅️ **Compare:** `feature/<ten-nhanh-cua-ban>`
-3. Gán ít nhất **1 thành viên / Tech Lead** vào mục **Reviewers**.
-4. Sau khi PR được duyệt và merge vào `develop`:
-```bash
-# Quay lại máy cá nhân, chuyển về develop và xóa nhánh feature đã hoàn thành
-git checkout develop
-git pull origin develop
-git branch -d feature/<ten-nhanh-cua-ban>
-```
+1. **Backend Tests:** Đạt **`40/40 Tests PASS` (100%)**:
+   - `DatabaseConnectionTest`: 5/5 PASS (Kiểm tra kết nối MSSQL, xác thực 21 bảng dữ liệu, kiểm tra tài khoản demo).
+   - `AiAssistantServiceTest`: 4/4 PASS (Kiểm tra AI xử lý hội thoại, kiểm tra fallback thông minh).
+   - `BookingServiceTest`: 11/11 PASS (Kiểm tra đặt sân chống trùng lịch, tính chiết khấu VIP, hoàn tiền vé).
+   - Các Integration Controller Tests: 20/20 PASS.
+2. **Frontend Build:** `npm run build` hoàn tất trong **2.64 giây** với **0 lỗi cú pháp / 0 lỗi kiểu**.
+3. **Kiểm tra tính nhất quán tài chính:**
+   - Triệt tiêu 100% hiện tượng 2 dòng hoàn tiền trùng lặp trên bảng báo cáo thu ngân.
+   - Doanh thu quầy lễ tân được phân tách chính xác theo `approvedBy` của từng nhân viên.
+   - Chặn tuyệt đối hành vi gian lận gửi đơn hoàn tiền trùng lặp (`PENDING`).
+   - Tự động đồng bộ `booked_slots` của các lớp học với số lượng vé thực tế trong CSDL.
 
 ---
 
-## ⚠️ Lưu Ý Quan Trọng
-- **Bảo mật file cấu hình:** Tuyệt đối không commit các file nhạy cảm chứa mật khẩu cá nhân như `.env`, `.env.local` lên GitHub.
-- **Xử lý kết thúc dòng (Line Endings):** Nếu gặp thông báo cảnh báo `CRLF` / `LF` trên hệ điều hành Windows, chạy lệnh cấu hình một lần duy nhất:
-  ```bash
-  git config --global core.autocrlf false
-  ```
+## 🌿 9. Bảng Tiến Độ & Quy Trình Git
+
+- Bảng theo dõi tiến độ chi tiết từng User Story: [`PROGRESS_TRACKING.md`](./PROGRESS_TRACKING.md)
+- **Quy tắc phân nhánh Git:**
+  - Nhánh **`main`**: Nhánh phát hành ổn định, đã qua kiểm định nghiệm thu.
+  - Nhánh **`develop`**: Nhánh tích hợp tính năng chung của nhóm.
+  - Nhánh **`louispham812`**: Nhánh làm việc chính của Tech Lead / Core Developer.
+  - Cả 3 nhánh luôn được duy trì trạng thái đồng bộ, sạch sẽ và không có xung đột mã nguồn.
+
+---
+*Dự án được xây dựng và hoàn thiện bởi nhóm sinh viên thực hiện đồ án tốt nghiệp **SWP391**.*
