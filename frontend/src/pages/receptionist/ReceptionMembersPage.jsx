@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
+import CreateUserModal from '../../components/common/CreateUserModal';
 import { searchReceptionistMembers } from '../../services/receptionistApi';
 
 export default function ReceptionMembersPage() {
   const [query, setQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [page, setPage] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [response, setResponse] = useState(null);
-  const requestKey = `${submittedQuery}\u0000${page}`;
+  const requestKey = `${submittedQuery}\u0000${page}\u0000${refreshKey}`;
   const loading = response?.key !== requestKey;
   const result = response?.key === requestKey ? response.data : null;
   const error = response?.key === requestKey ? response.error : '';
@@ -39,12 +42,23 @@ export default function ReceptionMembersPage() {
   return (
     <ReceptionistLayout>
       <div className="space-y-6">
-        <header>
-          <div className="mb-1 inline-flex rounded bg-secondary-container/20 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-secondary">
-            FLOW 1 · MEMBER LOOKUP
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold uppercase tracking-wider mb-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              F SPORT RECEPTION · TRA CỨU HỘI VIÊN
+            </div>
+            <h1 className="font-headline-xl text-2xl font-bold text-slate-900 sm:text-3xl">Tra cứu hồ sơ hội viên</h1>
+            <p className="text-sm text-slate-500">Tìm kiếm nhanh theo họ tên, email, số điện thoại hoặc mã hội viên F Sport.</p>
           </div>
-          <h1 className="font-headline-xl text-2xl font-bold text-slate-900 sm:text-3xl">Tra cứu hội viên</h1>
-          <p className="text-sm text-slate-500">Tìm theo tên, email, số điện thoại hoặc mã hội viên.</p>
+          <button
+            type="button"
+            onClick={() => setIsCreateOpen(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all cursor-pointer self-start sm:self-auto"
+          >
+            <span className="material-symbols-outlined text-[18px]">person_add</span>
+            Thêm người dùng mới
+          </button>
         </header>
 
         <form onSubmit={submitSearch} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row">
@@ -53,10 +67,10 @@ export default function ReceptionMembersPage() {
             id="member-search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Nhập tên, email, số điện thoại hoặc mã hội viên"
-            className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-secondary"
+            placeholder="Nhập tên, email, số điện thoại hoặc mã hội viên..."
+            className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
           />
-          <button type="submit" className="rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-slate-800">
+          <button type="submit" className="rounded-xl bg-orange-500 hover:bg-orange-600 px-6 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all">
             Tìm hội viên
           </button>
         </form>
@@ -113,6 +127,11 @@ export default function ReceptionMembersPage() {
           )}
         </section>
       </div>
+      <CreateUserModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onSuccess={() => setRefreshKey((k) => k + 1)}
+      />
     </ReceptionistLayout>
   );
 }

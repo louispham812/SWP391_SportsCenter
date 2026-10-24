@@ -95,10 +95,13 @@ export default function ReceptionPOSPage() {
     <ReceptionistLayout>
       <main className="mx-auto max-w-5xl space-y-6">
         <header>
-          <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">POS · Giao dịch lưu trong database</p>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold uppercase tracking-wider mb-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            F SPORT RECEPTION · THU NGÂN POS
+          </div>
           <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Thu Ngân &amp; Đăng Ký Gói Tập</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Tìm hội viên, chọn gói đang mở bán và ghi nhận khoản thanh toán tại quầy.
+            Tra cứu hội viên, chọn gói thẻ đang mở bán và ghi nhận khoản thanh toán trực tiếp tại quầy F Sport.
           </p>
         </header>
 
@@ -108,13 +111,16 @@ export default function ReceptionPOSPage() {
           </p>
         )}
         {receipt && (
-          <section role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-            Đã ghi nhận giao dịch #{receipt.paymentId} cho gói {receipt.packageName}: {formatPrice(receipt.amount)} · {receipt.paymentStatus}
+          <section role="status" className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-900 flex items-center gap-3">
+            <span className="material-symbols-outlined text-emerald-600 text-2xl shrink-0">check_circle</span>
+            <div>
+              Đã ghi nhận giao dịch <strong>#{receipt.paymentId}</strong> cho gói <strong>{receipt.packageName}</strong>: <span className="font-bold text-emerald-700">{formatPrice(receipt.amount)}</span> · <span className="font-semibold uppercase text-xs px-2 py-0.5 rounded-full bg-emerald-100">{receipt.paymentStatus}</span>
+            </div>
           </section>
         )}
 
         <form onSubmit={handleCheckout} className="grid gap-6 lg:grid-cols-5">
-          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-3">
+          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-3">
             <label className="block text-sm font-bold text-slate-800" htmlFor="member-search">
               Tìm hội viên theo tên, email hoặc số điện thoại
             </label>
@@ -125,21 +131,21 @@ export default function ReceptionPOSPage() {
                 setSearch(event.target.value);
                 setMemberId('');
               }}
-              placeholder="Nhập ít nhất 2 ký tự"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+              placeholder="Nhập tên, số điện thoại hoặc email (tối thiểu 2 ký tự)..."
+              className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
             />
             {search.trim().length >= 2 && (
               <div className="max-h-56 space-y-2 overflow-y-auto">
                 {members.length === 0 ? (
-                  <p className="text-xs text-slate-500">Không tìm thấy hội viên phù hợp.</p>
+                  <p className="text-xs text-slate-500 p-2">Không tìm thấy hội viên phù hợp.</p>
                 ) : members.map((member) => (
                   <button
                     key={member.userId}
                     type="button"
                     onClick={() => setMemberId(String(member.userId))}
-                    className={`w-full rounded-xl border p-3 text-left text-sm ${
+                    className={`w-full rounded-xl border p-3.5 text-left text-sm transition-all ${
                       memberId === String(member.userId)
-                        ? 'border-primary bg-slate-50'
+                        ? 'border-orange-500 bg-orange-50/60 ring-2 ring-orange-500/15'
                         : 'border-slate-200 hover:bg-slate-50'
                     }`}
                   >
@@ -150,22 +156,23 @@ export default function ReceptionPOSPage() {
               </div>
             )}
             {selectedMember && (
-              <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
-                Hội viên đã chọn: <strong>{selectedMember.fullName}</strong>
-              </p>
+              <div className="flex items-center gap-2 rounded-xl bg-orange-50 border border-orange-200 p-3 text-sm text-orange-900">
+                <span className="material-symbols-outlined text-orange-600 text-[18px]">account_circle</span>
+                <span>Hội viên đã chọn: <strong>{selectedMember.fullName}</strong></span>
+              </div>
             )}
 
             <label className="block pt-3 text-sm font-bold text-slate-800" htmlFor="package-select">
-              Gói tập
+              Gói tập muốn mua / gia hạn
             </label>
             <select
               id="package-select"
               value={packageId}
               onChange={(event) => setPackageId(event.target.value)}
               disabled={loading}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-medium outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
             >
-              <option value="">Chọn gói tập</option>
+              <option value="">-- Chọn gói tập --</option>
               {packages.map((item) => (
                 <option key={item.packageId} value={item.packageId}>
                   {item.name} · {formatPrice(item.price)} · {item.durationDays} ngày
@@ -177,34 +184,36 @@ export default function ReceptionPOSPage() {
             )}
           </section>
 
-          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
-            <h2 className="font-bold uppercase text-slate-900">Thanh toán tại quầy</h2>
-            <label className="block text-xs font-semibold text-slate-600" htmlFor="payment-method">
-              Phương thức thanh toán
-            </label>
-            <select
-              id="payment-method"
-              value={paymentMethod}
-              onChange={(event) => setPaymentMethod(event.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
-            >
-              <option value="CASH">Tiền mặt</option>
-              <option value="TRANSFER">Chuyển khoản</option>
-              <option value="POS">Thẻ / POS</option>
-            </select>
-            <div className="flex justify-between border-t border-slate-100 pt-4 text-sm">
-              <span className="font-semibold text-slate-600">Tổng thanh toán</span>
-              <strong className="text-lg text-primary">{formatPrice(selectedPackage?.price)}</strong>
+          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2 flex flex-col justify-between">
+            <div className="space-y-4">
+              <h2 className="font-bold uppercase tracking-wider text-slate-900">Thanh toán tại quầy</h2>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600" htmlFor="payment-method">
+                Phương thức thu tiền
+              </label>
+              <select
+                id="payment-method"
+                value={paymentMethod}
+                onChange={(event) => setPaymentMethod(event.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-orange-500"
+              >
+                <option value="CASH">Tiền mặt tại quầy (CASH)</option>
+                <option value="TRANSFER">Chuyển khoản VietQR (TRANSFER)</option>
+                <option value="POS">Quẹt thẻ máy POS (POS)</option>
+              </select>
+              <div className="flex justify-between items-center border-t border-slate-100 pt-4 text-sm">
+                <span className="font-bold text-slate-600">Tổng thanh toán:</span>
+                <strong className="text-xl font-black text-orange-600">{formatPrice(selectedPackage?.price)}</strong>
+              </div>
+              <p className="text-xs leading-relaxed text-slate-400">
+                Giao dịch được đối soát và lưu tức thì vào bảng thanh toán trên máy chủ.
+              </p>
             </div>
-            <p className="text-xs leading-relaxed text-slate-500">
-              Giao dịch chỉ được xác nhận khi backend lưu thành công. Danh mục hàng hóa bán lẻ chưa có bảng dữ liệu nên không được hiển thị như sản phẩm có sẵn.
-            </p>
             <button
               type="submit"
               disabled={saving || loading || packages.length === 0}
-              className="w-full rounded-xl bg-primary px-4 py-3 text-xs font-bold uppercase text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 px-5 py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {saving ? 'Đang ghi giao dịch...' : 'Xác nhận và lưu giao dịch'}
+              {saving ? 'Đang ghi nhận giao dịch...' : 'Xác nhận và in biên lai'}
             </button>
           </section>
         </form>

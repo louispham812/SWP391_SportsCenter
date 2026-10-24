@@ -9,5 +9,6 @@ public record MemberProfileRequest(
         String gender,
         String address,
         String emergencyContactName,
-        String emergencyContactPhone) {
+        String emergencyContactPhone,
+        String avatar) {
 }

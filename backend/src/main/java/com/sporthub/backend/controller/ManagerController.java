@@ -27,6 +27,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.sporthub.backend.dto.CreateUserRequest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
 import java.util.List;
 import java.util.Locale;
 
@@ -39,14 +44,25 @@ public class ManagerController {
     private final UserRepository userRepository;
     private final MembershipPackageRepository packageRepository;
     private final PublicSportRepository sportRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    @Autowired
+    public ManagerController(
+            UserRepository userRepository,
+            MembershipPackageRepository packageRepository,
+            PublicSportRepository sportRepository,
+            PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.packageRepository = packageRepository;
+        this.sportRepository = sportRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     public ManagerController(
             UserRepository userRepository,
             MembershipPackageRepository packageRepository,
             PublicSportRepository sportRepository) {
-        this.userRepository = userRepository;
-        this.packageRepository = packageRepository;
-        this.sportRepository = sportRepository;
+        this(userRepository, packageRepository, sportRepository, new BCryptPasswordEncoder());
     }
 
     @GetMapping("/staff-registrations")
@@ -315,13 +331,87 @@ public class ManagerController {
                 savedUser.getCreatedAt());
     }
 
-    private void requireManager(Authentication authentication) {
-        boolean isManager = authentication != null && authentication.getAuthorities().stream()
+    @PostMapping("/users")
+    @Transactional
+    public ManagerUserResponse createUser(
+            @RequestBody CreateUserRequest request,
+            Authentication authentication) {
+        requireStaffOrManager(authentication);
+
+        String fullName = request.fullName() == null ? "" : request.fullName().trim();
+        String email = request.email() == null ? "" : request.email().trim().toLowerCase(Locale.ROOT);
+        String phone = request.phone() == null ? "" : request.phone().trim();
+        String password = request.password();
+        String targetRole = request.role() == null ? "" : request.role().trim().toUpperCase(Locale.ROOT);
+
+        if (fullName.isEmpty() || email.isEmpty() || phone.isEmpty() || password == null || password.isBlank() || targetRole.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng điền đầy đủ các thông tin bắt buộc.");
+        }
+        if (fullName.length() > 100 || email.length() > 100 || phone.length() > 15) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên, email hoặc số điện thoại vượt quá độ dài cho phép.");
+        }
+        if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Địa chỉ email không hợp lệ.");
+        }
+        if (password.length() < 8) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mật khẩu phải có ít nhất 8 ký tự.");
+        }
+        if (userRepository.existsByEmailIgnoreCase(email)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email này đã tồn tại trong hệ thống.");
+        }
+
+        boolean isManagerUser = isManager(authentication);
+        if (!isManagerUser) {
+            // Lễ tân tạo ở trang quản trị: MEMBER, COACH hoặc RECEPTIONIST
+            if (!List.of("MEMBER", "COACH", "RECEPTIONIST").contains(targetRole)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Lễ tân chỉ có quyền tạo tài khoản Hội viên, Huấn luyện viên hoặc Lễ tân.");
+            }
+        } else {
+            // Manager tạo ở trang quản trị: cả 4 vai trò
+            if (!List.of("MEMBER", "COACH", "RECEPTIONIST", "MANAGER", "ADMIN").contains(targetRole)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vai trò không hợp lệ.");
+            }
+        }
+
+        User user = User.builder()
+                .fullName(fullName)
+                .email(email)
+                .phone(phone)
+                .passwordHash(passwordEncoder.encode(password))
+                .role(targetRole)
+                .status("ACTIVE")
+                .build();
+
+        User savedUser = userRepository.save(user);
+        return new ManagerUserResponse(
+                savedUser.getUserId(),
+                savedUser.getFullName(),
+                savedUser.getEmail(),
+                savedUser.getPhone(),
+                savedUser.getRole(),
+                savedUser.getStatus(),
+                savedUser.getCreatedAt());
+    }
+
+    private void requireStaffOrManager(Authentication authentication) {
+        boolean hasAccess = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(authority -> List.of("ROLE_RECEPTIONIST", "ROLE_MANAGER", "ROLE_ADMIN")
+                        .contains(authority.getAuthority()));
+        if (!hasAccess) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện thao tác này.");
+        }
+    }
+
+    private boolean isManager(Authentication authentication) {
+        return authentication != null && authentication.getAuthorities().stream()
                 .anyMatch(authority -> List.of("ROLE_MANAGER", "ROLE_ADMIN")
                         .contains(authority.getAuthority()));
-        if (!isManager) {
+    }
+
+    private void requireManager(Authentication authentication) {
+        if (!isManager(authentication)) {
             throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN, "Chỉ Quản lý mới được duyệt đăng ký nhân viên.");
+                    HttpStatus.FORBIDDEN, "Chỉ Quản lý mới được thực hiện thao tác này.");
         }
     }
 }

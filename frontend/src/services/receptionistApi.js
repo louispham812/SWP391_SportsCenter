@@ -10,3 +10,10 @@ export const getReceptionistClasses = (weekStart) =>
 
 export const getReceptionistReport = (date) =>
   apiRequest(`/receptionist/report?date=${encodeURIComponent(date)}`);
+
+export const createReceptionistUser = (userData) =>
+  apiRequest('/receptionist/users', {
+    method: 'POST',
+    body: JSON.stringify(userData),
+  });
+

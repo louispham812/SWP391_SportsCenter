@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { useApp } from '../../context/AppContext';
 import { getMemberBookingSchedule } from '../../services/bookingApi';
+import { getMemberMemberships } from '../../services/memberApi';
 
 const formatBookingTime = (value) => new Date(value).toLocaleString('vi-VN', {
-  weekday: 'long',
+  weekday: 'short',
   day: '2-digit',
   month: '2-digit',
   hour: '2-digit',
@@ -21,154 +22,287 @@ const formatBookingAmount = (amount) => new Intl.NumberFormat('vi-VN', {
 export default function MemberDashboardPage() {
   const { currentUser } = useApp();
   const [bookings, setBookings] = useState([]);
+  const [activeMembership, setActiveMembership] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    let current = true;
-    getMemberBookingSchedule()
-      .then((schedule) => {
-        if (current) {
-          const now = Date.now();
-          setBookings(schedule.filter((booking) => new Date(booking.endTime).getTime() >= now));
-        }
+    let isMounted = true;
+    setLoading(true);
+
+    Promise.all([
+      getMemberBookingSchedule(),
+      getMemberMemberships().catch(() => []),
+    ])
+      .then(([schedule, memberships]) => {
+        if (!isMounted) return;
+        const now = Date.now();
+        const upcoming = Array.isArray(schedule)
+          ? schedule.filter((booking) => new Date(booking.endTime).getTime() >= now)
+          : [];
+        setBookings(upcoming);
+
+        const currentActive = Array.isArray(memberships)
+          ? memberships.find((m) => m.status === 'ACTIVE')
+          : null;
+        setActiveMembership(currentActive);
       })
       .catch((requestError) => {
-        if (current) setError(requestError.message || 'Không thể tải thời khóa biểu.');
+        if (isMounted) setError(requestError.message || 'Không thể tải dữ liệu hội viên.');
       })
       .finally(() => {
-        if (current) setLoading(false);
+        if (isMounted) setLoading(false);
       });
 
     return () => {
-      current = false;
+      isMounted = false;
     };
   }, []);
 
+  const quickActions = [
+    {
+      title: 'Đăng ký lớp học',
+      desc: 'Đăng ký môn học theo kỳ, chọn lịch và HLV',
+      icon: 'school',
+      path: '/member/classes',
+      color: 'bg-orange-50 text-orange-600 group-hover:bg-orange-500 group-hover:text-white',
+    },
+    {
+      title: 'Đặt sân chơi',
+      desc: 'Chọn bộ môn, sân tiêu chuẩn và khung giờ trống',
+      icon: 'sports_tennis',
+      path: '/member/book/court/sports',
+      color: 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white',
+    },
+    {
+      title: 'Gói tập & Quyền lợi',
+      desc: 'Xem hạn dùng, gia hạn hoặc nâng cấp thẻ',
+      icon: 'card_membership',
+      path: '/member/packages',
+      color: 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white',
+    },
+    {
+      title: 'Lịch sử điểm danh',
+      desc: 'Chuyên cần buổi học và lượt qua cổng RFID',
+      icon: 'fact_check',
+      path: '/member/attendance',
+      color: 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white',
+    },
+    {
+      title: 'Kế hoạch & Đánh giá HLV',
+      desc: 'Chỉ số InBody và nhận xét trực tiếp từ HLV',
+      icon: 'monitor_weight',
+      path: '/member/workout-plans',
+      color: 'bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white',
+    },
+    {
+      title: 'Trợ lý AI thể thao',
+      desc: 'Hỏi đáp bài tập, dinh dưỡng và giải đáp lịch',
+      icon: 'smart_toy',
+      path: '/member/ai-assistant',
+      color: 'bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white',
+    },
+  ];
+
   return (
     <MemberLayout>
-      <main className="space-y-6">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <p className="text-xs font-bold uppercase tracking-wider text-secondary">
-            Trang hội viên
-          </p>
-          <h1 className="mt-2 text-2xl font-bold text-primary sm:text-3xl">
-            Xin chào, {currentUser.name}
-          </h1>
-          <p className="mt-2 text-sm text-slate-600">
-            Thông tin tài khoản được lấy từ phiên đăng nhập do máy chủ xác thực.
-          </p>
-          <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-3">
-            <div className="rounded-xl bg-slate-50 p-3">
-              <dt className="text-xs text-slate-500">Mã tài khoản</dt>
-              <dd className="mt-1 font-semibold text-slate-900">{currentUser.id}</dd>
+      <div className="space-y-8">
+        
+        {/* =========================================
+            1. WELCOME HERO BANNER (F SPORT BRANDED)
+           ========================================= */}
+        <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-slate-950 via-slate-900 to-orange-950/70 p-6 sm:p-10 text-white shadow-xl border border-slate-800">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-orange-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="space-y-3 max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] font-black uppercase tracking-widest">
+                <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse"></span>
+                F SPORT MEMBER HUB • ĐẲNG CẤP THỂ THAO
+              </div>
+
+              <h1 className="text-2xl sm:text-4xl font-black uppercase tracking-tight text-white leading-tight">
+                Xin Chào, <span className="text-orange-400">{currentUser?.name || 'Hội Viên'}</span>
+              </h1>
+
+              <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed">
+                Chào mừng bạn quay trở lại với trung tâm rèn luyện F Sport. Hãy chủ động kiểm tra lịch tập hôm nay hoặc đặt sân mới bên dưới.
+              </p>
+
+              {/* Thông tin thẻ nhanh */}
+              <div className="flex flex-wrap items-center gap-4 pt-2 text-xs">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10">
+                  <span className="material-symbols-outlined text-[16px] text-orange-400">badge</span>
+                  <span className="text-slate-300">ID:</span>
+                  <strong className="text-white font-mono">#{currentUser?.id || '—'}</strong>
+                </div>
+
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10">
+                  <span className="material-symbols-outlined text-[16px] text-emerald-400">card_membership</span>
+                  <span className="text-slate-300">Gói tập:</span>
+                  <strong className="text-white">
+                    {activeMembership?.packageName || 'Chưa đăng ký gói'}
+                  </strong>
+                </div>
+
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10">
+                  <span className="material-symbols-outlined text-[16px] text-blue-400">contactless</span>
+                  <span className="text-slate-300">Check-in:</span>
+                  <strong className="text-emerald-400">Sẵn sàng (RFID/QR)</strong>
+                </div>
+              </div>
             </div>
-            <div className="rounded-xl bg-slate-50 p-3">
-              <dt className="text-xs text-slate-500">Email</dt>
-              <dd className="mt-1 break-all font-semibold text-slate-900">{currentUser.email}</dd>
+
+            {/* Nút hành động nhanh bên phải */}
+            <div className="flex flex-col sm:flex-row lg:flex-col gap-3 shrink-0">
+              <Link
+                to="/member/book"
+                className="px-6 py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-orange-500/30 transition-all text-center flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>Đặt Sân / Lớp Ngay</span>
+                <span className="material-symbols-outlined text-[18px]">calendar_add_on</span>
+              </Link>
+              <Link
+                to="/member/profile"
+                className="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold uppercase tracking-wider transition-all text-center flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>Thẻ Số &amp; QR Check-in</span>
+                <span className="material-symbols-outlined text-[18px]">qr_code_2</span>
+              </Link>
             </div>
-            <div className="rounded-xl bg-slate-50 p-3">
-              <dt className="text-xs text-slate-500">Trạng thái tài khoản</dt>
-              <dd className="mt-1 font-semibold text-slate-900">{currentUser.status}</dd>
-            </div>
-          </dl>
+          </div>
+        </div>
+
+        {/* =========================================
+            2. QUICK SHORTCUTS (6 TILES)
+           ========================================= */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {quickActions.map((action, idx) => (
+            <Link
+              key={idx}
+              to={action.path}
+              className="bg-white p-5 rounded-3xl border border-slate-200 shadow-2xs hover:shadow-lg hover:border-orange-300 transition-all flex flex-col justify-between group"
+            >
+              <div className="space-y-3">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold transition-colors ${action.color}`}>
+                  <span className="material-symbols-outlined text-[26px]">{action.icon}</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 group-hover:text-orange-600 transition-colors uppercase">
+                    {action.title}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed">
+                    {action.desc}
+                  </p>
+                </div>
+              </div>
+              <div className="pt-4 mt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-orange-600 uppercase">
+                <span>Truy cập</span>
+                <span className="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">
+                  arrow_forward
+                </span>
+              </div>
+            </Link>
+          ))}
         </section>
 
-        <section className="grid gap-4 sm:grid-cols-2">
-          <Link
-            to="/member/book/court/sports"
-            className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-primary/40 hover:shadow-md"
-          >
-            <span className="material-symbols-outlined rounded-xl bg-primary p-3 text-2xl text-white">
-              sports_tennis
-            </span>
-            <span>
-              <strong className="block text-sm font-bold text-primary">Đặt sân chơi</strong>
-              <span className="mt-1 block text-xs text-slate-500">
-                Chọn môn, sân và khung giờ còn trống
-              </span>
-            </span>
-          </Link>
-          <Link
-            to="/member/book/class/sports"
-            className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-primary/40 hover:shadow-md"
-          >
-            <span className="material-symbols-outlined rounded-xl bg-secondary p-3 text-2xl text-white">
-              fitness_center
-            </span>
-            <span>
-              <strong className="block text-sm font-bold text-primary">Booking lớp học</strong>
-              <span className="mt-1 block text-xs text-slate-500">
-                Chọn môn, lớp và lịch học phù hợp
-              </span>
-            </span>
-          </Link>
-        </section>
-
-        <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* =========================================
+            3. UPCOMING BOOKINGS LIST
+           ========================================= */}
+        <section className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-2xs space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div>
-              <h2 className="text-lg font-bold text-primary">Booking sắp tới</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Các lịch sân và lớp đã xác nhận trong cơ sở dữ liệu.
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
+                <h2 className="text-lg font-black uppercase text-slate-900 tracking-tight">
+                  Lịch Luyện Tập &amp; Booking Sắp Tới
+                </h2>
+              </div>
+              <p className="text-xs text-slate-500 mt-1 font-medium">
+                Dữ liệu đặt sân và lớp học được xác thực thời gian thực từ cơ sở dữ liệu.
               </p>
             </div>
+
             <Link
               to="/member/schedule"
-              className="text-xs font-bold text-secondary hover:underline"
+              className="text-xs font-black uppercase tracking-wider text-orange-600 hover:text-orange-700 flex items-center gap-1 self-start sm:self-auto"
             >
-              Mở thời khóa biểu
+              <span>Xem Thời Khóa Biểu Tuần</span>
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
             </Link>
           </div>
 
-          {loading ? (
-            <p role="status" className="rounded-xl bg-slate-50 p-5 text-sm text-slate-600">
-              Đang tải thời khóa biểu...
-            </p>
-          ) : error ? (
-            <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          {error && (
+            <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-800">
               {error}
-            </p>
+            </div>
+          )}
+
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2].map((i) => (
+                <div key={i} className="h-20 bg-slate-100 rounded-2xl animate-pulse"></div>
+              ))}
+            </div>
           ) : bookings.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-              <p className="text-sm font-semibold text-slate-700">Bạn chưa có booking sắp tới.</p>
-              <Link
-                to="/member/book"
-                className="mt-3 inline-flex rounded-xl bg-secondary-container px-4 py-2 text-xs font-bold uppercase text-primary"
-              >
-                Đặt sân hoặc lớp ngay
-              </Link>
+            <div className="rounded-2xl border-2 border-dashed border-slate-200 p-10 text-center space-y-3">
+              <span className="material-symbols-outlined text-[44px] text-slate-300">event_available</span>
+              <h3 className="text-sm font-bold text-slate-700 uppercase">Bạn chưa có lịch đặt sân hay lớp học sắp tới</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto font-medium">
+                Khám phá hệ thống cụm sân Pickleball, Tennis, Bơi lội hoặc các lớp nhóm chất lượng cao ngay hôm nay!
+              </p>
+              <div className="pt-2">
+                <Link
+                  to="/member/book"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-wider shadow-md shadow-orange-500/20 transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                  <span>Đặt Sân Hoặc Lớp Ngay</span>
+                </Link>
+              </div>
             </div>
           ) : (
-            <ul className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {bookings.map((booking) => (
-                <li
+                <div
                   key={`${booking.bookingType}-${booking.bookingId}`}
-                  className="flex flex-col justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50/60 p-4 sm:flex-row sm:items-center"
+                  className="rounded-2xl border border-slate-200 p-5 flex flex-col justify-between hover:border-orange-300 hover:shadow-md transition-all bg-slate-50/50"
                 >
-                  <div className="flex items-start gap-3">
-                    <span className="material-symbols-outlined rounded-lg bg-primary p-2 text-xl text-white">
-                      {booking.bookingType === 'COURT' ? 'sports_tennis' : 'fitness_center'}
-                    </span>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                        booking.bookingType === 'COURT'
+                          ? 'bg-orange-100 text-orange-700'
+                          : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {booking.bookingType === 'COURT' ? 'Sân Chơi' : 'Lớp Huấn Luyện'}
+                      </span>
+                      <span className="text-xs font-black text-slate-900 font-mono">
+                        {formatBookingAmount(booking.amountPaid)}
+                      </span>
+                    </div>
+
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900">{booking.title}</h3>
-                      <p className="mt-1 text-xs text-slate-600">
-                        {booking.bookingType === 'COURT' ? 'Đặt sân' : 'Lớp học'} · {booking.sportName}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-600">
-                        {formatBookingTime(booking.startTime)} · {booking.location}
+                      <h3 className="text-sm font-black text-slate-900 uppercase">
+                        {booking.title}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                        {booking.sportName} • {booking.location}
                       </p>
                     </div>
+
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                      <span className="material-symbols-outlined text-orange-500 text-[18px]">schedule</span>
+                      <span>{formatBookingTime(booking.startTime)}</span>
+                    </div>
                   </div>
-                  <span className="shrink-0 text-sm font-bold text-primary">
-                    {formatBookingAmount(booking.amountPaid)}
-                  </span>
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </section>
-      </main>
+
+      </div>
     </MemberLayout>
   );
 }

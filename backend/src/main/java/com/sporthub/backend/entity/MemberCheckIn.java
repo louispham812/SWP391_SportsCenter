@@ -1,15 +1,7 @@
 package com.sporthub.backend.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
+import jakarta.persistence.*;
+import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
@@ -17,6 +9,8 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class MemberCheckIn {
 
     @Id
@@ -30,8 +24,8 @@ public class MemberCheckIn {
     @Column(name = "checked_in_at", nullable = false)
     private LocalDateTime checkedInAt;
 
-    @Column(nullable = false, length = 20)
-    private String result;
+    @Column(name = "result", nullable = false, length = 20)
+    private String result; // 'VALID' hoặc 'REJECTED'
 
     @Column(name = "recorded_by", nullable = false)
     private Long recordedBy;

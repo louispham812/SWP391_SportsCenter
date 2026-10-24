@@ -99,12 +99,13 @@ export default function ReceptionCheckInPage() {
     <ReceptionistLayout>
       <main className="space-y-6">
         <header>
-          <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-            Check-in hội viên · ghi nhận trên máy chủ
-          </p>
-          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Tiếp Đón &amp; Điểm Danh</h1>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold uppercase tracking-wider mb-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            F SPORT RECEPTION · TIẾP ĐÓN &amp; ĐIỂM DANH
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Tiếp Đón &amp; Điểm Danh Quầy</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Điều kiện check-in được xác minh từ tài khoản và gói tập trong cơ sở dữ liệu.
+            Tra cứu hội viên, kiểm tra hạn gói thẻ và ghi nhận lượt vào tập tại quầy F Sport.
           </p>
         </header>
 
@@ -114,12 +115,13 @@ export default function ReceptionCheckInPage() {
           </p>
         )}
         {resultMessage && (
-          <p role="status" className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-            {resultMessage}
+          <p role="status" className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px]">verified</span>
+            <span>{resultMessage}</span>
           </p>
         )}
 
-        <form onSubmit={handleCheckIn} className="max-w-2xl space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <form onSubmit={handleCheckIn} className="max-w-2xl space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <label htmlFor="member-search" className="block text-sm font-bold text-slate-800">
             Tìm hội viên theo tên, email hoặc số điện thoại
           </label>
@@ -130,21 +132,21 @@ export default function ReceptionCheckInPage() {
               setSearch(event.target.value);
               setMemberId('');
             }}
-            placeholder="Nhập ít nhất 2 ký tự"
-            className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+            placeholder="Nhập tên, số điện thoại hoặc email (tối thiểu 2 ký tự)..."
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
           />
           {search.trim().length >= 2 && (
             <div className="max-h-56 space-y-2 overflow-y-auto">
               {members.length === 0 ? (
-                <p className="text-xs text-slate-500">Không tìm thấy hội viên phù hợp.</p>
+                <p className="text-xs text-slate-500 p-2">Không tìm thấy hội viên phù hợp.</p>
               ) : members.map((member) => (
                 <button
                   key={member.userId}
                   type="button"
                   onClick={() => setMemberId(String(member.userId))}
-                  className={`w-full rounded-xl border p-3 text-left ${
+                  className={`w-full rounded-xl border p-3.5 text-left transition-all ${
                     memberId === String(member.userId)
-                      ? 'border-primary bg-slate-50'
+                      ? 'border-orange-500 bg-orange-50/60 ring-2 ring-orange-500/15'
                       : 'border-slate-200 hover:bg-slate-50'
                   }`}
                 >
@@ -155,19 +157,21 @@ export default function ReceptionCheckInPage() {
             </div>
           )}
           {selectedMember && (
-            <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-              Đã chọn: <strong>{selectedMember.fullName}</strong>
-            </p>
+            <div className="flex items-center gap-2 rounded-xl bg-orange-50 border border-orange-200 p-3 text-sm text-orange-900">
+              <span className="material-symbols-outlined text-orange-600 text-[18px]">account_circle</span>
+              <span>Đã chọn: <strong>{selectedMember.fullName}</strong> ({selectedMember.phone || selectedMember.email})</span>
+            </div>
           )}
           <button
             type="submit"
             disabled={!memberId || submitting}
-            className="rounded-xl bg-primary px-5 py-3 text-xs font-bold uppercase text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 px-6 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? 'Đang xác minh...' : 'Xác minh và ghi check-in'}
+            <span className="material-symbols-outlined text-[18px]">how_to_reg</span>
+            {submitting ? 'Đang xác minh...' : 'Xác minh và ghi nhận check-in'}
           </button>
-          <p className="text-xs text-slate-500">
-            Hệ thống lưu lịch sử và xác minh quyền hội viên; kết nối mở cổng vật lý chưa được cấu hình.
+          <p className="text-xs text-slate-400">
+            Hệ thống tự động kiểm tra tính hợp lệ của gói thẻ và ghi nhận lượt check-in vào cơ sở dữ liệu.
           </p>
         </form>
 

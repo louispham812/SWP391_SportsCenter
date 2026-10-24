@@ -12,5 +12,12 @@ public record MemberScheduleEntryResponse(
         LocalDateTime startTime,
         LocalDateTime endTime,
         BigDecimal amountPaid,
-        String status) {
+        String status,
+        Long coachId,
+        String coachName,
+        String coachPhone,
+        String coachAvatar,
+        String attendanceStatus,
+        String coachNote,
+        String refundStatus) {
 }

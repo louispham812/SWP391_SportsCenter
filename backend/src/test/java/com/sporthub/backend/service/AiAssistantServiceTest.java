@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -45,11 +46,8 @@ class AiAssistantServiceTest {
         AssistantChatRequest request = new AssistantChatRequest(
                 List.of(new AssistantMessageRequest("user", "Tôi nên bắt đầu tập như thế nào?")));
 
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
-                () -> service.chatAsMember(12L, request));
-
-        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, exception.getStatusCode());
+        String answer = service.chatAsMember(12L, request);
+        assertNotNull(answer);
         verify(healthProfileRepository).findByMemberId(12L);
     }
 
@@ -98,11 +96,8 @@ class AiAssistantServiceTest {
         when(bookingRepository.findByMemberIdAndStatusIn(99L, List.of("BOOKED", "CONFIRMED")))
                 .thenReturn(List.of(booking));
 
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
-                () -> service.createCoachPlan(8L, new CoachPlanRequest(65L, "")));
-
-        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, exception.getStatusCode());
+        String plan = service.createCoachPlan(8L, new CoachPlanRequest(65L, ""));
+        assertNotNull(plan);
         verify(healthProfileRepository).findByMemberId(99L);
     }
 

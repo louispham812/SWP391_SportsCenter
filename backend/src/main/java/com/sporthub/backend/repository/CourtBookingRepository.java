@@ -30,6 +30,7 @@ public interface CourtBookingRepository extends JpaRepository<CourtBooking, Long
             @Param("endTime") LocalDateTime endTime);
 
     List<CourtBooking> findByMemberIdAndStatusOrderByStartTimeAsc(Long memberId, String status);
+    List<CourtBooking> findByMemberIdOrderByStartTimeAsc(Long memberId);
 
     List<CourtBooking> findByCourtIdAndStatusAndStartTimeBetween(
             Long courtId, String status, LocalDateTime from, LocalDateTime to);

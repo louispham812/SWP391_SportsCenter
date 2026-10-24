@@ -9,5 +9,16 @@ public record MemberPackagePurchaseResponse(
         String packageName,
         BigDecimal amount,
         String paymentStatus,
-        LocalDateTime createdAt) {
+        LocalDateTime createdAt,
+        String referenceCode) {
+
+    public MemberPackagePurchaseResponse(
+            Long paymentId,
+            Long membershipId,
+            String packageName,
+            BigDecimal amount,
+            String paymentStatus,
+            LocalDateTime createdAt) {
+        this(paymentId, membershipId, packageName, amount, paymentStatus, createdAt, null);
+    }
 }

@@ -17,7 +17,7 @@ export default function CoachLayout({ children }) {
   return (
     <PortalLayout
       role="coach"
-      roleBadge="ELITE COACH"
+      roleBadge="F SPORT COACH"
       currentUser={currentUser}
       menuItems={coachMenu}
       quickAction={{

@@ -18,7 +18,9 @@ import com.sporthub.backend.repository.CourtBookingRepository;
 import com.sporthub.backend.repository.PaymentTransactionRepository;
 import com.sporthub.backend.repository.PublicFacilityRepository;
 import com.sporthub.backend.repository.PublicSportRepository;
+import com.sporthub.backend.repository.MembershipPackageRepository;
 import com.sporthub.backend.repository.SportsCourtRepository;
+import com.sporthub.backend.repository.UserMembershipRepository;
 import com.sporthub.backend.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,6 +53,8 @@ class BookingServiceTest {
     private final SportsCourtRepository sportsCourtRepository = mock(SportsCourtRepository.class);
     private final CourtBookingRepository courtBookingRepository = mock(CourtBookingRepository.class);
     private final PaymentTransactionRepository paymentTransactionRepository = mock(PaymentTransactionRepository.class);
+    private final UserMembershipRepository userMembershipRepository = mock(UserMembershipRepository.class);
+    private final MembershipPackageRepository membershipPackageRepository = mock(MembershipPackageRepository.class);
     private BookingService bookingService;
 
     @BeforeEach
@@ -63,7 +67,9 @@ class BookingServiceTest {
                 publicFacilityRepository,
                 sportsCourtRepository,
                 courtBookingRepository,
-                paymentTransactionRepository);
+                paymentTransactionRepository,
+                userMembershipRepository,
+                membershipPackageRepository);
     }
 
     @Test
@@ -241,6 +247,36 @@ class BookingServiceTest {
 
         assertEquals(99L, response.bookingId());
         assertEquals(new BigDecimal("180000"), response.amountPaid());
+        assertEquals("PAID", response.paymentStatus());
+    }
+
+    @Test
+    void courtCheckoutSupportsMultiHourConsecutiveReservation() {
+        SportsCourt court = court();
+        User member = User.builder().userId(11L).role("MEMBER").status("ACTIVE").build();
+        LocalDateTime start = LocalDate.now().plusDays(1).atTime(10, 0);
+        LocalDateTime end = start.plusHours(3);
+        when(userRepository.findById(11L)).thenReturn(Optional.of(member));
+        when(sportsCourtRepository.findByIdForUpdate(33L)).thenReturn(Optional.of(court));
+        when(courtBookingRepository.existsConfirmedOverlap(33L, start, end)).thenReturn(false);
+        when(publicSportRepository.findById(4L)).thenReturn(Optional.of(sport(4L, "Pickleball")));
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(invocation -> {
+            PaymentTransaction payment = invocation.getArgument(0);
+            payment.setPaymentId(77L);
+            return payment;
+        });
+        when(courtBookingRepository.save(any())).thenAnswer(invocation -> {
+            var booking = invocation.getArgument(0, com.sporthub.backend.entity.CourtBooking.class);
+            booking.setCourtBookingId(100L);
+            return booking;
+        });
+
+        BookingConfirmationResponse response = bookingService.checkout(
+                11L,
+                new CheckoutRequest("COURT", 33L, start, end, "SANDBOX"));
+
+        assertEquals(100L, response.bookingId());
+        assertEquals(new BigDecimal("540000"), response.amountPaid());
         assertEquals("PAID", response.paymentStatus());
     }
 
