@@ -25,6 +25,47 @@ public class EmailService {
     }
 
     /**
+     * Gửi OTP cho Member Registration
+     */
+    public void sendRegistrationOtpEmail(String toEmail, String fullName, String otp) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromName + " <" + fromEmail + ">");
+            message.setTo(toEmail);
+            message.setSubject("Xác thực tài khoản SportHub - Chào mừng bạn!");
+            message.setText(String.format(
+                "Xin chào %s,\n\n" +
+                "Cảm ơn bạn đã đăng ký tài khoản SportHub!\n\n" +
+                "Để hoàn tất đăng ký, vui lòng nhập mã OTP sau:\n\n" +
+                "Mã OTP: %s\n\n" +
+                "Mã này có hiệu lực trong 10 phút.\n\n" +
+                "Nếu bạn không đăng ký tài khoản này, vui lòng bỏ qua email.\n\n" +
+                "Trân trọng,\n" +
+                "SportHub Team",
+                fullName, otp
+            ));
+
+            mailSender.send(message);
+            
+            logger.info("==========================================================================");
+            logger.info("[EMAIL-SERVICE] Registration OTP email sent successfully to: {}", toEmail);
+            logger.info("[EMAIL-SERVICE] OTP Code (FOR DEBUG ONLY): {}", otp);
+            logger.info("==========================================================================");
+            
+        } catch (Exception e) {
+            logger.error("[EMAIL-SERVICE] Failed to send registration OTP email to: {}", toEmail, e);
+            // Fallback: Log to console for development
+            logger.info("==========================================================================");
+            logger.info("[EMAIL-SERVICE-FALLBACK] Registration OTP Email (Failed to Send)");
+            logger.info("[EMAIL-SERVICE-FALLBACK] To: {}", toEmail);
+            logger.info("[EMAIL-SERVICE-FALLBACK] Full Name: {}", fullName);
+            logger.info("[EMAIL-SERVICE-FALLBACK] OTP Code: {}", otp);
+            logger.info("[EMAIL-SERVICE-FALLBACK] Error: {}", e.getMessage());
+            logger.info("==========================================================================");
+        }
+    }
+
+    /**
      * Gửi OTP cho Forgot Password hoặc Email Verification
      */
     public void sendOtpEmail(String toEmail, String fullName, String otp, String purpose) {

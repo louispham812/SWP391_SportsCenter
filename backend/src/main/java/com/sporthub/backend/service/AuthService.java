@@ -29,6 +29,7 @@ public class AuthService {
     private static final String MEMBER_ROLE = "MEMBER";
     private static final String TOKEN_TYPE_PASSWORD_RESET = "PASSWORD_RESET";
     private static final String TOKEN_TYPE_RESET_TOKEN = "RESET_TOKEN";
+    private static final String TOKEN_TYPE_REGISTRATION_OTP = "REGISTRATION_OTP";
     private static final int OTP_TTL_MINUTES = 10; // Rule: 10 phút
     private static final int OTP_COOLDOWN_SECONDS = 60; // Rule: 60 giây
     private static final int MAX_FAILED_ATTEMPTS = 5; // Rule: 5 lần
@@ -148,23 +149,61 @@ public class AuthService {
             throw new IllegalArgumentException("Email này đã được đăng ký.");
         }
 
-        // Rule: Member tự đăng ký luôn ACTIVE, không cần OTP verify
+        // Rule: Member tự đăng ký phải verify OTP qua email trước khi ACTIVE
         User user = User.builder()
                 .fullName(fullName)
                 .email(email)
                 .phone(phone)
                 .passwordHash(passwordEncoder.encode(password))
                 .role(MEMBER_ROLE)
-                .status("ACTIVE")
+                .status("PENDING") // Chờ verify OTP
                 .requirePasswordChange(false) // Member không cần đổi password
                 .build();
 
         User savedUser = userRepository.save(user);
         
+        // Generate và gửi OTP qua email để verify account
+        String otp = generateOTP();
+        String otpHash = hashOTP(otp);
+        
+        // Xóa OTP cũ nếu có
+        verificationTokenRepository.deleteByEmailAndTokenType(email, TOKEN_TYPE_REGISTRATION_OTP);
+        
+        // Lưu OTP vào DB
+        VerificationToken verificationToken = VerificationToken.builder()
+                .userId(savedUser.getUserId())
+                .email(email)
+                .tokenHash(otpHash)
+                .tokenType(TOKEN_TYPE_REGISTRATION_OTP)
+                .expiresAt(LocalDateTime.now().plusMinutes(OTP_TTL_MINUTES))
+                .failedAttempts(0)
+                .build();
+        verificationTokenRepository.save(verificationToken);
+        
+        // Gửi email OTP
+        try {
+            emailService.sendRegistrationOtpEmail(email, fullName, otp);
+            auditLogService.logSuccess("REGISTER_OTP_SENT", email, savedUser.getUserId(), 
+                    "Registration OTP sent | Expires in " + OTP_TTL_MINUTES + " minutes");
+        } catch (Exception e) {
+            auditLogService.logFailure("REGISTER_OTP_SEND_FAILED", email, savedUser.getUserId(), 
+                    "Failed to send registration OTP", e.getMessage());
+            throw new RuntimeException("Không thể gửi mã OTP. Vui lòng thử lại sau.");
+        }
+        
+        // Không tạo session ngay, return user info để frontend navigate to OTP verification
         auditLogService.logSuccess("REGISTER", email, savedUser.getUserId(), 
-                "User registered successfully | Role: MEMBER");
+                "User registered | Status: PENDING | Awaiting OTP verification");
 
-        return createSession(savedUser);
+        return AuthResponse.builder()
+                .userId(savedUser.getUserId())
+                .email(savedUser.getEmail())
+                .fullName(savedUser.getFullName())
+                .role(savedUser.getRole())
+                .status(savedUser.getStatus())
+                .requirePasswordChange(false)
+                .message("Vui lòng kiểm tra email để nhận mã OTP xác thực tài khoản.")
+                .build();
     }
 
     /**
@@ -560,34 +599,144 @@ public class AuthService {
         String otp = request.getOtp() == null ? "" : request.getOtp().trim();
 
         if (email.isEmpty() || otp.isEmpty()) {
+            auditLogService.logFailure("VERIFY_REGISTRATION_OTP", email, null, "Email verification attempt", "Missing email or OTP");
             throw new IllegalArgumentException("Vui lòng nhập đầy đủ email và mã OTP xác thực.");
         }
         if (otp.length() != 6 || !otp.matches("^\\d{6}$")) {
+            auditLogService.logFailure("VERIFY_REGISTRATION_OTP", email, null, "Email verification attempt", "Invalid OTP format");
             throw new IllegalArgumentException("Mã OTP phải gồm đúng 6 chữ số.");
         }
 
         User user = userRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản tương ứng với email: " + email));
+                .orElseThrow(() -> {
+                    auditLogService.logFailure("VERIFY_REGISTRATION_OTP", email, null, "Email verification attempt", "User not found");
+                    return new RuntimeException("Không tìm thấy tài khoản tương ứng với email: " + email);
+                });
 
+        // Kiểm tra user đang ở trạng thái PENDING
+        if (!"PENDING".equals(user.getStatus())) {
+            auditLogService.logFailure("VERIFY_REGISTRATION_OTP", email, user.getUserId(), 
+                    "Email verification attempt", "User status is not PENDING: " + user.getStatus());
+            throw new RuntimeException("Tài khoản này đã được kích hoạt hoặc có trạng thái không hợp lệ.");
+        }
+
+        // Tìm token trong DB
+        VerificationToken token = verificationTokenRepository.findByEmailAndTokenType(email, TOKEN_TYPE_REGISTRATION_OTP)
+                .orElseThrow(() -> {
+                    auditLogService.logFailure("VERIFY_REGISTRATION_OTP", email, user.getUserId(), 
+                            "Email verification attempt", "OTP token not found");
+                    return new RuntimeException("Không tìm thấy mã OTP. Vui lòng yêu cầu gửi lại mã.");
+                });
+
+        // Kiểm tra token đã hết hạn chưa
+        if (token.getExpiresAt().isBefore(LocalDateTime.now())) {
+            auditLogService.logFailure("VERIFY_REGISTRATION_OTP", email, user.getUserId(), 
+                    "Email verification attempt", "OTP expired");
+            throw new RuntimeException("Mã OTP đã hết hạn. Vui lòng yêu cầu gửi lại mã.");
+        }
+
+        // Kiểm tra số lần thử sai
+        if (token.getFailedAttempts() >= MAX_FAILED_ATTEMPTS) {
+            auditLogService.logFailure("VERIFY_REGISTRATION_OTP", email, user.getUserId(), 
+                    "Email verification attempt", "Max failed attempts exceeded");
+            throw new RuntimeException("Bạn đã nhập sai mã OTP quá " + MAX_FAILED_ATTEMPTS + " lần. Vui lòng yêu cầu gửi lại mã.");
+        }
+
+        // Verify OTP
+        String otpHash = hashOTP(otp);
+        if (!otpHash.equals(token.getTokenHash())) {
+            // Tăng failed attempts
+            token.setFailedAttempts(token.getFailedAttempts() + 1);
+            verificationTokenRepository.save(token);
+            
+            int remainingAttempts = MAX_FAILED_ATTEMPTS - token.getFailedAttempts();
+            auditLogService.logFailure("VERIFY_REGISTRATION_OTP", email, user.getUserId(), 
+                    "Email verification attempt", "Invalid OTP | Remaining attempts: " + remainingAttempts);
+            
+            if (remainingAttempts <= 0) {
+                throw new RuntimeException("Bạn đã nhập sai mã OTP quá " + MAX_FAILED_ATTEMPTS + " lần. Vui lòng yêu cầu gửi lại mã.");
+            }
+            throw new RuntimeException("Mã OTP không chính xác. Còn lại " + remainingAttempts + " lần thử.");
+        }
+
+        // OTP hợp lệ → Kích hoạt tài khoản
         user.setStatus("ACTIVE");
         User savedUser = userRepository.save(user);
 
-        auditLogService.logSuccess("VERIFY_EMAIL", email, savedUser.getUserId(), "Email verified successfully");
+        // Xóa token sau khi verify thành công
+        verificationTokenRepository.deleteByEmailAndTokenType(email, TOKEN_TYPE_REGISTRATION_OTP);
 
+        auditLogService.logSuccess("VERIFY_REGISTRATION_OTP", email, savedUser.getUserId(), 
+                "Email verified successfully | Status changed to ACTIVE");
+
+        // Tạo session và return
         return createSession(savedUser);
     }
 
     /**
      * RESEND OTP - Placeholder (nếu cần)
      */
+    @Transactional
     public void resendOtp(ResendOtpRequest request) {
         String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase(Locale.ROOT);
         if (email.isEmpty()) {
+            auditLogService.logFailure("RESEND_REGISTRATION_OTP", email, null, "Resend OTP attempt", "Email is empty");
             throw new IllegalArgumentException("Vui lòng cung cấp địa chỉ email.");
         }
-        User user = userRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với email: " + email));
         
-        auditLogService.logSuccess("RESEND_OTP", email, user.getUserId(), "OTP resend requested");
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> {
+                    auditLogService.logFailure("RESEND_REGISTRATION_OTP", email, null, "Resend OTP attempt", "User not found");
+                    return new RuntimeException("Không tìm thấy tài khoản với email: " + email);
+                });
+        
+        // Chỉ resend nếu user đang ở trạng thái PENDING
+        if (!"PENDING".equals(user.getStatus())) {
+            auditLogService.logFailure("RESEND_REGISTRATION_OTP", email, user.getUserId(), 
+                    "Resend OTP attempt", "User status is not PENDING: " + user.getStatus());
+            throw new RuntimeException("Tài khoản này đã được kích hoạt hoặc không cần xác thực OTP.");
+        }
+        
+        // Kiểm tra cooldown (60s)
+        verificationTokenRepository.findByEmailAndTokenType(email, TOKEN_TYPE_REGISTRATION_OTP).ifPresent(existingToken -> {
+            Duration timeSinceCreation = Duration.between(existingToken.getCreatedAt(), LocalDateTime.now());
+            long secondsSinceCreation = timeSinceCreation.getSeconds();
+            
+            if (secondsSinceCreation < OTP_COOLDOWN_SECONDS) {
+                long remainingSeconds = OTP_COOLDOWN_SECONDS - secondsSinceCreation;
+                auditLogService.logFailure("RESEND_REGISTRATION_OTP", email, user.getUserId(), 
+                        "Resend OTP attempt", "Cooldown active | Remaining: " + remainingSeconds + "s");
+                throw new RuntimeException("Vui lòng chờ " + remainingSeconds + " giây trước khi gửi lại mã OTP.");
+            }
+        });
+        
+        // Generate OTP mới
+        String otp = generateOTP();
+        String otpHash = hashOTP(otp);
+        
+        // Xóa OTP cũ
+        verificationTokenRepository.deleteByEmailAndTokenType(email, TOKEN_TYPE_REGISTRATION_OTP);
+        
+        // Lưu OTP mới
+        VerificationToken verificationToken = VerificationToken.builder()
+                .userId(user.getUserId())
+                .email(email)
+                .tokenHash(otpHash)
+                .tokenType(TOKEN_TYPE_REGISTRATION_OTP)
+                .expiresAt(LocalDateTime.now().plusMinutes(OTP_TTL_MINUTES))
+                .failedAttempts(0)
+                .build();
+        verificationTokenRepository.save(verificationToken);
+        
+        // Gửi email OTP
+        try {
+            emailService.sendRegistrationOtpEmail(email, user.getFullName(), otp);
+            auditLogService.logSuccess("RESEND_REGISTRATION_OTP", email, user.getUserId(), 
+                    "Registration OTP resent | Expires in " + OTP_TTL_MINUTES + " minutes");
+        } catch (Exception e) {
+            auditLogService.logFailure("RESEND_REGISTRATION_OTP_SEND_FAILED", email, user.getUserId(), 
+                    "Failed to resend registration OTP", e.getMessage());
+            throw new RuntimeException("Không thể gửi lại mã OTP. Vui lòng thử lại sau.");
+        }
     }
 }
