@@ -1,7 +1,8 @@
 /**
- * Google Apps Script - Cập nhật tab "PROGRESS TRACKING" (Chuẩn theo Git & V2, 100% Hoàn thành)
+ * Google Apps Script - Cập nhật tab "PROGRESS TRACKING" (Chuẩn theo Git & V2)
+ * - 90 chức năng đã hoàn thành có commit: "Đã xong"
+ * - 4 chức năng AI chưa gắn API (MEM-23, MEM-24, COA-11, MGR-15): "Chưa xong" / "Chưa phân công"
  * Đồ án SWP391 Team 3 - Sports Center Management System
- * Hướng dẫn: Mở Tiện ích mở rộng (Extensions) -> Apps Script -> Dán code và bấm "Chạy" (Run)
  */
 function updateProgressTrackingTab() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -132,13 +133,13 @@ function updateProgressTrackingTab() {
   ],
   [
     "Medium",
-    "FE: Võ Tấn Triều, Phạm Minh Hoàng / BE: Nguyễn Anh Khoa, Phạm Minh Hoàng",
-    "Đã xong"
+    "Chưa phân công",
+    "Chưa xong"
   ],
   [
     "Medium",
-    "FE: Võ Tấn Triều, Phạm Minh Hoàng / BE: Nguyễn Anh Khoa, Phạm Minh Hoàng",
-    "Đã xong"
+    "Chưa phân công",
+    "Chưa xong"
   ],
   [
     "Simple",
@@ -337,8 +338,8 @@ function updateProgressTrackingTab() {
   ],
   [
     "Medium",
-    "FE: Võ Tấn Triều, Phạm Minh Hoàng / BE: Phạm Minh Hoàng",
-    "Đã xong"
+    "Chưa phân công",
+    "Chưa xong"
   ],
   [
     "Medium",
@@ -437,8 +438,8 @@ function updateProgressTrackingTab() {
   ],
   [
     "Medium",
-    "FE: Phạm Minh Hoàng / BE: Phạm Minh Hoàng",
-    "Đã xong"
+    "Chưa phân công",
+    "Chưa xong"
   ],
   [
     "Medium",
@@ -517,14 +518,14 @@ function updateProgressTrackingTab() {
 
   // 5. Định dạng dòng Tiêu đề (Header Row 1)
   var header = sheet.getRange("A1:J1");
-  header.setBackground("#1E293B"); // Màu Slate 800 sang trọng
+  header.setBackground("#1E293B"); // Màu Slate 800
   header.setFontColor("#FFFFFF");
   header.setFontSize(10.5);
   header.setFontWeight("bold");
   header.setHorizontalAlignment("center");
   header.setVerticalAlignment("middle");
   sheet.setRowHeight(1, 35);
-  sheet.setFrozenRows(1); // Cố định dòng 1 khi cuộn chuột
+  sheet.setFrozenRows(1);
 
   // 6. Định dạng toàn bộ 94 dòng dữ liệu
   var totalRows = auditData.length;
@@ -551,7 +552,7 @@ function updateProgressTrackingTab() {
   for (var i = 0; i < totalRows; i++) {
     var r = 2 + i;
     sheet.setRowHeight(r, 40);
-    var bg = (r % 2 === 0) ? "#FFFFFF" : "#F8FAFC"; // Màu nền xen kẽ (Zebra)
+    var bg = (r % 2 === 0) ? "#FFFFFF" : "#F8FAFC"; // Nền xen kẽ (Zebra)
     sheet.getRange(r, 1, 1, 10).setBackground(bg);
 
     // Badge Độ phức tạp (Cột H)
@@ -565,14 +566,25 @@ function updateProgressTrackingTab() {
       compCell.setBackground("#E0F2FE").setFontColor("#0369A1").setFontWeight("bold");
     }
 
-    // Badge Trạng thái Đã xong (Cột J) - Màu xanh lá thành công
+    // Badge Trạng thái (Cột J)
+    var stat = auditData[i][2];
     var statCell = sheet.getRange(r, 10);
-    statCell.setBackground("#DCFCE7").setFontColor("#15803D").setFontWeight("bold");
+    if (stat === "Đã xong") {
+      statCell.setBackground("#DCFCE7").setFontColor("#15803D").setFontWeight("bold");
+    } else {
+      statCell.setBackground("#FEF3C7").setFontColor("#B45309").setFontWeight("bold");
+    }
 
     // Định dạng cột In charge
-    sheet.getRange(r, 9).setFontStyle("normal").setFontColor("#0F172A");
+    var inChargeVal = auditData[i][1];
+    var inChargeCell = sheet.getRange(r, 9);
+    if (inChargeVal === "Chưa phân công") {
+      inChargeCell.setFontStyle("italic").setFontColor("#94A3B8");
+    } else {
+      inChargeCell.setFontStyle("normal").setFontColor("#0F172A");
+    }
   }
 
   // 8. Thông báo thành công
-  ss.toast("Đã cập nhật thành công 94/94 chức năng (100% Đã xong) kèm Người phụ trách!", "Hoàn tất", 5);
+  ss.toast("Đã cập nhật thành công: 90 Đã xong, 4 Chưa xong (AI chưa gắn API)!", "Hoàn tất", 5);
 }
