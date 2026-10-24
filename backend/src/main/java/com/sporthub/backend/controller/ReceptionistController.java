@@ -286,11 +286,11 @@ public class ReceptionistController {
                 .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
                         reportDate.atStartOfDay(), reportDate.plusDays(1).atStartOfDay())
                 .stream()
+                .filter(payment -> payment.getBookingType() == null || !payment.getBookingType().toUpperCase().endsWith("_REFUND"))
                 .map(payment -> {
                     String effStatus = payment.getPaymentStatus();
                     if (cancelledCourtPaymentIds.contains(payment.getPaymentId())
-                            || cancelledClassPaymentIds.contains(payment.getPaymentId())
-                            || (payment.getBookingType() != null && payment.getBookingType().toUpperCase().endsWith("_REFUND"))) {
+                            || cancelledClassPaymentIds.contains(payment.getPaymentId())) {
                         effStatus = "REFUNDED";
                     }
                     return new PaymentEntry(

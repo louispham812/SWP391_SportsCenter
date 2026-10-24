@@ -305,24 +305,11 @@ public class FacilityManagementController {
                     b.setStatus("CANCELLED");
                     bookingRepository.save(b);
 
-                    if (paymentTransactionRepository != null) {
-                        if (b.getPaymentId() != null) {
-                            paymentTransactionRepository.findById(b.getPaymentId()).ifPresent(orig -> {
-                                orig.setPaymentStatus("REFUNDED");
-                                paymentTransactionRepository.save(orig);
-                            });
-                        }
-                        if (b.getFeeAmount() != null && b.getFeeAmount().signum() > 0) {
-                            PaymentTransaction refund = new PaymentTransaction();
-                            refund.setMemberId(b.getMemberId());
-                            refund.setBookingType("CLASS_REFUND");
-                            refund.setAmount(b.getFeeAmount());
-                            refund.setPaymentMethod("SANDBOX");
-                            refund.setPaymentStatus("REFUNDED");
-                            refund.setReferenceCode("RFD-CLS-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
-                            refund.setCreatedAt(LocalDateTime.now());
-                            paymentTransactionRepository.save(refund);
-                        }
+                    if (paymentTransactionRepository != null && b.getPaymentId() != null) {
+                        paymentTransactionRepository.findById(b.getPaymentId()).ifPresent(orig -> {
+                            orig.setPaymentStatus("REFUNDED");
+                            paymentTransactionRepository.save(orig);
+                        });
                     }
 
                     engagementService.notifyUser(b.getMemberId(), "Thông Báo Hủy Lớp Học: " + session.getClassName(),

@@ -853,31 +853,12 @@ public class BookingService {
         booking.setStatus("CANCELLED");
         bookingRepository.save(booking);
 
-        // Update original payment transaction status to REFUNDED
+        // Only update original payment transaction status to REFUNDED. Do not insert duplicate refund rows.
         if (booking.getPaymentId() != null) {
             paymentTransactionRepository.findById(booking.getPaymentId()).ifPresent(orig -> {
                 orig.setPaymentStatus("REFUNDED");
                 paymentTransactionRepository.save(orig);
             });
-        }
-
-        // Record 100% refund transaction matching original payment method
-        if (booking.getFeeAmount() != null && booking.getFeeAmount().signum() > 0) {
-            String origMethod = "SANDBOX";
-            if (booking.getPaymentId() != null) {
-                origMethod = paymentTransactionRepository.findById(booking.getPaymentId())
-                        .map(PaymentTransaction::getPaymentMethod)
-                        .orElse("SANDBOX");
-            }
-            PaymentTransaction refund = new PaymentTransaction();
-            refund.setMemberId(actorId);
-            refund.setBookingType("CLASS_REFUND");
-            refund.setAmount(booking.getFeeAmount());
-            refund.setPaymentMethod(origMethod);
-            refund.setPaymentStatus("REFUNDED");
-            refund.setReferenceCode("RFD-CLS-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
-            refund.setCreatedAt(LocalDateTime.now());
-            paymentTransactionRepository.save(refund);
         }
 
         if (wasBooked) {
@@ -916,31 +897,12 @@ public class BookingService {
         booking.setStatus("CANCELLED");
         CourtBooking saved = courtBookingRepository.save(booking);
 
-        // Update original payment transaction status to REFUNDED
+        // Only update original payment transaction status to REFUNDED. Do not insert duplicate refund rows.
         if (booking.getPaymentId() != null) {
             paymentTransactionRepository.findById(booking.getPaymentId()).ifPresent(orig -> {
                 orig.setPaymentStatus("REFUNDED");
                 paymentTransactionRepository.save(orig);
             });
-        }
-
-        // Record 100% refund transaction matching original payment method
-        if (booking.getAmountPaid() != null && booking.getAmountPaid().signum() > 0) {
-            String origMethod = "SANDBOX";
-            if (booking.getPaymentId() != null) {
-                origMethod = paymentTransactionRepository.findById(booking.getPaymentId())
-                        .map(PaymentTransaction::getPaymentMethod)
-                        .orElse("SANDBOX");
-            }
-            PaymentTransaction refund = new PaymentTransaction();
-            refund.setMemberId(actorId);
-            refund.setBookingType("COURT_REFUND");
-            refund.setAmount(booking.getAmountPaid());
-            refund.setPaymentMethod(origMethod);
-            refund.setPaymentStatus("REFUNDED");
-            refund.setReferenceCode("RFD-CRT-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
-            refund.setCreatedAt(LocalDateTime.now());
-            paymentTransactionRepository.save(refund);
         }
         return saved;
     }
