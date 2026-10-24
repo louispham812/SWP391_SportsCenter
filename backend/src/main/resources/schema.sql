@@ -216,15 +216,17 @@ IF NOT EXISTS (SELECT 1 FROM dbo.public_sports WHERE slug = N'athletics')
             N'Bộ môn điền kinh gồm các hoạt động chạy bộ và rèn luyện sức bền.', N'directions_run', N'Đường chạy', 1);
 
 IF OBJECT_ID(N'dbo.sports', N'U') IS NOT NULL
-   AND NOT EXISTS (SELECT 1 FROM dbo.sports WHERE sport_id BETWEEN 5 AND 10)
-    INSERT INTO dbo.sports (sport_name, description)
-    VALUES
-        (N'Bóng đá', N'Sân bóng đá cỏ nhân tạo.'),
-        (N'Cầu lông', N'Sân cầu lông trong nhà.'),
-        (N'Bóng chuyền', N'Sân bóng chuyền.'),
-        (N'Bóng bàn', N'Khu bàn bóng bàn.'),
-        (N'Bơi lội', N'Hồ bơi và làn bơi.'),
-        (N'Điền kinh', N'Đường chạy điền kinh.');
+    EXEC(N'UPDATE dbo.sports SET sport_name = N''Gym & Fitness'', description = N''Khu vực tập Gym, Cardio và rèn luyện thể lực.'' WHERE sport_id = 1;
+    UPDATE dbo.sports SET sport_name = N''Pickleball'', description = N''Bộ môn thể thao hiện đại kết hợp giữa Tennis, Cầu lông và Bóng bàn. Phù hợp mọi lứa tuổi.'' WHERE sport_id = 2;
+    UPDATE dbo.sports SET sport_name = N''Tennis'', description = N''Bộ môn Tennis tiêu chuẩn chuẩn thi đấu quốc tế, sân mặt cứng có đèn chiếu sáng ban đêm.'' WHERE sport_id = 3;
+    UPDATE dbo.sports SET sport_name = N''Yoga & Pilates'', description = N''Phòng tập Yoga và Pilates yên tĩnh tiêu chuẩn.'' WHERE sport_id = 4;
+    UPDATE dbo.sports SET sport_name = N''Bóng đá'', description = N''Sân bóng đá cỏ nhân tạo 7 người đạt chuẩn, hệ thống thoát nước hiện đại.'' WHERE sport_id = 5;
+    UPDATE dbo.sports SET sport_name = N''Cầu lông'', description = N''Thảm cầu lông Yonex tiêu chuẩn trong nhà, hệ thống điều hòa thoáng mát.'' WHERE sport_id = 6;
+    UPDATE dbo.sports SET sport_name = N''Bóng chuyền'', description = N''Sân bóng chuyền đa năng phục vụ luyện tập và thi đấu.'' WHERE sport_id = 7;
+    UPDATE dbo.sports SET sport_name = N''Bóng bàn'', description = N''Khu bàn bóng bàn phục vụ luyện tập và thi đấu.'' WHERE sport_id = 8;
+    UPDATE dbo.sports SET sport_name = N''Bơi lội'', description = N''Hồ bơi và làn bơi phục vụ luyện tập các cấp độ.'' WHERE sport_id = 9;
+    UPDATE dbo.sports SET sport_name = N''Điền kinh'', description = N''Đường chạy phục vụ luyện tập sức bền và điền kinh.'' WHERE sport_id = 10;
+    DELETE FROM dbo.sports WHERE sport_id > 10;');
 
 IF NOT EXISTS (SELECT 1 FROM dbo.sports_courts c JOIN dbo.public_sports s ON s.sport_id = c.sport_id WHERE s.slug = N'pickleball' AND c.court_name = N'Pickleball Court 01')
     INSERT INTO dbo.sports_courts (sport_id, court_name, description, hourly_rate, opens_at, closes_at, active)
@@ -593,7 +595,7 @@ IF COL_LENGTH('dbo.coach_leave_requests', 'reassigned_coach_id') IS NULL
 IF NOT EXISTS (SELECT 1 FROM dbo.coach_leave_requests WHERE request_id = 101)
     EXEC(N'SET IDENTITY_INSERT dbo.coach_leave_requests ON;
     INSERT INTO dbo.coach_leave_requests (request_id, coach_id, coach_name, leave_type, start_date, end_date, reason, status, affected_bookings_count, created_at)
-    VALUES (101, 2, N''Coach Nguyễn Văn A'', N''SICK_LEAVE'', ''2026-10-25'', ''2026-10-26'', N''Sốt xuất huyết cần theo dõi tại cơ sở y tế'', N''PENDING'', 2, ''2026-10-20T08:00:00'');
+    VALUES (101, 6, N''Nguyễn Hoàng Nam'', N''SICK_LEAVE'', ''2026-10-25'', ''2026-10-26'', N''Sốt xuất huyết cần theo dõi tại cơ sở y tế'', N''PENDING'', 0, ''2026-10-20T08:00:00'');
     SET IDENTITY_INSERT dbo.coach_leave_requests OFF;');
 
 -- BẢNG DỤNG CỤ & THIẾT BỊ CHO THUÊ (REC-13)

@@ -25,4 +25,17 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
 
     List<ClassSession> findByStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
             LocalDateTime weekStart, LocalDateTime weekEnd);
+
+    @Query("""
+            SELECT COUNT(s) > 0
+            FROM ClassSession s
+            WHERE s.coachId = :coachId
+              AND s.status <> 'CANCELLED'
+              AND s.startTime < :endTime
+              AND s.endTime > :startTime
+            """)
+    boolean existsOverlappingSessionForCoach(
+            @Param("coachId") Long coachId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime);
 }
