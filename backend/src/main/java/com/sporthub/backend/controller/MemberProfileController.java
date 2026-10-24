@@ -522,7 +522,7 @@ public class MemberProfileController {
         boolean isAuthorized = authentication.getAuthorities().stream()
                 .anyMatch(authority -> {
                     String auth = authority.getAuthority().toUpperCase(java.util.Locale.ROOT);
-                    return auth.contains("MEMBER") || auth.contains("ADMIN") || auth.contains("MANAGER") || auth.contains("CUSTOMER");
+                    return auth.contains("MEMBER") || auth.contains("ADMIN") || auth.contains("MANAGER") || auth.contains("CUSTOMER") || auth.contains("COACH");
                 });
         if (!isAuthorized) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Chỉ hội viên mới được truy cập hồ sơ.");

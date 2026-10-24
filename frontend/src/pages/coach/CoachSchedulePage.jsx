@@ -12,8 +12,16 @@ const mondayOf = (date) => {
 };
 
 const dateKey = (date) => {
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 10);
+  if (typeof date === 'string') {
+    if (date.length >= 10 && date[4] === '-' && date[7] === '-') {
+      return date.slice(0, 10);
+    }
+    date = new Date(date);
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 const formatTime = (value) =>
@@ -347,6 +355,8 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
                             const hasConflict = day.classes.some(
                               (other) =>
                                 other.sessionId !== classItem.sessionId &&
+                                other.status !== 'CANCELLED' &&
+                                classItem.status !== 'CANCELLED' &&
                                 new Date(classItem.startTime) < new Date(other.endTime) &&
                                 new Date(classItem.endTime) > new Date(other.startTime)
                             );

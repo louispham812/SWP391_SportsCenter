@@ -397,14 +397,12 @@ INSERT INTO dbo.class_sessions (
     class_name, sport_id, coach_id, facility_id, start_time, end_time,
     max_slots, booked_slots, status, price_amount
 )
-SELECT seed.class_name, sport.sport_id, COALESCE(preferredCoach.user_id, anyCoach.user_id),
+SELECT seed.class_name, facility.sport_id, COALESCE(preferredCoach.user_id, anyCoach.user_id),
        facility.facility_id, classTime.start_time,
        DATEADD(MINUTE, seed.duration_minute, classTime.start_time),
        seed.max_slots, 0, 'SCHEDULED', seed.price_amount
 FROM class_seed seed
 CROSS JOIN week_offsets w
-JOIN dbo.public_sports sport ON sport.slug = seed.sport_slug
-JOIN dbo.sports legacySport ON legacySport.sport_id = sport.sport_id
 JOIN dbo.facilities facility ON facility.facility_name = seed.facility_name
 CROSS APPLY (
     SELECT DATEADD(MINUTE, seed.start_minute,
@@ -431,7 +429,9 @@ WHERE COALESCE(preferredCoach.user_id, anyCoach.user_id) IS NOT NULL
       SELECT 1
       FROM dbo.class_sessions existing
       WHERE existing.coach_id = COALESCE(preferredCoach.user_id, anyCoach.user_id)
-        AND existing.start_time = classTime.start_time
+        AND classTime.start_time < existing.end_time
+        AND DATEADD(MINUTE, seed.duration_minute, classTime.start_time) > existing.start_time
+        AND existing.status <> 'CANCELLED'
   );
 
 IF OBJECT_ID(N'dbo.class_sessions', N'U') IS NOT NULL

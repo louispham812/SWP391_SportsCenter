@@ -7,9 +7,24 @@ public record CoachStudentBookingResponse(
         Long memberId,
         String memberName,
         String memberPhone,
+        String memberEmail,
+        String memberAvatar,
         Long sessionId,
         String className,
         LocalDateTime startTime,
         String bookingStatus,
         String attendanceStatus) {
+
+    public CoachStudentBookingResponse(
+            Long bookingId,
+            Long memberId,
+            String memberName,
+            String memberPhone,
+            Long sessionId,
+            String className,
+            LocalDateTime startTime,
+            String bookingStatus,
+            String attendanceStatus) {
+        this(bookingId, memberId, memberName, memberPhone, null, null, sessionId, className, startTime, bookingStatus, attendanceStatus);
+    }
 }
