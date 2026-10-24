@@ -406,26 +406,16 @@ GO
 
 \-- =============================================================================
 
-INSERT INTO sports (sport_name, description) VALUES&#x20;
-
+INSERT INTO sports (sport_name, description) VALUES 
+(N'Gym & Fitness', N'Khu vực tập Gym, Cardio và rèn luyện thể lực.'),
 (N'Pickleball', N'Bộ môn thể thao hiện đại kết hợp giữa Tennis, Cầu lông và Bóng bàn. Phù hợp mọi lứa tuổi.'),
-
-(N'Tennis',     N'Bộ môn Tennis tiêu chuẩn chuẩn thi đấu quốc tế, sân mặt cứng có đèn chiếu sáng ban đêm.'),
-
-(N'Bóng đá',    N'Sân bóng đá cỏ nhân tạo 7 người đạt chuẩn, hệ thống thoát nước hiện đại.'),
-
-(N'Cầu lông',   N'Thảm cầu lông Yonex tiêu chuẩn trong nhà, hệ thống điều hòa thoáng mát.'),
-
-(N'Bóng đá',    N'Bộ môn bóng đá trong danh mục booking của trung tâm.'),
-
-(N'Cầu lông',   N'Bộ môn cầu lông trong danh mục booking của trung tâm.'),
-
+(N'Tennis', N'Bộ môn Tennis tiêu chuẩn chuẩn thi đấu quốc tế, sân mặt cứng có đèn chiếu sáng ban đêm.'),
+(N'Yoga & Pilates', N'Phòng tập Yoga và Pilates yên tĩnh tiêu chuẩn.'),
+(N'Bóng đá', N'Sân bóng đá cỏ nhân tạo 7 người đạt chuẩn, hệ thống thoát nước hiện đại.'),
+(N'Cầu lông', N'Thảm cầu lông Yonex tiêu chuẩn trong nhà, hệ thống điều hòa thoáng mát.'),
 (N'Bóng chuyền', N'Sân bóng chuyền đa năng phục vụ luyện tập và thi đấu.'),
-
 (N'Bóng bàn', N'Khu bàn bóng bàn phục vụ luyện tập và thi đấu.'),
-
 (N'Bơi lội', N'Hồ bơi và làn bơi phục vụ luyện tập các cấp độ.'),
-
 (N'Điền kinh', N'Đường chạy phục vụ luyện tập sức bền và điền kinh.');
 
 GO
@@ -440,37 +430,28 @@ GO
 
 INSERT INTO facilities (facility_name, sport_id, capacity, status) VALUES&#x20;
 
-\-- Sân Pickleball (sport_id = 1)
-
-(N'Cụm Sân Pickleball - Sân P1 (Indoor)', 1, 4, 'AVAILABLE'),
-
-(N'Cụm Sân Pickleball - Sân P2 (Indoor)', 1, 4, 'AVAILABLE'),
-
-(N'Cụm Sân Pickleball - Sân P3 (Outdoor)', 1, 4, 'MAINTENANCE'),
+\-- Sân Pickleball (sport_id = 2)
+(N'Cụm Sân Pickleball - Sân P1 (Indoor)', 2, 4, 'AVAILABLE'),
+(N'Cụm Sân Pickleball - Sân P2 (Indoor)', 2, 4, 'AVAILABLE'),
+(N'Cụm Sân Pickleball - Sân P3 (Outdoor)', 2, 4, 'MAINTENANCE'),
 
 
 
-\-- Sân Tennis (sport_id = 2)
-
-(N'Sân Tennis Đơn & Đôi - Sân T1',        2, 4, 'AVAILABLE'),
-
-(N'Sân Tennis Đơn & Đôi - Sân T2',        2, 4, 'AVAILABLE'),
+\-- Sân Tennis (sport_id = 3)
+(N'Sân Tennis Đơn & Đôi - Sân T1',        3, 4, 'AVAILABLE'),
+(N'Sân Tennis Đơn & Đôi - Sân T2',        3, 4, 'AVAILABLE'),
 
 
 
-\-- Sân Bóng đá (sport_id = 3)
-
-(N'Sân Cỏ Nhân Tạo 7 Người - Sân A',     3, 14, 'AVAILABLE'),
-
-(N'Sân Cỏ Nhân Tạo 7 Người - Sân B',     3, 14, 'AVAILABLE'),
+\-- Sân Bóng đá (sport_id = 5)
+(N'Sân Cỏ Nhân Tạo 7 Người - Sân A',     5, 14, 'AVAILABLE'),
+(N'Sân Cỏ Nhân Tạo 7 Người - Sân B',     5, 14, 'AVAILABLE'),
 
 
 
-\-- Sân Cầu lông (sport_id = 4)
-
-(N'Sân Cầu Lông Thảm Yonex - Sân L1',     4, 4, 'AVAILABLE'),
-
-(N'Sân Cầu Lông Thảm Yonex - Sân L2',     4, 4, 'AVAILABLE'),
+\-- Sân Cầu lông (sport_id = 6)
+(N'Sân Cầu Lông Thảm Yonex - Sân L1',    6, 4, 'AVAILABLE'),
+(N'Sân Cầu Lông Thảm Yonex - Sân L2',    6, 4, 'AVAILABLE'),
 
 
 
@@ -542,11 +523,11 @@ INSERT INTO membership_packages (name, sport_id, price, duration_days, access_ty
 
 \-- Gói chuyên biệt theo môn
 
-(N'Khóa Học Pickleball Căn Bản (10 Buổi)',      1,    1800000.00, 45, 'ALL_DAY',  N'Bao gồm 10 buổi học kỹ thuật cầm vợt, di chuyển cùng HLV.',     'ACTIVE'),
+(N'Khóa Học Pickleball Căn Bản (10 Buổi)',   2,    1800000.00, 45, 'ALL_DAY',  N'Bao gồm 10 buổi học kỹ thuật cầm vợt, di chuyển cùng HLV.',     'ACTIVE'),
 
-(N'Thẻ Hội Viên Tennis Tháng',                 2,    2000000.00, 30, 'PEAK',     N'Miễn phí đặt sân Tennis vào khung giờ vàng (17:00 - 21:00).',     'ACTIVE'),
+(N'Thẻ Hội Viên Tennis Tháng',                 3,    2000000.00, 30, 'PEAK',     N'Miễn phí đặt sân Tennis vào khung giờ vàng (17:00 - 21:00).',     'ACTIVE'),
 
-(N'Gói Tập Cầu Lông Học Sinh / Sinh Viên',    4,    800000.00,  30, 'OFF_PEAK', N'Dành riêng cho HS-SV với giá ưu đãi.',                         'ACTIVE');
+(N'Gói Tập Cầu Lông Học Sinh / Sinh Viên',    6,    800000.00,  30, 'OFF_PEAK', N'Dành riêng cho HS-SV với giá ưu đãi.',                         'ACTIVE');
 
 GO
 
@@ -581,15 +562,15 @@ GO
 -- Danh sách lớp học và phân ca giảng dạy không trùng giờ cho HLV
 INSERT INTO class_sessions (class_name, sport_id, coach_id, facility_id, start_time, end_time, max_slots, booked_slots, status, price_amount) VALUES 
 -- Thứ Hai: Tennis Serve (Coach 5) & Pickleball K12 (Coach 6)
-(N'Lớp Tennis Chuyên Kỹ Thuật Serve', 2, 5, 4, '2026-10-12 17:00:00', '2026-10-12 18:30:00', 6, 2, 'SCHEDULED', 200000),
-(N'Lớp Pickleball Căn Bản K12',        1, 6, 1, '2026-10-12 18:00:00', '2026-10-12 19:30:00', 8, 3, 'SCHEDULED', 150000),
+(N'Lớp Tennis Chuyên Kỹ Thuật Serve', 3, 5, 4, '2026-10-12 17:00:00', '2026-10-12 18:30:00', 6, 2, 'SCHEDULED', 200000),
+(N'Lớp Pickleball Căn Bản K12',        2, 6, 1, '2026-10-12 18:00:00', '2026-10-12 19:30:00', 8, 3, 'SCHEDULED', 150000),
 
 -- Thứ Ba: Điền Kinh (Coach 7) & Cầu Lông Phản Xạ (Coach 8)
 (N'Lớp Điền Kinh Căn Bản',           10, 7, 20, '2026-10-13 06:30:00', '2026-10-13 08:00:00', 12, 0, 'SCHEDULED', 110000),
-(N'Lớp Cầu Lông Phản Xạ Nhanh',       4, 8,  8, '2026-10-13 18:00:00', '2026-10-13 19:30:00',  8, 1, 'SCHEDULED', 150000),
+(N'Lớp Cầu Lông Phản Xạ Nhanh',       6, 8,  8, '2026-10-13 18:00:00', '2026-10-13 19:30:00',  8, 1, 'SCHEDULED', 150000),
 
 -- Thứ Tư: Pickleball K05 (Coach 6) & Bóng Bàn (Coach 5)
-(N'Lớp Pickleball Nâng Cao K05',      1, 6, 2, '2026-10-14 18:00:00', '2026-10-14 19:30:00', 8, 4, 'SCHEDULED', 180000),
+(N'Lớp Pickleball Nâng Cao K05',      2, 6, 2, '2026-10-14 18:00:00', '2026-10-14 19:30:00', 8, 4, 'SCHEDULED', 180000),
 (N'Lớp Bóng Bàn Căn Bản',             8, 5, 16, '2026-10-14 18:30:00', '2026-10-14 20:00:00', 8, 0, 'SCHEDULED', 120000),
 
 -- Thứ Năm: Bóng Đá Cơ Bản (Coach 7)
@@ -600,7 +581,7 @@ INSERT INTO class_sessions (class_name, sport_id, coach_id, facility_id, start_t
 (N'Lớp Cầu Lông Căn Bản',              6, 8, 12, '2026-10-16 18:30:00', '2026-10-16 20:00:00',  8, 0, 'SCHEDULED', 140000),
 
 -- Thứ Bảy: Tennis Đánh Đôi (Coach 5) & Bóng Chuyền (Coach 6)
-(N'Lớp Tennis Chiến Thuật Đánh Đôi',  2, 5,  5, '2026-10-17 08:00:00', '2026-10-17 09:30:00',  6, 4, 'COMPLETED', 220000),
+(N'Lớp Tennis Chiến Thuật Đánh Đôi',  3, 5,  5, '2026-10-17 08:00:00', '2026-10-17 09:30:00',  6, 4, 'COMPLETED', 220000),
 (N'Lớp Bóng Chuyền Căn Bản',          7, 6, 14, '2026-10-17 16:00:00', '2026-10-17 17:30:00', 12, 0, 'SCHEDULED', 160000);
 
 GO

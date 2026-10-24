@@ -454,31 +454,22 @@ public class BookingService {
         LocalDateTime start = request.startTime() != null ? request.startTime() : LocalDateTime.now().plusDays(1).withHour(9).withMinute(0);
         LocalDateTime end = request.endTime() != null ? request.endTime() : start.plusHours(1);
 
-        // Conflict check 1: Coach availability
-        List<ClassSession> coachSessions = classSessionRepository.findByCoachIdOrderByStartTimeAsc(coach.getUserId());
-        boolean coachConflict = coachSessions.stream()
-                .anyMatch(existing -> !"CANCELLED".equalsIgnoreCase(existing.getStatus())
-                        && start.isBefore(existing.getEndTime()) && end.isAfter(existing.getStartTime()));
-        if (coachConflict) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Huấn luyện viên đã có ca dạy hoặc ca huấn luyện khác trong khung giờ này.");
+        LocalDateTime now = LocalDateTime.now();
+        if (start == null || !start.isAfter(now)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời gian bắt đầu buổi tập PT phải ở trong tương lai.");
+        }
+        if (end == null || !end.isAfter(start)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời gian kết thúc phải sau thời gian bắt đầu.");
         }
 
-        // Conflict check 2: Member availability
-        List<Booking> memberActiveBookings = bookingRepository.findByMemberIdAndStatusIn(memberId, ACTIVE_STATUSES);
-        for (Booking b : memberActiveBookings) {
-            ClassSession s = classSessionRepository.findById(b.getSessionId()).orElse(null);
-            if (s != null && !"CANCELLED".equalsIgnoreCase(s.getStatus())
-                    && start.isBefore(s.getEndTime()) && end.isAfter(s.getStartTime())) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT,
-                        "Bạn đã có lịch học (" + s.getClassName() + ") bị trùng giờ trong khung giờ này.");
-            }
+        if (classSessionRepository.existsOverlappingSessionForCoach(coach.getUserId(), start, end)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Huấn luyện viên đã có lịch giảng dạy hoặc huấn luyện trong khung giờ này.");
         }
-        boolean memberCourtConflict = courtBookingRepository.findByMemberIdAndStatusOrderByStartTimeAsc(memberId, "CONFIRMED").stream()
-                .anyMatch(cb -> start.isBefore(cb.getEndTime()) && end.isAfter(cb.getStartTime()));
-        if (memberCourtConflict) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Bạn đã có lịch thuê sân bị trùng giờ trong khung giờ này.");
+        if (bookingRepository.existsOverlappingBookingForMember(memberId, ALL_ACTIVE_STATUSES, start, end)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có lịch tham gia lớp học khác trong khung giờ này.");
+        }
+        if (courtBookingRepository.existsConfirmedOverlapForMember(memberId, start, end)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có lịch đặt sân thi đấu trong khung giờ này.");
         }
 
         BigDecimal hourlyRate = BigDecimal.valueOf(250000);
@@ -489,8 +480,17 @@ public class BookingService {
         DiscountInfo discount = calculateDiscount(memberId, "PT", originalPrice);
         PaymentTransaction payment = createPaymentTransaction(memberId, "PT", discount.finalAmount(), request.paymentMethod());
 
-        Long sportId = publicSportRepository.findAll().stream().map(PublicSport::getSportId).findFirst().orElse(1L);
-        Long facilityId = publicFacilityRepository.findAll().stream().map(PublicFacility::getFacilityId).findFirst().orElse(1L);
+        List<ClassSession> coachSessions = classSessionRepository.findByCoachIdOrderByStartTimeAsc(coach.getUserId());
+        Long sportId = coachSessions.stream()
+                .map(ClassSession::getSportId)
+                .filter(id -> id != null)
+                .findFirst()
+                .orElseGet(() -> publicSportRepository.findAll().stream().map(PublicSport::getSportId).findFirst().orElse(1L));
+        Long facilityId = coachSessions.stream()
+                .map(ClassSession::getFacilityId)
+                .filter(id -> id != null)
+                .findFirst()
+                .orElseGet(() -> publicFacilityRepository.findAll().stream().map(PublicFacility::getFacilityId).findFirst().orElse(1L));
 
         ClassSession session = new ClassSession();
         session.setClassName("Huấn Luyện 1-1 (" + coach.getFullName() + ")");
@@ -516,13 +516,18 @@ public class BookingService {
         booking.setCoachNote("Buổi tập cá nhân 1-1");
         Booking savedBooking = bookingRepository.save(booking);
 
+        PublicSport sport = publicSportRepository.findById(sportId).orElse(null);
+        PublicFacility facility = publicFacilityRepository.findById(facilityId).orElse(null);
+        String sportName = sport != null ? sport.getName() : "Personal Training & Thể Lực";
+        String facilityName = (facility != null ? facility.getName() : "Khu Gym PT & Sân Chuyên Dụng") + " · HLV " + coach.getFullName();
+
         return new BookingConfirmationResponse(
                 "PT",
                 savedBooking.getBookingId(),
                 payment.getPaymentId(),
                 savedSession.getClassName(),
-                "Personal Training & Thể Lực",
-                "Khu Gym PT & Sân Chuyên Dụng",
+                sportName,
+                facilityName,
                 start,
                 end,
                 discount.finalAmount(),
@@ -538,24 +543,12 @@ public class BookingService {
         if (courtBookingRepository.existsConfirmedOverlap(court.getCourtId(), request.startTime(), request.endTime())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Một hoặc nhiều khung giờ sân đã chọn vừa được người khác đặt.");
         }
-
-        // Conflict check for member
-        List<Booking> memberBookings = bookingRepository.findByMemberIdAndStatusIn(memberId, ACTIVE_STATUSES);
-        for (Booking b : memberBookings) {
-            ClassSession s = classSessionRepository.findById(b.getSessionId()).orElse(null);
-            if (s != null && !"CANCELLED".equalsIgnoreCase(s.getStatus())
-                    && request.startTime().isBefore(s.getEndTime()) && request.endTime().isAfter(s.getStartTime())) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT,
-                        "Bạn đã có lịch học lớp (" + s.getClassName() + ") bị trùng giờ với khung giờ thuê sân này.");
-            }
+        if (bookingRepository.existsOverlappingBookingForMember(memberId, ALL_ACTIVE_STATUSES, request.startTime(), request.endTime())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có lịch tham gia lớp học trong khung giờ này.");
         }
-        boolean memberOtherCourtConflict = courtBookingRepository.findByMemberIdAndStatusOrderByStartTimeAsc(memberId, "CONFIRMED").stream()
-                .anyMatch(cb -> request.startTime().isBefore(cb.getEndTime()) && request.endTime().isAfter(cb.getStartTime()));
-        if (memberOtherCourtConflict) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Bạn đã có một lịch thuê sân khác bị trùng giờ trong khung giờ này.");
+        if (courtBookingRepository.existsConfirmedOverlapForMember(memberId, request.startTime(), request.endTime())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có một lịch đặt sân khác trong khung giờ này.");
         }
-
         PublicSport sport = getActiveSport(court.getSportId());
         BigDecimal baseAmount = court.getHourlyRate().multiply(BigDecimal.valueOf(hours));
         DiscountInfo discount = calculateDiscount(memberId, "COURT", baseAmount);
@@ -588,26 +581,11 @@ public class BookingService {
         if (bookingRepository.countBySessionIdAndStatusIn(session.getSessionId(), ACTIVE_STATUSES) >= session.getMaxSlots()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Lớp học vừa hết chỗ.");
         }
-
-        // Conflict check for member
-        LocalDateTime classStart = session.getStartTime();
-        LocalDateTime classEnd = session.getEndTime();
-        List<Booking> existingMemberBookings = bookingRepository.findByMemberIdAndStatusIn(memberId, ACTIVE_STATUSES);
-        for (Booking b : existingMemberBookings) {
-            if (!b.getSessionId().equals(session.getSessionId())) {
-                ClassSession s = classSessionRepository.findById(b.getSessionId()).orElse(null);
-                if (s != null && !"CANCELLED".equalsIgnoreCase(s.getStatus())
-                        && classStart.isBefore(s.getEndTime()) && classEnd.isAfter(s.getStartTime())) {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT,
-                            "Bạn đã có lịch tham gia lớp khác (" + s.getClassName() + ") bị trùng giờ. Vui lòng kiểm tra lại thời khóa biểu.");
-                }
-            }
+        if (bookingRepository.existsOverlappingBookingForMember(memberId, ALL_ACTIVE_STATUSES, session.getStartTime(), session.getEndTime())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có lịch tham gia lớp học khác trong khung giờ này.");
         }
-        boolean memberCourtConflict = courtBookingRepository.findByMemberIdAndStatusOrderByStartTimeAsc(memberId, "CONFIRMED").stream()
-                .anyMatch(cb -> classStart.isBefore(cb.getEndTime()) && classEnd.isAfter(cb.getStartTime()));
-        if (memberCourtConflict) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Bạn đã có lịch đặt sân bị trùng giờ với lớp học này. Vui lòng kiểm tra lại thời khóa biểu.");
+        if (courtBookingRepository.existsConfirmedOverlapForMember(memberId, session.getStartTime(), session.getEndTime())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có lịch đặt sân thi đấu trong khung giờ này.");
         }
 
         BigDecimal originalPrice = requirePrice(session.getPriceAmount());
