@@ -155,8 +155,8 @@ export default function ReceptionPOSPage() {
           </section>
         )}
 
-        <form onSubmit={handleCheckout} className="grid gap-6 lg:grid-cols-5">
-          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-3">
+        <form onSubmit={handleCheckout} className="grid gap-4 lg:grid-cols-5">
+          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-3">
             <label className="block text-sm font-bold text-slate-800" htmlFor="member-search">
               Tìm hội viên theo tên, email hoặc số điện thoại
             </label>
@@ -168,7 +168,7 @@ export default function ReceptionPOSPage() {
                 setMemberId('');
               }}
               placeholder="Nhập tên, số điện thoại hoặc email (tối thiểu 2 ký tự)..."
-              className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+              className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
             />
             {search.trim().length >= 2 && (
               <div className="max-h-56 space-y-2 overflow-y-auto">
@@ -179,7 +179,7 @@ export default function ReceptionPOSPage() {
                     key={member.userId}
                     type="button"
                     onClick={() => setMemberId(String(member.userId))}
-                    className={`w-full rounded-xl border p-3.5 text-left text-sm transition-all ${
+                    className={`w-full rounded-xl border p-3 text-left text-sm transition-all card-hover ${
                       memberId === String(member.userId)
                         ? 'border-orange-500 bg-orange-50/60 ring-2 ring-orange-500/15'
                         : 'border-slate-200 hover:bg-slate-50'
@@ -198,32 +198,35 @@ export default function ReceptionPOSPage() {
               </div>
             )}
 
-            <label className="block pt-3 text-sm font-bold text-slate-800" htmlFor="package-select">
+            <label className="block pt-2 text-sm font-bold text-slate-800" htmlFor="package-select">
               Gói tập muốn mua / gia hạn
             </label>
-            <select
-              id="package-select"
-              value={packageId}
-              onChange={(event) => setPackageId(event.target.value)}
-              disabled={loading}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-medium outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
-            >
-              <option value="">-- Chọn gói tập --</option>
-              {packages.map((item) => (
-                <option key={item.packageId} value={item.packageId}>
-                  {item.name} · {formatPrice(item.price)} · {item.durationDays} ngày
-                </option>
-              ))}
-            </select>
+            {loading ? (
+              <div className="h-10 w-full rounded-xl skeleton-shimmer" />
+            ) : (
+              <select
+                id="package-select"
+                value={packageId}
+                onChange={(event) => setPackageId(event.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-medium outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+              >
+                <option value="">-- Chọn gói tập --</option>
+                {packages.map((item) => (
+                  <option key={item.packageId} value={item.packageId}>
+                    {item.name} · {formatPrice(item.price)} · {item.durationDays} ngày
+                  </option>
+                ))}
+              </select>
+            )}
             {packages.length === 0 && !loading && (
               <p className="text-xs text-slate-500">Chưa có gói tập đang mở bán trong database.</p>
             )}
             <p className="text-[11px] text-slate-400">
-              * Hệ thống tự động phát hiện nếu hội viên đang có gói cùng loại còn hạn để cộng nối tiếp ngày hết hạn (MEM-09).
+              * Hệ thống tự động phát hiện nếu hội viên đang có gói cùng loại còn hạn để cộng nối tiếp ngày hết hạn.
             </p>
           </section>
 
-          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2 flex flex-col justify-between">
+          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-2 flex flex-col justify-between">
             <div className="space-y-4">
               <h2 className="font-bold uppercase tracking-wider text-slate-900">Thanh toán tại quầy</h2>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-600" htmlFor="payment-method">

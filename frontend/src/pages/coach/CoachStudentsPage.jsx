@@ -3,6 +3,7 @@ import CoachLayout from '../../components/layouts/CoachLayout';
 import { getCoachStudents } from '../../services/bookingApi';
 import { generateCoachPlan } from '../../services/aiAssistantApi';
 import { createWorkoutPlan, getMemberWorkoutProgress } from '../../services/workoutApi';
+import { CardGridSkeleton } from '../../components/common/Skeleton';
 import { useApp } from '../../context/AppContext';
 
 export default function CoachStudentsPage() {
@@ -80,10 +81,14 @@ export default function CoachStudentsPage() {
   };
 
   const handleFillAiTemplate = () => {
+    const availableAiPlan = selectedStudentForPlan?.sessions
+      ?.map((s) => plans[s.bookingId])
+      .find((p) => Boolean(p));
+
     setPlanForm((prev) => ({
       ...prev,
       title: `Lộ trình Huấn luyện Thể lực Nâng cao - ${selectedStudentForPlan?.name || 'Học viên'}`,
-      goal: 'Tối ưu hóa sức mạnh bộc phát, nâng cao 1RM tạ và tốc độ phản xạ thể thao',
+      goal: availableAiPlan ? 'Tối ưu theo giáo án phân tích từ AI SportHub' : 'Tối ưu hóa sức mạnh bộc phát, nâng cao 1RM tạ và tốc độ phản xạ thể thao',
       exercises: [
         { name: 'Barbell Back Squat', sets: 4, reps: 8, weightKg: 70, note: 'Kiểm soát giai đoạn hạ tạ (eccentric 3s)' },
         { name: 'Romanian Deadlift (RDL)', sets: 4, reps: 10, weightKg: 60, note: 'Kéo căng cơ đùi sau và cơ mông' },
@@ -91,10 +96,12 @@ export default function CoachStudentsPage() {
         { name: 'Agility Ladder Drills (Bộ chân)', sets: 4, reps: 20, weightKg: 0, note: 'Tăng tốc độ guồng chân và thăng bằng' },
       ],
       sessionResult: 'Học viên vượt mốc tạ mục tiêu, nhịp tim phục hồi nhanh sau mỗi set.',
-      coachFeedback: 'Kỹ thuật cải thiện đáng kể, biên độ chuyển động đạt chuẩn thi đấu.',
+      coachFeedback: availableAiPlan
+        ? `[Gợi ý AI]: ${availableAiPlan.slice(0, 300)}...`
+        : 'Kỹ thuật cải thiện đáng kể, biên độ chuyển động đạt chuẩn thi đấu.',
       homework: 'Chạy bộ biến tốc HIIT 15 phút, nạp 1.8g protein/kg và ngủ đủ 8 tiếng.',
     }));
-    showToast('Đã áp dụng', 'Đã điền giáo án thể lực nâng cao chuẩn khoa học.', 'info');
+    showToast('Đã áp dụng', availableAiPlan ? 'Đã tích hợp nội dung gợi ý từ AI vào giáo án.' : 'Đã điền giáo án thể lực nâng cao chuẩn khoa học.', 'info');
   };
 
   const handleSavePlan = async (e) => {
@@ -213,6 +220,10 @@ export default function CoachStudentsPage() {
   }, [students]);
 
   const handleGeneratePlan = async (student, session) => {
+    if (!session || !session.bookingId) {
+      showToast('Cảnh báo', 'Học viên chưa có mã đặt lịch (bookingId) hợp lệ để tạo giáo án AI.', 'warning');
+      return;
+    }
     setGeneratingBookingId(session.bookingId);
     setPlanErrors((current) => ({ ...current, [session.bookingId]: '' }));
     try {
@@ -300,17 +311,14 @@ export default function CoachStudentsPage() {
         )}
 
         {loading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 flex flex-col items-center justify-center gap-3">
-            <span className="material-symbols-outlined text-3xl text-orange-500 animate-spin">progress_activity</span>
-            <span>Đang tải danh sách học viên...</span>
-          </div>
+          <CardGridSkeleton count={6} cols="grid gap-4 md:grid-cols-2 xl:grid-cols-3" />
         ) : filteredStudents.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 flex flex-col items-center justify-center gap-2">
             <span className="material-symbols-outlined text-3xl text-slate-300">groups</span>
             <span>Không tìm thấy học viên nào phù hợp với bộ lọc hiện tại.</span>
           </div>
         ) : (
-          <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filteredStudents.map((student) => {
               // Check if student has overlapping sessions with this coach
               const hasStudentTimeConflict = student.sessions.some((s1, idx) =>
@@ -418,7 +426,8 @@ export default function CoachStudentsPage() {
                           <button
                             type="button"
                             onClick={() => handleGeneratePlan(student, session)}
-                            disabled={generatingBookingId !== null}
+                            disabled={generatingBookingId !== null || !session.bookingId}
+                            title={!session.bookingId ? 'Chưa có thông tin booking hợp lệ' : 'Tạo giáo án cá nhân hóa bằng AI'}
                             className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-xs shadow-orange-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                           >
                             <span className="material-symbols-outlined text-[15px]">smart_toy</span>
@@ -655,7 +664,7 @@ export default function CoachStudentsPage() {
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
                       <span className="material-symbols-outlined text-[16px] text-blue-500">monitoring</span>
-                      Kết quả buổi tập & Mức tạ 1RM đạt được (COA-08)
+                      Kết quả buổi tập & Mức tạ 1RM đạt được
                     </label>
                     <textarea
                       rows="2"
@@ -670,7 +679,7 @@ export default function CoachStudentsPage() {
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
                       <span className="material-symbols-outlined text-[16px] text-emerald-500">rate_review</span>
-                      Nhận xét & Đánh giá chuyên môn của HLV (COA-09 / MEM-22)
+                      Nhận xét & Đánh giá chuyên môn của HLV
                     </label>
                     <textarea
                       rows="2"
@@ -685,7 +694,7 @@ export default function CoachStudentsPage() {
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
                       <span className="material-symbols-outlined text-[16px] text-purple-500">home_work</span>
-                      Bài tập về nhà & Lời khuyên dinh dưỡng (COA-10 / MEM-20)
+                      Bài tập về nhà & Lời khuyên dinh dưỡng
                     </label>
                     <textarea
                       rows="2"

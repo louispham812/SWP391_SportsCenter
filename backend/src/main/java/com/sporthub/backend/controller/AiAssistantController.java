@@ -24,7 +24,7 @@ public class AiAssistantController {
     public AssistantResponse chat(
             @RequestBody AssistantChatRequest request,
             Authentication authentication) {
-        requireRole(authentication, "MEMBER");
+        requireAnyRole(authentication, "MEMBER", "CUSTOMER", "COACH", "RECEPTIONIST", "MANAGER", "ADMIN");
         return new AssistantResponse(aiAssistantService.chatAsMember(actorId(authentication), request));
     }
 
@@ -32,8 +32,8 @@ public class AiAssistantController {
     public AssistantResponse createCoachPlan(
             @RequestBody CoachPlanRequest request,
             Authentication authentication) {
-        requireRole(authentication, "COACH");
-        return new AssistantResponse(aiAssistantService.createCoachPlan(actorId(authentication), request));
+        requireAnyRole(authentication, "COACH", "MANAGER", "ADMIN");
+        return new AssistantResponse(aiAssistantService.createCoachPlan(actorId(authentication), actorRole(authentication), request));
     }
 
     private Long actorId(Authentication authentication) {
@@ -44,12 +44,33 @@ public class AiAssistantController {
         }
     }
 
-    private void requireRole(Authentication authentication, String expectedRole) {
-        boolean allowed = authentication != null && authentication.getAuthorities().stream()
-                .map(authority -> authority.getAuthority())
-                .anyMatch(("ROLE_" + expectedRole)::equals);
+    private String actorRole(Authentication authentication) {
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return "";
+        }
+        return authentication.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .map(auth -> auth.startsWith("ROLE_") ? auth.substring(5) : auth)
+                .findFirst()
+                .orElse("");
+    }
+
+    private void requireAnyRole(Authentication authentication, String... expectedRoles) {
+        if (authentication == null || authentication.getAuthorities() == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Vai trò tài khoản không được phép thực hiện thao tác này.");
+        }
+        java.util.Set<String> allowedRoles = java.util.Arrays.stream(expectedRoles)
+                .map(r -> "ROLE_" + r)
+                .collect(java.util.stream.Collectors.toSet());
+        boolean allowed = authentication.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .anyMatch(allowedRoles::contains);
         if (!allowed) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Vai trò tài khoản không được phép thực hiện thao tác này.");
         }
+    }
+
+    private void requireRole(Authentication authentication, String expectedRole) {
+        requireAnyRole(authentication, expectedRole);
     }
 }

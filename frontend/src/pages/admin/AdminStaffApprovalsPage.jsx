@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import { useApp } from '../../context/AppContext';
+import { TableSkeleton } from '../../components/common/Skeleton';
 import {
   approveStaffRegistration,
   getPendingStaffRegistrations,
@@ -70,7 +71,7 @@ const INITIAL_REFUND_REQUESTS = [
     bookingId: 105,
     bookingDescription: 'Đặt sân Tennis 02 (20/10 18:00 - 20:00)',
     refundAmount: 300000,
-    reason: 'Hủy booking đúng hạn trước 2 giờ theo chính sách MEM-30',
+    reason: 'Hủy booking đúng hạn trước 2 giờ theo chính sách hoàn tiền',
     status: 'PENDING',
     createdAt: '2026-10-20T15:00:00',
   },
@@ -295,7 +296,7 @@ export default function AdminStaffApprovalsPage() {
     localStorage.setItem(COACH_LEAVE_KEY, JSON.stringify(updated));
 
     showToast(
-      'Duyệt đơn nghỉ thành công (MGR-24)',
+      'Duyệt đơn nghỉ thành công',
       `Đã duyệt nghỉ cho ${req.coachName}. Các ca học đã chuyển sang Coach thay thế và tự động thông báo học viên không phụ phí. (Ghi Audit Log)`,
       'success'
     );
@@ -341,7 +342,7 @@ export default function AdminStaffApprovalsPage() {
     setRefundRequests(updated);
     localStorage.setItem(REFUND_REQUESTS_KEY, JSON.stringify(updated));
     showToast(
-      isApprove ? 'Đã duyệt hoàn tiền (MGR-16)' : 'Đã từ chối hoàn tiền',
+      isApprove ? 'Đã duyệt hoàn tiền' : 'Đã từ chối hoàn tiền',
       `Lệnh hoàn ${formatPrice(refund.refundAmount)} cho ${refund.memberName} đã được cập nhật. (Ghi Audit Log)`,
       isApprove ? 'success' : 'info'
     );
@@ -359,7 +360,7 @@ export default function AdminStaffApprovalsPage() {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-              F SPORT ADMIN · TRUNG TÂM PHÊ DUYỆT (MGR-05, MGR-16, MGR-24)
+              F SPORT ADMIN · TRUNG TÂM PHÊ DUYỆT
             </div>
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Trung Tâm Phê Duyệt Hệ Thống</h1>
             <p className="mt-1 text-sm text-slate-500">
@@ -424,7 +425,9 @@ export default function AdminStaffApprovalsPage() {
             </div>
 
             {loading ? (
-              <p className="p-8 text-center text-xs text-slate-500">Đang tải danh sách đăng ký từ database...</p>
+              <div className="p-4">
+                <TableSkeleton rows={5} cols={6} />
+              </div>
             ) : registrations.length === 0 ? (
               <div className="p-10 text-center text-slate-400 space-y-2">
                 <span className="material-symbols-outlined text-4xl">check_circle</span>
@@ -590,7 +593,7 @@ export default function AdminStaffApprovalsPage() {
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
               <div>
                 <h2 className="font-bold uppercase tracking-wider text-slate-900 text-sm">
-                  Đơn xin nghỉ &amp; đổi ca của Coach (MGR-24)
+                  Đơn xin nghỉ &amp; đổi ca của Coach
                 </h2>
                 <p className="text-xs text-slate-500">
                   Khi duyệt nghỉ, Manager phải phân công Coach thay thế cho các ca bị ảnh hưởng. Khách hàng được thông báo tự động và không phụ phí.
@@ -686,7 +689,7 @@ export default function AdminStaffApprovalsPage() {
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
               <div>
                 <h2 className="font-bold uppercase tracking-wider text-slate-900 text-sm">
-                  Yêu cầu hoàn tiền hội viên (MGR-16, Section 2.20)
+                  Yêu cầu hoàn tiền hội viên
                 </h2>
                 <p className="text-xs text-slate-500">
                   Duyệt hoàn tiền cho các booking hủy đúng hạn, vắng có phép hoặc sự cố bảo trì sân bãi.
@@ -813,7 +816,7 @@ export default function AdminStaffApprovalsPage() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-bold text-slate-900">
-                  Xác nhận duyệt nghỉ &amp; Phân công Coach thay thế (MGR-24)
+                  Xác nhận duyệt nghỉ &amp; Phân công Coach thay thế
                 </h3>
                 <p className="text-xs text-slate-500">Coach: {approveLeaveModal.coachName} · {approveLeaveModal.startDate} → {approveLeaveModal.endDate}</p>
               </div>
@@ -828,7 +831,7 @@ export default function AdminStaffApprovalsPage() {
 
             <div className="space-y-4 flex-1 overflow-y-auto pr-1">
               <div className="p-3.5 bg-orange-50/80 border border-orange-200 rounded-xl text-xs text-orange-900 space-y-1">
-                <strong>Quy định MGR-24:</strong>
+                <strong>Quy định:</strong>
                 <p className="text-[11px] leading-relaxed">
                   Có {approveLeaveModal.affectedBookingsCount || 2} booking lớp/PT bị ảnh hưởng trong khoảng thời gian nghỉ này.
                   Manager phải chọn Coach thay thế cho từng ca. Hệ thống sẽ tự động gửi thông báo cho khách và <strong>KHÔNG thu thêm bất kỳ phụ phí nào</strong>.
@@ -879,7 +882,7 @@ export default function AdminStaffApprovalsPage() {
                   className="mt-0.5 w-4 h-4 rounded text-orange-500 cursor-pointer"
                 />
                 <span className="text-xs text-slate-700 font-semibold leading-relaxed">
-                  Tôi xác nhận đã điều phối Coach thay thế cho tất cả các booking bị ảnh hưởng và hệ thống đã gửi thông báo tự động cho khách hàng theo đúng quy chuẩn MGR-24.
+                  Tôi xác nhận đã điều phối Coach thay thế cho tất cả các booking bị ảnh hưởng và hệ thống đã gửi thông báo tự động cho khách hàng theo đúng quy định.
                 </span>
               </label>
             </div>

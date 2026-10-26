@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import { apiRequest } from '../../services/apiClient';
+import { StatCardSkeleton } from '../../components/common/Skeleton';
 
 const dateString = (date) => {
   const year = date.getFullYear();
@@ -110,10 +111,7 @@ export default function AdminDashboardPage() {
           </p>
         )}
         {loading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 flex flex-col items-center justify-center gap-3">
-            <span className="material-symbols-outlined text-3xl text-orange-500 animate-spin">progress_activity</span>
-            <span>Đang tổng hợp báo cáo vận hành trung tâm...</span>
-          </div>
+          <StatCardSkeleton count={4} />
         ) : (
           <>
             <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -126,7 +124,7 @@ export default function AdminDashboardPage() {
                 ][idx % 4];
 
                 return (
-                  <article key={kpi.label} className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm hover:shadow-md transition-all">
+                  <article key={kpi.label} className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm card-hover">
                     <div className="mb-3 flex items-center justify-between">
                       <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{kpi.label}</span>
                       <div className={`w-9 h-9 rounded-xl ${colorConfig.bg} ${colorConfig.text} ${colorConfig.border} border flex items-center justify-center shrink-0`}>

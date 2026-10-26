@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { apiRequest } from '../../services/apiClient';
 import { sendMemberAssistantMessages } from '../../services/aiAssistantApi';
+import FormattedAiText from '../../components/common/FormattedAiText';
 
 const formatDateTime = (value) => new Date(value).toLocaleString('vi-VN', {
   dateStyle: 'medium',
@@ -159,13 +160,17 @@ export default function MemberAIAssistantPage() {
             ) : messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
-                className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-xs sm:text-sm leading-relaxed ${
+                className={`max-w-[85%] rounded-2xl px-4 py-3 text-xs sm:text-sm leading-relaxed ${
                   message.role === 'user'
-                    ? 'ml-auto bg-orange-500 text-white font-medium shadow-sm'
+                    ? 'ml-auto bg-orange-500 text-white font-medium shadow-sm whitespace-pre-wrap'
                     : 'bg-white text-slate-800 shadow-2xs border border-slate-200'
                 }`}
               >
-                {message.content}
+                {message.role === 'user' ? (
+                  message.content
+                ) : (
+                  <FormattedAiText content={message.content} />
+                )}
               </div>
             ))}
             {sending && <p role="status" className="text-xs text-orange-600 font-bold animate-pulse">Trợ lý F Sport đang suy nghĩ và trả lời...</p>}

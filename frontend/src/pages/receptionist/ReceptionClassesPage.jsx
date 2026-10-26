@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
+import { CardGridSkeleton, TableSkeleton } from '../../components/common/Skeleton';
 import { getReceptionistClasses } from '../../services/receptionistApi';
 import { getSessionRoster, updateBookingAttendance } from '../../services/bookingApi';
 import { useApp } from '../../context/AppContext';
@@ -47,7 +48,7 @@ export default function ReceptionClassesPage() {
 
   const handleUpdateStudentAttendance = async (bookingId, newStatus) => {
     try {
-      await updateBookingAttendance(bookingId, newStatus, 'Receptionist corrected (REC-26)');
+      await updateBookingAttendance(bookingId, newStatus, 'Receptionist corrected');
       setRoster((prev) =>
         prev.map((s) => (s.bookingId === bookingId ? { ...s, attendanceStatus: newStatus } : s))
       );
@@ -138,10 +139,7 @@ export default function ReceptionClassesPage() {
 
         {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
         {loading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 flex flex-col items-center justify-center gap-3">
-            <span className="material-symbols-outlined text-3xl text-orange-500 animate-spin">progress_activity</span>
-            <span>Đang tải thời khóa biểu các lớp...</span>
-          </div>
+          <CardGridSkeleton count={6} cols="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" />
         ) : visibleClasses.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 flex flex-col items-center justify-center gap-2">
             <span className="material-symbols-outlined text-3xl text-slate-300">event_busy</span>
@@ -154,7 +152,7 @@ export default function ReceptionClassesPage() {
               const isCancelled = classItem.status?.toUpperCase() === 'CANCELLED';
               const isCompleted = classItem.status?.toUpperCase() === 'COMPLETED' || new Date(classItem.endTime) < new Date();
               return (
-                <article key={classItem.sessionId} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:border-orange-300 hover:shadow-md transition-all">
+                <article key={classItem.sessionId} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs card-hover">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-bold uppercase tracking-wider text-orange-600">{start.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit' })}</p>
@@ -177,7 +175,7 @@ export default function ReceptionClassesPage() {
                     className="mt-3.5 flex items-center justify-center gap-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 hover:bg-orange-50 hover:border-orange-300 hover:text-orange-600 py-2 text-xs font-bold transition-all cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[16px]">fact_check</span>
-                    <span>Xem danh sách &amp; Sửa điểm danh (REC-26)</span>
+                    <span>Xem danh sách &amp; Sửa điểm danh</span>
                   </button>
                 </article>
               );
@@ -193,7 +191,7 @@ export default function ReceptionClassesPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-800 text-[10px] font-bold uppercase">
-                      ĐỐI SOÁT &amp; SỬA ĐIỂM DANH (REC-26)
+                      ĐỐI SOÁT &amp; SỬA ĐIỂM DANH
                     </span>
                   </div>
                   <h3 className="text-base font-bold text-slate-900 mt-1">{selectedSession.className}</h3>
@@ -210,7 +208,7 @@ export default function ReceptionClassesPage() {
 
               <div className="flex-1 overflow-y-auto space-y-3 pr-1">
                 {loadingRoster ? (
-                  <div className="p-8 text-center text-xs text-slate-400">Đang tải danh sách học viên...</div>
+                  <TableSkeleton rows={3} cols={3} />
                 ) : roster.length === 0 ? (
                   <div className="p-8 text-center text-xs text-slate-400">Chưa có học viên nào đặt chỗ cho lớp này.</div>
                 ) : (
@@ -238,7 +236,7 @@ export default function ReceptionClassesPage() {
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                <span>* Thao tác sửa điểm danh tại quầy sẽ được lưu vào Nhật Ký Audit Log theo quy định REC-26.</span>
+                <span>* Thao tác sửa điểm danh tại quầy sẽ được lưu vào Nhật Ký Audit Log theo quy định.</span>
                 <button
                   type="button"
                   onClick={() => setSelectedSession(null)}

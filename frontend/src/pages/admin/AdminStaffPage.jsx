@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import CreateUserModal from '../../components/common/CreateUserModal';
+import { TableSkeleton } from '../../components/common/Skeleton';
 import { apiRequest } from '../../services/apiClient';
 import { getStaffPerformance } from '../../services/managerApi';
 
@@ -164,7 +165,7 @@ export default function AdminStaffPage() {
             }`}
           >
             <span className="material-symbols-outlined text-[18px]">monitoring</span>
-            <span>Báo Cáo Hiệu Suất &amp; Hoa Hồng (MGR-11)</span>
+            <span>Báo Cáo Hiệu Suất &amp; Hoa Hồng</span>
           </button>
         </div>
 
@@ -212,7 +213,9 @@ export default function AdminStaffPage() {
           )}
 
           {loading ? (
-            <p className="px-5 py-12 text-center text-sm text-slate-500">Đang tải dữ liệu từ database...</p>
+            <div className="p-4">
+              <TableSkeleton rows={6} cols={6} />
+            </div>
           ) : usersPage.content.length === 0 ? (
             <div className="px-5 py-14 text-center">
               <span className="material-symbols-outlined text-4xl text-slate-300">group_off</span>
@@ -365,7 +368,7 @@ export default function AdminStaffPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
-                    <h2 className="text-base font-bold text-slate-900">KPI &amp; Hoa Hồng Huấn Luyện Viên (COA-KPI, COA-13)</h2>
+                    <h2 className="text-base font-bold text-slate-900">KPI &amp; Hoa Hồng Huấn Luyện Viên</h2>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Hiệu suất lớp học, số học viên đào tạo, điểm rating và mức hoa hồng 40% phải thanh toán cho Coach
@@ -384,7 +387,9 @@ export default function AdminStaffPage() {
 
               <div className="overflow-x-auto">
                 {performanceLoading ? (
-                  <p className="p-8 text-center text-sm text-slate-500">Đang tổng hợp số liệu hiệu suất HLV...</p>
+                  <div className="p-4">
+                    <TableSkeleton rows={4} cols={7} />
+                  </div>
                 ) : !performanceData?.coaches || performanceData.coaches.length === 0 ? (
                   <p className="p-8 text-center text-sm text-slate-500">Chưa có dữ liệu HLV nào trong hệ thống.</p>
                 ) : (
@@ -455,7 +460,9 @@ export default function AdminStaffPage() {
 
               <div className="overflow-x-auto">
                 {performanceLoading ? (
-                  <p className="p-8 text-center text-sm text-slate-500">Đang tổng hợp số liệu Lễ tân...</p>
+                  <div className="p-4">
+                    <TableSkeleton rows={4} cols={5} />
+                  </div>
                 ) : !performanceData?.receptionists || performanceData.receptionists.length === 0 ? (
                   <p className="p-8 text-center text-sm text-slate-500">Chưa có nhân viên lễ tân nào được ghi nhận.</p>
                 ) : (

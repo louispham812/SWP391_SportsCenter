@@ -274,7 +274,7 @@ export default function ReceptionEquipmentPage() {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold uppercase tracking-wider mb-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              F SPORT RECEPTION · MƯỢN &amp; THUÊ DỤNG CỤ (REC-13)
+              F SPORT RECEPTION · MƯỢN &amp; THUÊ DỤNG CỤ
             </div>
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
               Quản Lý Mượn &amp; Thuê Dụng Cụ Thể Thao
@@ -309,9 +309,9 @@ export default function ReceptionEquipmentPage() {
 
         {/* Tab 1: Borrow Form & Active Loans */}
         {activeTab === 'loans' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
             {/* Left: Borrow Form (5 cols) */}
-            <form onSubmit={handleBorrow} className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+            <form onSubmit={handleBorrow} className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
                 <span className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
                   <span className="material-symbols-outlined text-[20px]">add_task</span>

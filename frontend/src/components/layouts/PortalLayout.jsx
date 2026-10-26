@@ -103,15 +103,15 @@ export default function PortalLayout({
       >
         <div className="flex flex-col">
           {/* Brand Header */}
-          <div className="px-6 pt-6 pb-4">
-            <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 shadow-md shadow-orange-500/25 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
-                <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-white drop-shadow-sm" xmlns="http://www.w3.org/2000/svg">
+          <div className="px-5 pt-4 pb-3">
+            <Link to="/" className="flex items-center gap-2.5 group">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 shadow-md shadow-orange-500/25 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-white drop-shadow-sm" xmlns="http://www.w3.org/2000/svg">
                   <path d="M7 4H19L17.5 8H11.5L10.5 11H16.5L15 15H10L8.5 20H4.5L7 4Z" fill="currentColor" />
                 </svg>
               </div>
               <div className="flex flex-col">
-                <span className="font-headline-sm text-[16px] text-slate-900 tracking-tight font-black leading-tight">
+                <span className="font-headline-sm text-[15px] text-slate-900 tracking-tight font-black leading-tight">
                   F SPORT <span className="text-orange-500">CENTER</span>
                 </span>
                 <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mt-0.5">
@@ -121,9 +121,9 @@ export default function PortalLayout({
             </Link>
 
             {/* Role Context Pill */}
-            <div className="mt-4 flex items-center justify-between">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs">
-                <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)] animate-pulse"></span>
+            <div className="mt-3 flex items-center justify-between">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)] animate-pulse"></span>
                 <span className="font-label-sm uppercase tracking-wider font-bold text-[10px] text-slate-800">
                   {roleBadge}
                 </span>
@@ -135,7 +135,7 @@ export default function PortalLayout({
           </div>
 
           {/* Navigation Links */}
-          <div className="px-4 mt-2">
+          <div className="px-3 mt-1">
             <span className="px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
               Menu Chức Năng
             </span>
@@ -213,22 +213,22 @@ export default function PortalLayout({
           2. FIXED TOP HEADER (Synchronized Across Roles)
          ========================================= */}
       <div className="lg:pl-72 flex-1 flex flex-col min-h-screen">
-        <header className="sticky top-0 h-16 bg-white/95 backdrop-blur-xl z-40 border-b border-slate-200 shadow-[0_1px_4px_rgba(0,0,0,0.03)] flex items-center justify-between px-4 lg:px-8">
+        <header className="sticky top-0 h-14 bg-white/95 backdrop-blur-xl z-40 border-b border-slate-200 shadow-[0_1px_4px_rgba(0,0,0,0.03)] flex items-center justify-between px-4 lg:px-6">
           {/* Left: Mobile Toggle + Search Trigger Button */}
           <div className="flex items-center gap-3 flex-1 max-w-xl">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 cursor-pointer"
+              className="lg:hidden w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 cursor-pointer"
               type="button"
               aria-label="Toggle menu"
             >
-              <span className="material-symbols-outlined text-[22px]">menu</span>
+              <span className="material-symbols-outlined text-[20px]">menu</span>
             </button>
 
             {/* Clickable Quick Search Bar that opens Command Palette */}
             <div
               onClick={() => setSearchOpen(true)}
-              className="relative flex items-center w-full h-10 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-500 text-xs cursor-pointer transition-all shadow-inner select-none"
+              className="relative flex items-center w-full h-9 px-3 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-500 text-xs cursor-pointer transition-all shadow-inner select-none"
             >
               <span className="material-symbols-outlined text-slate-400 text-[18px] mr-2.5">
                 search
@@ -405,8 +405,10 @@ export default function PortalLayout({
         {/* =========================================
             3. MAIN CONTENT CANVAS
            ========================================= */}
-        <main className="p-4 sm:p-6 lg:p-8 flex-1 bg-[#f7f9fb]">
-          {children}
+        <main className="p-3 sm:p-4 lg:p-6 pb-20 lg:pb-6 flex-1 bg-[#f7f9fb]">
+          <div className="animate-fade-in space-y-4">
+            {children}
+          </div>
         </main>
       </div>
 

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
+import { CardGridSkeleton, TableSkeleton } from '../../components/common/Skeleton';
 import {
   createManagerClassSession,
   getManagerCoaches,
@@ -136,7 +137,7 @@ export default function AdminFacilitiesPage() {
         endTime: editSessionForm.endTime,
       });
       showToast(
-        'Đổi ca thành công (MGR-08)',
+        'Đổi ca thành công',
         `Đã dời giờ / đổi HLV cho ca "${selectedSession.className}". Hệ thống tự động gửi thông báo in-app đến HLV và toàn bộ học viên!`,
         'success'
       );
@@ -161,7 +162,7 @@ export default function AdminFacilitiesPage() {
     try {
       await cancelManagerClassSession(sessionToCancel.sessionId, cancelReason);
       showToast(
-        'Hủy ca học thành công (MGR-08)',
+        'Hủy ca học thành công',
         `Đã hủy ca "${sessionToCancel.className}". Hệ thống đã tự động gửi thông báo in-app tới HLV và toàn bộ học viên đã đăng ký!`,
         'success'
       );
@@ -268,7 +269,7 @@ export default function AdminFacilitiesPage() {
     localStorage.setItem(MAINTENANCE_STORAGE_KEY, JSON.stringify(updated));
 
     showToast(
-      'Lên lịch bảo trì thành công (MGR-19)',
+      'Lên lịch bảo trì thành công',
       `Đã khóa sân "${newMaint.courtName}" trong khung giờ bảo trì. Hệ thống đã gửi thông báo để khách tự chọn đổi lịch hoặc hủy hoàn tiền 100%.`,
       'success'
     );
@@ -283,13 +284,13 @@ export default function AdminFacilitiesPage() {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-              F SPORT ADMIN · SÂN BÃI &amp; BẢO TRÌ (MGR-19)
+              F SPORT ADMIN · SÂN BÃI &amp; BẢO TRÌ
             </div>
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
-              Cơ sở, Sân Bãi &amp; Lịch Bảo Trì (MGR-19)
+              Cơ sở, Sân Bãi &amp; Lịch Bảo Trì
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              Quản lý danh sách sân thi đấu, tình trạng sử dụng, xếp lịch lớp học và lên lịch bảo trì tạm khóa sân (MGR-19).
+              Quản lý danh sách sân thi đấu, tình trạng sử dụng, xếp lịch lớp học và lên lịch bảo trì tạm khóa sân.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -299,7 +300,7 @@ export default function AdminFacilitiesPage() {
               className="flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm transition-all cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">build</span>
-              Lên lịch bảo trì sân (MGR-19)
+              Lên lịch bảo trì sân
             </button>
             <button
               type="button"
@@ -317,8 +318,8 @@ export default function AdminFacilitiesPage() {
         <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
           {[
             { id: 'facilities', label: `Cơ sở sân bãi (${facilities.length})`, icon: 'stadium' },
-            { id: 'classes', label: `Quản lý ca học nhóm (${classSessions.length}) - MGR-08`, icon: 'calendar_month' },
-            { id: 'maintenance', label: `Lịch bảo trì sân (${maintenances.length}) - MGR-19`, icon: 'construction' },
+            { id: 'classes', label: `Quản lý ca học nhóm (${classSessions.length})`, icon: 'calendar_month' },
+            { id: 'maintenance', label: `Lịch bảo trì sân (${maintenances.length})`, icon: 'construction' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -350,17 +351,15 @@ export default function AdminFacilitiesPage() {
         {activeTab === 'facilities' && (
           <div>
             {loading ? (
-              <p role="status" className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-                Đang tải cơ sở...
-              </p>
+              <CardGridSkeleton count={4} cols="grid grid-cols-1 md:grid-cols-2 gap-4" />
             ) : facilities.length === 0 ? (
               <p className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
                 Cơ sở dữ liệu chưa có cơ sở nào.
               </p>
             ) : (
-              <section className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {facilities.map((facility) => (
-                  <article key={facility.facilityId} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:border-slate-300 transition-all">
+                  <article key={facility.facilityId} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs card-hover">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold uppercase text-slate-700">
                         {facility.sportName || 'Chung'}
@@ -405,7 +404,7 @@ export default function AdminFacilitiesPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
-                  <h2 className="text-base font-bold text-slate-900">Danh Sách Ca Học Nhóm Đang Mở (MGR-08)</h2>
+                  <h2 className="text-base font-bold text-slate-900">Danh Sách Ca Học Nhóm Đang Mở</h2>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
                   Quản lý dời giờ, đổi Huấn luyện viên, chuyển sân hoặc hủy ca học. Hệ thống sẽ tự động gửi thông báo in-app realtime cho HLV và toàn bộ học viên!
@@ -435,7 +434,9 @@ export default function AdminFacilitiesPage() {
 
             <div className="overflow-x-auto">
               {classesLoading ? (
-                <p className="p-8 text-center text-sm text-slate-500">Đang tải danh sách ca học nhóm...</p>
+                <div className="p-4">
+                  <TableSkeleton rows={5} cols={9} />
+                </div>
               ) : classSessions.length === 0 ? (
                 <div className="p-10 text-center text-slate-500">
                   <span className="material-symbols-outlined text-4xl text-slate-300">event_busy</span>
@@ -454,7 +455,7 @@ export default function AdminFacilitiesPage() {
                       <th className="px-5 py-3.5 text-center">Sĩ Số</th>
                       <th className="px-5 py-3.5 text-right">Học Phí</th>
                       <th className="px-5 py-3.5 text-center">Trạng Thái</th>
-                      <th className="px-5 py-3.5 text-right">Thao Tác (MGR-08)</th>
+                      <th className="px-5 py-3.5 text-right">Thao Tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -504,7 +505,7 @@ export default function AdminFacilitiesPage() {
                                   type="button"
                                   onClick={() => handleOpenEditSession(session)}
                                   className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-orange-50 hover:text-orange-700 text-slate-700 text-[11px] font-bold transition cursor-pointer"
-                                  title="Dời giờ / Đổi sân / Đổi HLV (MGR-08)"
+                                  title="Dời giờ / Đổi sân / Đổi HLV"
                                 >
                                   Sửa giờ/HLV
                                 </button>
@@ -512,7 +513,7 @@ export default function AdminFacilitiesPage() {
                                   type="button"
                                   onClick={() => handleOpenCancelSession(session)}
                                   className="px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-[11px] font-bold transition cursor-pointer"
-                                  title="Hủy ca học & phát thông báo in-app (MGR-08)"
+                                  title="Hủy ca học & phát thông báo in-app"
                                 >
                                   Hủy ca
                                 </button>
@@ -536,7 +537,7 @@ export default function AdminFacilitiesPage() {
           <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm space-y-4">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-slate-900">Danh sách các khung giờ bảo trì sân bãi (MGR-19)</h2>
+                <h2 className="text-base font-bold text-slate-900">Danh sách các khung giờ bảo trì sân bãi</h2>
                 <p className="text-xs text-slate-500">
                   Khi tạo lịch bảo trì, hệ thống thông báo khách tự chọn: Đổi lịch hoặc Hủy không phạt (Hệ thống không tự đổi sang sân khác).
                 </p>
@@ -604,7 +605,7 @@ export default function AdminFacilitiesPage() {
             <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="text-base font-bold text-slate-900">
-                  Lên Lịch Bảo Trì Sân Thể Thao (MGR-19)
+                  Lên Lịch Bảo Trì Sân Thể Thao
                 </h3>
                 <button
                   type="button"
@@ -671,7 +672,7 @@ export default function AdminFacilitiesPage() {
                 </div>
 
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed space-y-1">
-                  <strong>Quy tắc nghiệp vụ MGR-19:</strong>
+                  <strong>Quy tắc nghiệp vụ:</strong>
                   <p>
                     Hệ thống sẽ liệt kê các booking bị ảnh hưởng và gửi thông báo cho khách tự quyết định:
                     <strong> Đổi lịch</strong> hoặc <strong>Hủy không phạt (hoàn tiền 100%)</strong>. Hệ thống KHÔNG tự động chuyển sang sân khác.
@@ -807,7 +808,7 @@ export default function AdminFacilitiesPage() {
                     <span className="material-symbols-outlined text-[20px]">edit_calendar</span>
                   </span>
                   <div>
-                    <h3 className="text-base font-bold text-slate-900">Dời Giờ / Đổi HLV Ca Học (MGR-08)</h3>
+                    <h3 className="text-base font-bold text-slate-900">Dời Giờ / Đổi HLV Ca Học</h3>
                     <p className="text-xs text-slate-500 font-mono">SES-{selectedSession.sessionId}: {selectedSession.className}</p>
                   </div>
                 </div>
@@ -895,7 +896,7 @@ export default function AdminFacilitiesPage() {
                     disabled={processingAction}
                     className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-50"
                   >
-                    {processingAction ? 'Đang cập nhật...' : 'Lưu Thay Đổi (MGR-08)'}
+                    {processingAction ? 'Đang cập nhật...' : 'Lưu Thay Đổi'}
                   </button>
                 </div>
               </form>
@@ -912,7 +913,7 @@ export default function AdminFacilitiesPage() {
                   <span className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold">
                     <span className="material-symbols-outlined text-[20px]">warning</span>
                   </span>
-                  <h3 className="text-base font-bold text-slate-900">Xác Nhận Hủy Ca Học (MGR-08)</h3>
+                  <h3 className="text-base font-bold text-slate-900">Xác Nhận Hủy Ca Học</h3>
                 </div>
                 <button
                   type="button"

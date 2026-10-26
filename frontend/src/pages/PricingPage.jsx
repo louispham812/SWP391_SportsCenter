@@ -84,16 +84,16 @@ export default function PricingPage() {
     <div className="min-h-screen bg-slate-50 flex flex-col font-body-md text-slate-800 antialiased selection:bg-orange-500 selection:text-white">
       <Navbar />
 
-      <main className="w-full flex-1 pt-24 pb-20">
+      <main className="w-full flex-1 pt-20 pb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           {/* Header Trang Bảng Giá */}
-          <div className="text-center max-w-3xl mx-auto space-y-4 mb-12">
+          <div className="text-center max-w-3xl mx-auto space-y-3 mb-8">
             <span className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-600 text-[11px] font-black uppercase tracking-wider">
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
               BẢNG GIÁ HỘI VIÊN • F SPORT CENTER
             </span>
-            <h1 className="text-3xl sm:text-5xl font-black text-slate-900 uppercase tracking-tight">
+            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 uppercase tracking-tight">
               Chọn Gói Tập <span className="text-orange-500">Phù Hợp Với Bạn</span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed max-w-2xl mx-auto">
@@ -103,7 +103,7 @@ export default function PricingPage() {
 
           {/* Thông báo thông tin / lỗi */}
           {error && (
-            <div role="alert" className="mb-8 max-w-2xl mx-auto rounded-2xl border border-red-200 bg-red-50 p-5 text-center space-y-2">
+            <div role="alert" className="mb-6 max-w-2xl mx-auto rounded-2xl border border-red-200 bg-red-50 p-4 text-center space-y-2">
               <p className="text-xs font-bold text-red-800">{error}</p>
               <button
                 onClick={fetchPackages}
@@ -115,21 +115,21 @@ export default function PricingPage() {
           )}
 
           {purchaseMessage && (
-            <div role="status" className="mb-8 max-w-2xl mx-auto rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-center">
+            <div role="status" className="mb-6 max-w-2xl mx-auto rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center">
               <p className="text-xs font-bold text-emerald-800">{purchaseMessage}</p>
             </div>
           )}
 
           {/* Loading Skeletons */}
           {loading && (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-white rounded-3xl border border-slate-200 p-8 space-y-4 animate-pulse">
-                  <div className="h-4 bg-slate-200 rounded w-1/3"></div>
-                  <div className="h-8 bg-slate-200 rounded w-3/4"></div>
-                  <div className="h-10 bg-slate-200 rounded w-1/2"></div>
-                  <div className="h-20 bg-slate-100 rounded"></div>
-                  <div className="h-12 bg-slate-200 rounded-xl"></div>
+                <div key={i} className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4">
+                  <div className="h-4 skeleton-shimmer rounded w-1/3"></div>
+                  <div className="h-8 skeleton-shimmer rounded w-3/4"></div>
+                  <div className="h-10 skeleton-shimmer rounded w-1/2"></div>
+                  <div className="h-20 skeleton-shimmer rounded"></div>
+                  <div className="h-12 skeleton-shimmer rounded-xl"></div>
                 </div>
               ))}
             </div>
@@ -150,7 +150,7 @@ export default function PricingPage() {
 
           {/* Lưới hiển thị các gói tập từ database */}
           {!loading && packages.length > 0 && (
-            <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <section className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {packages.map((pkg, idx) => {
                 const badgeInfo = getAccessBadge(pkg.accessType);
                 const isFeatured = idx === 0 || pkg.name.toLowerCase().includes('vip') || pkg.name.toLowerCase().includes('diamond');
@@ -158,10 +158,10 @@ export default function PricingPage() {
                 return (
                   <article
                     key={pkg.packageId}
-                    className={`rounded-3xl p-8 flex flex-col justify-between transition-all duration-300 relative ${
+                    className={`rounded-3xl p-6 sm:p-7 flex flex-col justify-between transition-all duration-300 relative card-hover ${
                       isFeatured
-                        ? 'bg-slate-900 text-white border-2 border-orange-500 shadow-xl lg:-translate-y-2'
-                        : 'bg-white text-slate-800 border border-slate-200 shadow-2xs hover:shadow-lg hover:border-orange-300'
+                        ? 'bg-slate-900 text-white border-2 border-orange-500 shadow-xl'
+                        : 'bg-white text-slate-800 border border-slate-200 shadow-2xs'
                     }`}
                   >
                     {isFeatured && (

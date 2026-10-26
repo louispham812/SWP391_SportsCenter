@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import CreateUserModal from '../../components/common/CreateUserModal';
+import { TableSkeleton } from '../../components/common/Skeleton';
 import {
   getManagerMembers,
   lockManagerMember,
@@ -179,7 +180,9 @@ export default function AdminMembersPage() {
           )}
 
           {loading ? (
-            <p className="px-5 py-12 text-center text-sm text-slate-500">Đang tải hội viên từ database...</p>
+            <div className="p-4">
+              <TableSkeleton rows={6} cols={6} />
+            </div>
           ) : membersPage.content.length === 0 ? (
             <div className="px-5 py-14 text-center">
               <span className="material-symbols-outlined text-4xl text-slate-300">group_off</span>

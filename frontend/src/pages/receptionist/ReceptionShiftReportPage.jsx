@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
 import { getReceptionistReport } from '../../services/receptionistApi';
+import { StatCardSkeleton } from '../../components/common/Skeleton';
 
 const todayKey = () => {
   const now = new Date();
@@ -65,14 +66,11 @@ export default function ReceptionShiftReportPage() {
 
         {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
         {loading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 flex flex-col items-center justify-center gap-3">
-            <span className="material-symbols-outlined text-3xl text-orange-500 animate-spin">progress_activity</span>
-            <span>Đang tổng hợp báo cáo ca trực...</span>
-          </div>
+          <StatCardSkeleton count={3} className="grid grid-cols-1 gap-4 sm:grid-cols-3" />
         ) : report && (
           <>
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <article className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm hover:shadow-md transition-all">
+              <article className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs card-hover">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Doanh thu đã thu</p>
                   <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-600 border border-orange-200 flex items-center justify-center shrink-0">
@@ -81,7 +79,7 @@ export default function ReceptionShiftReportPage() {
                 </div>
                 <p className="mt-3 text-2xl font-black text-slate-900 tracking-tight">{currency(report.totalRevenue)}</p>
               </article>
-              <article className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm hover:shadow-md transition-all">
+              <article className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs card-hover">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Giao dịch hoàn tất</p>
                   <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0">
@@ -90,7 +88,7 @@ export default function ReceptionShiftReportPage() {
                 </div>
                 <p className="mt-3 text-2xl font-black text-slate-900 tracking-tight">{report.completedPayments}</p>
               </article>
-              <article className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm hover:shadow-md transition-all">
+              <article className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs card-hover">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Hội viên đăng ký mới</p>
                   <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shrink-0">

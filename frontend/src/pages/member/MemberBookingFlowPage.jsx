@@ -11,6 +11,7 @@ import {
 } from '../../services/bookingApi';
 import { apiRequest } from '../../services/apiClient';
 import PaymentMethodSelector from '../../components/common/PaymentMethodSelector';
+import { CardGridSkeleton, ScheduleSkeleton } from '../../components/common/Skeleton';
 import { getSportMedia } from '../../utils/mediaMap';
 
 const formatMoney = (amount) => new Intl.NumberFormat('vi-VN', {
@@ -190,15 +191,7 @@ function SportPicker({ bookingType }) {
     >
       <ErrorNotice error={error} />
       {loading ? (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-4">
-              <div className="h-44 w-full rounded-2xl bg-slate-100" />
-              <div className="mt-4 h-5 w-3/4 rounded bg-slate-100" />
-              <div className="mt-2 h-4 w-1/2 rounded bg-slate-100" />
-            </div>
-          ))}
-        </div>
+        <CardGridSkeleton count={6} cols="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" />
       ) : sports.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500">
           Hiện tại chưa có bộ môn nào đang mở dịch vụ. Vui lòng quay lại sau.
@@ -375,7 +368,7 @@ function CourtPicker({ sportId }) {
     >
       <ErrorNotice error={error} />
       {loading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Đang tải sân và giờ trống...</div>
+        <ScheduleSkeleton rows={4} cols={7} />
       ) : slots.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Hiện không có sân hoặc khung giờ trống trong 14 ngày tới.</div>
       ) : (
@@ -561,7 +554,7 @@ function ClassPicker({ sportId }) {
     <PageFrame title="Chọn lớp học và thời khóa biểu" description="Chọn đúng lớp, ngày học và mức phí trước khi xác nhận thanh toán.">
       <ErrorNotice error={error} />
       {loading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Đang tải lớp học từ database...</div>
+        <CardGridSkeleton count={4} cols="grid gap-4 md:grid-cols-2" />
       ) : classes.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Chưa có lớp sắp diễn ra cho bộ môn này.</div>
       ) : (
@@ -1192,7 +1185,7 @@ function CheckoutPage({ bookingType, itemId }) {
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[16px] text-orange-500">confirmation_number</span>
-                Mã Giảm Giá / Voucher (MGR-18)
+                Mã Giảm Giá / Voucher
               </label>
 
               {appliedVoucher ? (
