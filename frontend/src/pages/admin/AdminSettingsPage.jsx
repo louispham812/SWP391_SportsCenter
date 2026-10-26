@@ -117,7 +117,7 @@ const INITIAL_PERMISSIONS = [
   },
   {
     screenId: 'EQUIPMENT_RENTAL',
-    screenName: 'Mượn & Thuê Dụng cụ (REC-13)',
+    screenName: 'Mượn & Thuê Dụng cụ',
     module: 'Vận hành',
     roles: {
       admin: { view: true, create: true, edit: true, delete: true },
@@ -139,7 +139,7 @@ const INITIAL_PERMISSIONS = [
   },
   {
     screenId: 'APPROVALS_REFUNDS',
-    screenName: 'Duyệt Đơn nghỉ Coach & Hoàn tiền (MGR-24, MGR-16)',
+    screenName: 'Duyệt Đơn nghỉ Coach & Hoàn tiền',
     module: 'Quản trị',
     roles: {
       admin: { view: true, create: true, edit: true, delete: true },
@@ -150,7 +150,7 @@ const INITIAL_PERMISSIONS = [
   },
   {
     screenId: 'VOUCHER_PRICING',
-    screenName: 'Quản lý Voucher & Bảng giá PT lẻ (MGR-18, MGR-04)',
+    screenName: 'Quản lý Voucher & Bảng giá PT lẻ',
     module: 'Cấu hình',
     roles: {
       admin: { view: true, create: true, edit: true, delete: true },
@@ -255,7 +255,7 @@ export default function AdminSettingsPage() {
         ai_temperature: aiConfig.ai_temperature,
         ai_system_prompt: aiConfig.ai_system_prompt,
       });
-      showToast('Cấu hình AI', 'Đã lưu cài đặt Trợ lý AI và ghi nhật ký kiểm toán hệ thống thành công (MGR-15).', 'success');
+      showToast('Cấu hình AI', 'Đã lưu cài đặt Trợ lý AI và ghi nhật ký kiểm toán hệ thống thành công.', 'success');
     } catch (err) {
       showToast('Lỗi lưu cấu hình', err.message || 'Không thể cập nhật cấu hình AI.', 'danger');
     } finally {
@@ -309,7 +309,7 @@ export default function AdminSettingsPage() {
 
   const savePermissions = () => {
     localStorage.setItem('sports_center_role_permissions', JSON.stringify(permissions));
-    showToast('Thành công', 'Đã cập nhật Ma trận Phân quyền các phân hệ (MGR-02).', 'success');
+    showToast('Thành công', 'Đã cập nhật Ma trận Phân quyền các phân hệ.', 'success');
   };
 
   const togglePermission = (screenIndex, roleKey, permKey) => {
@@ -347,7 +347,7 @@ export default function AdminSettingsPage() {
               Cài Đặt Hệ Thống, Phân Quyền & Audit Logs
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Thiết lập quy chế vận hành trung tâm, ma trận truy cập đa vai trò (MGR-02) và tra cứu nhật ký kiểm toán hệ thống.
+              Thiết lập quy chế vận hành trung tâm, ma trận truy cập đa vai trò và tra cứu nhật ký kiểm toán hệ thống.
             </p>
           </div>
         </div>
@@ -375,7 +375,7 @@ export default function AdminSettingsPage() {
             }`}
           >
             <span className="material-symbols-outlined text-[18px]">security</span>
-            Ma Trận Phân Quyền (MGR-02)
+            Ma Trận Phân Quyền
           </button>
 
           <button
@@ -402,7 +402,7 @@ export default function AdminSettingsPage() {
             }`}
           >
             <span className="material-symbols-outlined text-[18px]">smart_toy</span>
-            Cấu Hình Trợ Lý AI (MGR-15)
+            Cấu Hình Trợ Lý AI
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${aiConfig.ai_enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
               {aiConfig.ai_enabled ? 'Đang bật' : 'Tắt'}
             </span>
@@ -463,7 +463,7 @@ export default function AdminSettingsPage() {
                   onChange={(e) => setPolicies({ ...policies, coachCommissionPercent: Number(e.target.value) })}
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm font-bold bg-white focus:ring-2 focus:ring-orange-500"
                 />
-                <p className="text-[11px] text-slate-500">Phần trăm thù lao HLV nhận được từ các gói dạy PT lẻ (MGR-04).</p>
+                <p className="text-[11px] text-slate-500">Phần trăm thù lao HLV nhận được từ các gói dạy PT lẻ.</p>
               </div>
 
               <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
@@ -749,7 +749,7 @@ export default function AdminSettingsPage() {
                   <h2 className="text-lg font-bold text-slate-900">Cấu Hình Trợ Lý Trí Tuệ Nhân Tạo (AI Assistant)</h2>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Quản lý hoạt động của Chatbot AI tư vấn thể thao, chọn Model máy chủ và tinh chỉnh System Prompt (MGR-15).
+                  Quản lý hoạt động của Chatbot AI tư vấn thể thao, chọn Model máy chủ và tinh chỉnh System Prompt.
                 </p>
               </div>
 
@@ -863,7 +863,7 @@ export default function AdminSettingsPage() {
                 <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-3">
                   <span className="material-symbols-outlined text-amber-600 text-lg shrink-0 mt-0.5">verified_user</span>
                   <div className="leading-relaxed">
-                    <strong>Bảo mật &amp; Kiểm toán (MGR-15, MGR-14):</strong> Mọi thao tác thay đổi cấu hình Trợ lý AI đều được lưu vào cơ sở dữ liệu bảng <code>system_settings</code> và tự động ghi vết trong nhật ký <code>audit_logs</code> kèm thời gian thực, IP và mã tài khoản Quản lý.
+                    <strong>Bảo mật &amp; Kiểm toán:</strong> Mọi thao tác thay đổi cấu hình Trợ lý AI đều được lưu vào cơ sở dữ liệu bảng <code>system_settings</code> và tự động ghi vết trong nhật ký <code>audit_logs</code> kèm thời gian thực, IP và mã tài khoản Quản lý.
                   </div>
                 </div>
 
@@ -874,7 +874,7 @@ export default function AdminSettingsPage() {
                     className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm shadow-orange-500/25 transition-all cursor-pointer disabled:opacity-50"
                   >
                     <span className="material-symbols-outlined text-[18px]">save</span>
-                    <span>{aiSaving ? 'Đang lưu vào DB...' : 'Lưu Cấu Hình Trợ Lý AI (MGR-15)'}</span>
+                    <span>{aiSaving ? 'Đang lưu vào DB...' : 'Lưu Cấu Hình Trợ Lý AI'}</span>
                   </button>
                 </div>
               </div>

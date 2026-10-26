@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { getMemberAttendance } from '../../services/memberApi';
 import { useApp } from '../../context/AppContext';
+import { TableSkeleton, CardGridSkeleton } from '../../components/common/Skeleton';
 
 export default function MemberAttendancePage() {
   const { showToast } = useApp();
@@ -37,7 +38,7 @@ export default function MemberAttendancePage() {
     if (!disputeReason.trim()) return;
     setIsDisputeModalOpen(false);
     showToast(
-      'Gửi khiếu nại thành công (MEM-19)',
+      'Gửi khiếu nại thành công',
       'Yêu cầu rà soát điểm danh của bạn đã được chuyển tới Ban Quản lý trung tâm để đối soát dữ liệu cổng RFID & camera.',
       'success'
     );
@@ -257,8 +258,8 @@ export default function MemberAttendancePage() {
                 >
                   <option value="ALL">Tất cả trạng thái</option>
                   <option value="PRESENT">Đã tham gia (Có mặt)</option>
-                  <option value="EXCUSED_ABSENCE">Vắng có phép (MEM-19)</option>
-                  <option value="UNEXCUSED_ABSENCE">Vắng không phép (MEM-19)</option>
+                  <option value="EXCUSED_ABSENCE">Vắng có phép</option>
+                  <option value="UNEXCUSED_ABSENCE">Vắng không phép</option>
                   <option value="REGISTERED">Đã đăng ký (Sắp diễn ra)</option>
                 </select>
               </div>
@@ -267,12 +268,9 @@ export default function MemberAttendancePage() {
 
           {/* Tab 1: Class Sessions */}
           {activeTab === 'classes' && (
-            <div className="p-4 sm:p-6">
+            <div className="p-4 sm:p-5">
               {loading ? (
-                <div className="py-16 text-center text-slate-500 flex flex-col items-center gap-3">
-                  <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-xs font-semibold">Đang tải lịch sử điểm danh...</span>
-                </div>
+                <TableSkeleton rows={4} cols={5} />
               ) : error ? (
                 <div className="p-6 text-center text-red-600 bg-red-50 rounded-xl border border-red-100 text-xs">
                   {error}
@@ -365,7 +363,7 @@ export default function MemberAttendancePage() {
                             {isExcused && (
                               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
-                                Vắng có phép (MEM-19)
+                                Vắng có phép
                               </span>
                             )}
                             {isUnexcused && (
@@ -385,7 +383,7 @@ export default function MemberAttendancePage() {
                               type="button"
                               onClick={() => handleOpenDispute(record)}
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-600 text-[11px] font-bold transition cursor-pointer"
-                              title="Gửi khiếu nại nếu bị ghi nhầm điểm danh (MEM-19)"
+                              title="Gửi khiếu nại nếu bị ghi nhầm điểm danh"
                             >
                               <span className="material-symbols-outlined text-[13px]">report_problem</span>
                               <span>Khiếu nại</span>
@@ -415,12 +413,9 @@ export default function MemberAttendancePage() {
 
           {/* Tab 2: Court Bookings (MEM-19) */}
           {activeTab === 'courts' && (
-            <div className="p-4 sm:p-6">
+            <div className="p-4 sm:p-5">
               {loading ? (
-                <div className="py-16 text-center text-slate-500 flex flex-col items-center gap-3">
-                  <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-xs font-semibold">Đang tải lịch sử đặt sân...</span>
-                </div>
+                <CardGridSkeleton count={3} cols="space-y-3" />
               ) : !attendanceData.courtBookings || attendanceData.courtBookings.length === 0 ? (
                 <div className="py-16 text-center">
                   <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
@@ -497,12 +492,9 @@ export default function MemberAttendancePage() {
 
           {/* Tab 3: RFID Gate Check-ins */}
           {activeTab === 'gate' && (
-            <div className="p-4 sm:p-6">
+            <div className="p-4 sm:p-5">
               {loading ? (
-                <div className="py-16 text-center text-slate-500 flex flex-col items-center gap-3">
-                  <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-xs font-semibold">Đang tải nhật ký ra vào...</span>
-                </div>
+                <TableSkeleton rows={4} cols={4} />
               ) : attendanceData.checkIns.length === 0 ? (
                 <div className="py-16 text-center">
                   <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
@@ -576,7 +568,7 @@ export default function MemberAttendancePage() {
                   <span className="material-symbols-outlined text-[20px]">report_problem</span>
                 </span>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Khiếu Nại Điểm Danh (MEM-19)</h3>
+                  <h3 className="text-base font-bold text-slate-900">Khiếu Nại Điểm Danh</h3>
                   <p className="text-xs text-slate-500">{disputeItem?.className || disputeItem?.courtName || 'Buổi tập'}</p>
                 </div>
               </div>

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
+import { TableSkeleton } from '../../components/common/Skeleton';
 import {
   createManagerPackage,
   getManagerPackages,
@@ -455,7 +456,7 @@ export default function AdminPackagesPage() {
     const updated = [newPt, ...ptPricings];
     setPtPricings(updated);
     localStorage.setItem(PT_PRICING_STORAGE_KEY, JSON.stringify(updated));
-    showToast('Tạo gói PT thành công', `Gói "${newPt.packageName}" đã được niêm yết công khai (MGR-04).`, 'success');
+    showToast('Tạo gói PT thành công', `Gói "${newPt.packageName}" đã được niêm yết công khai.`, 'success');
     setIsPtModalOpen(false);
   };
 
@@ -475,11 +476,11 @@ export default function AdminPackagesPage() {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-              F SPORT ADMIN · GÓI DỊCH VỤ, VOUCHER &amp; PT (MGR-04, MGR-18)
+              F SPORT ADMIN · GÓI DỊCH VỤ, VOUCHER &amp; PT
             </div>
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Gói Tập, Voucher &amp; Bảng Giá PT</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Cấu hình gói thẻ hội viên, voucher khuyến mại gia hạn (MGR-18) và bảng giá PT lẻ theo Coach (MGR-04).
+              Cấu hình gói thẻ hội viên, voucher khuyến mại gia hạn và bảng giá PT lẻ theo Coach.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -500,7 +501,7 @@ export default function AdminPackagesPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">add_card</span>
-                Tạo voucher mới (MGR-18)
+                Tạo voucher mới
               </button>
             )}
             {activeTab === 'pt_pricing' && (
@@ -510,7 +511,7 @@ export default function AdminPackagesPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">fitness_center</span>
-                Tạo gói PT lẻ theo Coach (MGR-04)
+                Tạo gói PT lẻ theo Coach
               </button>
             )}
             <button
@@ -600,7 +601,9 @@ export default function AdminPackagesPage() {
               )}
 
               {loading ? (
-                <p className="px-5 py-12 text-center text-sm text-slate-500">Đang tải gói tập từ database...</p>
+                <div className="p-4">
+                  <TableSkeleton rows={6} cols={7} />
+                </div>
               ) : filteredPackages.length === 0 ? (
                 <div className="px-5 py-14 text-center">
                   <span className="material-symbols-outlined text-4xl text-slate-300">inventory_2</span>
@@ -684,7 +687,7 @@ export default function AdminPackagesPage() {
           <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm space-y-4">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-slate-900">Danh sách Voucher &amp; Mã khuyến mãi (MGR-18)</h2>
+                <h2 className="text-base font-bold text-slate-900">Danh sách Voucher &amp; Mã khuyến mãi</h2>
                 <p className="text-xs text-slate-500">
                   Hỗ trợ giảm tiền trực tiếp (FIXED), giảm theo % (PERCENT) và tặng thêm tháng gia hạn (EXTEND_DURATION)
                 </p>
@@ -783,7 +786,7 @@ export default function AdminPackagesPage() {
           <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm space-y-4">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-slate-900">Bảng giá gói huấn luyện viên cá nhân (PT) - MGR-04</h2>
+                <h2 className="text-base font-bold text-slate-900">Bảng giá gói huấn luyện viên cá nhân (PT)</h2>
                 <p className="text-xs text-slate-500">
                   Manager cấu hình các gói 10, 20, 30 buổi gắn với từng Huấn luyện viên và bộ môn cụ thể
                 </p>
@@ -956,7 +959,7 @@ export default function AdminPackagesPage() {
           <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900">
-                {editingVoucher ? 'Cập nhật Voucher' : 'Tạo Voucher Khuyến Mãi Mới (MGR-18)'}
+                {editingVoucher ? 'Cập nhật Voucher' : 'Tạo Voucher Khuyến Mãi Mới'}
               </h3>
               <button
                 type="button"
@@ -1108,7 +1111,7 @@ export default function AdminPackagesPage() {
           <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900">
-                Tạo Bảng Giá Gói PT Lẻ Theo Coach (MGR-04)
+                Tạo Bảng Giá Gói PT Lẻ Theo Coach
               </h3>
               <button
                 type="button"

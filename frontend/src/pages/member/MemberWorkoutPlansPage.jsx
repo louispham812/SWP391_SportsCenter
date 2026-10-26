@@ -3,6 +3,8 @@ import MemberLayout from '../../components/layouts/MemberLayout';
 import { getMemberHealthProfile, updateMemberHealthProfile, getMemberAttendance } from '../../services/memberApi';
 import { getMyWorkoutProgress, createWorkoutPlan, recordBodyProgress } from '../../services/workoutApi';
 import { useApp } from '../../context/AppContext';
+import FormattedAiText from '../../components/common/FormattedAiText';
+import { CardGridSkeleton } from '../../components/common/Skeleton';
 
 export default function MemberWorkoutPlansPage() {
   const { showToast } = useApp();
@@ -480,7 +482,7 @@ export default function MemberWorkoutPlansPage() {
             }`}
           >
             <span className="material-symbols-outlined text-[16px]">smart_toy</span>
-            Gợi Ý Bài Tập AI (MEM-23)
+            Gợi Ý Bài Tập AI
           </button>
         </div>
 
@@ -488,10 +490,7 @@ export default function MemberWorkoutPlansPage() {
         {activeTab === 'plans' && (
           <div className="space-y-4">
             {loading ? (
-              <div className="py-12 text-center text-slate-400">
-                <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                <span className="text-xs font-bold">Đang tải kế hoạch tập luyện...</span>
-              </div>
+              <CardGridSkeleton count={4} cols="grid grid-cols-1 md:grid-cols-2 gap-4" />
             ) : plans.length === 0 ? (
               <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 space-y-2">
                 <span className="material-symbols-outlined text-[36px] text-slate-300">fitness_center</span>
@@ -568,9 +567,11 @@ export default function MemberWorkoutPlansPage() {
                         {plan.sessionResult && (
                           <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200 text-xs text-blue-900 flex items-start gap-2">
                             <span className="material-symbols-outlined text-blue-600 text-[18px] shrink-0">military_tech</span>
-                            <div>
+                            <div className="flex-1 min-w-0">
                               <strong className="block text-[11px] uppercase tracking-wider text-blue-700">Kết quả & 1RM:</strong>
-                              <p className="mt-0.5">{plan.sessionResult}</p>
+                              <div className="mt-0.5">
+                                <FormattedAiText content={plan.sessionResult} />
+                              </div>
                             </div>
                           </div>
                         )}
@@ -579,9 +580,11 @@ export default function MemberWorkoutPlansPage() {
                         {plan.homework && (
                           <div className="p-3 rounded-xl bg-purple-50/70 border border-purple-200 text-xs text-purple-900 flex items-start gap-2">
                             <span className="material-symbols-outlined text-purple-600 text-[18px] shrink-0">home_work</span>
-                            <div>
+                            <div className="flex-1 min-w-0">
                               <strong className="block text-[11px] uppercase tracking-wider text-purple-700">Bài tập về nhà & Dinh dưỡng:</strong>
-                              <p className="mt-0.5">{plan.homework}</p>
+                              <div className="mt-0.5">
+                                <FormattedAiText content={plan.homework} />
+                              </div>
                             </div>
                           </div>
                         )}
@@ -631,7 +634,7 @@ export default function MemberWorkoutPlansPage() {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
               <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Nhật Ký Tiến Độ Thể Chất (MEM-21)</h3>
+                  <h3 className="text-sm font-bold text-slate-900">Nhật Ký Tiến Độ Thể Chất</h3>
                   <p className="text-xs text-slate-500">Lưu trữ các mốc đo InBody & mức tạ tối đa 1RM</p>
                 </div>
                 <button
@@ -691,7 +694,7 @@ export default function MemberWorkoutPlansPage() {
             <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
               <div className="border-b border-slate-100 pb-3">
                 <h3 className="text-base font-bold text-slate-900">Tổng Hợp Đánh Giá & Nhận Xét Từ Huấn Luyện Viên</h3>
-                <p className="text-xs text-slate-500">Phản hồi chuyên môn từ các giáo án PT và ca học trên sân (MEM-22)</p>
+                <p className="text-xs text-slate-500">Phản hồi chuyên môn từ các giáo án PT và ca học trên sân</p>
               </div>
 
               {/* Feedback từ các giáo án PT */}
@@ -712,7 +715,9 @@ export default function MemberWorkoutPlansPage() {
                           {new Date(p.createdAt).toLocaleDateString('vi-VN')}
                         </span>
                       </div>
-                      <p className="text-slate-700 leading-relaxed font-medium">"{p.coachFeedback}"</p>
+                      <div className="text-slate-700 leading-relaxed font-medium">
+                        <FormattedAiText content={p.coachFeedback} />
+                      </div>
                     </div>
                   ))
                 )}
@@ -756,7 +761,7 @@ export default function MemberWorkoutPlansPage() {
               <div className="flex items-center gap-2">
                 <span className="px-3 py-1 rounded-full bg-purple-500/30 text-purple-200 text-xs font-bold border border-purple-400/30 flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[15px]">auto_awesome</span>
-                  AI FitGenius Coach · MEM-23
+                  AI FitGenius Coach
                 </span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black">Thiết Kế Giáo Án Cá Nhân Hóa Tự Động Bằng AI</h2>
@@ -853,7 +858,9 @@ export default function MemberWorkoutPlansPage() {
                   <span className="material-symbols-outlined text-purple-600 text-[18px] shrink-0">restaurant</span>
                   <div>
                     <strong className="block text-[11px] uppercase tracking-wider text-purple-700">Dặn dò dinh dưỡng & phục hồi:</strong>
-                    <p className="mt-0.5">{aiGeneratedPlan.homework}</p>
+                    <div className="mt-0.5">
+                      <FormattedAiText content={aiGeneratedPlan.homework} />
+                    </div>
                   </div>
                 </div>
               </div>

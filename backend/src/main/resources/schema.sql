@@ -747,7 +747,7 @@ IF COL_LENGTH('dbo.refund_requests', 'decision_note') IS NULL
 IF NOT EXISTS (SELECT 1 FROM dbo.refund_requests WHERE refund_id = 801)
     EXEC(N'SET IDENTITY_INSERT dbo.refund_requests ON;
     INSERT INTO dbo.refund_requests (refund_id, member_id, member_name, phone, booking_description, refund_amount, reason, status, created_at)
-    VALUES (801, 5, N''Vũ Đức Minh'', N''0933 111 222'', N''Thuê sân Tennis Sân 1 (18:00 - 19:00)'', 300000, N''Hủy booking đúng hạn trước 2 giờ theo chính sách MEM-30'', N''PENDING'', ''2026-10-20T15:00:00'');
+    VALUES (801, 5, N''Vũ Đức Minh'', N''0933 111 222'', N''Thuê sân Tennis Sân 1 (18:00 - 19:00)'', 300000, N''Hủy booking đúng hạn trước 2 giờ theo chính sách quy định'', N''PENDING'', ''2026-10-20T15:00:00'');
     INSERT INTO dbo.refund_requests (refund_id, member_id, member_name, phone, booking_description, refund_amount, reason, status, created_at)
     VALUES (802, 7, N''Đỗ Hải Yến'', N''0912 333 444'', N''Lớp Cầu Lông Cơ Bản Kèm HLV'', 180000, N''Vắng có phép được Coach xác nhận EXCUSED_ABSENCE'', N''PENDING'', ''2026-10-19T17:30:00'');
     SET IDENTITY_INSERT dbo.refund_requests OFF;');

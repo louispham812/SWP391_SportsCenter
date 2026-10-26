@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CoachLayout from '../../components/layouts/CoachLayout';
+import { ScheduleSkeleton, TableSkeleton } from '../../components/common/Skeleton';
 import { getCoachSchedule } from '../../services/bookingApi';
 import { apiRequest } from '../../services/apiClient';
 import { getMyCoachFeedbacks } from '../../services/engagementApi';
@@ -214,7 +215,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
       });
       setCoachProfile(updated);
       setIsEditingProfile(false);
-      showToast('Cập nhật hồ sơ', 'Đã lưu thông tin chuyên môn, chứng chỉ & tiểu sử HLV thành công (COA-01).', 'success');
+      showToast('Cập nhật hồ sơ', 'Đã lưu thông tin chuyên môn, chứng chỉ & tiểu sử HLV thành công.', 'success');
     } catch (err) {
       showToast('Lỗi cập nhật', err.message || 'Không thể lưu hồ sơ HLV.', 'danger');
     } finally {
@@ -225,7 +226,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
   const handleSaveAvailability = async () => {
     try {
       await updateCoachAvailability(JSON.stringify(availability));
-      showToast('Đã lưu thành công', 'Lịch rảnh của bạn đã được cập nhật lên hệ thống F Sport (COA-14).', 'success');
+      showToast('Đã lưu thành công', 'Lịch rảnh của bạn đã được cập nhật lên hệ thống F Sport.', 'success');
     } catch (err) {
       showToast('Lỗi lưu lịch', err.message || 'Không thể lưu lịch rảnh.', 'danger');
     }
@@ -337,7 +338,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
 
     showToast(
       'Gửi đơn thành công',
-      'Đơn xin nghỉ đã được chuyển đến Quản lý trung tâm để duyệt và điều phối Coach thay thế (MGR-24).',
+      'Đơn xin nghỉ đã được chuyển đến Quản lý trung tâm để duyệt và điều phối Coach thay thế.',
       'success'
     );
     setIsLeaveModalOpen(false);
@@ -353,7 +354,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
     localStorage.setItem(AVAILABILITY_STORAGE_KEY, JSON.stringify(updated));
     try {
       await updateCoachAvailability(JSON.stringify(updated));
-      showToast('Đã lưu lịch rảnh', `Đã cập nhật ca ${shiftKey === 'morning' ? 'Sáng' : shiftKey === 'afternoon' ? 'Chiều' : 'Tối'} lên hệ thống (COA-14).`, 'success');
+      showToast('Đã lưu lịch rảnh', `Đã cập nhật ca ${shiftKey === 'morning' ? 'Sáng' : shiftKey === 'afternoon' ? 'Chiều' : 'Tối'} lên hệ thống.`, 'success');
     } catch {
       showToast('Đã lưu cục bộ', `Đã cập nhật ca ${shiftKey === 'morning' ? 'Sáng' : shiftKey === 'afternoon' ? 'Chiều' : 'Tối'}.`, 'info');
     }
@@ -367,13 +368,13 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-              F SPORT COACH · LỊCH DẠY &amp; ĐIỀU PHỐI (COA-12, COA-14)
+              F SPORT COACH · LỊCH DẠY &amp; ĐIỀU PHỐI
             </div>
             <h1 className="font-headline-xl text-2xl font-bold text-slate-900 sm:text-3xl">
               Quản Trị Lịch Giảng Dạy &amp; Phân Ca
             </h1>
             <p className="text-sm text-slate-500">
-              Lịch phân công lớp học, gửi đơn xin nghỉ đổi ca (COA-12) và tự khai báo khung giờ rảnh nhận lớp (COA-14).
+              Lịch phân công lớp học, gửi đơn xin nghỉ đổi ca và tự khai báo khung giờ rảnh nhận lớp.
             </p>
           </div>
 
@@ -395,8 +396,8 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
             { id: 'schedule', label: 'Lịch giảng dạy tuần', icon: 'calendar_month' },
             { id: 'income', label: 'Thù lao & Doanh thu dạy', icon: 'payments' },
             { id: 'leave', label: `Đơn xin nghỉ & đổi ca (${leaveRequests.filter((r) => r.status === 'PENDING').length} chờ duyệt)`, icon: 'free_cancellation' },
-            { id: 'availability', label: 'Khai báo lịch rảnh (COA-14)', icon: 'more_time' },
-            { id: 'profile', label: 'Hồ sơ & Gói PT lẻ (MGR-04)', icon: 'badge' },
+            { id: 'availability', label: 'Khai báo lịch rảnh', icon: 'more_time' },
+            { id: 'profile', label: 'Hồ sơ & Gói PT lẻ', icon: 'badge' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -453,10 +454,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
 
             {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
             {loading ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 flex flex-col items-center justify-center gap-3">
-                <span className="material-symbols-outlined text-3xl text-orange-500 animate-spin">progress_activity</span>
-                <span>Đang tải lịch giảng dạy huấn luyện viên...</span>
-              </div>
+              <ScheduleSkeleton rows={3} cols={4} />
             ) : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {days.map((day) => {
@@ -579,7 +577,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
             <div className="p-4 bg-orange-50/70 border border-orange-200 rounded-2xl text-xs text-orange-950 flex items-start gap-3">
               <span className="material-symbols-outlined text-orange-600 text-xl shrink-0 mt-0.5">policy</span>
               <div>
-                <strong className="block font-bold">Quy định xin nghỉ &amp; đổi ca của Coach (COA-12 &amp; MGR-24):</strong>
+                <strong className="block font-bold">Quy định xin nghỉ &amp; đổi ca của Coach:</strong>
                 <p className="mt-1 leading-relaxed text-orange-900">
                   Khi Coach xin nghỉ (ốm đau hoặc cá nhân), hệ thống sẽ chuyển đơn tới Quản lý trung tâm để duyệt.
                   Quản lý sẽ phân công Coach thay thế phù hợp và tự động thông báo học viên. Học viên hoàn toàn không phát sinh thêm chi phí.
@@ -669,7 +667,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
             <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-2xl text-xs text-blue-950 flex items-start gap-3">
               <span className="material-symbols-outlined text-blue-600 text-xl shrink-0 mt-0.5">more_time</span>
               <div>
-                <strong className="block font-bold">Chính sách COA-14: Coach tự khai báo lịch rảnh</strong>
+                <strong className="block font-bold">Chính sách: Coach tự khai báo lịch rảnh</strong>
                 <p className="mt-1 leading-relaxed text-blue-900">
                   Các Huấn luyện viên tự khai báo lịch rảnh theo tuần và tháng. Manager sẽ dựa trên các khung giờ này để xếp lớp,
                   lên lịch tập PT và phân bổ học viên phù hợp nhất (Manager không tự gán ca ép buộc).
@@ -681,7 +679,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
                 <div>
                   <h2 className="text-base font-bold text-slate-900">Khung giờ sẵn sàng nhận ca trong tuần</h2>
-                  <p className="text-xs text-slate-500 font-medium">Click vào ô để bật/tắt ca hoặc bấm lưu để gửi lên hệ thống (COA-14)</p>
+                  <p className="text-xs text-slate-500 font-medium">Click vào ô để bật/tắt ca hoặc bấm lưu để gửi lên hệ thống</p>
                 </div>
                 <button
                   type="button"
@@ -812,7 +810,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
                     className="w-full py-2.5 px-4 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[16px]">edit_note</span>
-                    <span>Cập Nhật Hồ Sơ HLV (COA-01)</span>
+                    <span>Cập Nhật Hồ Sơ HLV</span>
                   </button>
                 </div>
 
@@ -840,7 +838,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
             <section className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Bảng Giá Gói PT Lẻ Của Bạn (MGR-04)</h2>
+                  <h2 className="text-base font-bold text-slate-900">Bảng Giá Gói PT Lẻ Của Bạn</h2>
                   <p className="text-xs text-slate-500">Các gói huấn luyện 1-1 hiển thị công khai cho học viên đặt lịch</p>
                 </div>
               </div>
@@ -894,7 +892,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
 
               <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                 <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase">
-                  <span>Tỷ lệ hoa hồng (COA-13)</span>
+                  <span>Tỷ lệ hoa hồng</span>
                   <span className="material-symbols-outlined text-blue-500 text-[20px]">percent</span>
                 </div>
                 <div className="mt-2 text-2xl font-black text-blue-600 tracking-tight">
@@ -927,7 +925,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
             <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Bảng kê chi tiết thù lao giảng dạy (COA-13)</h2>
+                  <h2 className="text-base font-bold text-slate-900">Bảng kê chi tiết thù lao giảng dạy</h2>
                   <p className="text-xs text-slate-500">Dữ liệu đối soát tự động từ các ca dạy đã điểm danh và doanh thu học viên</p>
                 </div>
                 <button
@@ -942,7 +940,9 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
 
               <div className="overflow-x-auto">
                 {incomeLoading ? (
-                  <p className="p-8 text-center text-sm text-slate-500">Đang tải bảng kê thù lao...</p>
+                  <div className="p-4">
+                    <TableSkeleton rows={4} cols={7} />
+                  </div>
                 ) : !incomeData?.sessions || incomeData.sessions.length === 0 ? (
                   <div className="p-10 text-center text-slate-500">
                     <span className="material-symbols-outlined text-4xl text-slate-300">payments</span>
@@ -1098,7 +1098,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
                 <span className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
                   <span className="material-symbols-outlined text-[20px]">badge</span>
                 </span>
-                <h2 className="text-base font-bold text-slate-900">Cập nhật hồ sơ Huấn luyện viên (COA-01)</h2>
+                <h2 className="text-base font-bold text-slate-900">Cập nhật hồ sơ Huấn luyện viên</h2>
               </div>
               <button
                 type="button"
@@ -1182,7 +1182,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
                   disabled={savingProfile}
                   className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-50"
                 >
-                  {savingProfile ? 'Đang lưu...' : 'Lưu Hồ Sơ (COA-01)'}
+                  {savingProfile ? 'Đang lưu...' : 'Lưu Hồ Sơ'}
                 </button>
               </div>
             </form>

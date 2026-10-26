@@ -14,6 +14,9 @@ import com.sporthub.backend.entity.MemberHealthProfile;
 import com.sporthub.backend.repository.BookingRepository;
 import com.sporthub.backend.repository.ClassSessionRepository;
 import com.sporthub.backend.repository.MemberHealthProfileRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,6 +28,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -32,7 +36,10 @@ import java.util.Objects;
 @Service
 public class AiAssistantService {
 
-    private static final List<String> ACTIVE_BOOKING_STATUSES = List.of("BOOKED", "CONFIRMED");
+    private static final Logger log = LoggerFactory.getLogger(AiAssistantService.class);
+    private static final List<String> ACTIVE_BOOKING_STATUSES = List.of("BOOKED", "CONFIRMED", "COMPLETED");
+    private static final String DEFAULT_MODEL = "gemini-flash-lite-latest";
+    private static final String DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 
     private final MemberHealthProfileRepository healthProfileRepository;
     private final BookingRepository bookingRepository;
@@ -41,6 +48,7 @@ public class AiAssistantService {
     private final HttpClient httpClient;
     private final String apiKey;
     private final String model;
+    private final String baseUrl;
 
     public AiAssistantService(
             MemberHealthProfileRepository healthProfileRepository,
@@ -48,13 +56,29 @@ public class AiAssistantService {
             ClassSessionRepository classSessionRepository,
             ObjectMapper objectMapper,
             @Value("${app.openai.api-key:}") String apiKey,
-            @Value("${app.openai.model:gpt-4o-mini}") String model) {
+            @Value("${app.openai.model:gemini-flash-lite-latest}") String model) {
+        this(healthProfileRepository, bookingRepository, classSessionRepository, objectMapper, apiKey, model,
+                DEFAULT_BASE_URL);
+    }
+
+    @Autowired
+    public AiAssistantService(
+            MemberHealthProfileRepository healthProfileRepository,
+            BookingRepository bookingRepository,
+            ClassSessionRepository classSessionRepository,
+            ObjectMapper objectMapper,
+            @Value("${app.openai.api-key:}") String apiKey,
+            @Value("${app.openai.model:gemini-flash-lite-latest}") String model,
+            @Value("${app.openai.base-url:https://generativelanguage.googleapis.com/v1beta/openai/chat/completions}") String baseUrl) {
         this.healthProfileRepository = healthProfileRepository;
         this.bookingRepository = bookingRepository;
         this.classSessionRepository = classSessionRepository;
         this.objectMapper = objectMapper;
         this.apiKey = apiKey;
-        this.model = model;
+        this.model = (model == null || model.isBlank()) ? DEFAULT_MODEL : model.trim();
+        this.baseUrl = (baseUrl == null || baseUrl.isBlank())
+                ? DEFAULT_BASE_URL
+                : baseUrl.trim();
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
@@ -66,12 +90,18 @@ public class AiAssistantService {
         return requestCompletion(
                 "Bạn là trợ lý tập luyện của SportHub. Trả lời bằng tiếng Việt, thực tế và an toàn. "
                         + "Dùng hồ sơ/lịch đã cung cấp làm ngữ cảnh; không chẩn đoán bệnh. "
-                        + "Nếu có chấn thương hoặc dấu hiệu nguy hiểm, khuyên người dùng hỏi chuyên gia y tế.",
+                        + "Nếu có chấn thương hoặc dấu hiệu nguy hiểm, khuyên người dùng hỏi chuyên gia y tế. "
+                        + "Quy tắc định dạng: Trình bày mạch lạc, câu văn ngắn gọn, dễ hiểu. "
+                        + "Sử dụng danh sách gạch đầu dòng rõ ràng. KHÔNG lạm dụng các ký tự Markdown thô như ##, ###, đường kẻ ---, hoặc bọc quá nhiều dấu sao ** liên tiếp.",
                 context,
                 messages);
     }
 
     public String createCoachPlan(Long coachId, CoachPlanRequest request) {
+        return createCoachPlan(coachId, "COACH", request);
+    }
+
+    public String createCoachPlan(Long actorId, String actorRole, CoachPlanRequest request) {
         if (request == null || request.bookingId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không tìm thấy lượt đăng ký lớp.");
         }
@@ -80,13 +110,19 @@ public class AiAssistantService {
         }
 
         Booking booking = bookingRepository.findById(request.bookingId())
-                .filter(candidate -> ACTIVE_BOOKING_STATUSES.contains(candidate.getStatus().toUpperCase(Locale.ROOT)))
+                .filter(candidate -> candidate.getStatus() != null
+                        && ACTIVE_BOOKING_STATUSES.contains(candidate.getStatus().toUpperCase(Locale.ROOT)))
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.FORBIDDEN,
                         "Lượt đăng ký không còn hiệu lực hoặc không tồn tại."));
         ClassSession session = classSessionRepository.findById(booking.getSessionId())
-                .filter(candidate -> Objects.equals(candidate.getCoachId(), coachId))
-                .filter(candidate -> !"CANCELLED".equalsIgnoreCase(candidate.getStatus()))
+                .filter(candidate -> {
+                    boolean isManagerOrAdmin = actorRole != null
+                            && (actorRole.toUpperCase(Locale.ROOT).contains("MANAGER")
+                            || actorRole.toUpperCase(Locale.ROOT).contains("ADMIN"));
+                    return isManagerOrAdmin || Objects.equals(candidate.getCoachId(), actorId);
+                })
+                .filter(candidate -> candidate.getStatus() == null || !"CANCELLED".equalsIgnoreCase(candidate.getStatus()))
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.FORBIDDEN,
                         "Bạn không được phân công lớp trong lượt đăng ký này."));
@@ -107,7 +143,9 @@ public class AiAssistantService {
                 "Bạn hỗ trợ HLV chuyên nghiệp soạn giáo án bằng tiếng Việt. "
                         + "Đưa ra kế hoạch có cấu trúc theo buổi, bài tập, số hiệp/lần hoặc thời lượng, "
                         + "mức độ tăng tiến và lưu ý an toàn. Không chẩn đoán bệnh; điều chỉnh hoặc yêu cầu "
-                        + "tham vấn chuyên gia nếu hồ sơ có chấn thương.",
+                        + "tham vấn chuyên gia nếu hồ sơ có chấn thương. "
+                        + "Quy tắc định dạng: Trình bày mạch lạc, câu văn ngắn gọn, dễ hiểu. "
+                        + "Sử dụng danh sách gạch đầu dòng rõ ràng. KHÔNG lạm dụng các ký tự Markdown thô.",
                 context + "\n\nYêu cầu của HLV: " + goal,
                 List.of(new AssistantMessageRequest("user", "Hãy tạo giáo án cho học viên này.")));
     }
@@ -184,6 +222,46 @@ public class AiAssistantService {
         }
     }
 
+    private List<AssistantMessageRequest> sanitizeMessagesForAi(List<AssistantMessageRequest> messages) {
+        List<AssistantMessageRequest> sanitized = new ArrayList<>();
+        if (messages == null || messages.isEmpty()) {
+            return List.of(new AssistantMessageRequest("user", "Tư vấn bài tập và lịch trình"));
+        }
+
+        for (AssistantMessageRequest msg : messages) {
+            if (msg == null || msg.content() == null || msg.content().isBlank()) {
+                continue;
+            }
+            String role = "assistant".equalsIgnoreCase(msg.role()) ? "assistant" : "user";
+            String content = msg.content().trim();
+
+            if (sanitized.isEmpty()) {
+                if ("assistant".equalsIgnoreCase(role)) {
+                    sanitized.add(new AssistantMessageRequest("user", "Xin chào"));
+                }
+                sanitized.add(new AssistantMessageRequest(role, content));
+            } else {
+                AssistantMessageRequest prev = sanitized.get(sanitized.size() - 1);
+                if (prev.role().equalsIgnoreCase(role)) {
+                    // Merge consecutive messages with the same role to prevent Gemini HTTP 400 errors
+                    String merged = prev.content() + "\n\n" + content;
+                    sanitized.set(sanitized.size() - 1, new AssistantMessageRequest(role, merged));
+                } else {
+                    sanitized.add(new AssistantMessageRequest(role, content));
+                }
+            }
+        }
+
+        if (sanitized.isEmpty()) {
+            sanitized.add(new AssistantMessageRequest("user", "Tư vấn bài tập và lịch trình"));
+        } else if ("assistant".equalsIgnoreCase(sanitized.get(sanitized.size() - 1).role())) {
+            // Multiturn prompt should end with a user query
+            sanitized.add(new AssistantMessageRequest("user", "Hãy tiếp tục tư vấn chi tiết hơn."));
+        }
+
+        return sanitized;
+    }
+
     private String requestCompletion(
             String systemPrompt,
             String databaseContext,
@@ -198,6 +276,68 @@ public class AiAssistantService {
             return generateDomainAnswer(lastUserMessage, databaseContext);
         }
 
+        List<AssistantMessageRequest> sanitizedList = sanitizeMessagesForAi(messages);
+
+        try {
+            String answer = tryCallAi(systemPrompt, databaseContext, sanitizedList);
+            if (answer != null && !answer.isBlank()) {
+                return normalizeAiAnswer(answer);
+            }
+        } catch (Exception exception) {
+            log.error("Exception calling AI API: {}", exception.getMessage(), exception);
+            System.err.println("[AiAssistantService] Exception calling AI API: " + exception.getMessage());
+        }
+
+        return generateDomainAnswer(lastUserMessage, databaseContext);
+    }
+
+    private String normalizeAiAnswer(String answer) {
+        if (answer == null || answer.isBlank()) {
+            return answer;
+        }
+        return answer.replace("\r\n", "\n")
+                .replaceAll("\n{3,}", "\n\n")
+                .trim();
+    }
+
+    private String tryCallAi(
+            String systemPrompt,
+            String databaseContext,
+            List<AssistantMessageRequest> messages) throws IOException, InterruptedException {
+        boolean isNativeGemini = baseUrl != null && (baseUrl.contains(":generateContent")
+                || (baseUrl.contains("/models/") && !baseUrl.contains("/openai/")));
+
+        if (isNativeGemini) {
+            return tryCallNativeGemini(baseUrl, systemPrompt, databaseContext, messages);
+        }
+
+        String answer = tryCallOpenAi(systemPrompt, databaseContext, messages);
+        if (answer != null && !answer.isBlank()) {
+            return answer;
+        }
+
+        // Fallback: If OpenAI-compatible endpoint failed on Google Generative Language, try native Gemini endpoint
+        if (baseUrl != null && baseUrl.contains("generativelanguage.googleapis.com")) {
+            String nativeFallbackUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent";
+            log.info("Attempting fallback to native Gemini endpoint: {}", nativeFallbackUrl);
+            return tryCallNativeGemini(nativeFallbackUrl, systemPrompt, databaseContext, messages);
+        }
+
+        return null;
+    }
+
+    private String tryCallOpenAi(
+            String systemPrompt,
+            String databaseContext,
+            List<AssistantMessageRequest> messages) throws IOException, InterruptedException {
+        String targetUrl = baseUrl;
+        if (!targetUrl.endsWith("/chat/completions") && !targetUrl.contains("openai/chat/completions")) {
+            if (targetUrl.endsWith("/")) {
+                targetUrl = targetUrl.substring(0, targetUrl.length() - 1);
+            }
+            targetUrl += "/chat/completions";
+        }
+
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("model", model);
         payload.put("temperature", 0.4);
@@ -210,26 +350,79 @@ public class AiAssistantService {
                     .put("content", message.content());
         }
 
-        try {
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.openai.com/v1/chat/completions"))
-                    .timeout(Duration.ofSeconds(30))
-                    .header("Authorization", "Bearer " + apiKey)
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
-                    .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                JsonNode answer = objectMapper.readTree(response.body())
-                        .path("choices").path(0).path("message").path("content");
-                if (answer.isTextual() && !answer.asText().isBlank()) {
-                    return answer.asText();
-                }
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(targetUrl))
+                .timeout(Duration.ofSeconds(30))
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+            JsonNode answer = objectMapper.readTree(response.body())
+                    .path("choices").path(0).path("message").path("content");
+            if (answer.isTextual() && !answer.asText().isBlank()) {
+                return answer.asText();
             }
-            return generateDomainAnswer(lastUserMessage, databaseContext);
-        } catch (Exception exception) {
-            return generateDomainAnswer(lastUserMessage, databaseContext);
+        } else {
+            log.warn("AI API request to [{}] failed with HTTP {}: {}", targetUrl, response.statusCode(), response.body());
+            System.err.println("[AiAssistantService] AI API request to [" + targetUrl + "] failed with HTTP "
+                    + response.statusCode() + ": " + response.body());
         }
+        return null;
+    }
+
+    private String tryCallNativeGemini(
+            String endpointUrl,
+            String systemPrompt,
+            String databaseContext,
+            List<AssistantMessageRequest> messages) throws IOException, InterruptedException {
+        String targetUrl = endpointUrl;
+        if (!targetUrl.contains(":generateContent")) {
+            targetUrl = targetUrl.endsWith("/")
+                    ? targetUrl + "models/" + model + ":generateContent"
+                    : targetUrl + "/" + model + ":generateContent";
+        }
+
+        ObjectNode payload = objectMapper.createObjectNode();
+        ObjectNode systemInstruction = payload.putObject("systemInstruction");
+        ArrayNode sysParts = systemInstruction.putArray("parts");
+        sysParts.addObject().put("text", systemPrompt + "\n\n" + databaseContext);
+
+        ArrayNode contents = payload.putArray("contents");
+        for (AssistantMessageRequest message : messages) {
+            String role = "assistant".equalsIgnoreCase(message.role()) ? "model" : "user";
+            ObjectNode contentObj = contents.addObject();
+            contentObj.put("role", role);
+            ArrayNode parts = contentObj.putArray("parts");
+            parts.addObject().put("text", message.content());
+        }
+
+        ObjectNode genConfig = payload.putObject("generationConfig");
+        genConfig.put("temperature", 0.4);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(targetUrl))
+                .timeout(Duration.ofSeconds(30))
+                .header("Content-Type", "application/json")
+                .header("x-goog-api-key", apiKey)
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+            JsonNode answer = objectMapper.readTree(response.body())
+                    .path("candidates").path(0).path("content").path("parts").path(0).path("text");
+            if (answer.isTextual() && !answer.asText().isBlank()) {
+                return answer.asText();
+            }
+        } else {
+            log.warn("Native Gemini API request to [{}] failed with HTTP {}: {}", targetUrl, response.statusCode(), response.body());
+            System.err.println("[AiAssistantService] Native Gemini API request to [" + targetUrl + "] failed with HTTP "
+                    + response.statusCode() + ": " + response.body());
+        }
+        return null;
     }
 
     private String generateDomainAnswer(String userQuestion, String databaseContext) {

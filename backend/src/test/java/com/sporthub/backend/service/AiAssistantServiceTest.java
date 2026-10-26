@@ -41,7 +41,7 @@ class AiAssistantServiceTest {
     @Test
     void memberChatUsesSavedContextAndReportsMissingAiConfiguration() {
         when(healthProfileRepository.findByMemberId(12L)).thenReturn(Optional.empty());
-        when(bookingRepository.findByMemberIdAndStatusIn(12L, List.of("BOOKED", "CONFIRMED")))
+        when(bookingRepository.findByMemberIdAndStatusIn(12L, List.of("BOOKED", "CONFIRMED", "COMPLETED")))
                 .thenReturn(List.of());
         AssistantChatRequest request = new AssistantChatRequest(
                 List.of(new AssistantMessageRequest("user", "Tôi nên bắt đầu tập như thế nào?")));
@@ -93,7 +93,7 @@ class AiAssistantServiceTest {
                 .startTime(LocalDateTime.now().plusDays(1))
                 .build()));
         when(healthProfileRepository.findByMemberId(99L)).thenReturn(Optional.empty());
-        when(bookingRepository.findByMemberIdAndStatusIn(99L, List.of("BOOKED", "CONFIRMED")))
+        when(bookingRepository.findByMemberIdAndStatusIn(99L, List.of("BOOKED", "CONFIRMED", "COMPLETED")))
                 .thenReturn(List.of(booking));
 
         String plan = service.createCoachPlan(8L, new CoachPlanRequest(65L, ""));
@@ -111,5 +111,93 @@ class AiAssistantServiceTest {
                 () -> service.chatAsMember(12L, request));
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+    }
+
+    @Test
+    void coachPlanAllowsCompletedBookingAndManagerRole() {
+        Booking booking = Booking.builder()
+                .bookingId(70L)
+                .memberId(99L)
+                .sessionId(42L)
+                .status("COMPLETED")
+                .build();
+        when(bookingRepository.findById(70L)).thenReturn(Optional.of(booking));
+        when(classSessionRepository.findById(42L)).thenReturn(Optional.of(ClassSession.builder()
+                .sessionId(42L)
+                .coachId(5L)
+                .className("Completed Class")
+                .status("SCHEDULED")
+                .startTime(LocalDateTime.now().minusDays(1))
+                .build()));
+        when(healthProfileRepository.findByMemberId(99L)).thenReturn(Optional.empty());
+        when(bookingRepository.findByMemberIdAndStatusIn(99L, List.of("BOOKED", "CONFIRMED", "COMPLETED")))
+                .thenReturn(List.of(booking));
+
+        // Manager can generate plan even if not the assigned coach (coachId=5, actorId=1)
+        String plan = service.createCoachPlan(1L, "MANAGER", new CoachPlanRequest(70L, "Tập thể lực phục hồi"));
+        assertNotNull(plan);
+    }
+
+    @Test
+    void memberChatHandlesConsecutiveUserMessagesGracefully() {
+        when(healthProfileRepository.findByMemberId(12L)).thenReturn(Optional.empty());
+        when(bookingRepository.findByMemberIdAndStatusIn(12L, List.of("BOOKED", "CONFIRMED", "COMPLETED")))
+                .thenReturn(List.of());
+        AssistantChatRequest request = new AssistantChatRequest(
+                List.of(
+                        new AssistantMessageRequest("user", "Chào bạn!"),
+                        new AssistantMessageRequest("user", "Tôi muốn tập cơ ngực và vai.")
+                ));
+
+        String answer = service.chatAsMember(12L, request);
+        assertNotNull(answer);
+    }
+
+    @Test
+    void customBaseUrlConstructorInitializesCorrectly() {
+        AiAssistantService customService = new AiAssistantService(
+                healthProfileRepository,
+                bookingRepository,
+                classSessionRepository,
+                new ObjectMapper(),
+                "test-api-key",
+                "gemini-flash-lite-latest",
+                "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
+
+        when(healthProfileRepository.findByMemberId(12L)).thenReturn(Optional.empty());
+        when(bookingRepository.findByMemberIdAndStatusIn(12L, List.of("BOOKED", "CONFIRMED", "COMPLETED")))
+                .thenReturn(List.of());
+
+        AssistantChatRequest request = new AssistantChatRequest(
+                List.of(new AssistantMessageRequest("user", "Chính sách hủy lớp như thế nào?")));
+
+        String answer = customService.chatAsMember(12L, request);
+        assertNotNull(answer);
+    }
+
+    @Test
+    void realGeminiApiCallReturnsValidResponseWhenKeyIsProvided() {
+        String realKey = System.getenv("GEMINI_API_KEY") != null ? System.getenv("GEMINI_API_KEY") : "";
+        org.junit.jupiter.api.Assumptions.assumeTrue(!realKey.isBlank(), "Skip real Gemini API call when GEMINI_API_KEY is not set");
+        AiAssistantService realService = new AiAssistantService(
+                healthProfileRepository,
+                bookingRepository,
+                classSessionRepository,
+                new ObjectMapper(),
+                realKey,
+                "gemini-flash-lite-latest",
+                "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
+
+        when(healthProfileRepository.findByMemberId(12L)).thenReturn(Optional.empty());
+        when(bookingRepository.findByMemberIdAndStatusIn(12L, List.of("BOOKED", "CONFIRMED", "COMPLETED")))
+                .thenReturn(List.of());
+
+        AssistantChatRequest request = new AssistantChatRequest(
+                List.of(new AssistantMessageRequest("user", "Xin chào, hãy phản hồi 'OK' nếu bạn hoạt động.")));
+
+        String answer = realService.chatAsMember(12L, request);
+        assertNotNull(answer);
+        org.junit.jupiter.api.Assertions.assertFalse(answer.isBlank());
+        System.out.println("[TEST] Real Gemini response: " + answer);
     }
 }

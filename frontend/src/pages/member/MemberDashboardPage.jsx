@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
+import { CardGridSkeleton } from '../../components/common/Skeleton';
 import { useApp } from '../../context/AppContext';
 import { getMemberBookingSchedule } from '../../services/bookingApi';
 import { getMemberMemberships } from '../../services/memberApi';
@@ -239,13 +240,9 @@ export default function MemberDashboardPage() {
           )}
 
           {loading ? (
-            <div className="space-y-3">
-              {[1, 2].map((i) => (
-                <div key={i} className="h-20 bg-slate-100 rounded-2xl animate-pulse"></div>
-              ))}
-            </div>
+            <CardGridSkeleton count={2} cols="grid grid-cols-1 md:grid-cols-2 gap-4" />
           ) : bookings.length === 0 ? (
-            <div className="rounded-2xl border-2 border-dashed border-slate-200 p-10 text-center space-y-3">
+            <div className="rounded-2xl border-2 border-dashed border-slate-200 p-8 text-center space-y-3">
               <span className="material-symbols-outlined text-[44px] text-slate-300">event_available</span>
               <h3 className="text-sm font-bold text-slate-700 uppercase">Bạn chưa có lịch đặt sân hay lớp học sắp tới</h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto font-medium">
@@ -254,7 +251,7 @@ export default function MemberDashboardPage() {
               <div className="pt-2">
                 <Link
                   to="/member/book"
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-wider shadow-md shadow-orange-500/20 transition-all cursor-pointer"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-wider shadow-md shadow-orange-500/20 transition-all cursor-pointer active:scale-95"
                 >
                   <span className="material-symbols-outlined text-[18px]">add_circle</span>
                   <span>Đặt Sân Hoặc Lớp Ngay</span>
@@ -266,7 +263,7 @@ export default function MemberDashboardPage() {
               {bookings.map((booking) => (
                 <div
                   key={`${booking.bookingType}-${booking.bookingId}`}
-                  className="rounded-2xl border border-slate-200 p-5 flex flex-col justify-between hover:border-orange-300 hover:shadow-md transition-all bg-slate-50/50"
+                  className="rounded-2xl border border-slate-200 p-5 flex flex-col justify-between card-hover bg-slate-50/50"
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import CoachLayout from '../../components/layouts/CoachLayout';
+import { TableSkeleton } from '../../components/common/Skeleton';
 import { getSessionRoster, getUpcomingClasses, updateBookingAttendance } from '../../services/bookingApi';
 
 const formatDateTime = (value) => new Date(value).toLocaleString('vi-VN', {
@@ -101,7 +102,7 @@ export default function CoachAttendancePage() {
         <header>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
             <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-            F SPORT COACH · ĐIỂM DANH &amp; NHẬN XÉT (COA-05, COA-06)
+            F SPORT COACH · ĐIỂM DANH &amp; NHẬN XÉT
           </div>
           <h1 className="font-headline-xl text-2xl font-bold text-slate-900 sm:text-3xl">
             Điểm Danh &amp; Đánh Giá Học Viên
@@ -128,7 +129,7 @@ export default function CoachAttendancePage() {
             Chọn lớp giảng dạy được phân công
           </label>
           {isLoadingClasses ? (
-            <p className="text-sm text-slate-500">Đang tải danh sách ca dạy...</p>
+            <div className="h-10 w-full sm:max-w-xl rounded-xl skeleton-shimmer" />
           ) : classes.length === 0 ? (
             <p className="text-sm text-slate-500">Hiện chưa có lớp sắp diễn ra được phân công cho bạn.</p>
           ) : (
@@ -182,10 +183,7 @@ export default function CoachAttendancePage() {
         {selectedSessionId && (
           <section className="space-y-3">
             {rosterSessionId !== selectedSessionId ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 flex flex-col items-center justify-center gap-3">
-                <span className="material-symbols-outlined text-3xl text-orange-500 animate-spin">progress_activity</span>
-                <span>Đang tải danh sách hội viên đặt lớp...</span>
-              </div>
+              <TableSkeleton rows={4} cols={4} />
             ) : roster.length === 0 ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 flex flex-col items-center justify-center gap-2">
                 <span className="material-symbols-outlined text-3xl text-slate-300">event_busy</span>

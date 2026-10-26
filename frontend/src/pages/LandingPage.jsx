@@ -152,13 +152,13 @@ export default function LandingPage() {
 
 
         {/* ================= 2. KHÁM PHÁ CÁC BỘ MÔN THỂ THAO ================= */}
-        <section id="bo-mon" className="py-16 lg:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+        <section id="bo-mon" className="py-10 lg:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
               <span className="text-[11px] font-black uppercase tracking-wider text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200">
                 CHƯƠNG TRÌNH HUẤN LUYỆN
               </span>
-              <h2 className="text-2xl sm:text-4xl font-black text-slate-900 uppercase tracking-tight mt-2">
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight mt-2">
                 Khám Phá Các Bộ Môn Thể Thao
               </h2>
             </div>
@@ -188,26 +188,26 @@ export default function LandingPage() {
           )}
 
           {isContentLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-2xs animate-pulse">
-                  <div className="w-full h-44 bg-slate-200"></div>
-                  <div className="p-6 space-y-3">
-                    <div className="h-4 bg-slate-200 rounded w-1/3"></div>
-                    <div className="h-6 bg-slate-200 rounded w-2/3"></div>
-                    <div className="h-3 bg-slate-100 rounded w-full"></div>
+                <div key={i} className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-2xs space-y-3">
+                  <div className="w-full h-44 skeleton-shimmer"></div>
+                  <div className="p-5 space-y-3">
+                    <div className="h-4 skeleton-shimmer rounded w-1/3"></div>
+                    <div className="h-6 skeleton-shimmer rounded w-2/3"></div>
+                    <div className="h-3 skeleton-shimmer rounded w-full"></div>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
               {sports.map((sport) => {
                 const media = getSportMedia(sport.slug);
                 return (
                   <article
                     key={sport.sportId || sport.id}
-                    className="bg-white rounded-3xl border border-slate-200 overflow-hidden flex flex-col justify-between shadow-2xs hover:shadow-xl hover:border-orange-300 transition-all duration-300 group"
+                    className="bg-white rounded-3xl border border-slate-200 overflow-hidden flex flex-col justify-between shadow-2xs card-hover group"
                   >
                     <div>
                       {/* Hình ảnh minh họa bắt mắt */}
@@ -282,14 +282,14 @@ export default function LandingPage() {
 
 
         {/* ================= 3. TIỆN ÍCH & CƠ SỞ VẬT CHẤT ================= */}
-        <section id="tien-ich" className="py-16 lg:py-24 bg-white border-y border-slate-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+        <section id="tien-ich" className="py-10 lg:py-16 bg-white border-y border-slate-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>
                 <span className="text-[11px] font-black uppercase tracking-wider text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200">
                   CƠ SỞ VẬT CHẤT TIÊU CHUẨN 5 SAO
                 </span>
-                <h2 className="text-2xl sm:text-4xl font-black text-slate-900 uppercase tracking-tight mt-2">
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight mt-2">
                   Hệ Thống Tiện Ích &amp; Sân Bãi
                 </h2>
               </div>
@@ -306,29 +306,29 @@ export default function LandingPage() {
             </div>
 
             {isContentLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="bg-slate-50 rounded-3xl p-6 space-y-4 animate-pulse">
-                    <div className="w-12 h-12 bg-slate-200 rounded-xl"></div>
-                    <div className="h-5 bg-slate-200 rounded w-2/3"></div>
-                    <div className="h-3 bg-slate-100 rounded w-full"></div>
+                  <div key={i} className="bg-slate-50 rounded-3xl p-5 space-y-3">
+                    <div className="w-12 h-12 skeleton-shimmer rounded-xl"></div>
+                    <div className="h-5 skeleton-shimmer rounded w-2/3"></div>
+                    <div className="h-3 skeleton-shimmer rounded w-full"></div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 {facilities.slice(0, 8).map((facility) => {
                   const media = getFacilityMedia(facility.slug);
                   return (
                     <Link
                       key={facility.facilityId || facility.id}
                       to={`/facilities/${facility.slug}`}
-                      className="bg-slate-50 rounded-3xl border border-slate-200 p-6 flex flex-col justify-between shadow-2xs hover:shadow-lg hover:border-orange-300 hover:bg-white transition-all group"
+                      className="bg-slate-50 rounded-3xl border border-slate-200 p-5 flex flex-col justify-between shadow-2xs card-hover group"
                     >
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 text-orange-500 flex items-center justify-center font-bold shadow-2xs group-hover:bg-orange-500 group-hover:text-white transition-colors">
-                            <span className="material-symbols-outlined text-[26px]">
+                          <div className="w-11 h-11 rounded-xl bg-white border border-slate-200 text-orange-500 flex items-center justify-center font-bold shadow-2xs group-hover:bg-orange-500 group-hover:text-white transition-colors">
+                            <span className="material-symbols-outlined text-[24px]">
                               {facility.icon || 'stadium'}
                             </span>
                           </div>
@@ -347,7 +347,7 @@ export default function LandingPage() {
                         </div>
                       </div>
 
-                      <div className="pt-4 mt-4 border-t border-slate-200/60 flex items-center justify-between text-xs font-black text-orange-600 uppercase">
+                      <div className="pt-3 mt-3 border-t border-slate-200/60 flex items-center justify-between text-xs font-black text-orange-600 uppercase">
                         <span>Chi tiết cơ sở</span>
                         <span className="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">
                           arrow_forward
@@ -363,24 +363,24 @@ export default function LandingPage() {
 
 
         {/* ================= 4. TẠI SAO CHỌN F SPORT CENTER? ================= */}
-        <section className="py-16 lg:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+        <section className="py-10 lg:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
           <div className="text-center max-w-2xl mx-auto space-y-2">
             <span className="text-[11px] font-black uppercase tracking-wider text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200">
               GIÁ TRỊ VƯỢT TRỘI
             </span>
-            <h2 className="text-2xl sm:text-4xl font-black text-slate-900 uppercase tracking-tight">
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight">
               Tại Sao Chọn F Sport Center?
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             {highlights.map((item, idx) => (
               <div
                 key={idx}
-                className="bg-white rounded-3xl border border-slate-200 p-6 space-y-3 shadow-2xs hover:border-orange-300 transition-all"
+                className="bg-white rounded-3xl border border-slate-200 p-5 space-y-3 shadow-2xs card-hover"
               >
-                <div className="w-12 h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
-                  <span className="material-symbols-outlined text-[26px]">{item.icon}</span>
+                <div className="w-11 h-11 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
+                  <span className="material-symbols-outlined text-[24px]">{item.icon}</span>
                 </div>
                 <h3 className="text-base font-black text-slate-900">{item.title}</h3>
                 <p className="text-xs text-slate-600 leading-relaxed font-medium">{item.desc}</p>
@@ -391,7 +391,7 @@ export default function LandingPage() {
 
 
         {/* ================= 5. BANNER CTA GÓI TẬP ================= */}
-        <section className="bg-slate-900 text-white py-16">
+        <section className="bg-slate-900 text-white py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 bg-gradient-to-r from-slate-950 via-slate-900 to-orange-950/60 p-8 lg:p-12 rounded-3xl border border-slate-800 shadow-2xl">
               <div className="space-y-3 max-w-2xl">
