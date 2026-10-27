@@ -73,6 +73,10 @@ public class BookingService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private EngagementService engagementService;
 
+    public void setEngagementService(EngagementService engagementService) {
+        this.engagementService = engagementService;
+    }
+
     private boolean isUnderMaintenance(Long courtId, LocalDateTime start, LocalDateTime end) {
         return courtMaintenanceRepository != null
                 && !courtMaintenanceRepository
@@ -975,10 +979,14 @@ public class BookingService {
         if ("COACH".equals(actorRole) && !session.getCoachId().equals(actorId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không được phân công lớp học này.");
         }
+        if ("RECEPTIONIST".equalsIgnoreCase(actorRole) && (booking.getAttendanceStatus() == null || "PENDING".equalsIgnoreCase(booking.getAttendanceStatus()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Lễ tân chỉ được phép sửa điểm danh đã có, không được tạo mới điểm danh lần đầu (BR-14)");
+        }
         if (!ACTIVE_STATUSES.contains(booking.getStatus().toUpperCase(Locale.ROOT))) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Chỉ đặt chỗ đã xác nhận mới được điểm danh.");
         }
 
+        String oldStatus = booking.getAttendanceStatus() == null ? "PENDING" : booking.getAttendanceStatus();
         booking.setAttendanceStatus(normalizedStatus);
         if (coachNote != null || absenceTag != null) {
             String note = coachNote == null ? "" : coachNote.trim().replaceFirst("^\\[Vắng (có|không) phép\\]\\s*", "");
@@ -987,7 +995,7 @@ public class BookingService {
         Booking updatedBooking = bookingRepository.save(booking);
         if (engagementService != null) {
             engagementService.audit(actorId, actorRole, "ATTENDANCE_UPDATED",
-                    "booking=" + bookingId + ", status=" + normalizedStatus + (absenceTag == null ? "" : " " + absenceTag));
+                    "booking=" + bookingId + ", oldStatus=" + oldStatus + ", newStatus=" + normalizedStatus + (absenceTag == null ? "" : " " + absenceTag));
             engagementService.notifyUser(booking.getMemberId(), "Cập nhật điểm danh",
                     "Buổi học \"" + session.getClassName() + "\": " + ("PRESENT".equals(normalizedStatus) ? "có mặt" : "vắng mặt")
                             + (absenceTag == null ? "" : " " + absenceTag) + ".", "ATTENDANCE");

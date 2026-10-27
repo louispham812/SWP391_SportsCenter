@@ -10,6 +10,8 @@ import com.sporthub.backend.repository.BookingRepository;
 import com.sporthub.backend.repository.ClassSessionRepository;
 import com.sporthub.backend.repository.CoachLeaveRequestRepository;
 import com.sporthub.backend.repository.UserRepository;
+import com.sporthub.backend.service.EngagementService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -29,16 +31,28 @@ public class CoachLeaveController {
     private final UserRepository userRepository;
     private final ClassSessionRepository classSessionRepository;
     private final BookingRepository bookingRepository;
+    private final EngagementService engagementService;
+
+    @Autowired
+    public CoachLeaveController(
+            CoachLeaveRequestRepository leaveRepository,
+            UserRepository userRepository,
+            ClassSessionRepository classSessionRepository,
+            BookingRepository bookingRepository,
+            EngagementService engagementService) {
+        this.leaveRepository = leaveRepository;
+        this.userRepository = userRepository;
+        this.classSessionRepository = classSessionRepository;
+        this.bookingRepository = bookingRepository;
+        this.engagementService = engagementService;
+    }
 
     public CoachLeaveController(
             CoachLeaveRequestRepository leaveRepository,
             UserRepository userRepository,
             ClassSessionRepository classSessionRepository,
             BookingRepository bookingRepository) {
-        this.leaveRepository = leaveRepository;
-        this.userRepository = userRepository;
-        this.classSessionRepository = classSessionRepository;
-        this.bookingRepository = bookingRepository;
+        this(leaveRepository, userRepository, classSessionRepository, bookingRepository, null);
     }
 
     @GetMapping("/api/v1/coach/leave-requests")
@@ -110,6 +124,10 @@ public class CoachLeaveController {
         CoachLeaveRequest req = leaveRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu nghỉ."));
 
+        if (!decision.approved() && (decision.decisionNote() == null || decision.decisionNote().isBlank())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Từ chối yêu cầu nghỉ phép phải ghi rõ lý do (BR-16)");
+        }
+
         Long managerId = getUserId(auth);
         req.setStatus(decision.approved() ? "APPROVED" : "REJECTED");
         req.setApprovedBy(managerId);
@@ -131,6 +149,26 @@ public class CoachLeaveController {
                 s.setCoachId(replacementCoach.getUserId());
             }
             classSessionRepository.saveAll(sessionsToReassign);
+
+            if (engagementService != null) {
+                engagementService.audit(managerId, "MANAGER", "COACH_LEAVE_REASSIGNED",
+                        "requestId=" + id + ", oldCoach=" + req.getCoachName() + "(" + req.getCoachId() + ")" +
+                        ", newCoach=" + replacementCoach.getFullName() + "(" + replacementCoach.getUserId() + ")" +
+                        ", reassignedSessionsCount=" + sessionsToReassign.size());
+
+                List<Long> sessionIds = sessionsToReassign.stream().map(ClassSession::getSessionId).toList();
+                if (!sessionIds.isEmpty() && bookingRepository != null) {
+                    List<com.sporthub.backend.entity.Booking> affectedBookings =
+                            bookingRepository.findBySessionIdInAndStatusIn(sessionIds, List.of("BOOKED", "CONFIRMED"));
+                    for (com.sporthub.backend.entity.Booking b : affectedBookings) {
+                        engagementService.notifyUser(
+                                b.getMemberId(),
+                                "Thay đổi Huấn luyện viên",
+                                "Lớp học của bạn đã được chuyển cho HLV " + replacementCoach.getFullName() + " phụ trách theo kế hoạch.",
+                                "SCHEDULE");
+                    }
+                }
+            }
         } else if (decision.reassignedCoachId() != null) {
             req.setReassignedCoachId(decision.reassignedCoachId());
         }

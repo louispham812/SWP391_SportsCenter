@@ -18,6 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.sporthub.backend.service.EngagementService;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,23 +33,34 @@ public class RefundRequestController {
     private final UserRepository userRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final ReceptionPaymentRepository paymentRepository;
+    private final EngagementService engagementService;
 
     @Autowired
     public RefundRequestController(
             RefundRequestRepository refundRepository,
             UserRepository userRepository,
             PaymentTransactionRepository paymentTransactionRepository,
-            ReceptionPaymentRepository paymentRepository) {
+            ReceptionPaymentRepository paymentRepository,
+            EngagementService engagementService) {
         this.refundRepository = refundRepository;
         this.userRepository = userRepository;
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.paymentRepository = paymentRepository;
+        this.engagementService = engagementService;
+    }
+
+    public RefundRequestController(
+            RefundRequestRepository refundRepository,
+            UserRepository userRepository,
+            PaymentTransactionRepository paymentTransactionRepository,
+            ReceptionPaymentRepository paymentRepository) {
+        this(refundRepository, userRepository, paymentTransactionRepository, paymentRepository, null);
     }
 
     public RefundRequestController(
             RefundRequestRepository refundRepository,
             UserRepository userRepository) {
-        this(refundRepository, userRepository, null, null);
+        this(refundRepository, userRepository, null, null, null);
     }
 
     @GetMapping("/api/v1/members/me/refunds")
@@ -69,18 +83,46 @@ public class RefundRequestController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lý do hoàn tiền không được để trống.");
         }
 
+        if (req.refundAmount() == null || req.refundAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số tiền hoàn phải lớn hơn 0 (BR-20).");
+        }
+
         if (req.transactionId() != null) {
-            boolean alreadyPending = refundRepository.findByMemberIdOrderByCreatedAtDesc(memberId).stream()
-                    .anyMatch(r -> req.transactionId().equals(r.getTransactionId()) && "PENDING".equalsIgnoreCase(r.getStatus()));
-            if (alreadyPending) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Giao dịch này đang có một yêu cầu hoàn tiền chờ xử lý.");
+            boolean alreadyProcessedOrPending = refundRepository.findByMemberIdOrderByCreatedAtDesc(memberId).stream()
+                    .anyMatch(r -> req.transactionId().equals(r.getTransactionId())
+                            && ("PENDING".equalsIgnoreCase(r.getStatus()) || "APPROVED".equalsIgnoreCase(r.getStatus())));
+            if (alreadyProcessedOrPending) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Giao dịch này đang có một yêu cầu hoàn tiền đang xử lý hoặc đã được duyệt (BR-20).");
             }
         }
         if (req.referenceCode() != null && !req.referenceCode().isBlank()) {
-            boolean alreadyPending = refundRepository.findByMemberIdOrderByCreatedAtDesc(memberId).stream()
-                    .anyMatch(r -> req.referenceCode().equalsIgnoreCase(r.getReferenceCode()) && "PENDING".equalsIgnoreCase(r.getStatus()));
-            if (alreadyPending) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Mã giao dịch này đang có một yêu cầu hoàn tiền chờ xử lý.");
+            boolean alreadyProcessedOrPending = refundRepository.findByMemberIdOrderByCreatedAtDesc(memberId).stream()
+                    .anyMatch(r -> req.referenceCode().equalsIgnoreCase(r.getReferenceCode())
+                            && ("PENDING".equalsIgnoreCase(r.getStatus()) || "APPROVED".equalsIgnoreCase(r.getStatus())));
+            if (alreadyProcessedOrPending) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Mã giao dịch này đang có một yêu cầu hoàn tiền đang xử lý hoặc đã được duyệt (BR-20).");
+            }
+        }
+
+        // Kiểm tra đối chiếu với giao dịch gốc
+        PaymentTransaction origTx = null;
+        if (paymentTransactionRepository != null) {
+            if (req.transactionId() != null) {
+                origTx = paymentTransactionRepository.findById(req.transactionId()).orElse(null);
+            }
+            if (origTx == null && req.referenceCode() != null && !req.referenceCode().isBlank()) {
+                origTx = paymentTransactionRepository.findAll().stream()
+                        .filter(tx -> req.referenceCode().equalsIgnoreCase(tx.getReferenceCode()))
+                        .findFirst()
+                        .orElse(null);
+            }
+        }
+        if (origTx != null) {
+            if ("REFUNDED".equalsIgnoreCase(origTx.getPaymentStatus())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Giao dịch này đã được hoàn tiền trước đó (BR-20).");
+            }
+            if (origTx.getAmount() != null && req.refundAmount().compareTo(origTx.getAmount()) > 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số tiền hoàn không được vượt quá số tiền đã thanh toán (BR-20).");
             }
         }
 
@@ -91,7 +133,7 @@ public class RefundRequestController {
                 .transactionId(req.transactionId())
                 .referenceCode(req.referenceCode())
                 .bookingDescription(req.bookingDescription())
-                .refundAmount(req.refundAmount() == null ? BigDecimal.ZERO : req.refundAmount())
+                .refundAmount(req.refundAmount())
                 .reason(req.reason().trim())
                 .bankName(req.bankName())
                 .bankAccount(req.bankAccount())
@@ -122,11 +164,15 @@ public class RefundRequestController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Yêu cầu hoàn tiền này đã được xử lý trước đó.");
         }
 
+        if (!decision.approved() && (decision.decisionNote() == null || decision.decisionNote().isBlank())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Từ chối hoàn tiền phải ghi rõ lý do (BR-20)");
+        }
+
         Long managerId = getUserId(auth);
         refund.setStatus(decision.approved() ? "APPROVED" : "REJECTED");
         refund.setApprovedBy(managerId);
         if (decision.decisionNote() != null) {
-            refund.setDecisionNote(decision.decisionNote());
+            refund.setDecisionNote(decision.decisionNote().trim());
         }
 
         if (decision.approved()) {
@@ -156,6 +202,14 @@ public class RefundRequestController {
                 } catch (Exception ignored) {
                 }
             }
+        }
+
+        if (engagementService != null) {
+            engagementService.audit(managerId, "MANAGER", "REFUND_DECIDED",
+                    "refundId=" + id + ", status=" + refund.getStatus() +
+                    ", amount=" + refund.getRefundAmount() +
+                    ", memberId=" + refund.getMemberId() +
+                    ", note=" + (decision.decisionNote() != null ? decision.decisionNote().trim() : ""));
         }
 
         return ResponseEntity.ok(toDTO(refundRepository.save(refund)));
