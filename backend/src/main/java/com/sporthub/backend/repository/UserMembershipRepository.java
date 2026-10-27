@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface UserMembershipRepository extends JpaRepository<UserMembership, Long> {
     List<UserMembership> findByUserIdOrderByEndDateDesc(Long userId);
+    List<UserMembership> findByStatusIgnoreCase(String status);
 }

@@ -67,7 +67,7 @@ public class AuthService {
     private final ConcurrentHashMap<String, OtpEntry> otpStore = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ResetTokenEntry> resetTokenStore = new ConcurrentHashMap<>();
 
-    AuthService(
+    public AuthService(
             UserRepository userRepository,
             AuthSessionRepository sessionRepository,
             PasswordEncoder passwordEncoder) {
@@ -131,6 +131,20 @@ public class AuthService {
         }
         if (password.length() < 8) {
             throw new IllegalArgumentException("Mật khẩu phải có ít nhất 8 ký tự.");
+        }
+        boolean hasUpper = false;
+        boolean hasLower = false;
+        boolean hasDigit = false;
+        for (char c : password.toCharArray()) {
+            if (Character.isUpperCase(c)) hasUpper = true;
+            else if (Character.isLowerCase(c)) hasLower = true;
+            else if (Character.isDigit(c)) hasDigit = true;
+        }
+        if (!hasUpper || !hasLower || !hasDigit) {
+            throw new IllegalArgumentException("Mật khẩu phải bao gồm ít nhất 1 chữ in hoa, 1 chữ thường và 1 chữ số (BR-02).");
+        }
+        if (!phone.matches("^[0-9]{10,15}$")) {
+            throw new IllegalArgumentException("Số điện thoại không hợp lệ (phải từ 10 đến 15 chữ số).");
         }
         if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new IllegalArgumentException("Email này đã được đăng ký.");
