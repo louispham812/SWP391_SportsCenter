@@ -5,6 +5,7 @@ import com.sporthub.backend.repository.AuditLogRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -21,7 +22,7 @@ public class AuditLogService {
     /**
      * Ghi audit log thành công
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logSuccess(String logType, String userEmail, Long userId, String actionDetail) {
         try {
             AuditLog log = AuditLog.builder()
@@ -45,7 +46,7 @@ public class AuditLogService {
     /**
      * Ghi audit log thất bại
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logFailure(String logType, String userEmail, Long userId, String actionDetail, String errorMessage) {
         try {
             AuditLog log = AuditLog.builder()
