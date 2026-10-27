@@ -13,6 +13,7 @@ export default function CoachLayout({ children }) {
     { label: 'Điểm danh & Nhận xét', path: '/coach/attendance', icon: 'fact_check' },
     { label: 'Đánh giá từ học viên', path: '/coach/reviews', icon: 'star' },
     { label: 'Thông báo lịch dạy', path: '/coach/notifications', icon: 'notifications' },
+    { label: 'Hồ sơ & Thẻ HLV', path: '/coach/profile', icon: 'badge' },
     // { label: 'Lịch toàn trung tâm', path: '/member/schedule', icon: 'stadium' },
   ];
 

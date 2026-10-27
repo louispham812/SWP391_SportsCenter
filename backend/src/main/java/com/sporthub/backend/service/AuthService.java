@@ -448,6 +448,7 @@ public class AuthService {
                 user.getEmail(),
                 user.getPhone(),
                 user.getUserId(),
-                user.getStatus());
+                user.getStatus(),
+                user.getAvatar());
     }
 }

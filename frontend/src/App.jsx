@@ -38,6 +38,7 @@ import ReceptionEquipmentPage from './pages/receptionist/ReceptionEquipmentPage'
 import CoachSchedulePage from './pages/coach/CoachSchedulePage';
 import CoachStudentsPage from './pages/coach/CoachStudentsPage';
 import CoachAttendancePage from './pages/coach/CoachAttendancePage';
+import CoachProfilePage from './pages/coach/CoachProfilePage';
 
 // Admin / Manager Portal Pages
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
@@ -133,6 +134,7 @@ function App() {
 
           <Route path="/coach/notifications" element={<RequireRole role="coach"><CoachNotificationsPage /></RequireRole>} />
           <Route path="/coach/reviews" element={<RequireRole role="coach"><CoachReviewsPage /></RequireRole>} />
+          <Route path="/coach/profile" element={<RequireRole role="coach"><CoachProfilePage /></RequireRole>} />
           {/* Admin / Center Manager Routes */}
           <Route path="/admin" element={<RequireRole role="admin"><AdminDashboardPage /></RequireRole>} />
           <Route path="/admin/members" element={<RequireRole role="admin"><AdminMembersPage /></RequireRole>} />

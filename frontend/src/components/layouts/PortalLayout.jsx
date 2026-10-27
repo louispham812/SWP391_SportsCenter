@@ -69,6 +69,7 @@ export default function PortalLayout({
     { title: 'Thông báo & Nhắc nhở', subtitle: 'Lịch học sắp tới, hạn gói thẻ, nhận xét', path: '/member/notifications', icon: 'notifications', roleName: 'Hội viên' },
     { title: 'Lịch sử giao dịch', subtitle: 'Biên lai điện tử, hoàn tiền và chi tiêu', path: '/member/transactions', icon: 'account_balance_wallet', roleName: 'Hội viên' },
     { title: 'Hồ sơ & Thẻ số cá nhân', subtitle: 'Mã QR check-in, thông tin cá nhân', path: '/member/profile', icon: 'badge', roleName: 'Hội viên' },
+    { title: 'Hồ sơ & Thẻ HLV', subtitle: 'Thông tin cá nhân, thẻ số HLV, chuyên môn và bằng cấp', path: '/coach/profile', icon: 'badge', roleName: 'HLV' },
     { title: 'Check-in Lễ tân tại quầy', subtitle: 'Quét thẻ RFID, tìm kiếm hội viên, mở tủ đồ', path: '/receptionist', icon: 'how_to_reg', roleName: 'Lễ tân' },
     { title: 'Bán hàng POS & Thu ngân', subtitle: 'Bán gói tập, nước uống, thiết bị thể thao', path: '/receptionist/pos', icon: 'point_of_sale', roleName: 'Lễ tân' },
     { title: 'Lịch dạy HLV trong tuần', subtitle: 'Lịch ca dạy, phòng tập, số lượng học viên', path: '/coach', icon: 'calendar_today', roleName: 'HLV' },
@@ -175,8 +176,12 @@ export default function PortalLayout({
         {/* User Card & Logout Bottom */}
         <div className="p-4 bg-slate-50 border-t border-slate-200">
           <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-slate-200 shadow-sm">
-            <div className="w-10 h-10 rounded-full bg-slate-900 text-orange-400 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
-              {currentUser.avatar || 'US'}
+            <div className="w-10 h-10 rounded-full bg-slate-900 text-orange-400 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm overflow-hidden">
+              {currentUser?.avatar && (currentUser.avatar.startsWith('data:') || currentUser.avatar.startsWith('http') || currentUser.avatar.startsWith('/')) ? (
+                <img src={currentUser.avatar} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                currentUser?.avatar || 'US'
+              )}
             </div>
             <div className="flex flex-col min-w-0 flex-1">
               <span className="text-xs font-bold text-slate-900 truncate">
@@ -338,28 +343,33 @@ export default function PortalLayout({
                   setNotificationsOpen(false);
                 }}
                 type="button"
-                className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center font-bold text-xs shadow-sm hover:bg-orange-100 hover:ring-2 hover:ring-orange-500 transition-all cursor-pointer"
+                className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center font-bold text-xs shadow-sm hover:bg-orange-100 hover:ring-2 hover:ring-orange-500 transition-all cursor-pointer overflow-hidden p-0"
               >
-                {currentUser.avatar || 'US'}
+                {currentUser?.avatar && (currentUser.avatar.startsWith('data:') || currentUser.avatar.startsWith('http') || currentUser.avatar.startsWith('/')) ? (
+                  <img src={currentUser.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  currentUser?.avatar || 'US'
+                )}
               </button>
 
               {profileOpen && (
                 <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="p-2 border-b border-slate-100">
                     <div className="font-bold text-sm text-slate-900 truncate">
-                      {currentUser.name}
+                      {currentUser?.name}
                     </div>
-                    <div className="text-xs text-slate-500 truncate">{currentUser.email}</div>
+                    <div className="text-xs text-slate-500 truncate">{currentUser?.email}</div>
                     <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold uppercase tracking-wider">
                       <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
-                      {currentUser.roleTitle}
+                      {currentUser?.roleTitle}
                     </div>
                   </div>
 
                   <div className="py-2 flex flex-col gap-1">
                     <button
                       onClick={() => {
-                        navigate('/member/profile');
+                        const targetProfile = role === 'coach' ? '/coach/profile' : '/member/profile';
+                        navigate(targetProfile);
                         setProfileOpen(false);
                       }}
                       className="flex items-center gap-2.5 px-2.5 py-2 text-xs rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition-colors text-left cursor-pointer"
@@ -367,7 +377,7 @@ export default function PortalLayout({
                       <span className="material-symbols-outlined text-[18px] text-slate-500">
                         account_circle
                       </span>
-                      <span>Hồ sơ & Thẻ số cá nhân</span>
+                      <span>{role === 'coach' ? 'Hồ sơ & Thẻ HLV' : 'Hồ sơ & Thẻ số cá nhân'}</span>
                     </button>
                     <button
                       onClick={() => {
