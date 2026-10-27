@@ -12,6 +12,7 @@ import com.sporthub.backend.entity.PublicFacility;
 import com.sporthub.backend.entity.PublicSport;
 import com.sporthub.backend.entity.SportsCourt;
 import com.sporthub.backend.entity.User;
+import com.sporthub.backend.enums.AttendanceStatus;
 import com.sporthub.backend.repository.BookingRepository;
 import com.sporthub.backend.repository.ClassSessionRepository;
 import com.sporthub.backend.repository.CourtBookingRepository;
@@ -55,6 +56,7 @@ class BookingServiceTest {
     private final PaymentTransactionRepository paymentTransactionRepository = mock(PaymentTransactionRepository.class);
     private final UserMembershipRepository userMembershipRepository = mock(UserMembershipRepository.class);
     private final MembershipPackageRepository membershipPackageRepository = mock(MembershipPackageRepository.class);
+    private final MembershipService membershipService = mock(MembershipService.class);
     private BookingService bookingService;
 
     @BeforeEach
@@ -69,7 +71,9 @@ class BookingServiceTest {
                 courtBookingRepository,
                 paymentTransactionRepository,
                 userMembershipRepository,
-                membershipPackageRepository);
+                membershipPackageRepository,
+                membershipService,
+                mock(AuditLogService.class)); // Mock AuditLogService
     }
 
     @Test
@@ -173,7 +177,7 @@ class BookingServiceTest {
                                 .sessionId(22L)
                                 .bookingTime(LocalDateTime.now())
                                 .status("BOOKED")
-                                .attendanceStatus("PENDING")
+                                .attendanceStatus(AttendanceStatus.PENDING)
                                 .build()));
         when(userRepository.findAllById(List.of(11L)))
                 .thenReturn(List.of(User.builder()

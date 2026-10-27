@@ -192,7 +192,7 @@ public class ReceptionistController {
         membership.setPackageId(membershipPackage.getPackageId());
         membership.setStartDate(today);
         membership.setEndDate(today.plusDays(membershipPackage.getDurationDays()));
-        membership.setStatus("ACTIVE");
+        membership.setStatus("PENDING_APPROVAL");
         UserMembership savedMembership = membershipRepository.save(membership);
 
         ReceptionPayment payment = new ReceptionPayment();

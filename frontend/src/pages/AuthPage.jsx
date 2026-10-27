@@ -486,21 +486,12 @@ export default function AuthPage() {
                         <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
                           Mật khẩu
                         </label>
-                        <div className="flex items-center gap-2">
-                          <Link
-                            to="/change-password"
-                            className="text-xs text-orange-600 hover:underline font-bold cursor-pointer"
-                          >
-                            Đổi mật khẩu tạm?
-                          </Link>
-                          <span className="text-slate-300">|</span>
-                          <Link
-                            to="/forgot-password"
-                            className="text-xs text-orange-600 hover:text-orange-700 hover:underline font-bold cursor-pointer"
-                          >
-                            Quên mật khẩu?
-                          </Link>
-                        </div>
+                        <Link
+                          to="/forgot-password"
+                          className="text-xs text-orange-600 hover:text-orange-700 hover:underline font-bold cursor-pointer"
+                        >
+                          Quên mật khẩu?
+                        </Link>
                       </div>
                       <div className="relative flex items-center">
                         <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">

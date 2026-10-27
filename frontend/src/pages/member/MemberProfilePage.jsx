@@ -2,9 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { useApp } from '../../context/AppContext';
-import QrCodeSvg from '../../components/common/QrCodeSvg';
 import {
-  getMemberDigitalCard,
   getMemberHealthProfile,
   getMemberMemberships,
   getMemberProfile,
@@ -12,7 +10,6 @@ import {
   updateMemberHealthProfile,
   updateMemberProfile,
 } from '../../services/memberApi';
-import { compressImageFile } from '../../utils/imageCompressor';
 
 export default function MemberProfilePage() {
   const { currentUser, updateProfile, showToast } = useApp();
@@ -21,8 +18,6 @@ export default function MemberProfilePage() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
   const [membership, setMembership] = useState(null);
-  const [digitalCard, setDigitalCard] = useState(null);
-  const [showQrModal, setShowQrModal] = useState(false);
   const [memberAvatar, setMemberAvatar] = useState('');
   const [avatarUploading, setAvatarUploading] = useState(false);
 
@@ -33,40 +28,32 @@ export default function MemberProfilePage() {
   const handleAvatarFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setAvatarUploading(true);
-    try {
-      const compressedBase64 = await compressImageFile(file, 500, 0.85);
-      setMemberAvatar(compressedBase64);
-      const updated = await updateMemberAvatar(compressedBase64);
-      const finalAvatar = updated?.avatar || compressedBase64;
-      setMemberAvatar(finalAvatar);
-      updateProfile({ avatar: finalAvatar });
-      showToast({
-        title: 'Cập nhật thành công',
-        message: 'Ảnh đại diện hội viên F Sport đã được lưu.',
-        type: 'success',
-      });
-    } catch (err) {
-      showToast({
-        title: 'Lỗi lưu ảnh',
-        message: err.message || 'Không thể cập nhật ảnh đại diện.',
-        type: 'error',
-      });
-    } finally {
-      setAvatarUploading(false);
-      if (e.target) e.target.value = '';
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('Kích thước ảnh lớn', 'Vui lòng chọn ảnh có dung lượng dưới 2MB.', 'warning');
+      return;
     }
+    setAvatarUploading(true);
+    const reader = new FileReader();
+    reader.onload = async (uploadEvent) => {
+      const base64 = uploadEvent.target.result;
+      try {
+        setMemberAvatar(base64);
+        const updated = await updateMemberAvatar(base64);
+        updateProfile({ avatar: updated.avatar });
+        showToast('Cập nhật thành công', 'Ảnh đại diện hội viên F Sport đã được lưu.', 'success');
+      } catch (err) {
+        showToast('Lỗi lưu ảnh', err.message || 'Không thể cập nhật ảnh đại diện.', 'error');
+      } finally {
+        setAvatarUploading(false);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   useEffect(() => {
     let current = true;
-    Promise.all([
-      getMemberProfile(),
-      getMemberHealthProfile(),
-      getMemberMemberships(),
-      getMemberDigitalCard().catch(() => null),
-    ])
-      .then(([profile, health, memberships, card]) => {
+    Promise.all([getMemberProfile(), getMemberHealthProfile(), getMemberMemberships()])
+      .then(([profile, health, memberships]) => {
         if (!current) return;
         setProfileForm({
           fullName: profile.fullName || '',
@@ -92,9 +79,6 @@ export default function MemberProfilePage() {
           bmi: health.bmi ?? '',
         });
         setMembership(memberships.find((item) => item.status === 'ACTIVE') || null);
-        if (card) {
-          setDigitalCard(card);
-        }
       })
       .catch((requestError) => {
         if (current) setProfileError(requestError.message || 'Không thể tải hồ sơ từ cơ sở dữ liệu.');
@@ -179,24 +163,6 @@ export default function MemberProfilePage() {
     }
   };
 
-  const handleDownloadQr = () => {
-    const qrText = digitalCard?.qrToken || `SPORTHUB-MEMBER-${currentUser.memberId || currentUser.id}`;
-    const svgElement = document.getElementById('member-digital-qr-svg');
-    if (svgElement) {
-      const svgData = new XMLSerializer().serializeToString(svgElement);
-      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-      const svgUrl = URL.createObjectURL(svgBlob);
-      const downloadLink = document.createElement('a');
-      downloadLink.href = svgUrl;
-      downloadLink.download = `QR-${qrText}.svg`;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-      URL.revokeObjectURL(svgUrl);
-      showToast({ title: 'Đã tải mã QR', message: 'Mã QR thẻ hội viên đã được lưu.', type: 'success' });
-    }
-  };
-
   if (profileLoading) {
     return <MemberLayout><p role="status" className="p-6">Đang tải hồ sơ từ cơ sở dữ liệu...</p></MemberLayout>;
   }
@@ -266,46 +232,34 @@ export default function MemberProfilePage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* CỘT TRÁI (5 cols): Thẻ Hội Viên Kỹ Thuật Số & QR Check-in */}
+          {/* CỘT TRÁI (5 cols): Thẻ Hội Viên Kỹ Thuật Số */}
           <div className="lg:col-span-5 space-y-6">
-            {/* Digital Card Pass */}
-            <div className={`rounded-3xl p-6 text-white shadow-2xl relative overflow-hidden border transition-all ${
-              digitalCard?.tier === 'VIP'
-                ? 'bg-gradient-to-br from-slate-950 via-amber-950 to-slate-900 border-amber-500/40 shadow-amber-900/20'
-                : digitalCard?.tier === 'STANDARD'
-                ? 'bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 border-emerald-500/40 shadow-emerald-900/20'
-                : 'bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950/80 border-slate-800 shadow-orange-950/20'
-            }`}>
-              <div className="absolute top-0 right-0 w-44 h-44 bg-orange-500/15 rounded-full blur-3xl pointer-events-none"></div>
+            {/* Digital Card Preview */}
+            <div className="rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950/80 p-6 text-white shadow-2xl relative overflow-hidden border border-slate-800">
+              <div className="absolute top-0 right-0 w-36 h-36 bg-orange-500/20 rounded-full blur-2xl pointer-events-none"></div>
 
               {/* Card Header */}
-              <div className="flex items-center justify-between mb-6 relative z-10">
+              <div className="flex items-center justify-between mb-8 relative z-10">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center font-bold shadow-md">
+                  <div className="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold shadow-md">
                     <span className="material-symbols-outlined text-[18px]">bolt</span>
                   </div>
                   <div>
                     <span className="font-headline-sm text-sm font-black tracking-tight uppercase">F SPORT CENTER</span>
                     <div className="text-[9px] uppercase tracking-widest text-orange-400 font-bold">
-                      Digital Member Pass
+                      Digital Pass
                     </div>
                   </div>
                 </div>
-                <span className={`px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider ${
-                  digitalCard?.tier === 'VIP'
-                    ? 'bg-amber-500/20 border-amber-400/50 text-amber-300'
-                    : digitalCard?.tier === 'STANDARD'
-                    ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
-                    : 'bg-slate-800/90 border-slate-700 text-orange-400'
-                }`}>
-                  {digitalCard?.tierBadge || (membership?.packageName ? 'HỘI VIÊN STANDARD' : 'HỘI VIÊN CHÍNH THỨC')}
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-800/90 border border-slate-700 text-[10px] font-bold uppercase tracking-wider text-orange-400">
+                  {membership?.packageName || 'Chưa có gói hội viên'}
                 </span>
               </div>
 
-              {/* Avatar + Member Info */}
-              <div className="flex items-center justify-between mb-6 relative z-10">
+              {/* Avatar + Chip */}
+              <div className="flex items-center justify-between mb-8 relative z-10">
                 <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-2xl border-2 border-orange-500/80 overflow-hidden bg-slate-800 flex items-center justify-center shadow-lg shrink-0">
+                  <div className="w-14 h-14 rounded-full border-2 border-orange-500 overflow-hidden bg-slate-800 flex items-center justify-center shadow-md">
                     {memberAvatar ? (
                       <img src={memberAvatar} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
@@ -315,139 +269,26 @@ export default function MemberProfilePage() {
                     )}
                   </div>
                   <div>
-                    <div className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Chủ thẻ hội viên</div>
-                    <div className="font-bold text-base uppercase text-white tracking-tight">{profileForm.fullName || currentUser.name}</div>
-                    <div className="text-[11px] font-mono text-slate-300 flex items-center gap-1.5 mt-0.5">
-                      <span className="text-orange-400 font-bold">ID:</span> #{currentUser.memberId || currentUser.id}
-                      <span className="text-slate-600">·</span>
-                      <span className="text-slate-400">RFID:</span>
-                      <span className="font-semibold text-emerald-400">{digitalCard?.rfidCode || 'Chưa gán thẻ'}</span>
-                    </div>
+                    <div className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Hội viên chính thức</div>
+                    <div className="font-bold text-sm uppercase text-white">{profileForm.fullName}</div>
                   </div>
                 </div>
-                <div className="flex flex-col items-center">
-                  <span className="material-symbols-outlined text-[32px] text-orange-400 animate-pulse">
-                    contactless
-                  </span>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">NFC / RFID</span>
-                </div>
-              </div>
-
-              {/* QR Code Section inside Card */}
-              <div className="relative z-10 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md flex flex-col sm:flex-row items-center gap-4">
-                <div className="bg-white p-2.5 rounded-xl shadow-lg shrink-0 flex items-center justify-center">
-                  <QrCodeSvg
-                    text={digitalCard?.qrToken || `SPORTHUB-MEMBER-${currentUser.memberId || currentUser.id}`}
-                    size={130}
-                  />
-                </div>
-                <div className="flex-1 text-center sm:text-left space-y-2">
-                  <div className="text-xs font-bold uppercase tracking-wider text-orange-300 flex items-center justify-center sm:justify-start gap-1">
-                    <span className="material-symbols-outlined text-[16px]">qr_code_scanner</span>
-                    <span>Mã Check-in Cá Nhân</span>
-                  </div>
-                  <div className="font-mono text-[11px] font-bold text-white bg-slate-900/80 px-2 py-1 rounded-md border border-slate-700 break-all select-all">
-                    {digitalCard?.qrToken || `SPORTHUB-MEMBER-${currentUser.memberId || currentUser.id}`}
-                  </div>
-                  <div className="flex items-center justify-center sm:justify-start gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setShowQrModal(true)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-bold uppercase tracking-wider transition shadow-xs cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">fullscreen</span>
-                      <span>Phóng to</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDownloadQr}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold uppercase tracking-wider transition border border-slate-700 cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">download</span>
-                      <span>Tải QR</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card Footer Details */}
-              <div className="relative z-10 mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-                <span>Trạng thái: <strong className="text-emerald-400">HOẠT ĐỘNG</strong></span>
-                <span>Hệ thống nhận diện F Sport Check-in</span>
-              </div>
-            </div>
-
-            {/* Active Packages List Card */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-orange-500 text-[20px]">card_membership</span>
-                  <h3 className="font-bold text-slate-900 text-sm uppercase">Gói Tập Đang Kích Hoạt</h3>
-                </div>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  {digitalCard?.activePackages?.length || (membership ? 1 : 0)} gói
+                <span className="material-symbols-outlined text-[28px] text-orange-400">
+                  contactless
                 </span>
               </div>
 
-              {digitalCard?.activePackages?.length ? (
-                <div className="space-y-2.5">
-                  {digitalCard.activePackages.map((pkg) => (
-                    <div key={pkg.membershipId} className="p-3 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-between">
-                      <div>
-                        <div className="font-bold text-slate-900 text-xs">{pkg.packageName}</div>
-                        <div className="text-[11px] text-slate-500 mt-0.5">
-                          {pkg.startDate} &rarr; {pkg.endDate}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className={`text-xs font-black px-2 py-1 rounded-md ${
-                          pkg.remainingDays > 10 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                        }`}>
-                          Còn {pkg.remainingDays} ngày
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+              {/* Member Details */}
+              <div className="relative z-10 space-y-1">
+                <div className="flex items-center justify-between pt-2 text-xs font-mono text-slate-300">
+                  <span>ID: #{currentUser.memberId || currentUser.id || ''}</span>
+                  <span>HẠN: {membership?.endDate || '—'}</span>
                 </div>
-              ) : membership ? (
-                <div className="p-3 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-between">
-                  <div>
-                    <div className="font-bold text-slate-900 text-xs">{membership.packageName}</div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      Hạn: {membership.endDate || '—'}
-                    </div>
-                  </div>
-                  <span className="text-xs font-black px-2 py-1 rounded-md bg-emerald-100 text-emerald-800">
-                    Đang kích hoạt
-                  </span>
-                </div>
-              ) : (
-                <p className="text-xs text-slate-500 py-2 text-center">Chưa có gói tập nào đang kích hoạt.</p>
-              )}
-            </div>
-
-            {/* Today Bookings Card */}
-            {digitalCard?.todayBookings && digitalCard.todayBookings.length > 0 && (
-              <div className="rounded-2xl border border-blue-200 bg-blue-50/50 p-5 shadow-sm space-y-3">
-                <div className="flex items-center gap-2 border-b border-blue-100 pb-2">
-                  <span className="material-symbols-outlined text-blue-600 text-[20px]">calendar_today</span>
-                  <h3 className="font-bold text-blue-950 text-sm uppercase">Lịch Đặt Chỗ & Tập Luyện Hôm Nay</h3>
-                </div>
-                <div className="space-y-2">
-                  {digitalCard.todayBookings.map((b) => (
-                    <div key={b.bookingId} className="p-2.5 rounded-xl bg-white border border-blue-100 flex items-center justify-between text-xs">
-                      <div>
-                        <div className="font-bold text-slate-900">{b.courtName || b.activity}</div>
-                        <div className="text-[11px] text-slate-500">{b.startTime} - {b.endTime}</div>
-                      </div>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 uppercase">
-                        {b.status}
-                      </span>
-                    </div>
-                  ))}
+                <div className="text-[10px] text-slate-400">
+                  Mã thẻ: {membership?.membershipId || currentUser.id}
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
           {/* CỘT PHẢI (7 cols): Content by Active Tab */}
@@ -513,16 +354,10 @@ export default function MemberProfilePage() {
                           key={idx}
                           type="button"
                           onClick={async () => {
-                            try {
-                              setMemberAvatar(presetUrl);
-                              const updated = await updateMemberAvatar(presetUrl);
-                              const finalAvatar = updated?.avatar || presetUrl;
-                              setMemberAvatar(finalAvatar);
-                              updateProfile({ avatar: finalAvatar });
-                              showToast({ title: 'Thành công', message: 'Đã đổi ảnh đại diện.', type: 'success' });
-                            } catch (err) {
-                              showToast({ title: 'Lỗi', message: err.message || 'Không thể đổi ảnh đại diện.', type: 'error' });
-                            }
+                            setMemberAvatar(presetUrl);
+                            await updateMemberAvatar(presetUrl);
+                            updateProfile({ avatar: presetUrl });
+                            showToast('Thành công', 'Đã đổi ảnh đại diện.', 'success');
                           }}
                           className="w-7 h-7 rounded-full overflow-hidden border border-slate-300 hover:border-orange-500 hover:scale-110 transition shadow-xs cursor-pointer"
                         >
@@ -776,69 +611,6 @@ export default function MemberProfilePage() {
           </div>
         </div>
       </div>
-
-      {/* Modal Phóng to QR Thẻ Hội Viên */}
-      {showQrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl border border-slate-200 text-center space-y-4 animate-in fade-in zoom-in duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-                <span className="text-xs font-black uppercase tracking-wider text-slate-800">Mã QR Check-In Quầy</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowQrModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
-
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col items-center justify-center">
-              <QrCodeSvg
-                id="member-digital-qr-svg"
-                text={digitalCard?.qrToken || `SPORTHUB-MEMBER-${currentUser.memberId || currentUser.id}`}
-                size={220}
-              />
-              <div className="mt-3 font-mono text-xs font-bold text-slate-700 bg-white px-3 py-1.5 rounded-lg border border-slate-300 select-all">
-                {digitalCard?.qrToken || `SPORTHUB-MEMBER-${currentUser.memberId || currentUser.id}`}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <h4 className="font-bold text-slate-900 text-sm">{profileForm.fullName || currentUser.name}</h4>
-              <p className="text-xs text-slate-500">
-                Đưa mã QR này vào máy quét tại quầy lễ tân để ghi nhận vào phòng tập tức thì.
-              </p>
-              {digitalCard?.rfidCode && (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold mt-2">
-                  <span className="material-symbols-outlined text-[14px]">contactless</span>
-                  <span>Thẻ từ: {digitalCard.rfidCode}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="pt-2 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleDownloadQr}
-                className="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[16px]">download</span>
-                <span>Tải Mã QR</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowQrModal(false)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </MemberLayout>
   );
 }

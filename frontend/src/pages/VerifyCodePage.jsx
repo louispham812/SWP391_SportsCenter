@@ -13,8 +13,7 @@ export default function VerifyCodePage() {
   const queryParams = new URLSearchParams(location.search);
   const initialEmail = location.state?.email || queryParams.get('email') || '';
 
-  const [email, setEmail] = useState(initialEmail);
-  const [isEditingEmail, setIsEditingEmail] = useState(!initialEmail);
+  const [email] = useState(initialEmail); // Cố định email, không cho sửa
 
   // 6 ô số OTP
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
@@ -63,10 +62,10 @@ export default function VerifyCodePage() {
 
   // Tự động focus ô đầu tiên
   useEffect(() => {
-    if (inputRefs.current[0] && !isEditingEmail) {
+    if (inputRefs.current[0]) {
       inputRefs.current[0].focus();
     }
-  }, [isEditingEmail]);
+  }, []);
 
   const formatTimer = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -327,37 +326,17 @@ export default function VerifyCodePage() {
           {/* Content */}
           <div className="p-6 sm:p-8 space-y-6">
             
-            {/* Email Identification Info Box */}
-            <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
-                  <span className="material-symbols-outlined text-[20px]">mark_email_read</span>
-                </div>
-                <div>
-                  <p className="text-[11px] text-slate-500 uppercase tracking-wider font-bold">Email nhận mã</p>
-                  {isEditingEmail ? (
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="name@example.com"
-                      className="text-xs font-black text-slate-900 border-b border-orange-500 outline-none bg-transparent pt-0.5"
-                    />
-                  ) : (
-                    <p className="text-xs sm:text-sm font-black text-slate-900">
-                      {email || 'Chưa có email'}
-                    </p>
-                  )}
-                </div>
+            {/* Email Identification Info Box - CỐ ĐỊNH */}
+            <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
+                <span className="material-symbols-outlined text-[20px]">mark_email_read</span>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setIsEditingEmail(!isEditingEmail)}
-                className="text-xs font-bold text-orange-600 hover:text-orange-700 underline cursor-pointer"
-              >
-                {isEditingEmail ? 'Lưu' : 'Thay đổi'}
-              </button>
+              <div>
+                <p className="text-[11px] text-slate-500 uppercase tracking-wider font-bold">Email nhận mã</p>
+                <p className="text-xs sm:text-sm font-black text-slate-900">
+                  {email || 'Chưa có email'}
+                </p>
+              </div>
             </div>
 
             {/* Error Message */}

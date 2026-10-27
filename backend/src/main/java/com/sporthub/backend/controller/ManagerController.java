@@ -1,36 +1,30 @@
 package com.sporthub.backend.controller;
 
-import com.sporthub.backend.dto.PendingStaffRegistrationResponse;
-import com.sporthub.backend.dto.ManagerUserResponse;
+import com.sporthub.backend.dto.CreateUserRequest;
 import com.sporthub.backend.dto.ManagerMemberResponse;
 import com.sporthub.backend.dto.ManagerPackageRequest;
-import com.sporthub.backend.entity.User;
+import com.sporthub.backend.dto.ManagerUserResponse;
+import com.sporthub.backend.dto.MembershipQuotaResponse;
+import com.sporthub.backend.dto.PendingStaffRegistrationResponse;
 import com.sporthub.backend.entity.MembershipPackage;
 import com.sporthub.backend.entity.PublicSport;
+import com.sporthub.backend.entity.User;
 import com.sporthub.backend.repository.MembershipPackageRepository;
 import com.sporthub.backend.repository.PublicSportRepository;
 import com.sporthub.backend.repository.UserRepository;
+import com.sporthub.backend.service.AuditLogService;
+import com.sporthub.backend.service.AuthService;
+import com.sporthub.backend.service.EmailService;
+import com.sporthub.backend.service.MembershipService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
-
-import com.sporthub.backend.dto.CreateUserRequest;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Locale;
@@ -42,13 +36,15 @@ import java.util.Optional;
 public class ManagerController {
 
     private static final List<String> STAFF_ROLES = List.of("COACH", "RECEPTIONIST");
+    
     private final UserRepository userRepository;
     private final MembershipPackageRepository packageRepository;
     private final PublicSportRepository sportRepository;
     private final PasswordEncoder passwordEncoder;
-    private final com.sporthub.backend.service.EmailService emailService;
-    private final com.sporthub.backend.service.AuditLogService auditLogService;
-    private final com.sporthub.backend.service.AuthService authService;
+    private final EmailService emailService;
+    private final AuditLogService auditLogService;
+    private final AuthService authService;
+    private final MembershipService membershipService;
 
     @Autowired
     public ManagerController(
@@ -56,9 +52,10 @@ public class ManagerController {
             MembershipPackageRepository packageRepository,
             PublicSportRepository sportRepository,
             PasswordEncoder passwordEncoder,
-            com.sporthub.backend.service.EmailService emailService,
-            com.sporthub.backend.service.AuditLogService auditLogService,
-            com.sporthub.backend.service.AuthService authService) {
+            EmailService emailService,
+            AuditLogService auditLogService,
+            AuthService authService,
+            MembershipService membershipService) {
         this.userRepository = userRepository;
         this.packageRepository = packageRepository;
         this.sportRepository = sportRepository;
@@ -66,6 +63,7 @@ public class ManagerController {
         this.emailService = emailService;
         this.auditLogService = auditLogService;
         this.authService = authService;
+        this.membershipService = membershipService;
     }
 
     @GetMapping("/staff-registrations")
@@ -210,6 +208,183 @@ public class ManagerController {
         return packageRepository.save(membershipPackage);
     }
 
+    @PatchMapping("/members/{userId}/lock")
+    @Transactional
+    public ManagerMemberResponse lockMember(
+            @PathVariable Long userId,
+            Authentication authentication) {
+        requireManager(authentication);
+        return updateMemberStatus(userId, "ACTIVE", "LOCKED");
+    }
+
+    @PatchMapping("/members/{userId}/unlock")
+    @Transactional
+    public ManagerMemberResponse unlockMember(
+            @PathVariable Long userId,
+            Authentication authentication) {
+        requireManager(authentication);
+        return updateMemberStatus(userId, "LOCKED", "ACTIVE");
+    }
+
+    @PatchMapping("/staff-registrations/{userId}/approve")
+    @Transactional
+    public PendingStaffRegistrationResponse approveRegistration(
+            @PathVariable Long userId,
+            Authentication authentication) {
+        requireManager(authentication);
+        return decide(userId, "ACTIVE");
+    }
+
+    @PatchMapping("/staff-registrations/{userId}/reject")
+    @Transactional
+    public PendingStaffRegistrationResponse rejectRegistration(
+            @PathVariable Long userId,
+            Authentication authentication) {
+        requireManager(authentication);
+        return decide(userId, "INACTIVE");
+    }
+
+    /**
+     * MGR-08: Manager approve membership
+     * PENDING_APPROVAL -> ACTIVE
+     */
+    @PatchMapping("/memberships/{membershipId}/approve")
+    @Transactional
+    public MembershipQuotaResponse approveMembership(
+            @PathVariable Long membershipId,
+            Authentication authentication) {
+        requireManager(authentication);
+        
+        User manager = userRepository.findByEmailIgnoreCase(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Manager không tồn tại"));
+
+        membershipService.approveMembership(membershipId, manager.getUserId());
+
+        return new MembershipQuotaResponse(
+                membershipId,
+                "Membership Package", 
+                0,
+                0
+        );
+    }
+
+    /**
+     * MGR-09: Manager reject membership
+     * PENDING_APPROVAL -> REJECTED
+     */
+    @PatchMapping("/memberships/{membershipId}/reject")
+    @Transactional
+    public String rejectMembership(
+            @PathVariable Long membershipId,
+            @RequestParam(required = false) String reason,
+            Authentication authentication) {
+        requireManager(authentication);
+        
+        User manager = userRepository.findByEmailIgnoreCase(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Manager không tồn tại"));
+
+        String rejectReason = reason == null || reason.isBlank() 
+                ? "Không đạt yêu cầu duyệt" 
+                : reason.trim();
+        
+        membershipService.rejectMembership(membershipId, rejectReason, manager.getUserId());
+
+        return "Membership đã bị từ chối thành công";
+    }
+
+    @PostMapping("/users")
+    @Transactional
+    public ManagerUserResponse createUser(
+            @RequestBody CreateUserRequest request,
+            Authentication authentication) {
+        requireStaffOrManager(authentication);
+
+        String fullName = request.fullName() == null ? "" : request.fullName().trim();
+        String email = request.email() == null ? "" : request.email().trim().toLowerCase(Locale.ROOT);
+        String phone = request.phone() == null ? "" : request.phone().trim();
+        String password = request.password();
+        String targetRole = request.role() == null ? "" : request.role().trim().toUpperCase(Locale.ROOT);
+
+        if (fullName.isEmpty() || email.isEmpty() || phone.isEmpty() || password == null || password.isBlank() || targetRole.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng điền đầy đủ các thông tin bắt buộc.");
+        }
+        if (fullName.length() > 100 || email.length() > 100 || phone.length() > 15) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên, email hoặc số điện thoại vượt quá độ dài cho phép.");
+        }
+        if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Địa chỉ email không hợp lệ.");
+        }
+        if (password.length() < 8) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mật khẩu phải có ít nhất 8 ký tự.");
+        }
+        
+        Optional<User> existingUser = authService.findUserByEmail(email);
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
+            String status = user.getStatus();
+            
+            if ("PENDING".equalsIgnoreCase(status)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                    "Email này đang chờ xác thực OTP. Người dùng có thể đăng nhập để nhận lại mã OTP.");
+            } else if ("ACTIVE".equalsIgnoreCase(status)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                    String.format("Email đã được sử dụng bởi %s (%s).", user.getFullName(), user.getRole()));
+            } else if ("LOCKED".equalsIgnoreCase(status)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                    "Email này tồn tại với tài khoản bị khóa. Vui lòng kiểm tra lại.");
+            } else {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Email này đã tồn tại trong hệ thống.");
+            }
+        }
+
+        boolean isManagerUser = isManager(authentication);
+        if (!isManagerUser) {
+            if (!List.of("MEMBER", "COACH", "RECEPTIONIST").contains(targetRole)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Lễ tân chỉ có quyền tạo tài khoản Hội viên, Huấn luyện viên hoặc Lễ tân.");
+            }
+        } else {
+            if (!List.of("MEMBER", "COACH", "RECEPTIONIST", "MANAGER", "ADMIN").contains(targetRole)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vai trò không hợp lệ.");
+            }
+        }
+
+        boolean requirePasswordChange = true;
+
+        User user = User.builder()
+                .fullName(fullName)
+                .email(email)
+                .phone(phone)
+                .passwordHash(passwordEncoder.encode(password))
+                .role(targetRole)
+                .status("ACTIVE")
+                .requirePasswordChange(requirePasswordChange)
+                .build();
+
+        User savedUser = userRepository.save(user);
+        
+        try {
+            emailService.sendTemporaryPasswordEmail(savedUser.getEmail(), savedUser.getFullName(), password, savedUser.getRole());
+            auditLogService.logSuccess("CREATE_USER_ADMIN_PANEL", savedUser.getEmail(), savedUser.getUserId(), 
+                    "User created via Admin Panel | Role: " + savedUser.getRole() + " | RequirePasswordChange: true | Temporary password sent");
+        } catch (Exception e) {
+            auditLogService.logFailure("CREATE_USER_ADMIN_PANEL", 
+                    savedUser.getEmail(), savedUser.getUserId(), 
+                    "User created but email failed | Role: " + savedUser.getRole(), 
+                    e.getMessage());
+        }
+        
+        return new ManagerUserResponse(
+                savedUser.getUserId(),
+                savedUser.getFullName(),
+                savedUser.getEmail(),
+                savedUser.getPhone(),
+                savedUser.getRole(),
+                savedUser.getStatus(),
+                savedUser.getCreatedAt());
+    }
+
     private void validatePackage(ManagerPackageRequest request) {
         if (request.name() == null || request.name().isBlank() || request.name().trim().length() > 100) {
             throw new ResponseStatusException(
@@ -248,45 +423,6 @@ public class ManagerController {
                         ? null
                         : request.description().trim());
         membershipPackage.setStatus(request.status().trim().toUpperCase(Locale.ROOT));
-    }
-
-    public record PackageStatusRequest(String status) {
-    }
-
-    @PatchMapping("/members/{userId}/lock")
-    @Transactional
-    public ManagerMemberResponse lockMember(
-            @PathVariable Long userId,
-            Authentication authentication) {
-        requireManager(authentication);
-        return updateMemberStatus(userId, "ACTIVE", "LOCKED");
-    }
-
-    @PatchMapping("/members/{userId}/unlock")
-    @Transactional
-    public ManagerMemberResponse unlockMember(
-            @PathVariable Long userId,
-            Authentication authentication) {
-        requireManager(authentication);
-        return updateMemberStatus(userId, "LOCKED", "ACTIVE");
-    }
-
-    @PatchMapping("/staff-registrations/{userId}/approve")
-    @Transactional
-    public PendingStaffRegistrationResponse approveRegistration(
-            @PathVariable Long userId,
-            Authentication authentication) {
-        requireManager(authentication);
-        return decide(userId, "ACTIVE");
-    }
-
-    @PatchMapping("/staff-registrations/{userId}/reject")
-    @Transactional
-    public PendingStaffRegistrationResponse rejectRegistration(
-            @PathVariable Long userId,
-            Authentication authentication) {
-        requireManager(authentication);
-        return decide(userId, "INACTIVE");
     }
 
     private PendingStaffRegistrationResponse decide(Long userId, String status) {
@@ -334,103 +470,6 @@ public class ManagerController {
                 savedUser.getCreatedAt());
     }
 
-    @PostMapping("/users")
-    @Transactional
-    public ManagerUserResponse createUser(
-            @RequestBody CreateUserRequest request,
-            Authentication authentication) {
-        requireStaffOrManager(authentication);
-
-        String fullName = request.fullName() == null ? "" : request.fullName().trim();
-        String email = request.email() == null ? "" : request.email().trim().toLowerCase(Locale.ROOT);
-        String phone = request.phone() == null ? "" : request.phone().trim();
-        String password = request.password();
-        String targetRole = request.role() == null ? "" : request.role().trim().toUpperCase(Locale.ROOT);
-
-        if (fullName.isEmpty() || email.isEmpty() || phone.isEmpty() || password == null || password.isBlank() || targetRole.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng điền đầy đủ các thông tin bắt buộc.");
-        }
-        if (fullName.length() > 100 || email.length() > 100 || phone.length() > 15) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên, email hoặc số điện thoại vượt quá độ dài cho phép.");
-        }
-        if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Địa chỉ email không hợp lệ.");
-        }
-        if (password.length() < 8) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mật khẩu phải có ít nhất 8 ký tự.");
-        }
-        
-        // Check email availability với logic theo status
-        Optional<User> existingUser = authService.findUserByEmail(email);
-        if (existingUser.isPresent()) {
-            User user = existingUser.get();
-            String status = user.getStatus();
-            
-            if ("PENDING".equalsIgnoreCase(status)) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, 
-                    "Email này đang chờ xác thực OTP. Người dùng có thể đăng nhập để nhận lại mã OTP.");
-            } else if ("ACTIVE".equalsIgnoreCase(status)) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, 
-                    String.format("Email đã được sử dụng bởi %s (%s).", user.getFullName(), user.getRole()));
-            } else if ("LOCKED".equalsIgnoreCase(status)) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, 
-                    "Email này tồn tại với tài khoản bị khóa. Vui lòng kiểm tra lại.");
-            } else {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Email này đã tồn tại trong hệ thống.");
-            }
-        }
-
-        boolean isManagerUser = isManager(authentication);
-        if (!isManagerUser) {
-            // Lễ tân tạo ở trang quản trị: MEMBER, COACH hoặc RECEPTIONIST
-            if (!List.of("MEMBER", "COACH", "RECEPTIONIST").contains(targetRole)) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Lễ tân chỉ có quyền tạo tài khoản Hội viên, Huấn luyện viên hoặc Lễ tân.");
-            }
-        } else {
-            // Manager tạo ở trang quản trị: cả 4 vai trò
-            if (!List.of("MEMBER", "COACH", "RECEPTIONIST", "MANAGER", "ADMIN").contains(targetRole)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vai trò không hợp lệ.");
-            }
-        }
-
-        // Rule: TẤT CẢ user được tạo qua Admin Panel đều phải đổi password lần đầu
-        boolean requirePasswordChange = true;
-
-        User user = User.builder()
-                .fullName(fullName)
-                .email(email)
-                .phone(phone)
-                .passwordHash(passwordEncoder.encode(password))
-                .role(targetRole)
-                .status("ACTIVE")
-                .requirePasswordChange(requirePasswordChange)
-                .build();
-
-        User savedUser = userRepository.save(user);
-        
-        // Rule: LUÔN gửi email mật khẩu tạm khi tạo user qua Admin Panel (Manager hoặc Receptionist)
-        // TẤT CẢ user được tạo qua admin đều requirePasswordChange = true
-        try {
-            emailService.sendTemporaryPasswordEmail(savedUser.getEmail(), savedUser.getFullName(), password, savedUser.getRole());
-            auditLogService.logSuccess("CREATE_USER_ADMIN_PANEL", savedUser.getEmail(), savedUser.getUserId(), 
-                    "User created via Admin Panel | Role: " + savedUser.getRole() + " | RequirePasswordChange: true | Temporary password sent");
-        } catch (Exception e) {
-            auditLogService.logFailure("CREATE_USER_ADMIN_PANEL", 
-                    savedUser.getEmail(), savedUser.getUserId(), 
-                    "User created but email failed | Role: " + savedUser.getRole(), 
-                    e.getMessage());
-        }
-        
-        return new ManagerUserResponse(
-                savedUser.getUserId(),
-                savedUser.getFullName(),
-                savedUser.getEmail(),
-                savedUser.getPhone(),
-                savedUser.getRole(),
-                savedUser.getStatus(),
-                savedUser.getCreatedAt());
-    }
-
     private void requireStaffOrManager(Authentication authentication) {
         boolean hasAccess = authentication != null && authentication.getAuthorities().stream()
                 .anyMatch(authority -> List.of("ROLE_RECEPTIONIST", "ROLE_MANAGER", "ROLE_ADMIN")
@@ -452,4 +491,6 @@ public class ManagerController {
                     HttpStatus.FORBIDDEN, "Chỉ Quản lý mới được thực hiện thao tác này.");
         }
     }
+
+    public record PackageStatusRequest(String status) {}
 }

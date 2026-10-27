@@ -36,8 +36,9 @@ class ManagerControllerTest {
     private final EmailService emailService = mock(EmailService.class);
     private final AuditLogService auditLogService = mock(AuditLogService.class);
     private final com.sporthub.backend.service.AuthService authService = mock(com.sporthub.backend.service.AuthService.class);
+    private final com.sporthub.backend.service.MembershipService membershipService = mock(com.sporthub.backend.service.MembershipService.class);
     private final ManagerController controller =
-            new ManagerController(userRepository, packageRepository, sportRepository, passwordEncoder, emailService, auditLogService, authService);
+            new ManagerController(userRepository, packageRepository, sportRepository, passwordEncoder, emailService, auditLogService, authService, membershipService);
     private final UsernamePasswordAuthenticationToken manager =
             new UsernamePasswordAuthenticationToken(
                     "1", "", List.of(new SimpleGrantedAuthority("ROLE_MANAGER")));

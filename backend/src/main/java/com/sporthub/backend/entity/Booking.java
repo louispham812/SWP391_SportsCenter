@@ -1,5 +1,6 @@
 package com.sporthub.backend.entity;
 
+import com.sporthub.backend.enums.AttendanceStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -29,9 +30,11 @@ public class Booking {
     @Column(length = 20)
     private String status = "BOOKED"; // BOOKED, WAITLIST, CANCELLED
 
+    // Changed to enum (migration 003 expanded values)
     @Builder.Default
-    @Column(name = "attendance_status", length = 20)
-    private String attendanceStatus = "PENDING"; // PENDING, PRESENT, ABSENT
+    @Enumerated(EnumType.STRING)
+    @Column(name = "attendance_status", length = 30)
+    private AttendanceStatus attendanceStatus = AttendanceStatus.PENDING;
 
     @Column(name = "coach_note", columnDefinition = "NVARCHAR(MAX)")
     private String coachNote;
@@ -41,4 +44,12 @@ public class Booking {
 
     @Column(name = "payment_id")
     private Long paymentId;
+
+    // Quota tracking fields (added by migration 003)
+    @Builder.Default
+    @Column(name = "uses_membership_quota")
+    private Boolean usesMembershipQuota = false;
+
+    @Column(name = "membership_id")
+    private Long membershipId;
 }

@@ -14,7 +14,12 @@ public record BookingQuoteResponse(
         BigDecimal amount,
         BigDecimal originalAmount,
         BigDecimal discountAmount,
-        String discountLabel) {
+        String discountLabel,
+        // NEW: Quota info (null nếu không có gói hoặc không đủ quota)
+        Boolean canUseQuota,
+        Integer quotaRequired,
+        Integer quotaAvailable,
+        String quotaMessage) {
 
     public BookingQuoteResponse(
             String bookingType,
@@ -25,6 +30,24 @@ public record BookingQuoteResponse(
             LocalDateTime startTime,
             LocalDateTime endTime,
             BigDecimal amount) {
-        this(bookingType, itemId, itemName, sportName, location, startTime, endTime, amount, amount, BigDecimal.ZERO, null);
+        this(bookingType, itemId, itemName, sportName, location, startTime, endTime, 
+             amount, amount, BigDecimal.ZERO, null, false, 0, 0, null);
+    }
+    
+    // Constructor với quota info
+    public BookingQuoteResponse(
+            String bookingType,
+            Long itemId,
+            String itemName,
+            String sportName,
+            String location,
+            LocalDateTime startTime,
+            LocalDateTime endTime,
+            BigDecimal amount,
+            BigDecimal originalAmount,
+            BigDecimal discountAmount,
+            String discountLabel) {
+        this(bookingType, itemId, itemName, sportName, location, startTime, endTime, 
+             amount, originalAmount, discountAmount, discountLabel, false, 0, 0, null);
     }
 }
