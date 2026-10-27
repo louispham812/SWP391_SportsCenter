@@ -11,7 +11,6 @@ import {
 } from '../../services/bookingApi';
 import { apiRequest } from '../../services/apiClient';
 import PaymentMethodSelector from '../../components/common/PaymentMethodSelector';
-import { CardGridSkeleton, ScheduleSkeleton } from '../../components/common/Skeleton';
 import { getSportMedia } from '../../utils/mediaMap';
 
 const formatMoney = (amount) => new Intl.NumberFormat('vi-VN', {
@@ -191,7 +190,15 @@ function SportPicker({ bookingType }) {
     >
       <ErrorNotice error={error} />
       {loading ? (
-        <CardGridSkeleton count={6} cols="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" />
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="animate-pulse rounded-3xl border border-slate-200 bg-white p-4">
+              <div className="h-44 w-full rounded-2xl bg-slate-100" />
+              <div className="mt-4 h-5 w-3/4 rounded bg-slate-100" />
+              <div className="mt-2 h-4 w-1/2 rounded bg-slate-100" />
+            </div>
+          ))}
+        </div>
       ) : sports.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500">
           Hiện tại chưa có bộ môn nào đang mở dịch vụ. Vui lòng quay lại sau.
@@ -368,7 +375,7 @@ function CourtPicker({ sportId }) {
     >
       <ErrorNotice error={error} />
       {loading ? (
-        <ScheduleSkeleton rows={4} cols={7} />
+        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Đang tải sân và giờ trống...</div>
       ) : slots.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Hiện không có sân hoặc khung giờ trống trong 14 ngày tới.</div>
       ) : (
@@ -554,7 +561,7 @@ function ClassPicker({ sportId }) {
     <PageFrame title="Chọn lớp học và thời khóa biểu" description="Chọn đúng lớp, ngày học và mức phí trước khi xác nhận thanh toán.">
       <ErrorNotice error={error} />
       {loading ? (
-        <CardGridSkeleton count={4} cols="grid gap-4 md:grid-cols-2" />
+        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Đang tải lớp học từ database...</div>
       ) : classes.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Chưa có lớp sắp diễn ra cho bộ môn này.</div>
       ) : (
@@ -937,29 +944,24 @@ function CheckoutPage({ bookingType, itemId }) {
         return;
       }
 
-      // Deduct requiredQuota sessions from quota and persist
-      const updatedQuota = {
-        ...memberQuota,
-        usedQuota: memberQuota.usedQuota + requiredQuota,
-        remainingQuota: memberQuota.remainingQuota - requiredQuota,
-      };
-      setMemberQuota(updatedQuota);
-      localStorage.setItem('sports_center_member_quota', JSON.stringify(updatedQuota));
-
-      const confirmation = {
-        referenceCode: `BK-QTA-${Date.now().toString().slice(-6)}`,
-        itemName: quote.itemName,
-        sportName: quote.sportName,
-        location: quote.location,
-        startTime: quote.startTime,
-        endTime: quote.endTime,
-        amountPaid: 0,
-        paymentStatus: 'ĐÃ KHẤU TRỪ QUOTA GÓI',
-        paymentMethod: 'MEMBERSHIP_QUOTA',
-        quotaNote: `Đã cấn trừ ${requiredQuota} buổi từ ${memberQuota.packageName}. Số dư còn lại: ${updatedQuota.remainingQuota} buổi.`,
-      };
-
-      navigate('/member/book/confirmation', { replace: true, state: { confirmation } });
+      // Xử lý thanh toán bằng quota - Backend tính toán và trừ quota
+      try {
+        const confirmation = await checkoutBooking(
+          bookingType.toUpperCase(),
+          itemId,
+          startTime,
+          endTime,
+          'MEMBERSHIP_QUOTA',
+          true  // useQuota = true
+        );
+        
+        // Backend đã trả về quotaMessage, không tự tạo
+        navigate('/member/book/confirmation', { replace: true, state: { confirmation } });
+      } catch (requestError) {
+        setError(requestError.message || 'Không thể đặt chỗ bằng quota.');
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
 
@@ -1185,7 +1187,7 @@ function CheckoutPage({ bookingType, itemId }) {
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[16px] text-orange-500">confirmation_number</span>
-                Mã Giảm Giá / Voucher
+                Mã Giảm Giá / Voucher (MGR-18)
               </label>
 
               {appliedVoucher ? (
@@ -1279,10 +1281,10 @@ function BookingConfirmationPage() {
           {formatDate(confirmation.startTime)} — {new Date(confirmation.endTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
         </p>
 
-        {confirmation.quotaNote && (
+        {confirmation.quotaMessage && (
           <div className="p-3.5 rounded-xl bg-orange-50 border border-orange-200 text-xs font-semibold text-orange-900 flex items-center gap-2">
             <span className="material-symbols-outlined text-orange-600 text-[18px]">card_membership</span>
-            <span>{confirmation.quotaNote}</span>
+            <span>{confirmation.quotaMessage}</span>
           </div>
         )}
 

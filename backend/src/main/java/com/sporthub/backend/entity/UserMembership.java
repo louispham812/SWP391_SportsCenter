@@ -32,4 +32,17 @@ public class UserMembership {
 
     @Column(length = 20)
     private String status;
+
+    // Quota tracking fields (added by migration 001)
+    @Column(name = "remaining_quota_sessions")
+    private Integer remainingQuotaSessions = 0;
+
+    @Column(name = "held_quota_sessions")
+    private Integer heldQuotaSessions = 0;
+
+    @Column(name = "used_quota_sessions")
+    private Integer usedQuotaSessions = 0;
+
+    @Column(name = "initial_quota_sessions")
+    private Integer initialQuotaSessions = 0;
 }

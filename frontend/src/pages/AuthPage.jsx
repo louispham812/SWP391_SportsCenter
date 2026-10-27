@@ -125,9 +125,54 @@ export default function AuthPage() {
         }),
       });
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response));
+        // ===== FIX MỚI: XỬ LÝ PENDING_VERIFICATION =====
+        const errorData = await response.json().catch(() => null);
+        
+        // Check nếu là lỗi PENDING_VERIFICATION
+        if (errorData && errorData.error === 'PENDING_VERIFICATION') {
+          // Hiển thị thông báo từ backend
+          setAuthNotice(errorData.message);
+          
+          // Chuyển hướng đến trang verify OTP sau 2 giây
+          setTimeout(() => {
+            navigate('/verify-otp', {
+              state: {
+                email: errorData.email,
+                fromLogin: true, // Đánh dấu là từ login
+              }
+            });
+          }, 2000);
+          
+          return; // Dừng xử lý, không throw error
+        }
+        // ===== KẾT THÚC FIX MỚI =====
+        
+        // Nếu không phải PENDING_VERIFICATION, xử lý lỗi bình thường
+        throw new Error(errorData?.message || await getErrorMessage(response));
       }
-      authenticate(await response.json());
+      
+      const user = await response.json();
+      
+      // ✅ CHECK requirePasswordChange flag (Staff cần đổi password lần đầu)
+      if (user.requirePasswordChange === true) {
+        // Lưu token tạm để /change-password dùng
+        localStorage.setItem('authToken', user.token);
+        localStorage.setItem('tempUserEmail', user.email);
+        
+        navigate('/change-password', {
+          state: {
+            email: user.email,
+            fullName: user.fullName,
+            fromLogin: true,
+            message: 'Bạn cần đổi mật khẩu tạm thời để tiếp tục sử dụng hệ thống.'
+          }
+        });
+        return;
+      }
+      
+      // Normal flow: authenticate user
+      authenticate(user);
+      
     } catch (error) {
       setAuthError(getRequestErrorMessage(error, 'Đăng nhập'));
     } finally {
@@ -441,21 +486,12 @@ export default function AuthPage() {
                         <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
                           Mật khẩu
                         </label>
-                        <div className="flex items-center gap-2">
-                          <Link
-                            to="/change-password"
-                            className="text-xs text-orange-600 hover:underline font-bold cursor-pointer"
-                          >
-                            Đổi mật khẩu tạm?
-                          </Link>
-                          <span className="text-slate-300">|</span>
-                          <Link
-                            to="/forgot-password"
-                            className="text-xs text-orange-600 hover:text-orange-700 hover:underline font-bold cursor-pointer"
-                          >
-                            Quên mật khẩu?
-                          </Link>
-                        </div>
+                        <Link
+                          to="/forgot-password"
+                          className="text-xs text-orange-600 hover:text-orange-700 hover:underline font-bold cursor-pointer"
+                        >
+                          Quên mật khẩu?
+                        </Link>
                       </div>
                       <div className="relative flex items-center">
                         <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">

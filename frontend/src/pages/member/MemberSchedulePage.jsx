@@ -26,6 +26,13 @@ const formatShortDate = (date) =>
     month: '2-digit',
   });
 
+const formatFullDate = (date) =>
+  date.toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
 const getDateKey = (date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -246,14 +253,6 @@ export default function MemberSchedulePage() {
           </div>
         </div>
 
-        {/* BR-10 Policy Alert Banner */}
-        <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-2xl flex items-start gap-3 text-xs text-blue-900">
-          <span className="material-symbols-outlined text-blue-600 text-[20px] shrink-0 mt-0.5">policy</span>
-          <div className="leading-relaxed">
-            <strong>Quy định hủy/đổi lịch &amp; hoàn tiền (BR-10):</strong> Hội viên được phép hủy đặt sân hoặc lớp học trực tuyến <strong>trước giờ bắt đầu ít nhất 2 tiếng</strong> để nhận hoàn trả 100% chi phí vào sổ giao dịch. Trong vòng dưới 2 tiếng trước giờ diễn ra, tính năng hủy trực tuyến sẽ tự động đóng nhằm đảm bảo quyền lợi vận hành sân bãi và huấn luyện viên.
-          </div>
-        </div>
-
         {/* =========================================
             2. WEEK NAVIGATOR & VIEW SWITCHER
            ========================================= */}
@@ -438,7 +437,7 @@ export default function MemberSchedulePage() {
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-black text-slate-900">{weekday}</span>
                           <span className="text-xs text-slate-500 font-medium">
-                            Ngày {date.toLocaleDateString('vi-VN')}
+                            {formatFullDate(date)}
                           </span>
                           {isToday && (
                             <span className="px-2 py-0.5 rounded-full bg-orange-500 text-white text-[10px] font-black uppercase tracking-wider shadow-xs">
@@ -806,9 +805,9 @@ export default function MemberSchedulePage() {
               <div className="text-center space-y-1">
                 <h3 className="text-lg font-black text-slate-900">Xác Nhận Hủy Lịch Tập?</h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Bạn có chắc muốn hủy <strong>"{cancelingBooking.title}"</strong> vào lúc{' '}
-                  <strong>{formatTime(cancelingBooking.startTime)}</strong> ngày{' '}
-                  <strong>{new Date(cancelingBooking.startTime).toLocaleDateString('vi-VN')}</strong>?
+                  Bạn có chắc muốn hủy <strong className="text-slate-700">"{cancelingBooking.title}"</strong> vào lúc{' '}
+                  <strong className="text-orange-600">{formatTime(cancelingBooking.startTime)}</strong> ngày{' '}
+                  <strong className="text-slate-700">{formatFullDate(new Date(cancelingBooking.startTime))}</strong>?
                 </p>
               </div>
 
