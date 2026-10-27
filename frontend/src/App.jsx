@@ -35,6 +35,7 @@ import ReceptionShiftReportPage from './pages/receptionist/ReceptionShiftReportP
 import ReceptionEquipmentPage from './pages/receptionist/ReceptionEquipmentPage';
 
 // Coach Portal Pages (Chỉ giữ các trang đã tạo)
+import CoachDashboardPage from './pages/coach/CoachDashboardPage';
 import CoachSchedulePage from './pages/coach/CoachSchedulePage';
 import CoachStudentsPage from './pages/coach/CoachStudentsPage';
 import CoachAttendancePage from './pages/coach/CoachAttendancePage';
@@ -126,7 +127,7 @@ function App() {
           <Route path="/receptionist/shift" element={<RequireRole role="receptionist"><ReceptionShiftReportPage /></RequireRole>} />
 
           {/* Coach Routes */}
-          <Route path="/coach" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
+          <Route path="/coach" element={<RequireRole role="coach"><CoachDashboardPage /></RequireRole>} />
           <Route path="/coach/schedule" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
           <Route path="/coach/students" element={<RequireRole role="coach"><CoachStudentsPage /></RequireRole>} />
           <Route path="/coach/attendance" element={<RequireRole role="coach"><CoachAttendancePage /></RequireRole>} />

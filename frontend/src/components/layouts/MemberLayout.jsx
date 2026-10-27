@@ -5,7 +5,7 @@ import { useApp } from '../../context/AppContext';
 export default function MemberLayout({ children }) {
   const { currentUser } = useApp();
   const memberMenu = [
-    { label: 'Tổng quan hội viên', path: '/member', icon: 'dashboard' },
+    { label: 'Tổng quan', path: '/member', icon: 'dashboard' },
     { label: 'Gói tập & Quyền lợi', path: '/member/packages', icon: 'card_membership' },
     { label: 'Đăng ký lớp học', path: '/member/classes', icon: 'school' },
     { label: 'Đặt sân thể thao', path: '/member/book/court/sports', icon: 'sports_tennis' },

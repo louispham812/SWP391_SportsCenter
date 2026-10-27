@@ -8,13 +8,13 @@ export default function CoachLayout({ children }) {
   const { currentUser } = useApp();
 
   const coachMenu = [
-    { label: 'Lịch giảng dạy tuần', path: '/coach', icon: 'calendar_month' },
+    { label: 'Tổng quan', path: '/coach', icon: 'dashboard' },
+    { label: 'Lịch giảng dạy tuần', path: '/coach/schedule', icon: 'calendar_month' },
     { label: 'Học viên của tôi', path: '/coach/students', icon: 'groups' },
     { label: 'Điểm danh & Nhận xét', path: '/coach/attendance', icon: 'fact_check' },
     { label: 'Đánh giá từ học viên', path: '/coach/reviews', icon: 'star' },
     { label: 'Thông báo lịch dạy', path: '/coach/notifications', icon: 'notifications' },
     { label: 'Hồ sơ & Thẻ HLV', path: '/coach/profile', icon: 'badge' },
-    // { label: 'Lịch toàn trung tâm', path: '/member/schedule', icon: 'stadium' },
   ];
 
   return (

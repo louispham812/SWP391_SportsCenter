@@ -58,7 +58,7 @@ export default function PortalLayout({
 
   // System pages directory for quick jump
   const systemPages = [
-    { title: 'Tổng quan Hội viên', subtitle: 'Bảng điều khiển cá nhân, lịch tập hôm nay', path: '/member', icon: 'dashboard', roleName: 'Hội viên' },
+    { title: 'Tổng quan', subtitle: 'Bảng điều khiển cá nhân, lịch tập hôm nay', path: '/member', icon: 'dashboard', roleName: 'Hội viên' },
     { title: 'Gói tập & Quyền lợi', subtitle: 'Xem gói tập, gia hạn và nâng cấp thẻ', path: '/member/packages', icon: 'card_membership', roleName: 'Hội viên' },
     { title: 'Đăng ký lớp học', subtitle: 'Đăng ký và hủy lịch lớp học thể thao theo kỳ', path: '/member/classes', icon: 'school', roleName: 'Hội viên' },
     { title: 'Đặt sân chơi', subtitle: 'Chọn môn thể thao, sân, khung giờ và thanh toán', path: '/member/book/court/sports', icon: 'sports_tennis', roleName: 'Hội viên' },
@@ -72,7 +72,8 @@ export default function PortalLayout({
     { title: 'Hồ sơ & Thẻ HLV', subtitle: 'Thông tin cá nhân, thẻ số HLV, chuyên môn và bằng cấp', path: '/coach/profile', icon: 'badge', roleName: 'HLV' },
     { title: 'Check-in Lễ tân tại quầy', subtitle: 'Quét thẻ RFID, tìm kiếm hội viên, mở tủ đồ', path: '/receptionist', icon: 'how_to_reg', roleName: 'Lễ tân' },
     { title: 'Bán hàng POS & Thu ngân', subtitle: 'Bán gói tập, nước uống, thiết bị thể thao', path: '/receptionist/pos', icon: 'point_of_sale', roleName: 'Lễ tân' },
-    { title: 'Lịch dạy HLV trong tuần', subtitle: 'Lịch ca dạy, phòng tập, số lượng học viên', path: '/coach', icon: 'calendar_today', roleName: 'HLV' },
+    { title: 'Tổng quan', subtitle: 'Bảng điều khiển HLV, ca dạy hôm nay và hiệu suất', path: '/coach', icon: 'dashboard', roleName: 'HLV' },
+    { title: 'Lịch dạy HLV trong tuần', subtitle: 'Lịch ca dạy, phòng tập, số lượng học viên', path: '/coach/schedule', icon: 'calendar_month', roleName: 'HLV' },
     { title: 'Học viên của tôi', subtitle: 'Hồ sơ học viên, mục tiêu thể chất PAR-Q', path: '/coach/students', icon: 'groups', roleName: 'HLV' },
     { title: 'Điểm danh & Đánh giá buổi tập', subtitle: 'Ghi nhận chuyên cần, gửi bài tập về nhà', path: '/coach/attendance', icon: 'fact_check', roleName: 'HLV' },
     { title: 'Tổng quan Quản lý Trung tâm', subtitle: 'Doanh thu, tỉ lệ lấp đầy sân, báo cáo vận hành', path: '/admin', icon: 'grid_view', roleName: 'Admin' },

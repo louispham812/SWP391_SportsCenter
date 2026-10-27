@@ -116,8 +116,17 @@ export default function MemberDashboardPage() {
 
   return (
     <MemberLayout>
-      <div className="space-y-8">
-        
+      <div className="space-y-6">
+        {/* Page Title */}
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Tổng quan
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Theo dõi trạng thái gói hội viên, lịch tập sắp tới và các dịch vụ thể thao.
+          </p>
+        </div>
+
         {/* =========================================
             1. WELCOME HERO BANNER
            ========================================= */}
