@@ -3,6 +3,7 @@ package com.sporthub.backend;
 import com.sporthub.backend.controller.*;
 import com.sporthub.backend.dto.*;
 import com.sporthub.backend.entity.*;
+import com.sporthub.backend.enums.AttendanceStatus;
 import com.sporthub.backend.repository.*;
 import com.sporthub.backend.service.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +39,7 @@ class BusinessRulesValidationTest {
     private EngagementService engagementService;
     private RefundRequestRepository refundRequestRepository;
     private PaymentTransactionRepository paymentTransactionRepository;
+    private MembershipService membershipService;
     private ManagerController managerController;
 
     private BookingRepository bookingRepository;
@@ -67,7 +69,14 @@ class BusinessRulesValidationTest {
         userRepository = mock(UserRepository.class);
         sessionRepository = mock(AuthSessionRepository.class);
         passwordEncoder = new BCryptPasswordEncoder();
-        authService = new AuthService(userRepository, sessionRepository, passwordEncoder);
+        VerificationTokenRepository verificationTokenRepository = mock(VerificationTokenRepository.class);
+        EmailService emailService = mock(EmailService.class);
+        AuditLogService auditLogService = mock(AuditLogService.class);
+
+        authService = new AuthService(
+                userRepository, sessionRepository, verificationTokenRepository,
+                passwordEncoder, emailService, auditLogService
+        );
 
         userMembershipRepository = mock(UserMembershipRepository.class);
         packageRepository = mock(MembershipPackageRepository.class);
@@ -75,10 +84,11 @@ class BusinessRulesValidationTest {
         engagementService = mock(EngagementService.class);
         refundRequestRepository = mock(RefundRequestRepository.class);
         paymentTransactionRepository = mock(PaymentTransactionRepository.class);
+        membershipService = mock(MembershipService.class);
 
         managerController = new ManagerController(
                 userRepository, packageRepository, sportRepository, passwordEncoder,
-                userMembershipRepository, engagementService, refundRequestRepository, paymentTransactionRepository
+                emailService, auditLogService, authService, membershipService
         );
 
         bookingRepository = mock(BookingRepository.class);
@@ -98,9 +108,10 @@ class BusinessRulesValidationTest {
                 courtBookingRepository,
                 paymentTransactionRepository,
                 userMembershipRepository,
-                packageRepository
+                packageRepository,
+                membershipService,
+                auditLogService
         );
-        bookingService.setEngagementService(engagementService);
 
         coachLeaveRequestRepository = mock(CoachLeaveRequestRepository.class);
         coachLeaveController = new CoachLeaveController(
@@ -230,45 +241,23 @@ class BusinessRulesValidationTest {
         pkg.setName("Gói VIP Diamond");
         pkg.setDurationDays(30);
 
-        when(userMembershipRepository.findById(50L)).thenReturn(Optional.of(membership));
-        when(packageRepository.findById(1L)).thenReturn(Optional.of(pkg));
-        when(userMembershipRepository.save(any(UserMembership.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.findByEmailIgnoreCase("1")).thenReturn(Optional.of(User.builder().userId(1L).role("MANAGER").build()));
 
-        UserMembership approved = managerController.approveMembership(50L, managerAuth);
-        assertEquals("ACTIVE", approved.getStatus());
-        assertEquals(LocalDate.now(), approved.getStartDate());
-        assertEquals(LocalDate.now().plusDays(29), approved.getEndDate());
+        MembershipQuotaResponse approved = managerController.approveMembership(50L, managerAuth);
+        assertNotNull(approved);
+        assertEquals(50L, approved.membershipId());
 
-        verify(engagementService).audit(eq(1L), eq("MANAGER"), eq("MEMBERSHIP_APPROVED"), anyString());
-        verify(engagementService).notifyUser(eq(4L), anyString(), anyString(), eq("MEMBERSHIP"));
+        verify(membershipService).approveMembership(eq(50L), eq(1L));
     }
 
     @Test
     void managerCanRejectPendingMembershipAndTriggerRefund() {
-        UserMembership membership = new UserMembership();
-        membership.setMembershipId(51L);
-        membership.setUserId(4L);
-        membership.setPackageId(2L);
-        membership.setStatus("PENDING");
+        when(userRepository.findByEmailIgnoreCase("1")).thenReturn(Optional.of(User.builder().userId(1L).role("MANAGER").build()));
 
-        MembershipPackage pkg = new MembershipPackage();
-        pkg.setPackageId(2L);
-        pkg.setName("Gói Cơ Bản");
-        pkg.setPrice(new BigDecimal("1000000"));
+        String rejected = managerController.rejectMembership(51L, "Thông tin thanh toán không khớp", managerAuth);
+        assertNotNull(rejected);
 
-        User member = User.builder().userId(4L).fullName("Member Khoa").phone("0934567890").build();
-
-        when(userMembershipRepository.findById(51L)).thenReturn(Optional.of(membership));
-        when(packageRepository.findById(2L)).thenReturn(Optional.of(pkg));
-        when(userRepository.findById(4L)).thenReturn(Optional.of(member));
-        when(userMembershipRepository.save(any(UserMembership.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        UserMembership rejected = managerController.rejectMembership(51L, Map.of("reason", "Thông tin thanh toán không khớp"), managerAuth);
-        assertEquals("REJECTED", rejected.getStatus());
-
-        verify(refundRequestRepository).save(any(RefundRequest.class));
-        verify(engagementService).audit(eq(1L), eq("MANAGER"), eq("MEMBERSHIP_REJECTED"), anyString());
-        verify(engagementService).notifyUser(eq(4L), anyString(), anyString(), eq("MEMBERSHIP"));
+        verify(membershipService).rejectMembership(eq(51L), eq("Thông tin thanh toán không khớp"), eq(1L));
     }
 
     // =========================================================================
@@ -282,7 +271,7 @@ class BusinessRulesValidationTest {
         booking.setSessionId(201L);
         booking.setMemberId(4L);
         booking.setStatus("BOOKED");
-        booking.setAttendanceStatus("PENDING");
+        booking.setAttendanceStatus(AttendanceStatus.PENDING);
 
         ClassSession session = ClassSession.builder().sessionId(201L).coachId(3L).className("Pickleball K01").build();
 
@@ -302,7 +291,7 @@ class BusinessRulesValidationTest {
         booking.setSessionId(202L);
         booking.setMemberId(4L);
         booking.setStatus("BOOKED");
-        booking.setAttendanceStatus("PRESENT"); // Already marked!
+        booking.setAttendanceStatus(AttendanceStatus.PRESENT); // Already marked!
 
         ClassSession session = ClassSession.builder().sessionId(202L).coachId(3L).className("Pickleball K02").build();
 
@@ -311,7 +300,7 @@ class BusinessRulesValidationTest {
         when(bookingRepository.save(any(Booking.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Booking updated = bookingService.updateAttendance(102L, 2L, "RECEPTIONIST", "EXCUSED_ABSENCE", "Có giấy phép");
-        assertEquals("ABSENT", updated.getAttendanceStatus());
+        assertEquals(AttendanceStatus.EXCUSED_ABSENCE, updated.getAttendanceStatus());
         assertTrue(updated.getCoachNote().contains("[Vắng có phép]"));
     }
 

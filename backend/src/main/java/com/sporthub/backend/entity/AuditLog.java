@@ -18,7 +18,24 @@ public class AuditLog {
     @Column(name = "log_id")
     private Long logId;
 
-    @Column(name = "log_type", nullable = false, length = 50)
+    // Fields used by EngagementService / Manager audit logs
+    @Column(name = "actor_id")
+    private Long actorId;
+
+    @Column(name = "actor_name", columnDefinition = "NVARCHAR(100)")
+    private String actorName;
+
+    @Column(name = "actor_role", length = 20)
+    private String actorRole;
+
+    @Column(name = "action", length = 60)
+    private String action;
+
+    @Column(name = "detail", columnDefinition = "NVARCHAR(1000)")
+    private String detail;
+
+    // Fields used by AuditLogService (OTP / Auth logs)
+    @Column(name = "log_type", length = 50)
     private String logType;
 
     @Column(name = "user_email", length = 100)
@@ -36,7 +53,7 @@ public class AuditLog {
     @Column(name = "action_detail", columnDefinition = "NVARCHAR(MAX)")
     private String actionDetail;
 
-    @Column(nullable = false, length = 20)
+    @Column(length = 20)
     private String status;
 
     @Column(name = "error_message", length = 500)

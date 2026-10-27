@@ -22,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.sporthub.backend.entity.PaymentTransaction;
 import com.sporthub.backend.repository.PaymentTransactionRepository;
 
 import java.math.BigDecimal;

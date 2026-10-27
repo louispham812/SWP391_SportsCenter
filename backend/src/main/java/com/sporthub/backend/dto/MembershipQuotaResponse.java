@@ -1,6 +1,5 @@
 package com.sporthub.backend.dto;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**

@@ -2,7 +2,6 @@ package com.sporthub.backend.service;
 
 import com.sporthub.backend.entity.MembershipPackage;
 import com.sporthub.backend.entity.UserMembership;
-import com.sporthub.backend.enums.PackageType;
 import com.sporthub.backend.repository.MembershipPackageRepository;
 import com.sporthub.backend.repository.UserMembershipRepository;
 import org.springframework.http.HttpStatus;
