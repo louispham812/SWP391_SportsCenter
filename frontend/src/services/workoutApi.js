@@ -16,6 +16,12 @@ export const createWorkoutPlan = (data) =>
     body: JSON.stringify(data),
   });
 
+export const createClassWorkoutPlan = (data) =>
+  apiRequest('/workout-progress/class-plans', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
 export const recordBodyProgress = (data) =>
   apiRequest('/workout-progress/body-logs', {
     method: 'POST',

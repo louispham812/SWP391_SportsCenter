@@ -72,6 +72,12 @@ public class BookingService {
     private com.sporthub.backend.repository.CourtMaintenanceRepository courtMaintenanceRepository;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private EngagementService engagementService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.sporthub.backend.repository.MemberHealthProfileRepository healthProfileRepository;
+
+    public void setEngagementService(EngagementService engagementService) {
+        this.engagementService = engagementService;
+    }
 
     private boolean isUnderMaintenance(Long courtId, LocalDateTime start, LocalDateTime end) {
         return courtMaintenanceRepository != null
@@ -199,9 +205,14 @@ public class BookingService {
             distinctBookings.put(key, booking);
         }
 
-        Map<Long, User> members = userRepository.findAllById(
-                        distinctBookings.values().stream().map(Booking::getMemberId).distinct().toList()).stream()
+        List<Long> memberIds = distinctBookings.values().stream().map(Booking::getMemberId).distinct().toList();
+        Map<Long, User> members = userRepository.findAllById(memberIds).stream()
                 .collect(Collectors.toMap(User::getUserId, Function.identity()));
+        Map<Long, com.sporthub.backend.entity.MemberHealthProfile> healthProfiles = healthProfileRepository == null
+                ? Map.of()
+                : healthProfileRepository.findByMemberIdIn(memberIds).stream()
+                        .collect(Collectors.toMap(com.sporthub.backend.entity.MemberHealthProfile::getMemberId, Function.identity(), (a, b) -> a));
+
         return distinctBookings.values().stream()
                 .sorted((left, right) -> {
                     int sessionOrder = sessionsById.get(left.getSessionId()).getStartTime()
@@ -214,6 +225,7 @@ public class BookingService {
                 .map(booking -> {
                     ClassSession session = sessionsById.get(booking.getSessionId());
                     User member = members.get(booking.getMemberId());
+                    com.sporthub.backend.entity.MemberHealthProfile health = healthProfiles.get(booking.getMemberId());
                     return new CoachStudentBookingResponse(
                             booking.getBookingId(),
                             booking.getMemberId(),
@@ -225,7 +237,13 @@ public class BookingService {
                             session.getClassName(),
                             session.getStartTime(),
                             booking.getStatus(),
-                            booking.getAttendanceStatus());
+                            booking.getAttendanceStatus(),
+                            health == null ? null : health.getFitnessLevel(),
+                            health == null ? null : health.getFitnessGoals(),
+                            health == null ? null : health.getInjuryHistory(),
+                            health == null ? null : health.getWeightKg(),
+                            health == null ? null : health.getHeightCm(),
+                            health == null ? null : health.getBmi());
                 })
                 .toList();
     }
@@ -975,10 +993,14 @@ public class BookingService {
         if ("COACH".equals(actorRole) && !session.getCoachId().equals(actorId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không được phân công lớp học này.");
         }
+        if ("RECEPTIONIST".equalsIgnoreCase(actorRole) && (booking.getAttendanceStatus() == null || "PENDING".equalsIgnoreCase(booking.getAttendanceStatus()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Lễ tân chỉ được phép sửa điểm danh đã có, không được tạo mới điểm danh lần đầu (BR-14)");
+        }
         if (!ACTIVE_STATUSES.contains(booking.getStatus().toUpperCase(Locale.ROOT))) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Chỉ đặt chỗ đã xác nhận mới được điểm danh.");
         }
 
+        String oldStatus = booking.getAttendanceStatus() == null ? "PENDING" : booking.getAttendanceStatus();
         booking.setAttendanceStatus(normalizedStatus);
         if (coachNote != null || absenceTag != null) {
             String note = coachNote == null ? "" : coachNote.trim().replaceFirst("^\\[Vắng (có|không) phép\\]\\s*", "");
@@ -987,7 +1009,7 @@ public class BookingService {
         Booking updatedBooking = bookingRepository.save(booking);
         if (engagementService != null) {
             engagementService.audit(actorId, actorRole, "ATTENDANCE_UPDATED",
-                    "booking=" + bookingId + ", status=" + normalizedStatus + (absenceTag == null ? "" : " " + absenceTag));
+                    "booking=" + bookingId + ", oldStatus=" + oldStatus + ", newStatus=" + normalizedStatus + (absenceTag == null ? "" : " " + absenceTag));
             engagementService.notifyUser(booking.getMemberId(), "Cập nhật điểm danh",
                     "Buổi học \"" + session.getClassName() + "\": " + ("PRESENT".equals(normalizedStatus) ? "có mặt" : "vắng mặt")
                             + (absenceTag == null ? "" : " " + absenceTag) + ".", "ATTENDANCE");

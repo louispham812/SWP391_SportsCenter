@@ -34,6 +34,7 @@ public interface CourtBookingRepository extends JpaRepository<CourtBooking, Long
 
     List<CourtBooking> findByCourtIdAndStatusAndStartTimeBetween(
             Long courtId, String status, LocalDateTime from, LocalDateTime to);
+    List<CourtBooking> findByStatusIgnoreCaseAndCreatedAtBefore(String status, LocalDateTime before);
 
     @Query("""
             select count(booking) > 0

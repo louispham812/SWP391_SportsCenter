@@ -12,6 +12,7 @@ import {
   updateMemberHealthProfile,
   updateMemberProfile,
 } from '../../services/memberApi';
+import { compressImageFile } from '../../utils/imageCompressor';
 
 export default function MemberProfilePage() {
   const { currentUser, updateProfile, showToast } = useApp();
@@ -32,38 +33,29 @@ export default function MemberProfilePage() {
   const handleAvatarFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      showToast({
-        title: 'Kích thước ảnh lớn',
-        message: 'Vui lòng chọn ảnh có dung lượng dưới 2MB.',
-        type: 'warning',
-      });
-      return;
-    }
     setAvatarUploading(true);
-    const reader = new FileReader();
-    reader.onload = async (uploadEvent) => {
-      const base64 = uploadEvent.target.result;
-      try {
-        setMemberAvatar(base64);
-        const updated = await updateMemberAvatar(base64);
-        updateProfile({ avatar: updated.avatar });
-        showToast({
-          title: 'Cập nhật thành công',
-          message: 'Ảnh đại diện hội viên F Sport đã được lưu.',
-          type: 'success',
-        });
-      } catch (err) {
-        showToast({
-          title: 'Lỗi lưu ảnh',
-          message: err.message || 'Không thể cập nhật ảnh đại diện.',
-          type: 'error',
-        });
-      } finally {
-        setAvatarUploading(false);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressedBase64 = await compressImageFile(file, 500, 0.85);
+      setMemberAvatar(compressedBase64);
+      const updated = await updateMemberAvatar(compressedBase64);
+      const finalAvatar = updated?.avatar || compressedBase64;
+      setMemberAvatar(finalAvatar);
+      updateProfile({ avatar: finalAvatar });
+      showToast({
+        title: 'Cập nhật thành công',
+        message: 'Ảnh đại diện hội viên F Sport đã được lưu.',
+        type: 'success',
+      });
+    } catch (err) {
+      showToast({
+        title: 'Lỗi lưu ảnh',
+        message: err.message || 'Không thể cập nhật ảnh đại diện.',
+        type: 'error',
+      });
+    } finally {
+      setAvatarUploading(false);
+      if (e.target) e.target.value = '';
+    }
   };
 
   useEffect(() => {
@@ -521,10 +513,16 @@ export default function MemberProfilePage() {
                           key={idx}
                           type="button"
                           onClick={async () => {
-                            setMemberAvatar(presetUrl);
-                            await updateMemberAvatar(presetUrl);
-                            updateProfile({ avatar: presetUrl });
-                            showToast({ title: 'Thành công', message: 'Đã đổi ảnh đại diện.', type: 'success' });
+                            try {
+                              setMemberAvatar(presetUrl);
+                              const updated = await updateMemberAvatar(presetUrl);
+                              const finalAvatar = updated?.avatar || presetUrl;
+                              setMemberAvatar(finalAvatar);
+                              updateProfile({ avatar: finalAvatar });
+                              showToast({ title: 'Thành công', message: 'Đã đổi ảnh đại diện.', type: 'success' });
+                            } catch (err) {
+                              showToast({ title: 'Lỗi', message: err.message || 'Không thể đổi ảnh đại diện.', type: 'error' });
+                            }
                           }}
                           className="w-7 h-7 rounded-full overflow-hidden border border-slate-300 hover:border-orange-500 hover:scale-110 transition shadow-xs cursor-pointer"
                         >

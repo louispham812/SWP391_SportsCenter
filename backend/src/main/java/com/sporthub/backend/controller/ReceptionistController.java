@@ -160,6 +160,13 @@ public class ReceptionistController {
         User member = userRepository.findById(request.memberId())
                 .filter(user -> "MEMBER".equalsIgnoreCase(user.getRole()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy hội viên."));
+
+        // Anti-double check-in (BR-09 / Flow 4): Chặn check-in trùng lặp trong vòng 5 phút
+        LocalDateTime fiveMinutesAgo = LocalDateTime.now().minusMinutes(5);
+        if (checkInRepository.existsByMemberIdAndCheckedInAtAfter(member.getUserId(), fiveMinutesAgo)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Hội viên vừa mới check-in trong vòng 5 phút qua. Không cần quét lại.");
+        }
+
         LocalDate today = LocalDate.now();
         boolean hasActiveMembership = membershipRepository.findByUserIdOrderByEndDateDesc(member.getUserId()).stream()
                 .anyMatch(membership -> "ACTIVE".equalsIgnoreCase(membership.getStatus())
@@ -414,6 +421,11 @@ public class ReceptionistController {
             if (!List.of("MEMBER", "COACH", "RECEPTIONIST", "MANAGER", "ADMIN").contains(targetRole)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vai trò không hợp lệ.");
             }
+        }
+
+        // Chuẩn hóa ADMIN -> MANAGER để đảm bảo toàn vẹn ràng buộc CSDL (BR-01)
+        if ("ADMIN".equalsIgnoreCase(targetRole)) {
+            targetRole = "MANAGER";
         }
 
         User user = User.builder()

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import { apiRequest } from '../../services/apiClient';
 import { StatCardSkeleton } from '../../components/common/Skeleton';
+import { exportToCsv } from '../../utils/csvExporter';
 
 const dateString = (date) => {
   const year = date.getFullYear();
@@ -77,6 +78,33 @@ export default function AdminDashboardPage() {
     { label: 'Tỷ lệ lấp đầy', value: `${fillPercent}%`, icon: 'pie_chart' },
   ];
 
+  const handleExportCsv = () => {
+    if (!report) return;
+    const rows = [
+      ['BÁO CÁO HIỆU SUẤT TRUNG TÂM F SPORT'],
+      ['Ngày báo cáo', reportDate],
+      ['Tổng doanh thu đã thu (VNĐ)', report.totalRevenue || 0],
+      ['Giao dịch hoàn tất', report.completedPayments || 0],
+      ['Hội viên đăng ký mới', report.newMembers || 0],
+      ['Tỷ lệ lấp đầy phòng học', `${fillPercent}%`],
+      [],
+      ['DANH SÁCH LỚP HỌC TRONG NGÀY'],
+      ['Tên lớp học', 'Huấn luyện viên', 'Giờ bắt đầu', 'Sĩ số đăng ký', 'Sĩ số tối đa'],
+      ...classes.map((c) => [
+        c.className,
+        c.coachName || 'Chưa gán',
+        c.startTime ? formatTime(c.startTime) : '',
+        c.bookedSlots || 0,
+        c.maxSlots || 0,
+      ]),
+      [],
+      ['DOANH THU THEO PHƯƠNG THỨC'],
+      ['Phương thức thanh toán', 'Số tiền (VNĐ)', 'Số giao dịch'],
+      ...(report.paymentMethods || []).map((m) => [m.method, m.amount, m.count]),
+    ];
+    exportToCsv(`BaoCao_HieuSuat_${reportDate}.csv`, rows);
+  };
+
   return (
     <AdminLayout>
       <main className="space-y-6">
@@ -93,16 +121,27 @@ export default function AdminDashboardPage() {
               Doanh thu, đăng ký hội viên mới và hiệu suất phòng học từ cơ sở dữ liệu F Sport.
             </p>
           </div>
-          <label className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-white border border-slate-200 px-3.5 py-2 rounded-xl shadow-sm">
-            <span className="material-symbols-outlined text-orange-500 text-[18px]">event</span>
-            <span>Ngày báo cáo</span>
-            <input
-              type="date"
-              value={reportDate}
-              onChange={(event) => setReportDate(event.target.value)}
-              className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-sm text-slate-800 font-semibold outline-none focus:border-orange-500"
-            />
-          </label>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={!report}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[18px] text-emerald-600">download</span>
+              <span>Xuất Báo Cáo (CSV)</span>
+            </button>
+            <label className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-white border border-slate-200 px-3.5 py-2 rounded-xl shadow-sm">
+              <span className="material-symbols-outlined text-orange-500 text-[18px]">event</span>
+              <span>Ngày báo cáo</span>
+              <input
+                type="date"
+                value={reportDate}
+                onChange={(event) => setReportDate(event.target.value)}
+                className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-sm text-slate-800 font-semibold outline-none focus:border-orange-500"
+              />
+            </label>
+          </div>
         </header>
 
         {error && (

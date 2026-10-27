@@ -27,6 +27,12 @@ public class CheckInService {
         User member = userRepository.findById(Long.valueOf(request.getMemberId()))
                 .orElseThrow(() -> new RuntimeException("Hội viên không tồn tại!"));
 
+        // Anti-double check-in (BR-09 / Flow 4): Chặn check-in trùng lặp trong vòng 5 phút
+        LocalDateTime fiveMinutesAgo = LocalDateTime.now().minusMinutes(5);
+        if (checkInRepository.existsByMemberIdAndCheckedInAtAfter(member.getUserId(), fiveMinutesAgo)) {
+            throw new RuntimeException("Hội viên vừa mới check-in trong vòng 5 phút qua. Không cần quét lại.");
+        }
+
         String result = "VALID";
         String message = "Check-in thành công! Thẻ hợp lệ.";
 

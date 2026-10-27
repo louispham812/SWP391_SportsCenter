@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
 import { getReceptionistReport } from '../../services/receptionistApi';
 import { StatCardSkeleton } from '../../components/common/Skeleton';
+import { exportToCsv } from '../../utils/csvExporter';
 
 const todayKey = () => {
   const now = new Date();
@@ -40,6 +41,32 @@ export default function ReceptionShiftReportPage() {
     };
   }, [date]);
 
+  const handleExportCsv = () => {
+    if (!report) return;
+    const rows = [
+      ['BÁO CÁO DOANH THU & CA TRỰC LỄ TÂN F SPORT'],
+      ['Ngày ca trực', date],
+      ['Tổng doanh thu đã thu (VNĐ)', report.totalRevenue || 0],
+      ['Giao dịch hoàn tất', report.completedPayments || 0],
+      ['Hội viên đăng ký mới', report.newMembers || 0],
+      [],
+      ['DOANH THU THEO PHƯƠNG THỨC'],
+      ['Phương thức', 'Số tiền (VNĐ)', 'Số giao dịch'],
+      ...(report.paymentMethods || []).map((m) => [m.method, m.amount, m.count]),
+      [],
+      ['DANH SÁCH CHI TIẾT GIAO DỊCH TRONG CA'],
+      ['Hội viên', 'Thời gian', 'Phương thức', 'Trạng thái', 'Số tiền (VNĐ)'],
+      ...(report.payments || []).map((p) => [
+        p.memberName || 'Khách vãng lai',
+        p.createdAt ? new Date(p.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
+        p.method || '',
+        p.status || '',
+        p.amount || 0,
+      ]),
+    ];
+    exportToCsv(`BaoCao_CaTruc_${date}.csv`, rows);
+  };
+
   return (
     <ReceptionistLayout>
       <div className="space-y-6">
@@ -52,16 +79,27 @@ export default function ReceptionShiftReportPage() {
             <h1 className="font-headline-xl text-2xl font-bold text-slate-900 sm:text-3xl">Báo cáo ca trực &amp; doanh thu</h1>
             <p className="text-sm text-slate-500">Tổng hợp biên lai giao dịch thực tế theo ca và theo ngày của quầy lễ tân.</p>
           </div>
-          <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700 bg-white border border-slate-200 px-3.5 py-2 rounded-xl shadow-sm">
-            <span className="material-symbols-outlined text-orange-500 text-[18px]">event</span>
-            <span>Ngày ca trực:</span>
-            <input
-              type="date"
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
-              className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-sm font-semibold text-slate-800 outline-none focus:border-orange-500"
-            />
-          </label>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={!report}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[18px] text-emerald-600">download</span>
+              <span>Xuất Báo Cáo (CSV)</span>
+            </button>
+            <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700 bg-white border border-slate-200 px-3.5 py-2 rounded-xl shadow-sm">
+              <span className="material-symbols-outlined text-orange-500 text-[18px]">event</span>
+              <span>Ngày ca trực:</span>
+              <input
+                type="date"
+                value={date}
+                onChange={(event) => setDate(event.target.value)}
+                className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-sm font-semibold text-slate-800 outline-none focus:border-orange-500"
+              />
+            </label>
+          </div>
         </header>
 
         {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}

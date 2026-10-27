@@ -40,6 +40,9 @@ public class CoachProfileController {
     private final PublicSportRepository publicSportRepository;
     private final FeedbackRepository feedbackRepository;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.sporthub.backend.service.EngagementService engagementService;
+
     public CoachProfileController(
             UserRepository userRepository,
             ClassSessionRepository classSessionRepository,
@@ -200,6 +203,70 @@ public class CoachProfileController {
         coach.setAvatar(request.avatar().trim());
         userRepository.save(coach);
         return ResponseEntity.ok(Map.of("avatar", coach.getAvatar()));
+    }
+
+    @PostMapping("/send-notice")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> sendNotice(
+            @RequestBody com.sporthub.backend.dto.CoachSendNoticeRequest request,
+            Authentication auth) {
+        Long coachId = getActorId(auth);
+        User coach = findCoach(coachId);
+
+        if (request == null || request.title() == null || request.title().isBlank()
+                || request.message() == null || request.message().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tiêu đề và nội dung thông báo không được để trống.");
+        }
+
+        if (engagementService == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Dịch vụ thông báo tạm thời không khả dụng.");
+        }
+
+        String title = request.title().trim();
+        String message = request.message().trim();
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        if (request.sessionId() != null) {
+            ClassSession session = classSessionRepository.findById(request.sessionId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học."));
+
+            if (!session.getCoachId().equals(coachId) && !"MANAGER".equalsIgnoreCase(coach.getRole()) && !"ADMIN".equalsIgnoreCase(coach.getRole())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không được phân công phụ trách lớp học này.");
+            }
+
+            List<Booking> bookings = bookingRepository.findBySessionIdInAndStatusIn(
+                    List.of(session.getSessionId()), ACTIVE_STATUSES);
+            List<Long> memberIds = bookings.stream().map(Booking::getMemberId).distinct().toList();
+
+            for (Long memberId : memberIds) {
+                engagementService.notifyUser(memberId, title, message, "COACH_NOTICE");
+            }
+
+            engagementService.audit(coachId, "COACH", "COACH_SEND_CLASS_NOTICE",
+                    "sessionId=" + session.getSessionId() + ", studentCount=" + memberIds.size() + ", title=" + title);
+
+            result.put("ok", true);
+            result.put("target", "CLASS");
+            result.put("className", session.getClassName());
+            result.put("sentCount", memberIds.size());
+        } else if (request.memberId() != null) {
+            User student = userRepository.findById(request.memberId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy học viên."));
+
+            engagementService.notifyUser(student.getUserId(), title, message, "COACH_NOTICE");
+
+            engagementService.audit(coachId, "COACH", "COACH_SEND_STUDENT_NOTICE",
+                    "memberId=" + student.getUserId() + ", title=" + title);
+
+            result.put("ok", true);
+            result.put("target", "STUDENT");
+            result.put("studentName", student.getFullName());
+            result.put("sentCount", 1);
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng chọn học viên hoặc lớp học cần gửi thông báo.");
+        }
+
+        return ResponseEntity.ok(result);
     }
 
     private CoachProfileResponse buildCoachProfileResponse(Long coachId) {

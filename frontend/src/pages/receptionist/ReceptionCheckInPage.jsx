@@ -145,10 +145,19 @@ export default function ReceptionCheckInPage() {
         </header>
 
         {error && (
-          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 flex items-center gap-2">
-            <span className="material-symbols-outlined text-[20px] text-red-600">error</span>
+          <div
+            role="alert"
+            className={`rounded-xl border p-4 text-sm flex items-center gap-2 ${
+              error.includes('5 phút')
+                ? 'border-amber-300 bg-amber-50 text-amber-900 font-bold'
+                : 'border-red-200 bg-red-50 text-red-800'
+            }`}
+          >
+            <span className={`material-symbols-outlined text-[20px] ${error.includes('5 phút') ? 'text-amber-600' : 'text-red-600'}`}>
+              {error.includes('5 phút') ? 'info' : 'error'}
+            </span>
             <span>{error}</span>
-          </p>
+          </div>
         )}
         {resultMessage && (
           <div role="status" className={`rounded-xl border p-4 text-sm flex items-center gap-2 font-bold ${

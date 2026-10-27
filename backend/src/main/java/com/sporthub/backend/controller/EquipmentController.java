@@ -84,9 +84,23 @@ public class EquipmentController {
     }
 
     @GetMapping("/equipment-loans")
-    @Transactional(readOnly = true)
+    @Transactional
     public ResponseEntity<List<EquipmentLoanResponse>> getLoans() {
-        return ResponseEntity.ok(loanRepository.findAllByOrderByLoanedAtDesc().stream().map(this::toLoanResponse).toList());
+        LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
+        List<EquipmentLoan> loans = loanRepository.findAllByOrderByLoanedAtDesc();
+        boolean hasChanged = false;
+        for (EquipmentLoan loan : loans) {
+            if ("BORROWED".equalsIgnoreCase(loan.getStatus())
+                    && loan.getLoanedAt() != null
+                    && loan.getLoanedAt().isBefore(sevenDaysAgo)) {
+                loan.setStatus("OVERDUE");
+                hasChanged = true;
+            }
+        }
+        if (hasChanged) {
+            loanRepository.saveAll(loans);
+        }
+        return ResponseEntity.ok(loans.stream().map(this::toLoanResponse).toList());
     }
 
     @PostMapping("/equipment-loans")

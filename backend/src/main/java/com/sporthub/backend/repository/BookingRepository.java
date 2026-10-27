@@ -15,6 +15,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByMemberIdAndStatusIn(Long memberId, List<String> statuses);
     boolean existsByMemberIdAndSessionIdAndStatusIn(Long memberId, Long sessionId, List<String> statuses);
     long countBySessionIdAndStatusIn(Long sessionId, List<String> statuses);
+    List<Booking> findByStatusIgnoreCaseAndBookingTimeBefore(String status, LocalDateTime before);
 
     @Query("""
             SELECT COUNT(b) > 0

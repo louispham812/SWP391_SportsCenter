@@ -34,10 +34,30 @@ export function AppProvider({ children }) {
     setToasts((current) => current.filter((toast) => toast.id !== id));
   };
 
-  const showToast = (title, message, type = 'success') => {
+  const showToast = (titleOrObj, message, type = 'success') => {
     idCounter += 1;
     const id = `toast_${Date.now()}_${idCounter}`;
-    setToasts((current) => [...current, { id, title, message, type }]);
+    if (typeof titleOrObj === 'object' && titleOrObj !== null) {
+      setToasts((current) => [
+        ...current,
+        {
+          id,
+          title: titleOrObj.title || '',
+          message: titleOrObj.message || '',
+          type: titleOrObj.type || 'success',
+        },
+      ]);
+    } else {
+      setToasts((current) => [
+        ...current,
+        {
+          id,
+          title: titleOrObj || '',
+          message: message || '',
+          type: type || 'success',
+        },
+      ]);
+    }
     setTimeout(() => removeToast(id), 4500);
   };
 
@@ -48,6 +68,13 @@ export function AppProvider({ children }) {
       coach: 'Huấn luyện viên',
       admin: 'Giám đốc Trung tâm',
     };
+    const defaultInitials = (user.fullName || 'User')
+      .split(/\s+/)
+      .map((part) => part[0])
+      .slice(-2)
+      .join('')
+      .toUpperCase();
+
     const session = {
       token,
       role: roleKey,
@@ -59,12 +86,7 @@ export function AppProvider({ children }) {
         role: user.role,
         status: user.status,
         roleTitle: roleTitles[roleKey],
-        avatar: user.fullName
-          .split(/\s+/)
-          .map((part) => part[0])
-          .slice(-2)
-          .join('')
-          .toUpperCase(),
+        avatar: user.avatar || defaultInitials,
       },
     };
     sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
@@ -75,13 +97,14 @@ export function AppProvider({ children }) {
   const updateProfile = (profile) => {
     setAuthSession((previous) => {
       if (!previous) return previous;
+      const updatedUser = { ...previous.user };
+      if (profile.fullName !== undefined) updatedUser.name = profile.fullName;
+      if (profile.name !== undefined) updatedUser.name = profile.name;
+      if (profile.phone !== undefined) updatedUser.phone = profile.phone;
+      if (profile.avatar !== undefined) updatedUser.avatar = profile.avatar;
       const session = {
         ...previous,
-        user: {
-          ...previous.user,
-          name: profile.fullName,
-          phone: profile.phone || '',
-        },
+        user: updatedUser,
       };
       sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
       return session;
