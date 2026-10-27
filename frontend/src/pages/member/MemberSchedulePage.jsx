@@ -6,6 +6,7 @@ import CoachLayout from '../../components/layouts/CoachLayout';
 import { cancelMemberBooking, getCoachPublicProfile, getMemberBookingSchedule } from '../../services/bookingApi';
 import { ScheduleSkeleton } from '../../components/common/Skeleton';
 import { useApp } from '../../context/AppContext';
+import { getAvatarImageUrl, getAvatarInitials } from '../../utils/avatarHelper';
 
 const WEEKDAYS = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
 
@@ -852,8 +853,12 @@ export default function MemberSchedulePage() {
 
               <div className="px-6 pb-6 pt-0 -mt-12 space-y-4">
                 <div className="flex items-end justify-between">
-                  <div className="w-20 h-20 rounded-2xl bg-slate-900 border-4 border-white text-orange-400 font-black text-2xl flex items-center justify-center shadow-lg">
-                    {selectedCoach.avatar || selectedCoach.fullName?.charAt(0) || 'HLV'}
+                  <div className="w-20 h-20 rounded-2xl bg-slate-900 border-4 border-white text-orange-400 font-black text-2xl flex items-center justify-center shadow-lg overflow-hidden shrink-0">
+                    {getAvatarImageUrl(selectedCoach.avatar) ? (
+                      <img src={getAvatarImageUrl(selectedCoach.avatar)} alt={selectedCoach.fullName} className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{getAvatarInitials(selectedCoach.fullName, 'HLV')}</span>
+                    )}
                   </div>
                   <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200">
                     HLV Đang Giảng Dạy

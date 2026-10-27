@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { getMemberNotifications } from '../../services/memberApi';
+import { getAvatarImageUrl, getAvatarInitials } from '../../utils/avatarHelper';
 
 export default function PortalLayout({
   role = 'member', // 'member' | 'receptionist' | 'coach' | 'admin'
@@ -178,10 +179,10 @@ export default function PortalLayout({
         <div className="p-4 bg-slate-50 border-t border-slate-200">
           <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-slate-200 shadow-sm">
             <div className="w-10 h-10 rounded-full bg-slate-900 text-orange-400 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm overflow-hidden">
-              {currentUser?.avatar && (currentUser.avatar.startsWith('data:') || currentUser.avatar.startsWith('http') || currentUser.avatar.startsWith('/')) ? (
-                <img src={currentUser.avatar} alt="Avatar" className="w-full h-full object-cover" />
+              {getAvatarImageUrl(currentUser?.avatar) ? (
+                <img src={getAvatarImageUrl(currentUser.avatar)} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
-                currentUser?.avatar || 'US'
+                <span>{getAvatarInitials(currentUser?.name, 'US')}</span>
               )}
             </div>
             <div className="flex flex-col min-w-0 flex-1">
@@ -346,10 +347,10 @@ export default function PortalLayout({
                 type="button"
                 className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center font-bold text-xs shadow-sm hover:bg-orange-100 hover:ring-2 hover:ring-orange-500 transition-all cursor-pointer overflow-hidden p-0"
               >
-                {currentUser?.avatar && (currentUser.avatar.startsWith('data:') || currentUser.avatar.startsWith('http') || currentUser.avatar.startsWith('/')) ? (
-                  <img src={currentUser.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                {getAvatarImageUrl(currentUser?.avatar) ? (
+                  <img src={getAvatarImageUrl(currentUser.avatar)} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  currentUser?.avatar || 'US'
+                  <span>{getAvatarInitials(currentUser?.name, 'US')}</span>
                 )}
               </button>
 

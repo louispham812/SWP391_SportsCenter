@@ -8,6 +8,7 @@ import { sendCoachNotice } from '../../services/coachApi';
 import { CardGridSkeleton } from '../../components/common/Skeleton';
 import { useApp } from '../../context/AppContext';
 import Pagination from '../../components/common/Pagination';
+import { getAvatarImageUrl } from '../../utils/avatarHelper';
 
 export default function CoachStudentsPage() {
   const [students, setStudents] = useState([]);
@@ -580,9 +581,9 @@ export default function CoachStudentsPage() {
                     {/* Top row: Avatar & Basic Info */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-3">
-                        {student.avatar && student.avatar.startsWith('data:image') ? (
+                        {getAvatarImageUrl(student.avatar) ? (
                           <img
-                            src={student.avatar}
+                            src={getAvatarImageUrl(student.avatar)}
                             alt={student.name}
                             className="h-12 w-12 rounded-xl object-cover border border-slate-200 shadow-xs shrink-0"
                           />

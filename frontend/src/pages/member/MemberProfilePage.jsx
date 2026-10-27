@@ -13,6 +13,7 @@ import {
   updateMemberProfile,
 } from '../../services/memberApi';
 import { compressImageFile } from '../../utils/imageCompressor';
+import { getAvatarImageUrl, getAvatarInitials } from '../../utils/avatarHelper';
 
 export default function MemberProfilePage() {
   const { currentUser, updateProfile, showToast } = useApp();
@@ -313,11 +314,11 @@ export default function MemberProfilePage() {
               <div className="flex items-center justify-between mb-6 relative z-10">
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 rounded-2xl border-2 border-orange-500/80 overflow-hidden bg-slate-800 flex items-center justify-center shadow-lg shrink-0">
-                    {memberAvatar ? (
-                      <img src={memberAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                    {getAvatarImageUrl(memberAvatar || currentUser.avatar) ? (
+                      <img src={getAvatarImageUrl(memberAvatar || currentUser.avatar)} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
                       <span className="font-bold text-lg text-orange-400">
-                        {currentUser.avatar || currentUser.name?.slice(0, 2).toUpperCase() || 'US'}
+                        {getAvatarInitials(profileForm.fullName || currentUser.name, 'US')}
                       </span>
                     )}
                   </div>
@@ -474,11 +475,11 @@ export default function MemberProfilePage() {
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-center gap-4">
                   <div className="relative group shrink-0">
                     <div className="w-20 h-20 rounded-2xl overflow-hidden bg-slate-800 border-2 border-orange-500 shadow-md flex items-center justify-center">
-                      {memberAvatar ? (
-                        <img src={memberAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                      {getAvatarImageUrl(memberAvatar || currentUser.avatar) ? (
+                        <img src={getAvatarImageUrl(memberAvatar || currentUser.avatar)} alt="Avatar" className="w-full h-full object-cover" />
                       ) : (
                         <span className="text-2xl font-black text-orange-400">
-                          {currentUser.avatar || currentUser.name?.slice(0, 2).toUpperCase() || 'US'}
+                          {getAvatarInitials(profileForm.fullName || currentUser.name, 'US')}
                         </span>
                       )}
                     </div>
