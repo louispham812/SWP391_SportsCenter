@@ -72,6 +72,8 @@ public class BookingService {
     private com.sporthub.backend.repository.CourtMaintenanceRepository courtMaintenanceRepository;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private EngagementService engagementService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.sporthub.backend.repository.MemberHealthProfileRepository healthProfileRepository;
 
     private boolean isUnderMaintenance(Long courtId, LocalDateTime start, LocalDateTime end) {
         return courtMaintenanceRepository != null
@@ -199,9 +201,14 @@ public class BookingService {
             distinctBookings.put(key, booking);
         }
 
-        Map<Long, User> members = userRepository.findAllById(
-                        distinctBookings.values().stream().map(Booking::getMemberId).distinct().toList()).stream()
+        List<Long> memberIds = distinctBookings.values().stream().map(Booking::getMemberId).distinct().toList();
+        Map<Long, User> members = userRepository.findAllById(memberIds).stream()
                 .collect(Collectors.toMap(User::getUserId, Function.identity()));
+        Map<Long, com.sporthub.backend.entity.MemberHealthProfile> healthProfiles = healthProfileRepository == null
+                ? Map.of()
+                : healthProfileRepository.findByMemberIdIn(memberIds).stream()
+                        .collect(Collectors.toMap(com.sporthub.backend.entity.MemberHealthProfile::getMemberId, Function.identity(), (a, b) -> a));
+
         return distinctBookings.values().stream()
                 .sorted((left, right) -> {
                     int sessionOrder = sessionsById.get(left.getSessionId()).getStartTime()
@@ -214,6 +221,7 @@ public class BookingService {
                 .map(booking -> {
                     ClassSession session = sessionsById.get(booking.getSessionId());
                     User member = members.get(booking.getMemberId());
+                    com.sporthub.backend.entity.MemberHealthProfile health = healthProfiles.get(booking.getMemberId());
                     return new CoachStudentBookingResponse(
                             booking.getBookingId(),
                             booking.getMemberId(),
@@ -225,7 +233,13 @@ public class BookingService {
                             session.getClassName(),
                             session.getStartTime(),
                             booking.getStatus(),
-                            booking.getAttendanceStatus());
+                            booking.getAttendanceStatus(),
+                            health == null ? null : health.getFitnessLevel(),
+                            health == null ? null : health.getFitnessGoals(),
+                            health == null ? null : health.getInjuryHistory(),
+                            health == null ? null : health.getWeightKg(),
+                            health == null ? null : health.getHeightCm(),
+                            health == null ? null : health.getBmi());
                 })
                 .toList();
     }

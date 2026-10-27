@@ -32,3 +32,9 @@ export const updateCoachAvailability = (availabilityJson) =>
 
 export const getCoachIncome = () => apiRequest('/coach/income');
 
+export const sendCoachNotice = (data) =>
+  apiRequest('/coach/send-notice', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+

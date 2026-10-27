@@ -40,6 +40,16 @@ public class WorkoutProgressController {
             String source
     ) {}
 
+    public record ClassPlanRequest(
+            Long sessionId,
+            String title,
+            String goal,
+            String exercisesJson,
+            String sessionResult,
+            String coachFeedback,
+            String homework
+    ) {}
+
     public record BodyLogRequest(
             Long memberId,
             LocalDate recordedDate,
@@ -56,6 +66,11 @@ public class WorkoutProgressController {
     private final BodyProgressLogRepository bodyProgressLogRepository;
     private final UserRepository userRepository;
     private final EngagementService engagementService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.sporthub.backend.repository.ClassSessionRepository classSessionRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.sporthub.backend.repository.BookingRepository bookingRepository;
 
     public WorkoutProgressController(
             WorkoutPlanRepository workoutPlanRepository,
@@ -185,6 +200,80 @@ public class WorkoutProgressController {
         }
 
         return saved;
+    }
+
+    /**
+     * Coach tạo giáo án & bài tập cho toàn bộ học viên trong lớp (Class-wide plan).
+     */
+    @PostMapping("/class-plans")
+    @Transactional
+    public Map<String, Object> createClassPlan(@RequestBody ClassPlanRequest req, Authentication auth) {
+        Long actorId = actorId(auth);
+        String role = actorRole(auth);
+
+        if (!"COACH".equalsIgnoreCase(role) && !"MANAGER".equalsIgnoreCase(role) && !"ADMIN".equalsIgnoreCase(role)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Chỉ HLV hoặc Quản trị viên mới được tạo giáo án lớp.");
+        }
+        if (req == null || req.sessionId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng chọn lớp học.");
+        }
+        if (req.title() == null || req.title().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tiêu đề kế hoạch tập không được để trống.");
+        }
+
+        if (classSessionRepository == null || bookingRepository == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Dịch vụ lớp học tạm thời không khả dụng.");
+        }
+
+        com.sporthub.backend.entity.ClassSession session = classSessionRepository.findById(req.sessionId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy lớp học."));
+
+        if ("COACH".equalsIgnoreCase(role) && !session.getCoachId().equals(actorId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không được phân công lớp học này.");
+        }
+
+        String coachName = userRepository.findById(actorId).map(User::getFullName).orElse("Huấn luyện viên");
+        List<com.sporthub.backend.entity.Booking> bookings = bookingRepository.findBySessionIdInAndStatusIn(
+                List.of(session.getSessionId()), List.of("BOOKED", "CONFIRMED"));
+
+        String exercisesJson = req.exercisesJson() == null || req.exercisesJson().isBlank() ? "[]" : req.exercisesJson().trim();
+        List<Long> memberIds = bookings.stream().map(com.sporthub.backend.entity.Booking::getMemberId).distinct().toList();
+
+        List<WorkoutPlan> savedPlans = new ArrayList<>();
+        for (Long memberId : memberIds) {
+            WorkoutPlan plan = WorkoutPlan.builder()
+                    .memberId(memberId)
+                    .coachId(actorId)
+                    .coachName(coachName)
+                    .title(req.title().trim())
+                    .goal(req.goal() == null ? null : req.goal().trim())
+                    .exercisesJson(exercisesJson)
+                    .sessionResult(req.sessionResult() == null ? null : req.sessionResult().trim())
+                    .coachFeedback(req.coachFeedback() == null ? null : req.coachFeedback().trim())
+                    .homework(req.homework() == null ? null : req.homework().trim())
+                    .source("COACH")
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            savedPlans.add(workoutPlanRepository.save(plan));
+
+            engagementService.notifyUser(
+                    memberId,
+                    "Kế hoạch bài tập mới cho lớp " + session.getClassName(),
+                    "HLV " + coachName + " vừa giao bài tập cho cả lớp: \"" + req.title().trim() + "\".",
+                    "WORKOUT"
+            );
+        }
+
+        engagementService.audit(actorId, role, "CREATE_CLASS_WORKOUT_PLAN",
+                "coachId=" + actorId + ", sessionId=" + session.getSessionId() + ", studentCount=" + memberIds.size());
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("ok", true);
+        response.put("sessionId", session.getSessionId());
+        response.put("className", session.getClassName());
+        response.put("createdCount", savedPlans.size());
+        response.put("memberCount", memberIds.size());
+        return response;
     }
 
     /**
