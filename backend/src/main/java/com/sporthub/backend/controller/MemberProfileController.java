@@ -162,14 +162,23 @@ public class MemberProfileController {
     }
 
     @GetMapping("/health")
-    @Transactional(readOnly = true)
+    @Transactional
     public MemberHealthProfile getHealthProfile(Authentication authentication) {
         Long memberId = memberId(authentication);
-        return healthRepository.findByMemberId(memberId).orElseGet(() -> {
+        MemberHealthProfile profile = healthRepository.findByMemberId(memberId).orElseGet(() -> {
             MemberHealthProfile empty = new MemberHealthProfile();
             empty.setMemberId(memberId);
             return empty;
         });
+        if ((profile.getBmi() == null || profile.getBmi().compareTo(BigDecimal.ZERO) <= 0)
+                && profile.getWeightKg() != null
+                && profile.getHeightCm() != null
+                && profile.getHeightCm().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal heightM = profile.getHeightCm().divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
+            profile.setBmi(profile.getWeightKg().divide(heightM.multiply(heightM), 1, RoundingMode.HALF_UP));
+            profile = healthRepository.save(profile);
+        }
+        return profile;
     }
 
     @PutMapping("/health")
@@ -199,7 +208,16 @@ public class MemberProfileController {
         profile.setHeightCm(request.heightCm());
         profile.setSmmKg(request.smmKg());
         profile.setPbfPercent(request.pbfPercent());
-        profile.setBmi(request.bmi());
+
+        BigDecimal bmi = request.bmi();
+        if ((bmi == null || bmi.compareTo(BigDecimal.ZERO) <= 0)
+                && request.weightKg() != null
+                && request.heightCm() != null
+                && request.heightCm().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal heightM = request.heightCm().divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
+            bmi = request.weightKg().divide(heightM.multiply(heightM), 1, RoundingMode.HALF_UP);
+        }
+        profile.setBmi(bmi);
         profile.setUpdatedAt(LocalDateTime.now());
         return healthRepository.save(profile);
     }

@@ -150,15 +150,22 @@ export default function MemberProfilePage() {
   const saveHealth = async (changes) => {
     setProfileError('');
     try {
+      const weight = changes.weightKg !== undefined ? changes.weightKg : (Number(inbodyForm.weight) || null);
+      const height = changes.heightCm !== undefined ? changes.heightCm : (Number(inbodyForm.height) || null);
+      let bmi = changes.bmi !== undefined ? changes.bmi : (Number(inbodyForm.bmi) || null);
+      if (!bmi && weight && height && height > 0) {
+        bmi = Number((weight / Math.pow(height / 100, 2)).toFixed(1));
+      }
+
       const saved = await updateMemberHealthProfile({
-        fitnessLevel: healthForm.fitnessLevel.toUpperCase() || null,
+        fitnessLevel: healthForm.fitnessLevel ? healthForm.fitnessLevel.toUpperCase() : null,
         fitnessGoals: healthForm.fitnessGoals || null,
         injuryHistory: healthForm.injuryHistory || null,
-        weightKg: Number(inbodyForm.weight) || null,
-        heightCm: Number(inbodyForm.height) || null,
-        smmKg: Number(inbodyForm.smm) || null,
-        pbfPercent: Number(inbodyForm.pbf) || null,
-        bmi: Number(inbodyForm.bmi) || null,
+        weightKg: weight,
+        heightCm: height,
+        smmKg: changes.smmKg !== undefined ? changes.smmKg : (Number(inbodyForm.smm) || null),
+        pbfPercent: changes.pbfPercent !== undefined ? changes.pbfPercent : (Number(inbodyForm.pbf) || null),
+        bmi,
         ...changes,
       });
       setHealthForm({

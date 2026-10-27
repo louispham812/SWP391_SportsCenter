@@ -83,6 +83,12 @@ export default function MemberWorkoutPlansPage() {
       ]);
 
       if (healthRes) {
+        const weight = healthRes.weightKg != null ? Number(healthRes.weightKg) : null;
+        const height = healthRes.heightCm != null ? Number(healthRes.heightCm) : null;
+        let calculatedBmi = healthRes.bmi != null && healthRes.bmi > 0 ? Number(healthRes.bmi) : null;
+        if (!calculatedBmi && weight && height && height > 0) {
+          calculatedBmi = Number((weight / Math.pow(height / 100, 2)).toFixed(1));
+        }
         setHealthProfile({
           fitnessLevel: healthRes.fitnessLevel || 'INTERMEDIATE',
           fitnessGoals: healthRes.fitnessGoals || '',
@@ -91,7 +97,7 @@ export default function MemberWorkoutPlansPage() {
           heightCm: healthRes.heightCm != null ? healthRes.heightCm : '',
           smmKg: healthRes.smmKg != null ? healthRes.smmKg : '',
           pbfPercent: healthRes.pbfPercent != null ? healthRes.pbfPercent : '',
-          bmi: healthRes.bmi != null ? healthRes.bmi : '',
+          bmi: calculatedBmi != null ? calculatedBmi : '',
         });
       }
 
@@ -114,35 +120,55 @@ export default function MemberWorkoutPlansPage() {
     }
   };
 
-  // BMI Helper
+  // BMI Helper & Dynamic Calculation
+  const displayedBmi = useMemo(() => {
+    if (healthProfile.bmi && !isNaN(parseFloat(healthProfile.bmi)) && parseFloat(healthProfile.bmi) > 0) {
+      return parseFloat(healthProfile.bmi).toFixed(1);
+    }
+    const w = parseFloat(healthProfile.weightKg);
+    const h = parseFloat(healthProfile.heightCm);
+    if (w > 0 && h > 0) {
+      return (w / Math.pow(h / 100, 2)).toFixed(1);
+    }
+    return '';
+  }, [healthProfile.bmi, healthProfile.weightKg, healthProfile.heightCm]);
+
   const getBmiBadge = (bmi) => {
     const b = parseFloat(bmi);
-    if (!b || isNaN(b)) return { label: 'Chưa tính', color: 'bg-slate-100 text-slate-600 border-slate-200' };
-    if (b < 18.5) return { label: 'Thiếu cân', color: 'bg-amber-100 text-amber-800 border-amber-200' };
+    if (!b || isNaN(b) || b <= 0) return { label: 'Chưa tính', color: 'bg-slate-100 text-slate-600 border-slate-200' };
+    if (b < 18.5) return { label: 'Thiếu cân (< 18.5)', color: 'bg-amber-100 text-amber-800 border-amber-200' };
     if (b <= 24.9) return { label: 'Cân đối (Lý tưởng)', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
-    if (b <= 29.9) return { label: 'Thừa cân nhẹ', color: 'bg-orange-100 text-orange-800 border-orange-200' };
-    return { label: 'Cần giảm mỡ', color: 'bg-red-100 text-red-800 border-red-200' };
+    if (b <= 29.9) return { label: 'Thừa cân nhẹ (25 - 29.9)', color: 'bg-orange-100 text-orange-800 border-orange-200' };
+    return { label: 'Cần giảm mỡ (≥ 30)', color: 'bg-red-100 text-red-800 border-red-200' };
   };
 
-  const bmiStatus = getBmiBadge(healthProfile.bmi);
+  const bmiStatus = getBmiBadge(displayedBmi);
 
   // Lưu InBody cơ bản
   const handleSaveHealthProfile = async (e) => {
     e.preventDefault();
     setSavingHealth(true);
     try {
+      const weightNum = healthProfile.weightKg ? parseFloat(healthProfile.weightKg) : null;
+      const heightNum = healthProfile.heightCm ? parseFloat(healthProfile.heightCm) : null;
+      let computedBmi = null;
+      if (weightNum && heightNum && heightNum > 0) {
+        computedBmi = parseFloat((weightNum / Math.pow(heightNum / 100, 2)).toFixed(1));
+      }
+
       const payload = {
         fitnessLevel: healthProfile.fitnessLevel,
         fitnessGoals: healthProfile.fitnessGoals,
         injuryHistory: healthProfile.injuryHistory,
-        weightKg: healthProfile.weightKg ? parseFloat(healthProfile.weightKg) : null,
-        heightCm: healthProfile.heightCm ? parseFloat(healthProfile.heightCm) : null,
+        weightKg: weightNum,
+        heightCm: heightNum,
         smmKg: healthProfile.smmKg ? parseFloat(healthProfile.smmKg) : null,
         pbfPercent: healthProfile.pbfPercent ? parseFloat(healthProfile.pbfPercent) : null,
-        bmi: healthProfile.bmi ? parseFloat(healthProfile.bmi) : null,
+        bmi: computedBmi,
       };
       await updateMemberHealthProfile(payload);
-      showToast('Thành công', 'Đã cập nhật chỉ số InBody và mục tiêu thể chất.', 'success');
+      setHealthProfile((prev) => ({ ...prev, bmi: computedBmi != null ? computedBmi : '' }));
+      showToast('Thành công', 'Đã cập nhật chỉ số InBody và tính toán BMI.', 'success');
       setEditHealthMode(false);
       // Ghi thêm vào mốc body_progress_logs nếu có số cân nặng
       if (payload.weightKg) {
@@ -174,10 +200,17 @@ export default function MemberWorkoutPlansPage() {
     }
     setSavingLog(true);
     try {
+      const weight = Number(newLog.weightKg);
+      const height = newLog.heightCm ? Number(newLog.heightCm) : (healthProfile.heightCm ? Number(healthProfile.heightCm) : null);
+      let logBmi = null;
+      if (weight && height && height > 0) {
+        logBmi = Number((weight / Math.pow(height / 100, 2)).toFixed(1));
+      }
       const payload = {
         recordedDate: newLog.recordedDate,
-        weightKg: Number(newLog.weightKg),
-        heightCm: newLog.heightCm ? Number(newLog.heightCm) : null,
+        weightKg: weight,
+        heightCm: height,
+        bmi: logBmi,
         smmKg: newLog.smmKg ? Number(newLog.smmKg) : null,
         pbfPercent: newLog.pbfPercent ? Number(newLog.pbfPercent) : null,
         maxLiftKg: newLog.maxLiftKg ? Number(newLog.maxLiftKg) : null,
@@ -186,6 +219,12 @@ export default function MemberWorkoutPlansPage() {
       await recordBodyProgress(payload);
       showToast('Thành công', 'Đã lưu mốc đo tiến độ cơ thể & mức tạ 1RM mới!', 'success');
       setShowAddLogModal(false);
+      setHealthProfile((prev) => ({
+        ...prev,
+        weightKg: weight,
+        heightCm: height || prev.heightCm,
+        bmi: logBmi != null ? logBmi : prev.bmi,
+      }));
       setNewLog({
         recordedDate: new Date().toISOString().slice(0, 10),
         weightKg: '',
@@ -337,7 +376,7 @@ export default function MemberWorkoutPlansPage() {
           <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs relative">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Chỉ Số Khối BMI</span>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-3xl font-black text-slate-900">{healthProfile.bmi || '--'}</span>
+              <span className="text-3xl font-black text-slate-900">{displayedBmi || '--'}</span>
               <span className="text-xs text-slate-400">kg/m²</span>
             </div>
             <div className="mt-2">
@@ -430,6 +469,20 @@ export default function MemberWorkoutPlansPage() {
                 />
               </div>
             </div>
+
+            {displayedBmi && (
+              <div className="p-3 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-between text-xs">
+                <span className="text-slate-600 font-medium">
+                  Chỉ số khối BMI tính toán tự động:
+                </span>
+                <div className="flex items-center gap-2">
+                  <strong className="text-slate-900 text-sm font-black">{displayedBmi} kg/m²</strong>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${bmiStatus.color}`}>
+                    {bmiStatus.label}
+                  </span>
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-2">
               <button
