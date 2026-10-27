@@ -118,7 +118,7 @@ export default function MemberProfilePage() {
       setProfileForm((current) => ({ ...current, ...saved }));
       setMemberAvatar(saved.avatar || '');
       updateProfile(saved);
-      showToast('Cập nhật thành công', 'Hồ sơ đã được lưu vào cơ sở dữ liệu.');
+      showToast('Cập nhật thành công', 'Hồ sơ đã được lưu thành công.');
     } catch (requestError) {
       setProfileError(requestError.message || 'Không thể lưu hồ sơ.');
     }
@@ -173,7 +173,7 @@ export default function MemberProfilePage() {
         pbf: saved.pbfPercent ?? '',
         bmi: saved.bmi ?? '',
       });
-      showToast('Đã lưu hồ sơ', 'Thông tin sức khỏe đã được lưu vào cơ sở dữ liệu.');
+      showToast('Đã lưu hồ sơ', 'Thông tin sức khỏe đã được cập nhật thành công.');
     } catch (requestError) {
       setProfileError(requestError.message || 'Không thể lưu hồ sơ sức khỏe.');
     }
@@ -198,7 +198,7 @@ export default function MemberProfilePage() {
   };
 
   if (profileLoading) {
-    return <MemberLayout><p role="status" className="p-6">Đang tải hồ sơ từ cơ sở dữ liệu...</p></MemberLayout>;
+    return <MemberLayout><p role="status" className="p-6">Đang tải hồ sơ...</p></MemberLayout>;
   }
 
   return (
@@ -213,29 +213,29 @@ export default function MemberProfilePage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-orange-600 bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-full">
-                HỒ SƠ HỘI VIÊN CHÍNH THỨC
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-orange-700 bg-orange-50 border border-orange-200/80 px-2.5 py-0.5 rounded-full">
+                Hồ sơ hội viên
               </span>
             </div>
-            <h1 className="font-headline-xl text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight">
-              Hồ Sơ Hội Viên &amp; Sức Khỏe Thể Chất
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+              Hồ sơ hội viên &amp; Sức khỏe thể chất
             </h1>
             <p className="text-xs sm:text-sm text-slate-500">
-              Quản lý thẻ số cá nhân, tiền sử chấn thương PAR-Q và các chỉ số thể trạng InBody.
+              Quản lý thẻ số cá nhân, lưu ý thể lực và các chỉ số thể trạng InBody.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
             <Link
               to="/change-password"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs uppercase tracking-wider transition-all shadow-xs cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all shadow-xs cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px] text-orange-500">lock_reset</span>
               <span>Đổi Mật Khẩu</span>
             </Link>
             <Link
               to="/pricing"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-orange-500/20 cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-xs transition-all shadow-sm shadow-orange-500/20 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">upgrade</span>
               <span>Nâng Cấp Hạng Thẻ (Gold/Diamond)</span>
@@ -247,7 +247,7 @@ export default function MemberProfilePage() {
         <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
           {[
             { id: 'profile', label: 'Thông tin cá nhân', icon: 'badge' },
-            { id: 'health', label: 'Hồ sơ sức khỏe & PAR-Q', icon: 'health_and_safety' },
+            { id: 'health', label: 'Hồ sơ sức khỏe & Thể lực', icon: 'health_and_safety' },
             { id: 'inbody', label: 'Chỉ số thể trạng InBody', icon: 'monitor_weight' },
           ].map((tab) => (
             <button

@@ -439,13 +439,13 @@ export default function CoachStudentsPage() {
         {/* Header */}
         <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200/80 text-orange-700 text-xs font-semibold mb-2">
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-              F SPORT COACH · QUẢN LÝ HỌC VIÊN
+              Quản lý học viên
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Học Viên & Giáo Án</h1>
+            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Học viên &amp; Giáo án</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Quản lý hồ sơ thể lực PAR-Q, giao giáo án bài tập cá nhân / cả lớp và gửi thông báo trực tiếp.
+              Quản lý hồ sơ sức khỏe, giao giáo án bài tập cá nhân hoặc cả lớp và gửi thông báo dặn dò.
             </p>
           </div>
 
@@ -540,7 +540,7 @@ export default function CoachStudentsPage() {
             <span>Không tìm thấy học viên nào phù hợp với bộ lọc hiện tại.</span>
           </div>
         ) : (
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 items-stretch">
             {filteredStudents.map((student) => {
               // Check if student has overlapping sessions with this coach
               const hasStudentTimeConflict = student.sessions.some((s1, idx) =>
@@ -554,7 +554,7 @@ export default function CoachStudentsPage() {
               return (
                 <article
                   key={student.id}
-                  className={`rounded-2xl border p-5 shadow-sm transition-all flex flex-col justify-between ${
+                  className={`rounded-2xl border p-5 shadow-sm transition-all h-full flex flex-col justify-between ${
                     hasStudentTimeConflict
                       ? 'border-rose-300 bg-rose-50/20'
                       : 'border-slate-200 bg-white hover:border-orange-300'
@@ -725,7 +725,7 @@ export default function CoachStudentsPage() {
                   </div>
 
                   {/* Action Buttons: Giao Giáo Án & Gửi Thông Báo */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2">
+                  <div className="mt-auto pt-3.5 border-t border-slate-100 grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => openPlanModal(student)}

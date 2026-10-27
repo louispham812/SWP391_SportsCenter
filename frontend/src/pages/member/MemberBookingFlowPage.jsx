@@ -93,7 +93,7 @@ function BookingHome() {
           <Link
             key={option.type}
             to={`/member/book/${option.type}/sports`}
-            className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-200 bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:border-orange-500/50 hover:shadow-xl"
+            className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:border-orange-400 hover:shadow-md"
           >
             <div>
               <div className="flex items-center justify-between">

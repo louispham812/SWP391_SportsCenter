@@ -54,8 +54,8 @@ export default function Navbar() {
               F SPORT <span className="text-orange-500">CENTER</span>
             </span>
             {/* Đã đổi slogan chuẩn Thương hiệu Thể thao */}
-            <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
-              ATHLETIC PERFORMANCE SANCTUARY
+            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+              TRUNG TÂM THỂ THAO ĐA NĂNG
             </span>
           </div>
         </Link>

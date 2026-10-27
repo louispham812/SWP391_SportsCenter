@@ -235,8 +235,8 @@ export default function AuthPage() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/20 text-[10px] uppercase tracking-widest font-black shadow-xs">
-                  ATHLETIC PERFORMANCE SANCTUARY
+                <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/20 text-[10px] uppercase tracking-wider font-semibold shadow-xs">
+                  TRUNG TÂM THỂ THAO ĐA NĂNG
                 </span>
                 <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
                 <span className="text-[11px] text-orange-400 font-bold tracking-wider">

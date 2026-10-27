@@ -250,7 +250,7 @@ export default function AdminMembersPage() {
               </div>
               <footer className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm text-slate-500">
-                  {membersPage.totalElements} hội viên trong database
+                  {membersPage.totalElements} hội viên
                 </span>
                 <div className="flex items-center justify-end gap-2">
                   <button

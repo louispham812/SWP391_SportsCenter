@@ -152,7 +152,7 @@ export default function CoachProfilePage() {
       });
       showToast({
         title: 'Cập nhật thành công',
-        message: 'Hồ sơ cá nhân HLV đã được lưu vào cơ sở dữ liệu.',
+        message: 'Hồ sơ huấn luyện viên đã được lưu thành công.',
         type: 'success',
       });
     } catch (err) {
@@ -212,7 +212,7 @@ export default function CoachProfilePage() {
     return (
       <CoachLayout>
         <p role="status" className="p-6 text-sm text-slate-500 font-medium">
-          Đang tải hồ sơ huấn luyện viên từ cơ sở dữ liệu...
+          Đang tải hồ sơ huấn luyện viên...
         </p>
       </CoachLayout>
     );

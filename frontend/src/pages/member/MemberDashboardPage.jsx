@@ -110,31 +110,31 @@ export default function MemberDashboardPage() {
       <div className="space-y-8">
         
         {/* =========================================
-            1. WELCOME HERO BANNER (F SPORT BRANDED)
+            1. WELCOME HERO BANNER
            ========================================= */}
-        <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-slate-950 via-slate-900 to-orange-950/70 p-6 sm:p-10 text-white shadow-xl border border-slate-800">
+        <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-slate-900 via-slate-800 to-orange-900 p-6 sm:p-8 text-white shadow-md border border-slate-700">
           <div className="absolute top-0 right-0 w-80 h-80 bg-orange-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
           <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-3 max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] font-black uppercase tracking-widest">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs font-semibold">
                 <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse"></span>
-                F SPORT MEMBER HUB • ĐẲNG CẤP THỂ THAO
+                Khu vực Hội viên
               </div>
 
-              <h1 className="text-2xl sm:text-4xl font-black uppercase tracking-tight text-white leading-tight">
-                Xin Chào, <span className="text-orange-400">{currentUser?.name || 'Hội Viên'}</span>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight">
+                Xin chào, <span className="text-orange-400">{currentUser?.name || 'Hội viên'}</span>
               </h1>
 
-              <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed">
-                Chào mừng bạn quay trở lại với trung tâm rèn luyện F Sport. Hãy chủ động kiểm tra lịch tập hôm nay hoặc đặt sân mới bên dưới.
+              <p className="text-xs sm:text-sm text-slate-300 font-normal leading-relaxed">
+                Chào mừng bạn quay trở lại. Hãy kiểm tra lịch tập hôm nay hoặc đặt sân mới bên dưới.
               </p>
 
               {/* Thông tin thẻ nhanh */}
-              <div className="flex flex-wrap items-center gap-4 pt-2 text-xs">
+              <div className="flex flex-wrap items-center gap-3 pt-2 text-xs">
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10">
                   <span className="material-symbols-outlined text-[16px] text-orange-400">badge</span>
-                  <span className="text-slate-300">ID:</span>
+                  <span className="text-slate-300">Mã:</span>
                   <strong className="text-white font-mono">#{currentUser?.id || '—'}</strong>
                 </div>
 
@@ -148,8 +148,8 @@ export default function MemberDashboardPage() {
 
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10">
                   <span className="material-symbols-outlined text-[16px] text-blue-400">contactless</span>
-                  <span className="text-slate-300">Check-in:</span>
-                  <strong className="text-emerald-400">Sẵn sàng (RFID/QR)</strong>
+                  <span className="text-slate-300">Thẻ số:</span>
+                  <strong className="text-emerald-400">Sẵn sàng sử dụng</strong>
                 </div>
               </div>
             </div>
@@ -158,14 +158,14 @@ export default function MemberDashboardPage() {
             <div className="flex flex-col sm:flex-row lg:flex-col gap-3 shrink-0">
               <Link
                 to="/member/book"
-                className="px-6 py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-orange-500/30 transition-all text-center flex items-center justify-center gap-2 cursor-pointer"
+                className="px-5 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold shadow-md shadow-orange-500/20 transition-all text-center flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>Đặt Sân / Lớp Ngay</span>
                 <span className="material-symbols-outlined text-[18px]">calendar_add_on</span>
               </Link>
               <Link
                 to="/member/profile"
-                className="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold uppercase tracking-wider transition-all text-center flex items-center justify-center gap-2 cursor-pointer"
+                className="px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-semibold transition-all text-center flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>Thẻ Số &amp; QR Check-in</span>
                 <span className="material-symbols-outlined text-[18px]">qr_code_2</span>
@@ -182,22 +182,22 @@ export default function MemberDashboardPage() {
             <Link
               key={idx}
               to={action.path}
-              className="bg-white p-5 rounded-3xl border border-slate-200 shadow-2xs hover:shadow-lg hover:border-orange-300 transition-all flex flex-col justify-between group"
+              className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-orange-300 transition-all flex flex-col justify-between group"
             >
               <div className="space-y-3">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold transition-colors ${action.color}`}>
-                  <span className="material-symbols-outlined text-[26px]">{action.icon}</span>
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold transition-colors ${action.color}`}>
+                  <span className="material-symbols-outlined text-[24px]">{action.icon}</span>
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900 group-hover:text-orange-600 transition-colors uppercase">
+                  <h3 className="text-base font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
                     {action.title}
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed">
+                  <p className="text-xs text-slate-500 mt-1 font-normal leading-relaxed">
                     {action.desc}
                   </p>
                 </div>
               </div>
-              <div className="pt-4 mt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-orange-600 uppercase">
+              <div className="pt-4 mt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-orange-600">
                 <span>Truy cập</span>
                 <span className="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">
                   arrow_forward
@@ -210,23 +210,23 @@ export default function MemberDashboardPage() {
         {/* =========================================
             3. UPCOMING BOOKINGS LIST
            ========================================= */}
-        <section className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-2xs space-y-6">
+        <section className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-7 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
-                <h2 className="text-lg font-black uppercase text-slate-900 tracking-tight">
-                  Lịch Luyện Tập &amp; Booking Sắp Tới
+                <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+                  Lịch Tập &amp; Đặt Sân Sắp Tới
                 </h2>
               </div>
-              <p className="text-xs text-slate-500 mt-1 font-medium">
-                Dữ liệu đặt sân và lớp học được xác thực thời gian thực từ cơ sở dữ liệu.
+              <p className="text-xs text-slate-500 mt-1">
+                Theo dõi lịch tập và hoạt động thể thao sắp tới của bạn.
               </p>
             </div>
 
             <Link
               to="/member/schedule"
-              className="text-xs font-black uppercase tracking-wider text-orange-600 hover:text-orange-700 flex items-center gap-1 self-start sm:self-auto"
+              className="text-xs font-semibold text-orange-600 hover:text-orange-700 flex items-center gap-1 self-start sm:self-auto"
             >
               <span>Xem Thời Khóa Biểu Tuần</span>
               <span className="material-symbols-outlined text-[16px]">arrow_forward</span>

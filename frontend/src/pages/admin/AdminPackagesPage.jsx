@@ -230,7 +230,7 @@ export default function AdminPackagesPage() {
         localStorage.setItem(VOUCHER_STORAGE_KEY, JSON.stringify(mapped));
       }
     } catch (requestError) {
-      setError(requestError.message || 'Không thể tải dữ liệu gói tập từ database.');
+      setError(requestError.message || 'Không thể tải danh sách gói tập.');
     } finally {
       setLoading(false);
     }

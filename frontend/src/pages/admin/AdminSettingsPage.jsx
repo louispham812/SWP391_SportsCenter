@@ -766,7 +766,7 @@ export default function AdminSettingsPage() {
             </div>
 
             {aiLoading ? (
-              <div className="py-12 text-center text-sm text-slate-500">Đang tải thông số cấu hình AI từ database...</div>
+              <div className="py-12 text-center text-sm text-slate-500">Đang tải cấu hình AI...</div>
             ) : (
               <div className="space-y-6">
                 {/* Switch bật/tắt */}

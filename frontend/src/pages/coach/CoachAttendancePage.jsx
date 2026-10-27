@@ -100,12 +100,12 @@ export default function CoachAttendancePage() {
     <CoachLayout>
       <div className="space-y-6">
         <header>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200/80 text-orange-700 text-xs font-semibold mb-2">
             <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-            F SPORT COACH · ĐIỂM DANH &amp; NHẬN XÉT
+            Điểm danh lớp học
           </div>
-          <h1 className="font-headline-xl text-2xl font-bold text-slate-900 sm:text-3xl">
-            Điểm Danh &amp; Đánh Giá Học Viên
+          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
+            Điểm danh &amp; Đánh giá học viên
           </h1>
           <p className="text-xs text-slate-500 sm:text-sm">
             Ghi nhận chuyên cần thực tế (Có mặt / Vắng có phép / Vắng không phép) và gửi nhận xét, bài tập dặn dò.

@@ -336,7 +336,7 @@ export default function MemberClassesPage() {
             Không tìm thấy lớp học nào phù hợp với bộ lọc hiện tại.
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
             {filteredClasses.map((cls) => {
               const remaining = Math.max(0, cls.maxSlots - cls.bookedSlots);
               const alreadyBooked = ['BOOKED', 'CONFIRMED'].includes(cls.memberBookingStatus);
@@ -346,7 +346,7 @@ export default function MemberClassesPage() {
               return (
                 <article
                   key={cls.sessionId}
-                  className="group flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-orange-400 hover:shadow-xl"
+                  className="group flex flex-col justify-between h-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-orange-400 hover:shadow-md"
                 >
                   <div>
                     {/* Cover Image */}
@@ -422,7 +422,7 @@ export default function MemberClassesPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="p-5 pt-0">
+                  <div className="p-5 pt-0 mt-auto">
                     {alreadyBooked ? (
                       <div className="space-y-2">
                         <div className="text-center text-[11px] font-bold text-emerald-700 bg-emerald-50 py-1.5 rounded-xl border border-emerald-200">

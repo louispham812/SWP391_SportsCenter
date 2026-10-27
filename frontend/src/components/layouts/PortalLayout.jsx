@@ -115,8 +115,8 @@ export default function PortalLayout({
                 <span className="font-headline-sm text-[15px] text-slate-900 tracking-tight font-black leading-tight">
                   F SPORT <span className="text-orange-500">CENTER</span>
                 </span>
-                <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mt-0.5">
-                  ATHLETIC SANCTUARY
+                <span className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">
+                  TRUNG TÂM THỂ THAO ĐA NĂNG
                 </span>
               </div>
             </Link>
@@ -251,8 +251,8 @@ export default function PortalLayout({
           <div className="flex items-center gap-3 shrink-0 ml-3">
             <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="font-bold uppercase tracking-wider text-[10px]">
-                HỆ THỐNG TRỰC TUYẾN
+              <span className="font-semibold text-[11px]">
+                Hệ thống trực tuyến
               </span>
             </div>
 

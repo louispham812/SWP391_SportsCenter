@@ -201,7 +201,7 @@ export default function AdminDashboardPage() {
               <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-3">
                 <div className="border-b border-slate-100 p-5">
                   <h2 className="font-bold uppercase text-slate-900">Lịch lớp trong ngày</h2>
-                  <p className="mt-1 text-xs text-slate-500">Sĩ số được tổng hợp từ booking trong cơ sở dữ liệu.</p>
+                  <p className="mt-1 text-xs text-slate-500">Sĩ số học viên cập nhật theo thời gian thực.</p>
                 </div>
                 {classes.length === 0 ? (
                   <p className="p-5 text-sm text-slate-500">Không có lớp nào được lên lịch trong ngày này.</p>

@@ -205,17 +205,17 @@ export default function MemberSchedulePage() {
         {/* =========================================
             1. PAGE HEADER & CONTROL BAR
            ========================================= */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-sm">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-bold uppercase tracking-wider mb-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-semibold mb-2 border border-orange-200/80">
               <span className="material-symbols-outlined text-[16px]">calendar_month</span>
-              Lịch Trình Cá Nhân
+              Lịch trình cá nhân
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              Thời Khóa Biểu Tập Luyện
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+              Thời khóa biểu tập luyện
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Theo dõi lịch học huấn luyện viên, khung giờ sân đã đặt, tình trạng chuyên cần và đánh giá sau buổi tập.
+              Theo dõi lịch học với huấn luyện viên, khung giờ sân đã đặt và tình trạng buổi tập.
             </p>
           </div>
 
@@ -223,14 +223,14 @@ export default function MemberSchedulePage() {
           <div className="flex items-center gap-2.5 flex-wrap">
             <Link
               to="/member/classes"
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-md shadow-orange-500/20 transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold shadow-sm shadow-orange-500/20 transition-all cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">school</span>
               <span>Đăng Ký Lớp Học</span>
             </Link>
             <Link
               to="/member/book/court/sports"
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">sports_tennis</span>
               <span>Đặt Sân Thể Thao</span>
@@ -238,7 +238,7 @@ export default function MemberSchedulePage() {
             <button
               onClick={loadSchedule}
               type="button"
-              className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+              className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
               title="Làm mới lịch"
             >
               <span className="material-symbols-outlined text-[18px]">sync</span>
@@ -246,11 +246,11 @@ export default function MemberSchedulePage() {
           </div>
         </div>
 
-        {/* BR-10 Policy Alert Banner */}
-        <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-2xl flex items-start gap-3 text-xs text-blue-900">
-          <span className="material-symbols-outlined text-blue-600 text-[20px] shrink-0 mt-0.5">policy</span>
+        {/* Policy Alert Banner */}
+        <div className="p-4 bg-orange-50/70 border border-orange-200/80 rounded-2xl flex items-start gap-3 text-xs text-orange-950">
+          <span className="material-symbols-outlined text-orange-600 text-[20px] shrink-0 mt-0.5">info</span>
           <div className="leading-relaxed">
-            <strong>Quy định hủy/đổi lịch &amp; hoàn tiền (BR-10):</strong> Hội viên được phép hủy đặt sân hoặc lớp học trực tuyến <strong>trước giờ bắt đầu ít nhất 2 tiếng</strong> để nhận hoàn trả 100% chi phí vào sổ giao dịch. Trong vòng dưới 2 tiếng trước giờ diễn ra, tính năng hủy trực tuyến sẽ tự động đóng nhằm đảm bảo quyền lợi vận hành sân bãi và huấn luyện viên.
+            <strong>Chính sách hủy lịch &amp; hoàn phí:</strong> Bạn có thể hủy lịch đặt sân hoặc lớp học trực tuyến <strong>trước giờ bắt đầu ít nhất 2 tiếng</strong> để nhận hoàn trả 100% chi phí vào tài khoản. Trong vòng 2 tiếng trước giờ diễn ra, tính năng hủy trực tuyến sẽ đóng để đảm bảo công tác chuẩn bị sân bãi và huấn luyện viên.
           </div>
         </div>
 
@@ -407,7 +407,7 @@ export default function MemberSchedulePage() {
               return (
                 <div
                   key={key}
-                  className={`rounded-3xl border transition-all overflow-hidden ${
+                  className={`rounded-2xl border transition-all overflow-hidden ${
                     isToday
                       ? 'bg-orange-50/20 border-orange-300 ring-2 ring-orange-400/20 shadow-sm'
                       : 'bg-white border-slate-200'
