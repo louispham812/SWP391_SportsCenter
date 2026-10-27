@@ -29,7 +29,7 @@ export default function MemberAIAssistantPage() {
       .then(([healthData, scheduleData]) => {
         if (!current) return;
         setHealth(healthData);
-        setSchedule(scheduleData);
+        setSchedule(Array.isArray(scheduleData) ? scheduleData.filter((s) => s.status !== 'CANCELLED' && s.status !== 'REFUNDED') : []);
       })
       .catch((requestError) => {
         if (current) setError(requestError.message || 'Không thể tải dữ liệu hồ sơ và lịch tập.');

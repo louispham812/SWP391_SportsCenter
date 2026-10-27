@@ -691,7 +691,7 @@ public class BookingService {
                 .collect(Collectors.toMap(User::getUserId, Function.identity()));
 
         List<MemberScheduleEntryResponse> entries = classBookings.stream()
-                .filter(booking -> classes.containsKey(booking.getSessionId()))
+                .filter(booking -> classes.containsKey(booking.getSessionId()) && !"CANCELLED".equalsIgnoreCase(booking.getStatus()))
                 .map(booking -> {
                     ClassSession session = classes.get(booking.getSessionId());
                     PublicSport sport = publicSportRepository.findById(session.getSportId()).orElse(null);
@@ -722,6 +722,7 @@ public class BookingService {
                         courtBookings.stream().map(CourtBooking::getCourtId).distinct().toList()).stream()
                 .collect(Collectors.toMap(SportsCourt::getCourtId, Function.identity()));
         for (CourtBooking booking : courtBookings) {
+            if ("CANCELLED".equalsIgnoreCase(booking.getStatus())) continue;
             SportsCourt court = courts.get(booking.getCourtId());
             if (court == null) continue;
             PublicSport sport = publicSportRepository.findById(court.getSportId()).orElse(null);

@@ -122,13 +122,20 @@ export default function MemberSchedulePage() {
   // Confirm cancel booking with 100% refund
   const handleConfirmCancel = async () => {
     if (!cancelingBooking) return;
+    const target = cancelingBooking;
     setSubmittingCancel(true);
     try {
-      await cancelMemberBooking(cancelingBooking.bookingType, cancelingBooking.bookingId);
+      await cancelMemberBooking(target.bookingType, target.bookingId);
       showToast(
         'Hủy đặt chỗ thành công',
-        `Đã hủy thành công ${cancelingBooking.title}. Hệ thống đã hoàn tiền 100% vào sổ giao dịch.`,
+        `Đã hủy thành công ${target.title}. Hệ thống đã hoàn tiền 100% vào sổ giao dịch.`,
         'success'
+      );
+      // Optimistically remove immediately from local schedule state
+      setScheduleEntries((prev) =>
+        prev.filter(
+          (item) => !(item.bookingType === target.bookingType && String(item.bookingId) === String(target.bookingId))
+        )
       );
       setCancelingBooking(null);
       await loadSchedule();
@@ -145,6 +152,11 @@ export default function MemberSchedulePage() {
 
   const weekEntries = useMemo(() => {
     return scheduleEntries.filter((entry) => {
+      // Exclude cancelled and refunded bookings from the schedule
+      if (entry.status === 'CANCELLED' || entry.status === 'REFUNDED' || entry.refundStatus === 'REFUNDED') {
+        return false;
+      }
+
       const startMs = new Date(entry.startTime).getTime();
       const inWeek = startMs >= weekStartMs && startMs <= weekEndMs;
       if (!inWeek) return false;
