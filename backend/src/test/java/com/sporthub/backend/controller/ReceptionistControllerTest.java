@@ -3,6 +3,7 @@ package com.sporthub.backend.controller;
 import com.sporthub.backend.entity.PaymentTransaction;
 import com.sporthub.backend.entity.ReceptionPayment;
 import com.sporthub.backend.entity.User;
+import com.sporthub.backend.dto.*;
 import com.sporthub.backend.repository.PaymentTransactionRepository;
 import com.sporthub.backend.repository.MembershipPackageRepository;
 import com.sporthub.backend.repository.MemberCheckInRepository;
@@ -112,5 +113,71 @@ class ReceptionistControllerTest {
         assertEquals(1, result.newMembers());
         assertEquals(3, result.payments().size());
         assertEquals(2, result.paymentMethods().size());
+    }
+
+    @Test
+    void getMyProfileReturnsReceptionistProfileAndStats() {
+        User staff = User.builder()
+                .userId(3L)
+                .fullName("Phạm Minh Tú")
+                .email("tu.receptionist@sporthub.vn")
+                .phone("0912345678")
+                .role("RECEPTIONIST")
+                .status("ACTIVE")
+                .build();
+        when(userRepository.findById(3L)).thenReturn(java.util.Optional.of(staff));
+        when(checkInRepository.countByRecordedBy(3L)).thenReturn(42L);
+
+        var res = controller.getMyProfile(receptionist);
+
+        assertEquals("Phạm Minh Tú", res.fullName());
+        assertEquals("F-STAFF-003", res.staffCode());
+        assertEquals("Nhân viên Lễ tân", res.roleTitle());
+        assertEquals(42L, res.shiftStats().totalCheckInsHandled());
+    }
+
+    @Test
+    void updateMyProfileUpdatesDetails() {
+        User staff = User.builder()
+                .userId(3L)
+                .fullName("Phạm Minh Tú")
+                .email("tu.receptionist@sporthub.vn")
+                .phone("0912345678")
+                .role("RECEPTIONIST")
+                .status("ACTIVE")
+                .build();
+        when(userRepository.findById(3L)).thenReturn(java.util.Optional.of(staff));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var req = new com.sporthub.backend.dto.ReceptionistProfileUpdateRequest(
+                "Phạm Minh Tú Updated",
+                "0988888888",
+                LocalDate.of(1995, 1, 1),
+                "Nam",
+                "Quận 1, TP. HCM",
+                "Người thân",
+                "0999999999"
+        );
+        var res = controller.updateMyProfile(req, receptionist);
+
+        assertEquals("Phạm Minh Tú Updated", res.fullName());
+        assertEquals("0988888888", res.phone());
+        assertEquals("Quận 1, TP. HCM", res.address());
+    }
+
+    @Test
+    void updateMyAvatarSetsAvatar() {
+        User staff = User.builder()
+                .userId(3L)
+                .fullName("Phạm Minh Tú")
+                .role("RECEPTIONIST")
+                .status("ACTIVE")
+                .build();
+        when(userRepository.findById(3L)).thenReturn(java.util.Optional.of(staff));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var res = controller.updateMyAvatar(new ReceptionistController.AvatarUpdateRequest("data:image/jpeg;base64,newavatar"), receptionist);
+        assertEquals(true, res.get("ok"));
+        assertEquals("data:image/jpeg;base64,newavatar", res.get("avatar"));
     }
 }

@@ -12,5 +12,8 @@ public interface MemberCheckInRepository extends JpaRepository<MemberCheckIn, Lo
     List<MemberCheckIn> findTop50ByOrderByCheckedInAtDesc();
     List<MemberCheckIn> findByMemberIdOrderByCheckedInAtDesc(Long memberId);
     boolean existsByMemberIdAndCheckedInAtAfter(Long memberId, LocalDateTime after);
+    long countByRecordedBy(Long recordedBy);
+    long countByCheckedInAtGreaterThanEqualAndCheckedInAtLessThan(LocalDateTime start, LocalDateTime end);
+    long countByResultAndCheckedInAtGreaterThanEqualAndCheckedInAtLessThan(String result, LocalDateTime start, LocalDateTime end);
 }
 

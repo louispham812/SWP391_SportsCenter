@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +50,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import com.sporthub.backend.entity.ClassSession;
+import com.sporthub.backend.dto.ReceptionistProfileResponse;
+import com.sporthub.backend.dto.ReceptionistProfileUpdateRequest;
+import com.sporthub.backend.dto.ReceptionistDashboardOverviewResponse;
 
 @RestController
 @RequestMapping("/api/v1/receptionist")
@@ -66,6 +71,9 @@ public class ReceptionistController {
     private final com.sporthub.backend.service.EngagementService engagementService;
     private final com.sporthub.backend.repository.ClassSessionRepository classSessionRepository;
     private final com.sporthub.backend.repository.CourtBookingRepository courtBookingRepository;
+
+    @Autowired(required = false)
+    private com.sporthub.backend.repository.EquipmentLoanRepository equipmentLoanRepository;
 
     @Autowired
     public ReceptionistController(
@@ -613,6 +621,198 @@ public class ReceptionistController {
         result.put("activePackages", activePackages);
         result.put("todayBookings", todayBookings);
         return result;
+    }
+
+    @GetMapping("/profile")
+    @Transactional(readOnly = true)
+    public ReceptionistProfileResponse getMyProfile(Authentication auth) {
+        requireStaff(auth);
+        Long id = actorId(auth);
+        User staff = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thông tin nhân viên lễ tân."));
+
+        long checkInsHandled = checkInRepository != null ? checkInRepository.countByRecordedBy(id) : 0;
+        List<ReceptionPayment> myPayments = paymentRepository != null ? paymentRepository.findAll().stream()
+                .filter(p -> p.getApprovedBy() != null && p.getApprovedBy().longValue() == id)
+                .toList() : List.of();
+        long salesHandled = myPayments.size();
+        BigDecimal totalRevenueCollected = myPayments.stream()
+                .filter(p -> "COMPLETED".equalsIgnoreCase(p.getPaymentStatus()) || "PAID".equalsIgnoreCase(p.getPaymentStatus()))
+                .map(ReceptionPayment::getAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        String staffCode = "F-STAFF-" + String.format("%03d", staff.getUserId());
+        return new ReceptionistProfileResponse(
+                staff.getUserId(),
+                staff.getFullName(),
+                staff.getEmail(),
+                staff.getPhone(),
+                staff.getAvatar(),
+                staff.getRfidCode(),
+                staffCode,
+                staff.getDateOfBirth(),
+                staff.getGender(),
+                staff.getAddress(),
+                staff.getEmergencyContactName(),
+                staff.getEmergencyContactPhone(),
+                staff.getRole(),
+                "Nhân viên Lễ tân",
+                staff.getStatus(),
+                staff.getCreatedAt(),
+                new ReceptionistProfileResponse.StaffStats(checkInsHandled, salesHandled, totalRevenueCollected)
+        );
+    }
+
+    @PutMapping("/profile")
+    @Transactional
+    public ReceptionistProfileResponse updateMyProfile(
+            @RequestBody ReceptionistProfileUpdateRequest req,
+            Authentication auth) {
+        requireStaff(auth);
+        Long id = actorId(auth);
+        User staff = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thông tin nhân viên lễ tân."));
+
+        if (req != null) {
+            if (req.fullName() != null && !req.fullName().isBlank()) {
+                if (req.fullName().trim().length() > 100) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Họ và tên vượt quá 100 ký tự.");
+                }
+                staff.setFullName(req.fullName().trim());
+            }
+            if (req.phone() != null) {
+                if (req.phone().trim().length() > 15) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số điện thoại vượt quá 15 ký tự.");
+                }
+                staff.setPhone(req.phone().trim());
+            }
+            staff.setDateOfBirth(req.dateOfBirth());
+            if (req.gender() != null) {
+                staff.setGender(req.gender().trim());
+            }
+            if (req.address() != null) {
+                staff.setAddress(req.address().trim());
+            }
+            if (req.emergencyContactName() != null) {
+                staff.setEmergencyContactName(req.emergencyContactName().trim());
+            }
+            if (req.emergencyContactPhone() != null) {
+                staff.setEmergencyContactPhone(req.emergencyContactPhone().trim());
+            }
+        }
+        userRepository.save(staff);
+        return getMyProfile(auth);
+    }
+
+    @PutMapping("/avatar")
+    @Transactional
+    public Map<String, Object> updateMyAvatar(
+            @RequestBody AvatarUpdateRequest req,
+            Authentication auth) {
+        requireStaff(auth);
+        Long id = actorId(auth);
+        User staff = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thông tin nhân viên lễ tân."));
+
+        if (req == null || req.avatar() == null || req.avatar().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dữ liệu ảnh đại diện không hợp lệ.");
+        }
+        staff.setAvatar(req.avatar().trim());
+        userRepository.save(staff);
+        return Map.of("ok", true, "avatar", staff.getAvatar());
+    }
+
+    @GetMapping("/dashboard-overview")
+    @Transactional(readOnly = true)
+    public ReceptionistDashboardOverviewResponse getDashboardOverview(Authentication auth) {
+        requireStaff(auth);
+        LocalDate today = LocalDate.now();
+        ReceptionistReportResponse report = getDailyReport(today, auth);
+
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay = today.plusDays(1).atStartOfDay();
+
+        long todayCheckIns = checkInRepository != null
+                ? checkInRepository.countByCheckedInAtGreaterThanEqualAndCheckedInAtLessThan(startOfDay, endOfDay)
+                : 0;
+        long validCheckIns = checkInRepository != null
+                ? checkInRepository.countByResultAndCheckedInAtGreaterThanEqualAndCheckedInAtLessThan("VALID", startOfDay, endOfDay)
+                : 0;
+        long rejectedCheckIns = checkInRepository != null
+                ? checkInRepository.countByResultAndCheckedInAtGreaterThanEqualAndCheckedInAtLessThan("REJECTED", startOfDay, endOfDay)
+                : 0;
+
+        long activeLoans = 0;
+        if (equipmentLoanRepository != null) {
+            activeLoans = equipmentLoanRepository.findByStatusIgnoreCaseOrderByLoanedAtDesc("BORROWED").size();
+        }
+
+        // Recent check-ins list (top 8)
+        List<ReceptionistDashboardOverviewResponse.RecentCheckInItem> recentCheckIns = new ArrayList<>();
+        if (checkInRepository != null) {
+            List<MemberCheckIn> entries = checkInRepository.findTop50ByOrderByCheckedInAtDesc();
+            List<MemberCheckIn> top8 = entries.stream().limit(8).toList();
+            Set<Long> memberIds = top8.stream().map(MemberCheckIn::getMemberId).collect(Collectors.toSet());
+            Map<Long, User> memberMap = userRepository.findAllById(memberIds).stream()
+                    .collect(Collectors.toMap(User::getUserId, Function.identity()));
+
+            for (MemberCheckIn e : top8) {
+                User m = memberMap.get(e.getMemberId());
+                recentCheckIns.add(new ReceptionistDashboardOverviewResponse.RecentCheckInItem(
+                        e.getCheckInId(),
+                        e.getMemberId(),
+                        m != null ? m.getFullName() : "Hội viên #" + e.getMemberId(),
+                        m != null ? m.getPhone() : null,
+                        m != null ? m.getAvatar() : null,
+                        e.getCheckedInAt(),
+                        e.getResult()
+                ));
+            }
+        }
+
+        // Today's classes
+        List<ReceptionistDashboardOverviewResponse.TodayClassItem> todayClasses = new ArrayList<>();
+        if (classSessionRepository != null) {
+            List<ClassSession> sessions = classSessionRepository
+                    .findByStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(startOfDay, endOfDay).stream()
+                    .filter(s -> !"CANCELLED".equalsIgnoreCase(s.getStatus()))
+                    .toList();
+            Set<Long> coachIds = sessions.stream().map(ClassSession::getCoachId).collect(Collectors.toSet());
+            Map<Long, User> coachMap = userRepository.findAllById(coachIds).stream()
+                    .collect(Collectors.toMap(User::getUserId, Function.identity()));
+
+            for (ClassSession s : sessions) {
+                User c = coachMap.get(s.getCoachId());
+                todayClasses.add(new ReceptionistDashboardOverviewResponse.TodayClassItem(
+                        s.getSessionId(),
+                        s.getClassName(),
+                        s.getCoachId(),
+                        c != null ? c.getFullName() : "HLV #" + s.getCoachId(),
+                        c != null ? c.getAvatar() : null,
+                        s.getStartTime(),
+                        s.getEndTime(),
+                        s.getMaxSlots(),
+                        s.getBookedSlots(),
+                        s.getStatus()
+                ));
+            }
+        }
+
+        return new ReceptionistDashboardOverviewResponse(
+                today,
+                report.totalRevenue(),
+                report.completedPayments(),
+                todayCheckIns,
+                validCheckIns,
+                rejectedCheckIns,
+                report.newMembers(),
+                todayClasses.size(),
+                activeLoans,
+                recentCheckIns,
+                todayClasses,
+                report.paymentMethods()
+        );
     }
 
     private void requireStaff(Authentication authentication) {

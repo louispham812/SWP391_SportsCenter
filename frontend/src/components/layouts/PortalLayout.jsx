@@ -71,7 +71,9 @@ export default function PortalLayout({
     { title: 'Lịch sử giao dịch', subtitle: 'Biên lai điện tử, hoàn tiền và chi tiêu', path: '/member/transactions', icon: 'account_balance_wallet', roleName: 'Hội viên' },
     { title: 'Hồ sơ & Thẻ số cá nhân', subtitle: 'Mã QR check-in, thông tin cá nhân', path: '/member/profile', icon: 'badge', roleName: 'Hội viên' },
     { title: 'Hồ sơ & Thẻ HLV', subtitle: 'Thông tin cá nhân, thẻ số HLV, chuyên môn và bằng cấp', path: '/coach/profile', icon: 'badge', roleName: 'HLV' },
-    { title: 'Check-in Lễ tân tại quầy', subtitle: 'Quét thẻ RFID, tìm kiếm hội viên, mở tủ đồ', path: '/receptionist', icon: 'how_to_reg', roleName: 'Lễ tân' },
+    { title: 'Tổng quan Lễ tân', subtitle: 'Bảng vận hành trung tâm, theo dõi check-in và doanh thu ca', path: '/receptionist', icon: 'dashboard', roleName: 'Lễ tân' },
+    { title: 'Check-in Lễ tân tại quầy', subtitle: 'Quét thẻ RFID, tìm kiếm hội viên, mở cổng tự động', path: '/receptionist/checkin', icon: 'how_to_reg', roleName: 'Lễ tân' },
+    { title: 'Hồ sơ nhân viên Lễ tân', subtitle: 'Mã QR nhân viên, thẻ định danh ca trực và bảo mật tài khoản', path: '/receptionist/profile', icon: 'account_circle', roleName: 'Lễ tân' },
     { title: 'Bán hàng POS & Thu ngân', subtitle: 'Bán gói tập, nước uống, thiết bị thể thao', path: '/receptionist/pos', icon: 'point_of_sale', roleName: 'Lễ tân' },
     { title: 'Tổng quan', subtitle: 'Bảng điều khiển HLV, ca dạy hôm nay và hiệu suất', path: '/coach', icon: 'dashboard', roleName: 'HLV' },
     { title: 'Lịch dạy HLV trong tuần', subtitle: 'Lịch ca dạy, phòng tập, số lượng học viên', path: '/coach/schedule', icon: 'calendar_month', roleName: 'HLV' },
@@ -370,7 +372,12 @@ export default function PortalLayout({
                   <div className="py-2 flex flex-col gap-1">
                     <button
                       onClick={() => {
-                        const targetProfile = role === 'coach' ? '/coach/profile' : '/member/profile';
+                        const targetProfile =
+                          role === 'coach'
+                            ? '/coach/profile'
+                            : role === 'receptionist'
+                            ? '/receptionist/profile'
+                            : '/member/profile';
                         navigate(targetProfile);
                         setProfileOpen(false);
                       }}
@@ -379,7 +386,13 @@ export default function PortalLayout({
                       <span className="material-symbols-outlined text-[18px] text-slate-500">
                         account_circle
                       </span>
-                      <span>{role === 'coach' ? 'Hồ sơ & Thẻ HLV' : 'Hồ sơ & Thẻ số cá nhân'}</span>
+                      <span>
+                        {role === 'coach'
+                          ? 'Hồ sơ & Thẻ HLV'
+                          : role === 'receptionist'
+                          ? 'Hồ sơ cá nhân'
+                          : 'Hồ sơ & Thẻ số cá nhân'}
+                      </span>
                     </button>
                     <button
                       onClick={() => {
