@@ -525,6 +525,11 @@ public class ManagerController {
             }
         }
 
+        // Chuẩn hóa ADMIN -> MANAGER để đảm bảo toàn vẹn ràng buộc CSDL (BR-01)
+        if ("ADMIN".equalsIgnoreCase(targetRole)) {
+            targetRole = "MANAGER";
+        }
+
         User user = User.builder()
                 .fullName(fullName)
                 .email(email)

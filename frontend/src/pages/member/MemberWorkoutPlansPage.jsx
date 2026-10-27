@@ -50,6 +50,24 @@ export default function MemberWorkoutPlansPage() {
   const [generatingAi, setGeneratingAi] = useState(false);
   const [savingAiPlan, setSavingAiPlan] = useState(false);
 
+  // Trạng thái đánh dấu bài tập đã hoàn thành trong buổi tập
+  const [completedExercises, setCompletedExercises] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('member_completed_exercises') || '{}');
+    } catch {
+      return {};
+    }
+  });
+
+  const handleToggleExercise = (planId, exIdx) => {
+    setCompletedExercises((prev) => {
+      const key = `${planId}-${exIdx}`;
+      const next = { ...prev, [key]: !prev[key] };
+      localStorage.setItem('member_completed_exercises', JSON.stringify(next));
+      return next;
+    });
+  };
+
   useEffect(() => {
     loadAllData();
   }, []);
@@ -541,27 +559,71 @@ export default function MemberWorkoutPlansPage() {
                           </span>
                         </div>
 
-                        {/* Danh sách bài tập (MEM-20) */}
-                        <div className="space-y-1.5 bg-slate-50/80 p-3 rounded-xl border border-slate-200/80">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-                            Chi Tiết Bài Tập
-                          </span>
-                          {exercises.map((ex, idx) => (
-                            <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-slate-200/50 last:border-0">
-                              <span className="font-bold text-slate-800">{ex.name}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200 font-bold">
-                                  {ex.sets} x {ex.reps}
+                        {/* Danh sách bài tập có Checklist tương tác (MEM-20) */}
+                        {(() => {
+                          const completedCount = exercises.filter((_, idx) => completedExercises[`${plan.planId}-${idx}`]).length;
+                          const progressPercent = exercises.length > 0 ? Math.round((completedCount / exercises.length) * 100) : 0;
+                          return (
+                            <div className="space-y-2 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                  Chi Tiết Bài Tập &amp; Tích Hoàn Thành
                                 </span>
-                                {ex.weightKg > 0 && (
-                                  <span className="font-mono text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-200 font-black">
-                                    {ex.weightKg} kg
-                                  </span>
-                                )}
+                                <span className={`text-[11px] font-bold ${progressPercent === 100 ? 'text-emerald-600' : 'text-slate-600'}`}>
+                                  {completedCount}/{exercises.length} hoàn thành ({progressPercent}%)
+                                </span>
+                              </div>
+
+                              {/* Thanh tiến độ buổi tập */}
+                              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full transition-all duration-300 ${
+                                    progressPercent === 100 ? 'bg-emerald-500' : 'bg-orange-500'
+                                  }`}
+                                  style={{ width: `${progressPercent}%` }}
+                                ></div>
+                              </div>
+
+                              <div className="space-y-1.5 pt-1">
+                                {exercises.map((ex, idx) => {
+                                  const isDone = Boolean(completedExercises[`${plan.planId}-${idx}`]);
+                                  return (
+                                    <div
+                                      key={idx}
+                                      onClick={() => handleToggleExercise(plan.planId, idx)}
+                                      className={`flex items-center justify-between text-xs p-2 rounded-lg border transition-all cursor-pointer select-none ${
+                                        isDone
+                                          ? 'bg-emerald-50/70 border-emerald-300 text-emerald-950 font-medium'
+                                          : 'bg-white border-slate-200 text-slate-800 hover:border-orange-300'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span className={`material-symbols-outlined text-[18px] shrink-0 ${
+                                          isDone ? 'text-emerald-600' : 'text-slate-300'
+                                        }`}>
+                                          {isDone ? 'check_box' : 'check_box_outline_blank'}
+                                        </span>
+                                        <span className={`font-bold truncate ${isDone ? 'line-through text-emerald-800 opacity-75' : ''}`}>
+                                          {ex.name}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-bold text-slate-700">
+                                          {ex.sets} x {ex.reps}
+                                        </span>
+                                        {ex.weightKg > 0 && (
+                                          <span className="font-mono text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded text-[11px] font-black border border-orange-200">
+                                            {ex.weightKg} kg
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
-                          ))}
-                        </div>
+                          );
+                        })()}
 
                         {/* Kết quả buổi tập (COA-08) */}
                         {plan.sessionResult && (

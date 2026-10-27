@@ -246,6 +246,14 @@ export default function MemberSchedulePage() {
           </div>
         </div>
 
+        {/* BR-10 Policy Alert Banner */}
+        <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-2xl flex items-start gap-3 text-xs text-blue-900">
+          <span className="material-symbols-outlined text-blue-600 text-[20px] shrink-0 mt-0.5">policy</span>
+          <div className="leading-relaxed">
+            <strong>Quy định hủy/đổi lịch &amp; hoàn tiền (BR-10):</strong> Hội viên được phép hủy đặt sân hoặc lớp học trực tuyến <strong>trước giờ bắt đầu ít nhất 2 tiếng</strong> để nhận hoàn trả 100% chi phí vào sổ giao dịch. Trong vòng dưới 2 tiếng trước giờ diễn ra, tính năng hủy trực tuyến sẽ tự động đóng nhằm đảm bảo quyền lợi vận hành sân bãi và huấn luyện viên.
+          </div>
+        </div>
+
         {/* =========================================
             2. WEEK NAVIGATOR & VIEW SWITCHER
            ========================================= */}
