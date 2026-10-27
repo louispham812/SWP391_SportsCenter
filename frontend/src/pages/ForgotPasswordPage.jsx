@@ -42,6 +42,29 @@ export default function ForgotPasswordPage() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
+        // ===== XỬ LÝ PENDING_VERIFICATION (tái sử dụng pattern từ AuthPage) =====
+        if (data.error === 'PENDING_VERIFICATION') {
+          // Hiển thị thông báo từ backend
+          setInfoMessage(data.message || 'Tài khoản đang chờ xác thực. Vui lòng kiểm tra email để lấy mã OTP đăng ký.');
+          if (showToast) {
+            showToast('Tài khoản chưa kích hoạt', 'Vui lòng xác thực OTP đăng ký trước.');
+          }
+          
+          // Chuyển hướng đến trang verify OTP registration (KHÔNG phải verify-code reset password)
+          setTimeout(() => {
+            navigate('/verify-otp', {
+              state: { 
+                email: cleanEmail, // Dùng email user đã nhập (nhất quán với success case)
+                fromForgot: true, // Đánh dấu là từ forgot password
+              }
+            });
+          }, 1500);
+          
+          return; // Dừng xử lý, không throw error
+        }
+        // ===== KẾT THÚC XỬ LÝ PENDING_VERIFICATION =====
+        
+        // Nếu không phải PENDING_VERIFICATION, xử lý lỗi bình thường
         throw new Error(data.message || 'Không thể gửi yêu cầu đặt lại mật khẩu. Vui lòng thử lại.');
       }
 
@@ -51,7 +74,7 @@ export default function ForgotPasswordPage() {
         showToast('Đã gửi mã OTP', 'Vui lòng kiểm tra hộp thư email của bạn.');
       }
 
-      // Điều hướng ngay sang màn hình /verify-code kèm email đã nhập
+      // Điều hướng ngay sang màn hình /verify-code kèm email đã nhập (for password reset)
       setTimeout(() => {
         navigate('/verify-code', {
           state: { email: cleanEmail, fromForgot: true },

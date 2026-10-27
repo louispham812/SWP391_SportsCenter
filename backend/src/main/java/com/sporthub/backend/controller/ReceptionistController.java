@@ -39,15 +39,14 @@ import com.sporthub.backend.dto.CreateUserRequest;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.TreeMap;
+import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.Function;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 @RestController
@@ -62,10 +61,9 @@ public class ReceptionistController {
     private final MembershipPackageRepository packageRepository;
     private final MemberCheckInRepository checkInRepository;
     private final PasswordEncoder passwordEncoder;
-    private final com.sporthub.backend.repository.BookingRepository bookingRepository;
-    private final com.sporthub.backend.service.EngagementService engagementService;
-    private final com.sporthub.backend.repository.ClassSessionRepository classSessionRepository;
-    private final com.sporthub.backend.repository.CourtBookingRepository courtBookingRepository;
+    private final com.sporthub.backend.service.EmailService emailService;
+    private final com.sporthub.backend.service.AuditLogService auditLogService;
+    private final com.sporthub.backend.service.AuthService authService;
 
     @Autowired
     public ReceptionistController(
@@ -76,10 +74,9 @@ public class ReceptionistController {
             MembershipPackageRepository packageRepository,
             MemberCheckInRepository checkInRepository,
             PasswordEncoder passwordEncoder,
-            com.sporthub.backend.repository.BookingRepository bookingRepository,
-            com.sporthub.backend.service.EngagementService engagementService,
-            com.sporthub.backend.repository.ClassSessionRepository classSessionRepository,
-            com.sporthub.backend.repository.CourtBookingRepository courtBookingRepository) {
+            com.sporthub.backend.service.EmailService emailService,
+            com.sporthub.backend.service.AuditLogService auditLogService,
+            com.sporthub.backend.service.AuthService authService) {
         this.userRepository = userRepository;
         this.paymentRepository = paymentRepository;
         this.paymentTransactionRepository = paymentTransactionRepository;
@@ -87,21 +84,9 @@ public class ReceptionistController {
         this.packageRepository = packageRepository;
         this.checkInRepository = checkInRepository;
         this.passwordEncoder = passwordEncoder;
-        this.bookingRepository = bookingRepository;
-        this.engagementService = engagementService;
-        this.classSessionRepository = classSessionRepository;
-        this.courtBookingRepository = courtBookingRepository;
-    }
-
-    public ReceptionistController(
-            UserRepository userRepository,
-            ReceptionPaymentRepository paymentRepository,
-            PaymentTransactionRepository paymentTransactionRepository,
-            UserMembershipRepository membershipRepository,
-            MembershipPackageRepository packageRepository,
-            MemberCheckInRepository checkInRepository) {
-        this(userRepository, paymentRepository, paymentTransactionRepository,
-             membershipRepository, packageRepository, checkInRepository, new BCryptPasswordEncoder(), null, null, null, null);
+        this.emailService = emailService;
+        this.auditLogService = auditLogService;
+        this.authService = authService;
     }
 
     @GetMapping("/members")
@@ -160,13 +145,6 @@ public class ReceptionistController {
         User member = userRepository.findById(request.memberId())
                 .filter(user -> "MEMBER".equalsIgnoreCase(user.getRole()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy hội viên."));
-
-        // Anti-double check-in (BR-09 / Flow 4): Chặn check-in trùng lặp trong vòng 5 phút
-        LocalDateTime fiveMinutesAgo = LocalDateTime.now().minusMinutes(5);
-        if (checkInRepository.existsByMemberIdAndCheckedInAtAfter(member.getUserId(), fiveMinutesAgo)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Hội viên vừa mới check-in trong vòng 5 phút qua. Không cần quét lại.");
-        }
-
         LocalDate today = LocalDate.now();
         boolean hasActiveMembership = membershipRepository.findByUserIdOrderByEndDateDesc(member.getUserId()).stream()
                 .anyMatch(membership -> "ACTIVE".equalsIgnoreCase(membership.getStatus())
@@ -209,44 +187,11 @@ public class ReceptionistController {
                 .filter(item -> "ACTIVE".equalsIgnoreCase(item.getStatus()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Gói tập không còn được mở bán."));
         LocalDate today = LocalDate.now();
-
-        // Kiểm tra xem khách có gói cùng bộ môn đang còn hạn không để nối tiếp ngày (REC-06 / MEM-09)
-        List<UserMembership> existingActive = membershipRepository.findByUserIdOrderByEndDateDesc(member.getUserId()).stream()
-                .filter(m -> "ACTIVE".equalsIgnoreCase(m.getStatus()) && m.getEndDate() != null && !m.getEndDate().isBefore(today))
-                .filter(m -> packageRepository.findById(m.getPackageId())
-                        .map(p -> java.util.Objects.equals(p.getSportId(), membershipPackage.getSportId()))
-                        .orElse(false))
-                .toList();
-
-        LocalDate startDate = today;
-        if (!existingActive.isEmpty()) {
-            UserMembership currentMembership = existingActive.get(0);
-            MembershipPackage currentPackage = packageRepository.findById(currentMembership.getPackageId()).orElse(null);
-            if (currentPackage != null) {
-                if (membershipPackage.getPackageId().equals(currentPackage.getPackageId())) {
-                    // Gia hạn cùng gói: nối tiếp ngày
-                    LocalDate maxEnd = currentMembership.getEndDate();
-                    if (maxEnd != null && !maxEnd.isBefore(today)) {
-                        startDate = maxEnd.plusDays(1);
-                    }
-                } else if (membershipPackage.getPrice().compareTo(currentPackage.getPrice()) < 0) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Hội viên đang sử dụng gói " + currentPackage.getName() + ". Không thể mua gói thấp hơn gói hiện tại.");
-                } else {
-                    // Nâng cấp lên gói cao hơn: hết hạn gói cũ hôm nay, kích hoạt gói mới ngay lập tức
-                    currentMembership.setStatus("EXPIRED");
-                    membershipRepository.save(currentMembership);
-                    startDate = today;
-                }
-            }
-        }
-        LocalDate endDate = startDate.plusDays(Math.max(1, membershipPackage.getDurationDays()) - 1);
-
         UserMembership membership = new UserMembership();
         membership.setUserId(member.getUserId());
         membership.setPackageId(membershipPackage.getPackageId());
-        membership.setStartDate(startDate);
-        membership.setEndDate(endDate);
+        membership.setStartDate(today);
+        membership.setEndDate(today.plusDays(membershipPackage.getDurationDays()));
         membership.setStatus("ACTIVE");
         UserMembership savedMembership = membershipRepository.save(membership);
 
@@ -288,41 +233,17 @@ public class ReceptionistController {
                         payment.getPaymentStatus(),
                         payment.getCreatedAt()))
                 .forEach(allPayments::add);
-        Set<Long> cancelledCourtPaymentIds = courtBookingRepository != null
-                ? courtBookingRepository.findAll().stream()
-                        .filter(cb -> "CANCELLED".equalsIgnoreCase(cb.getStatus()))
-                        .map(com.sporthub.backend.entity.CourtBooking::getPaymentId)
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toSet())
-                : Set.of();
-
-        Set<Long> cancelledClassPaymentIds = bookingRepository != null
-                ? bookingRepository.findAll().stream()
-                        .filter(b -> "CANCELLED".equalsIgnoreCase(b.getStatus()))
-                        .map(com.sporthub.backend.entity.Booking::getPaymentId)
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toSet())
-                : Set.of();
-
         paymentTransactionRepository
                 .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
                         reportDate.atStartOfDay(), reportDate.plusDays(1).atStartOfDay())
                 .stream()
-                .filter(payment -> payment.getBookingType() == null || !payment.getBookingType().toUpperCase().endsWith("_REFUND"))
-                .map(payment -> {
-                    String effStatus = payment.getPaymentStatus();
-                    if (cancelledCourtPaymentIds.contains(payment.getPaymentId())
-                            || cancelledClassPaymentIds.contains(payment.getPaymentId())) {
-                        effStatus = "REFUNDED";
-                    }
-                    return new PaymentEntry(
-                            "booking-" + payment.getPaymentId(),
-                            payment.getMemberId(),
-                            payment.getAmount(),
-                            payment.getPaymentMethod(),
-                            effStatus,
-                            payment.getCreatedAt());
-                })
+                .map(payment -> new PaymentEntry(
+                        "booking-" + payment.getPaymentId(),
+                        payment.getMemberId(),
+                        payment.getAmount(),
+                        payment.getPaymentMethod(),
+                        payment.getPaymentStatus(),
+                        payment.getCreatedAt()))
                 .forEach(allPayments::add);
 
         List<PaymentEntry> completed = allPayments.stream()
@@ -405,8 +326,25 @@ public class ReceptionistController {
         if (password.length() < 8) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mật khẩu phải có ít nhất 8 ký tự.");
         }
-        if (userRepository.existsByEmailIgnoreCase(email)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email này đã tồn tại trong hệ thống.");
+        
+        // Check email availability với logic theo status
+        Optional<User> existingUser = authService.findUserByEmail(email);
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
+            String status = user.getStatus();
+            
+            if ("PENDING".equalsIgnoreCase(status)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                    "Email này đang chờ xác thực OTP. Người dùng có thể đăng nhập để nhận lại mã OTP.");
+            } else if ("ACTIVE".equalsIgnoreCase(status)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                    String.format("Email đã được sử dụng bởi %s (%s).", user.getFullName(), user.getRole()));
+            } else if ("LOCKED".equalsIgnoreCase(status)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                    "Email này tồn tại với tài khoản bị khóa. Vui lòng kiểm tra lại.");
+            } else {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Email này đã tồn tại trong hệ thống.");
+            }
         }
 
         boolean isManager = authentication != null && authentication.getAuthorities().stream()
@@ -423,10 +361,8 @@ public class ReceptionistController {
             }
         }
 
-        // Chuẩn hóa ADMIN -> MANAGER để đảm bảo toàn vẹn ràng buộc CSDL (BR-01)
-        if ("ADMIN".equalsIgnoreCase(targetRole)) {
-            targetRole = "MANAGER";
-        }
+        // Rule: TẤT CẢ user được tạo qua Admin Panel đều phải đổi password lần đầu
+        boolean requirePasswordChange = true;
 
         User user = User.builder()
                 .fullName(fullName)
@@ -435,9 +371,23 @@ public class ReceptionistController {
                 .passwordHash(passwordEncoder.encode(password))
                 .role(targetRole)
                 .status("ACTIVE")
+                .requirePasswordChange(requirePasswordChange)
                 .build();
 
         User savedUser = userRepository.save(user);
+        
+        // Rule: LUÔN gửi email mật khẩu tạm khi tạo user qua Admin Panel
+        try {
+            emailService.sendTemporaryPasswordEmail(savedUser.getEmail(), savedUser.getFullName(), password, savedUser.getRole());
+            auditLogService.logSuccess("CREATE_USER_ADMIN_PANEL", savedUser.getEmail(), savedUser.getUserId(), 
+                    "User created via Admin Panel (Receptionist) | Role: " + savedUser.getRole() + " | RequirePasswordChange: true | Temporary password sent");
+        } catch (Exception e) {
+            auditLogService.logFailure("CREATE_USER_ADMIN_PANEL", 
+                    savedUser.getEmail(), savedUser.getUserId(), 
+                    "User created but email failed | Role: " + savedUser.getRole(), 
+                    e.getMessage());
+        }
+        
         return new ReceptionistMemberResponse(
                 savedUser.getUserId(),
                 savedUser.getFullName(),
@@ -445,174 +395,6 @@ public class ReceptionistController {
                 savedUser.getPhone(),
                 savedUser.getStatus(),
                 savedUser.getCreatedAt());
-    }
-
-    public record AvatarUpdateRequest(String avatar) {}
-    public record RfidUpdateRequest(String rfidCode) {}
-
-    /**
-     * REC-03: Cập nhật ảnh nhận diện hội viên tại quầy.
-     */
-    @org.springframework.web.bind.annotation.PutMapping("/members/{memberId}/avatar")
-    @Transactional
-    public Map<String, Object> updateMemberAvatar(
-            @org.springframework.web.bind.annotation.PathVariable Long memberId,
-            @RequestBody AvatarUpdateRequest req,
-            Authentication auth) {
-        requireStaff(auth);
-        User user = userRepository.findById(memberId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy hội viên."));
-        if (req == null || req.avatar() == null || req.avatar().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dữ liệu ảnh nhận diện không hợp lệ.");
-        }
-        user.setAvatar(req.avatar());
-        userRepository.save(user);
-        if (engagementService != null) {
-            engagementService.audit(actorId(auth), "RECEPTIONIST", "UPDATE_MEMBER_AVATAR",
-                    "memberId=" + memberId + ", name=" + user.getFullName());
-        }
-        return Map.of("ok", true, "avatar", user.getAvatar());
-    }
-
-    /**
-     * REC-08: Cấp phát thẻ từ RFID cho hội viên.
-     */
-    @org.springframework.web.bind.annotation.PutMapping("/members/{memberId}/rfid")
-    @Transactional
-    public Map<String, Object> updateMemberRfid(
-            @org.springframework.web.bind.annotation.PathVariable Long memberId,
-            @RequestBody RfidUpdateRequest req,
-            Authentication auth) {
-        requireStaff(auth);
-        User user = userRepository.findById(memberId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy hội viên."));
-        if (req == null || req.rfidCode() == null || req.rfidCode().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã thẻ từ RFID không được để trống.");
-        }
-        String rfid = req.rfidCode().trim();
-        if (userRepository.existsByRfidCodeAndUserIdNot(rfid, memberId)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Mã thẻ từ RFID này đã được cấp cho hội viên khác.");
-        }
-        user.setRfidCode(rfid);
-        userRepository.save(user);
-        if (engagementService != null) {
-            engagementService.audit(actorId(auth), "RECEPTIONIST", "ASSIGN_RFID_CARD",
-                    "memberId=" + memberId + ", rfid=" + rfid + ", name=" + user.getFullName());
-        }
-        return Map.of("ok", true, "rfidCode", rfid);
-    }
-
-    /**
-     * REC-08: Quét mã QR cá nhân / thẻ từ RFID / SĐT để tra cứu hồ sơ và gói dịch vụ.
-     */
-    @GetMapping("/lookup-card")
-    @Transactional
-    public Map<String, Object> lookupCard(@RequestParam String code, Authentication auth) {
-        requireStaff(auth);
-        if (code == null || code.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng nhập mã thẻ từ, QR hoặc số điện thoại.");
-        }
-        String query = code.trim();
-        User user = null;
-        if (query.toUpperCase(Locale.ROOT).startsWith("SPORTHUB-MEMBER-")) {
-            try {
-                Long id = Long.parseLong(query.substring("SPORTHUB-MEMBER-".length()));
-                user = userRepository.findById(id).orElse(null);
-            } catch (NumberFormatException ignored) {}
-        }
-        if (user == null) {
-            user = userRepository.findByRfidCode(query).orElse(null);
-        }
-        if (user == null) {
-            user = userRepository.findByPhone(query).orElse(null);
-        }
-        if (user == null) {
-            try {
-                Long id = Long.parseLong(query);
-                user = userRepository.findById(id).filter(u -> "MEMBER".equalsIgnoreCase(u.getRole())).orElse(null);
-            } catch (NumberFormatException ignored) {}
-        }
-        if (user == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy hội viên khớp với mã \"" + query + "\".");
-        }
-
-        LocalDate today = LocalDate.now();
-        Long uid = user.getUserId();
-
-        // Tự động chuyển gói quá hạn sang EXPIRED
-        List<UserMembership> allM = membershipRepository.findByUserIdOrderByEndDateDesc(uid);
-        for (UserMembership m : allM) {
-            if ("ACTIVE".equalsIgnoreCase(m.getStatus()) && m.getEndDate() != null && m.getEndDate().isBefore(today)) {
-                m.setStatus("EXPIRED");
-                membershipRepository.save(m);
-            }
-        }
-
-        List<UserMembership> activeList = membershipRepository.findByUserIdOrderByEndDateDesc(uid).stream()
-                .filter(m -> "ACTIVE".equalsIgnoreCase(m.getStatus()) && (m.getEndDate() == null || !m.getEndDate().isBefore(today)))
-                .toList();
-
-        String tier = "MEMBER";
-        List<Map<String, Object>> activePackages = new ArrayList<>();
-        for (UserMembership m : activeList) {
-            MembershipPackage pkg = packageRepository.findById(m.getPackageId()).orElse(null);
-            String pkgName = pkg != null ? pkg.getName() : "Gói tập";
-            if (pkgName.toUpperCase(Locale.ROOT).contains("VIP") || pkgName.toUpperCase(Locale.ROOT).contains("DIAMOND")
-                    || (pkg != null && "ALL_ACCESS".equalsIgnoreCase(pkg.getAccessType()))) {
-                tier = "VIP";
-            } else if ("MEMBER".equals(tier)) {
-                tier = "STANDARD";
-            }
-            long daysLeft = m.getEndDate() != null ? Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(today, m.getEndDate()) + 1) : 0;
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("membershipId", m.getMembershipId());
-            row.put("packageName", pkgName);
-            row.put("startDate", m.getStartDate());
-            row.put("endDate", m.getEndDate());
-            row.put("daysRemaining", daysLeft);
-            activePackages.add(row);
-        }
-
-        // Today Bookings
-        LocalDateTime startOfToday = today.atStartOfDay();
-        LocalDateTime endOfToday = today.plusDays(1).atStartOfDay();
-        List<Map<String, Object>> todayBookings = new ArrayList<>();
-        if (bookingRepository != null) {
-            for (com.sporthub.backend.entity.Booking b : bookingRepository.findByMemberId(uid)) {
-                if ("CANCELLED".equalsIgnoreCase(b.getStatus())) continue;
-                if (b.getSessionId() != null && classSessionRepository != null) {
-                    com.sporthub.backend.entity.ClassSession s = classSessionRepository.findById(b.getSessionId()).orElse(null);
-                    if (s != null && s.getStartTime() != null
-                            && !s.getStartTime().isBefore(startOfToday) && s.getStartTime().isBefore(endOfToday)) {
-                        Map<String, Object> row = new LinkedHashMap<>();
-                        row.put("bookingId", b.getBookingId());
-                        row.put("sessionId", s.getSessionId());
-                        row.put("title", s.getClassName());
-                        row.put("startTime", s.getStartTime());
-                        row.put("endTime", s.getEndTime());
-                        row.put("status", b.getStatus());
-                        row.put("attendanceStatus", b.getAttendanceStatus());
-                        todayBookings.add(row);
-                    }
-                }
-            }
-        }
-
-        String tierBadge = "VIP".equals(tier) ? "HỘI VIÊN VIP" : "STANDARD".equals(tier) ? "HỘI VIÊN STANDARD" : "HỘI VIÊN MỚI";
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("userId", user.getUserId());
-        result.put("fullName", user.getFullName());
-        result.put("email", user.getEmail());
-        result.put("phone", user.getPhone());
-        result.put("avatar", user.getAvatar());
-        result.put("rfidCode", user.getRfidCode());
-        result.put("qrToken", "SPORTHUB-MEMBER-" + user.getUserId());
-        result.put("tier", tier);
-        result.put("tierBadge", tierBadge);
-        result.put("status", user.getStatus());
-        result.put("activePackages", activePackages);
-        result.put("todayBookings", todayBookings);
-        return result;
     }
 
     private void requireStaff(Authentication authentication) {
@@ -646,10 +428,6 @@ public class ReceptionistController {
     }
 
     private static boolean isCompleted(PaymentEntry payment) {
-        if (payment == null || payment.status() == null) return false;
-        if ("REFUNDED".equalsIgnoreCase(payment.status()) || "CANCELLED".equalsIgnoreCase(payment.status())) {
-            return false;
-        }
         return "COMPLETED".equalsIgnoreCase(payment.status())
                 || "PAID".equalsIgnoreCase(payment.status());
     }

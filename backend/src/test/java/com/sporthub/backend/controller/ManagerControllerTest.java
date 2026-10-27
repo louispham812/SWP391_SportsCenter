@@ -5,11 +5,14 @@ import com.sporthub.backend.entity.MembershipPackage;
 import com.sporthub.backend.repository.MembershipPackageRepository;
 import com.sporthub.backend.repository.PublicSportRepository;
 import com.sporthub.backend.repository.UserRepository;
+import com.sporthub.backend.service.AuditLogService;
+import com.sporthub.backend.service.EmailService;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -29,8 +32,12 @@ class ManagerControllerTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final MembershipPackageRepository packageRepository = mock(MembershipPackageRepository.class);
     private final PublicSportRepository sportRepository = mock(PublicSportRepository.class);
+    private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+    private final EmailService emailService = mock(EmailService.class);
+    private final AuditLogService auditLogService = mock(AuditLogService.class);
+    private final com.sporthub.backend.service.AuthService authService = mock(com.sporthub.backend.service.AuthService.class);
     private final ManagerController controller =
-            new ManagerController(userRepository, packageRepository, sportRepository);
+            new ManagerController(userRepository, packageRepository, sportRepository, passwordEncoder, emailService, auditLogService, authService);
     private final UsernamePasswordAuthenticationToken manager =
             new UsernamePasswordAuthenticationToken(
                     "1", "", List.of(new SimpleGrantedAuthority("ROLE_MANAGER")));
