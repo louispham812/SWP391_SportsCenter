@@ -25,6 +25,7 @@ export default function MemberPackagesPage() {
   const [actionType, setActionType] = useState('register'); // 'register' | 'renew' | 'upgrade'
   const [paymentMethod, setPaymentMethod] = useState('VIETQR');
   const [submitting, setSubmitting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
 
   const loadData = async () => {
     setLoading(true);
@@ -75,11 +76,13 @@ export default function MemberPackagesPage() {
     setSelectedPackage(pkg);
     setActionType(type);
     setPaymentMethod('VIETQR');
+    setCheckoutError('');
   };
 
   const handleConfirmPurchase = async () => {
     if (!selectedPackage) return;
     setSubmitting(true);
+    setCheckoutError('');
     try {
       const result = await purchaseMembership(selectedPackage.packageId, paymentMethod);
       showToast({
@@ -90,9 +93,11 @@ export default function MemberPackagesPage() {
       setSelectedPackage(null);
       await loadData();
     } catch (err) {
+      const errorMsg = err.message || 'Không thể thực hiện giao dịch gói tập.';
+      setCheckoutError(errorMsg);
       showToast({
         title: 'Thao tác không thành công',
-        message: err.message || 'Không thể thực hiện giao dịch gói tập.',
+        message: errorMsg,
         type: 'error',
       });
     } finally {
@@ -416,6 +421,17 @@ export default function MemberPackagesPage() {
                   <span className="material-symbols-outlined text-sm text-blue-600 shrink-0">info</span>
                   <span>Quyền lợi hội viên và ưu đãi giảm giá khóa học / thuê sân sẽ được kích hoạt ngay sau khi hoàn tất.</span>
                 </div>
+
+                {/* Inline Error Alert */}
+                {checkoutError && (
+                  <div className="rounded-2xl bg-red-50 border border-red-200 p-4 text-xs text-red-800 flex items-start gap-3 animate-in fade-in">
+                    <span className="material-symbols-outlined text-[20px] text-red-600 shrink-0 mt-0.5">error</span>
+                    <div className="space-y-0.5">
+                      <div className="font-bold text-red-900">Không thể hoàn tất giao dịch:</div>
+                      <p className="leading-relaxed font-medium">{checkoutError}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="p-6 pt-3 border-t border-slate-100 flex gap-3 bg-white">

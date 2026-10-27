@@ -58,10 +58,12 @@ export default function MemberClassesPage() {
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('VIETQR');
   const [submittingRegister, setSubmittingRegister] = useState(false);
+  const [registerError, setRegisterError] = useState('');
 
   // Load quote with active membership discount whenever a session is selected
   useEffect(() => {
     if (registeringSession) {
+      setRegisterError('');
       setQuoteLoading(true);
       setPaymentMethod('VIETQR');
       getBookingQuote('CLASS', registeringSession.sessionId)
@@ -70,6 +72,7 @@ export default function MemberClassesPage() {
         .finally(() => setQuoteLoading(false));
     } else {
       setSessionQuote(null);
+      setRegisterError('');
     }
   }, [registeringSession]);
 
@@ -157,6 +160,7 @@ export default function MemberClassesPage() {
   const handleConfirmRegister = async () => {
     if (!registeringSession) return;
     setSubmittingRegister(true);
+    setRegisterError('');
     try {
       const confirmation = await checkoutBooking(
         'CLASS',
@@ -173,9 +177,11 @@ export default function MemberClassesPage() {
       setRegisteringSession(null);
       await loadData();
     } catch (err) {
+      const errorMsg = err.message || 'Không thể đăng ký lớp học này.';
+      setRegisterError(errorMsg);
       showToast({
         title: 'Đăng ký thất bại',
-        message: err.message || 'Không thể đăng ký lớp học này.',
+        message: errorMsg,
         type: 'error',
       });
     } finally {
@@ -617,6 +623,17 @@ export default function MemberClassesPage() {
                     <span className="material-symbols-outlined text-sm text-blue-600 shrink-0">info</span>
                     <span>Bạn được hủy lớp và nhận hoàn 100% trước giờ bắt đầu ít nhất 2 tiếng. Lịch học sẽ tự động đồng bộ vào Thời khóa biểu.</span>
                   </div>
+
+                  {/* Inline Error Alert */}
+                  {registerError && (
+                    <div className="rounded-2xl bg-red-50 border border-red-200 p-4 text-xs text-red-800 flex items-start gap-3 animate-in fade-in">
+                      <span className="material-symbols-outlined text-[20px] text-red-600 shrink-0 mt-0.5">error</span>
+                      <div className="space-y-0.5">
+                        <div className="font-bold text-red-900">Không thể hoàn tất đăng ký:</div>
+                        <p className="leading-relaxed font-medium">{registerError}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-6 pt-3 border-t border-slate-100 flex gap-3 bg-white">
