@@ -62,4 +62,52 @@ public class AuditLog {
     @Builder.Default
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @PrePersist
+    @PreUpdate
+    public void syncAuditFields() {
+        if ((this.action == null || this.action.isBlank()) && this.logType != null) {
+            this.action = this.logType;
+        }
+        if ((this.logType == null || this.logType.isBlank()) && this.action != null) {
+            this.logType = this.action;
+        }
+        if ((this.detail == null || this.detail.isBlank()) && this.actionDetail != null) {
+            this.detail = this.actionDetail.length() > 1000 ? this.actionDetail.substring(0, 1000) : this.actionDetail;
+        }
+        if ((this.actionDetail == null || this.actionDetail.isBlank()) && this.detail != null) {
+            this.actionDetail = this.detail;
+        }
+        if (this.actorId == null && this.userId != null) {
+            this.actorId = this.userId;
+        }
+        if (this.userId == null && this.actorId != null) {
+            this.userId = this.actorId;
+        }
+        if ((this.actorName == null || this.actorName.isBlank()) && this.userEmail != null) {
+            this.actorName = this.userEmail;
+        }
+        if ((this.userEmail == null || this.userEmail.isBlank()) && this.actorName != null) {
+            this.userEmail = this.actorName;
+        }
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+    }
+
+    public String getAction() {
+        return (this.action != null && !this.action.isBlank()) ? this.action : this.logType;
+    }
+
+    public String getDetail() {
+        return (this.detail != null && !this.detail.isBlank()) ? this.detail : this.actionDetail;
+    }
+
+    public Long getActorId() {
+        return this.actorId != null ? this.actorId : this.userId;
+    }
+
+    public String getActorName() {
+        return (this.actorName != null && !this.actorName.isBlank()) ? this.actorName : this.userEmail;
+    }
 }

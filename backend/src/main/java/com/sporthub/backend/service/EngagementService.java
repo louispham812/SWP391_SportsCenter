@@ -72,6 +72,10 @@ public class EngagementService {
                     .actorRole(actorRole)
                     .action(action)
                     .detail(detail != null && detail.length() > 1000 ? detail.substring(0, 1000) : detail)
+                    .logType(action)
+                    .userId(actorId)
+                    .actionDetail(detail)
+                    .status("SUCCESS")
                     .createdAt(LocalDateTime.now())
                     .build());
         } catch (RuntimeException ignored) {
