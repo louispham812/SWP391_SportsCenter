@@ -7,6 +7,7 @@ import { createWorkoutPlan, createClassWorkoutPlan, getMemberWorkoutProgress } f
 import { sendCoachNotice } from '../../services/coachApi';
 import { CardGridSkeleton } from '../../components/common/Skeleton';
 import { useApp } from '../../context/AppContext';
+import Pagination from '../../components/common/Pagination';
 
 export default function CoachStudentsPage() {
   const [students, setStudents] = useState([]);
@@ -17,6 +18,8 @@ export default function CoachStudentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClassFilter, setSelectedClassFilter] = useState('ALL');
   const [selectedLevelFilter, setSelectedLevelFilter] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const STUDENTS_PER_PAGE = 6;
   const [generatingBookingId, setGeneratingBookingId] = useState(null);
   const [plans, setPlans] = useState({});
   const [planErrors, setPlanErrors] = useState({});
@@ -164,6 +167,17 @@ export default function CoachStudentsPage() {
       return matchesSearch && matchesClass && matchesLevel;
     });
   }, [students, searchQuery, selectedClassFilter, selectedLevelFilter]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedClassFilter, selectedLevelFilter]);
+
+  const totalPages = Math.ceil(filteredStudents.length / STUDENTS_PER_PAGE) || 1;
+  const paginatedStudents = useMemo(() => {
+    const start = (currentPage - 1) * STUDENTS_PER_PAGE;
+    return filteredStudents.slice(start, start + STUDENTS_PER_PAGE);
+  }, [filteredStudents, currentPage]);
 
   const totalEnrollments = useMemo(() => {
     return students.reduce((sum, s) => sum + s.sessions.length, 0);
@@ -541,8 +555,9 @@ export default function CoachStudentsPage() {
             <span>Không tìm thấy học viên nào phù hợp với bộ lọc hiện tại.</span>
           </div>
         ) : (
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 items-stretch">
-            {filteredStudents.map((student) => {
+          <div className="space-y-6">
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 items-stretch">
+              {paginatedStudents.map((student) => {
               // Check if student has overlapping sessions with this coach
               const hasStudentTimeConflict = student.sessions.some((s1, idx) =>
                 student.sessions.some(
@@ -747,7 +762,21 @@ export default function CoachStudentsPage() {
                 </article>
               );
             })}
-          </section>
+            </section>
+
+            {totalPages > 1 && (
+              <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-xs text-slate-500 font-medium">
+                  Hiển thị {(currentPage - 1) * STUDENTS_PER_PAGE + 1} - {Math.min(currentPage * STUDENTS_PER_PAGE, filteredStudents.length)} trên tổng số {filteredStudents.length} học viên
+                </span>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            )}
+          </div>
         )}
 
         <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-xs text-amber-900 flex items-start gap-3">

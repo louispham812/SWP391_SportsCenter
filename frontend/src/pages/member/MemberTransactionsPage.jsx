@@ -4,6 +4,7 @@ import { getMemberTransactions, getMemberProfile } from '../../services/memberAp
 import { apiRequest } from '../../services/apiClient';
 import { useApp } from '../../context/AppContext';
 import { TableSkeleton } from '../../components/common/Skeleton';
+import Pagination from '../../components/common/Pagination';
 
 export default function MemberTransactionsPage() {
   const { showToast } = useApp();
@@ -12,6 +13,8 @@ export default function MemberTransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterType, setFilterType] = useState('ALL'); // 'ALL' | 'MEMBERSHIP' | 'CLASS' | 'COURT' | 'REFUNDED' | 'QUOTA'
+  const [currentPage, setCurrentPage] = useState(1);
+  const TX_PER_PAGE = 8;
   const [selectedReceipt, setSelectedReceipt] = useState(null);
 
   // Modals for MEM-26 and MEM-31
@@ -88,6 +91,13 @@ export default function MemberTransactionsPage() {
       return t.itemType === filterType;
     });
   }, [transactions, filterType]);
+
+  const totalPages = Math.ceil(filteredTransactions.length / TX_PER_PAGE) || 1;
+
+  const paginatedTransactions = useMemo(() => {
+    const start = (currentPage - 1) * TX_PER_PAGE;
+    return filteredTransactions.slice(start, start + TX_PER_PAGE);
+  }, [filteredTransactions, currentPage]);
 
   const stats = useMemo(() => {
     let totalSpent = 0;
@@ -400,7 +410,10 @@ export default function MemberTransactionsPage() {
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setFilterType(tab.id)}
+                  onClick={() => {
+                    setFilterType(tab.id);
+                    setCurrentPage(1);
+                  }}
                   type="button"
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                     filterType === tab.id
@@ -447,7 +460,7 @@ export default function MemberTransactionsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredTransactions.map((tx) => {
+                    {paginatedTransactions.map((tx) => {
                       const typeMeta = getItemTypeBadge(tx.itemType, tx.paymentStatus, tx.amount);
                       const isRefund = tx.paymentStatus === 'REFUNDED';
                       const isQuota = tx.itemType === 'QUOTA' || parseFloat(tx.amount) === 0;
@@ -520,6 +533,20 @@ export default function MemberTransactionsPage() {
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="pt-4 mt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-xs text-slate-500 font-medium">
+                  Hiển thị {(currentPage - 1) * TX_PER_PAGE + 1} - {Math.min(currentPage * TX_PER_PAGE, filteredTransactions.length)} trên tổng số {filteredTransactions.length} giao dịch
+                </span>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
               </div>
             )}
           </div>

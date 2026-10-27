@@ -6,11 +6,14 @@ import { getMyWorkoutProgress, createWorkoutPlan, recordBodyProgress } from '../
 import { useApp } from '../../context/AppContext';
 import FormattedAiText from '../../components/common/FormattedAiText';
 import { CardGridSkeleton } from '../../components/common/Skeleton';
+import Pagination from '../../components/common/Pagination';
 
 export default function MemberWorkoutPlansPage() {
   const { showToast } = useApp();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('plans'); // 'plans' | 'progress' | 'feedback' | 'ai'
+  const [bodyLogPage, setBodyLogPage] = useState(1);
+  const BODY_LOGS_PER_PAGE = 5;
 
   // Health Profile State
   const [healthProfile, setHealthProfile] = useState({
@@ -330,6 +333,12 @@ export default function MemberWorkoutPlansPage() {
       liftDiff: (Number(last.maxLiftKg || 0) - Number(first.maxLiftKg || 0)).toFixed(1),
     };
   }, [bodyLogs]);
+
+  const totalBodyLogPages = Math.ceil(bodyLogs.length / BODY_LOGS_PER_PAGE) || 1;
+  const paginatedBodyLogs = useMemo(() => {
+    const start = (bodyLogPage - 1) * BODY_LOGS_PER_PAGE;
+    return bodyLogs.slice(start, start + BODY_LOGS_PER_PAGE);
+  }, [bodyLogs, bodyLogPage]);
 
   return (
     <MemberLayout>
@@ -784,7 +793,7 @@ export default function MemberWorkoutPlansPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {bodyLogs.map((log) => (
+                      {paginatedBodyLogs.map((log) => (
                         <tr key={log.progressId} className="hover:bg-slate-50/80 transition">
                           <td className="py-3 px-4 font-mono font-bold text-slate-900">{log.recordedDate}</td>
                           <td className="py-3 px-4 font-bold text-slate-800">{log.weightKg ? `${log.weightKg} kg` : '--'}</td>
@@ -798,6 +807,19 @@ export default function MemberWorkoutPlansPage() {
                       ))}
                     </tbody>
                   </table>
+
+                  {totalBodyLogPages > 1 && (
+                    <div className="pt-4 mt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <span className="text-xs text-slate-500 font-medium">
+                        Hiển thị {(bodyLogPage - 1) * BODY_LOGS_PER_PAGE + 1} - {Math.min(bodyLogPage * BODY_LOGS_PER_PAGE, bodyLogs.length)} trên {bodyLogs.length} lần đo
+                      </span>
+                      <Pagination
+                        currentPage={bodyLogPage}
+                        totalPages={totalBodyLogPages}
+                        onPageChange={setBodyLogPage}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>

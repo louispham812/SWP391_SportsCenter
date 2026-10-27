@@ -4,6 +4,7 @@ import MemberLayout from '../../components/layouts/MemberLayout';
 import { getMemberAttendance } from '../../services/memberApi';
 import { useApp } from '../../context/AppContext';
 import { TableSkeleton, CardGridSkeleton } from '../../components/common/Skeleton';
+import Pagination from '../../components/common/Pagination';
 
 export default function MemberAttendancePage() {
   const { showToast } = useApp();
@@ -22,6 +23,13 @@ export default function MemberAttendancePage() {
   const [activeTab, setActiveTab] = useState('classes'); // 'classes' | 'courts' | 'gate'
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'PRESENT' | 'EXCUSED_ABSENCE' | 'UNEXCUSED_ABSENCE' | 'REGISTERED'
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [classPage, setClassPage] = useState(1);
+  const [courtPage, setCourtPage] = useState(1);
+  const [gatePage, setGatePage] = useState(1);
+  const RECORDS_PER_PAGE = 5;
+  const COURTS_PER_PAGE = 5;
+  const GATES_PER_PAGE = 8;
 
   // Dispute modal state (MEM-19)
   const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
@@ -91,6 +99,24 @@ export default function MemberAttendancePage() {
       return matchesStatus && matchesSearch;
     });
   }, [attendanceData.records, statusFilter, searchQuery]);
+
+  const totalClassPages = Math.ceil(filteredRecords.length / RECORDS_PER_PAGE) || 1;
+  const paginatedRecords = useMemo(() => {
+    const start = (classPage - 1) * RECORDS_PER_PAGE;
+    return filteredRecords.slice(start, start + RECORDS_PER_PAGE);
+  }, [filteredRecords, classPage]);
+
+  const totalCourtPages = Math.ceil((attendanceData.courtBookings?.length || 0) / COURTS_PER_PAGE) || 1;
+  const paginatedCourts = useMemo(() => {
+    const start = (courtPage - 1) * COURTS_PER_PAGE;
+    return (attendanceData.courtBookings || []).slice(start, start + COURTS_PER_PAGE);
+  }, [attendanceData.courtBookings, courtPage]);
+
+  const totalGatePages = Math.ceil((attendanceData.checkIns?.length || 0) / GATES_PER_PAGE) || 1;
+  const paginatedGates = useMemo(() => {
+    const start = (gatePage - 1) * GATES_PER_PAGE;
+    return (attendanceData.checkIns || []).slice(start, start + GATES_PER_PAGE);
+  }, [attendanceData.checkIns, gatePage]);
 
   const formatDateTime = (isoStr) => {
     if (!isoStr) return '';
@@ -246,7 +272,10 @@ export default function MemberAttendancePage() {
                     type="text"
                     placeholder="Tìm theo lớp, HLV..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setClassPage(1);
+                    }}
                     className="w-full sm:w-56 pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
                 </div>
@@ -254,7 +283,10 @@ export default function MemberAttendancePage() {
                 {/* Status select (MEM-19) */}
                 <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setClassPage(1);
+                  }}
                   className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="ALL">Tất cả trạng thái</option>
@@ -290,7 +322,7 @@ export default function MemberAttendancePage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredRecords.map((record) => {
+                  {paginatedRecords.map((record) => {
                     const startDt = formatDateTime(record.startTime);
                     const endDt = formatDateTime(record.endTime);
                     const st = record.attendanceStatus || record.status;
@@ -407,6 +439,19 @@ export default function MemberAttendancePage() {
                       </div>
                     );
                   })}
+
+                  {totalClassPages > 1 && (
+                    <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <span className="text-xs text-slate-500 font-medium">
+                        Hiển thị {(classPage - 1) * RECORDS_PER_PAGE + 1} - {Math.min(classPage * RECORDS_PER_PAGE, filteredRecords.length)} trên {filteredRecords.length} buổi học
+                      </span>
+                      <Pagination
+                        currentPage={classPage}
+                        totalPages={totalClassPages}
+                        onPageChange={setClassPage}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -429,7 +474,7 @@ export default function MemberAttendancePage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {attendanceData.courtBookings.map((court) => {
+                  {paginatedCourts.map((court) => {
                     const startDt = formatDateTime(court.startTime);
                     const endDt = formatDateTime(court.endTime);
                     return (
@@ -486,6 +531,19 @@ export default function MemberAttendancePage() {
                       </div>
                     );
                   })}
+
+                  {totalCourtPages > 1 && (
+                    <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <span className="text-xs text-slate-500 font-medium">
+                        Hiển thị {(courtPage - 1) * COURTS_PER_PAGE + 1} - {Math.min(courtPage * COURTS_PER_PAGE, attendanceData.courtBookings.length)} trên {attendanceData.courtBookings.length} lượt đặt sân
+                      </span>
+                      <Pagination
+                        currentPage={courtPage}
+                        totalPages={totalCourtPages}
+                        onPageChange={setCourtPage}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -518,7 +576,7 @@ export default function MemberAttendancePage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {attendanceData.checkIns.map((item) => {
+                      {paginatedGates.map((item) => {
                         const dt = formatDateTime(item.checkedInAt);
                         return (
                           <tr key={item.checkInId} className="hover:bg-slate-50/70 transition-colors">
@@ -552,6 +610,19 @@ export default function MemberAttendancePage() {
                       })}
                     </tbody>
                   </table>
+
+                  {totalGatePages > 1 && (
+                    <div className="pt-4 mt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <span className="text-xs text-slate-500 font-medium">
+                        Hiển thị {(gatePage - 1) * GATES_PER_PAGE + 1} - {Math.min(gatePage * GATES_PER_PAGE, attendanceData.checkIns.length)} trên {attendanceData.checkIns.length} lượt quét thẻ
+                      </span>
+                      <Pagination
+                        currentPage={gatePage}
+                        totalPages={totalGatePages}
+                        onPageChange={setGatePage}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>

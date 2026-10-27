@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { CardGridSkeleton } from '../../components/common/Skeleton';
+import Pagination from '../../components/common/Pagination';
 import { useApp } from '../../context/AppContext';
 import { getMemberBookingSchedule } from '../../services/bookingApi';
 import { getMemberMemberships } from '../../services/memberApi';
@@ -26,6 +27,14 @@ export default function MemberDashboardPage() {
   const [activeMembership, setActiveMembership] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [bookingPage, setBookingPage] = useState(1);
+
+  const BOOKINGS_PER_PAGE = 4;
+  const totalBookingPages = Math.ceil(bookings.length / BOOKINGS_PER_PAGE) || 1;
+  const currentBookings = useMemo(() => {
+    const start = (bookingPage - 1) * BOOKINGS_PER_PAGE;
+    return bookings.slice(start, start + BOOKINGS_PER_PAGE);
+  }, [bookings, bookingPage]);
 
   useEffect(() => {
     let isMounted = true;
@@ -259,42 +268,54 @@ export default function MemberDashboardPage() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {bookings.map((booking) => (
-                <div
-                  key={`${booking.bookingType}-${booking.bookingId}`}
-                  className="rounded-2xl border border-slate-200 p-5 flex flex-col justify-between card-hover bg-slate-50/50"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
-                        booking.bookingType === 'COURT'
-                          ? 'bg-orange-100 text-orange-700'
-                          : 'bg-blue-100 text-blue-700'
-                      }`}>
-                        {booking.bookingType === 'COURT' ? 'Sân Chơi' : 'Lớp Huấn Luyện'}
-                      </span>
-                      <span className="text-xs font-black text-slate-900 font-mono">
-                        {formatBookingAmount(booking.amountPaid)}
-                      </span>
-                    </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {currentBookings.map((booking) => (
+                  <div
+                    key={`${booking.bookingType}-${booking.bookingId}`}
+                    className="rounded-2xl border border-slate-200 p-5 flex flex-col justify-between card-hover bg-slate-50/50"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                          booking.bookingType === 'COURT'
+                            ? 'bg-orange-100 text-orange-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {booking.bookingType === 'COURT' ? 'Sân Chơi' : 'Lớp Huấn Luyện'}
+                        </span>
+                        <span className="text-xs font-black text-slate-900 font-mono">
+                          {formatBookingAmount(booking.amountPaid)}
+                        </span>
+                      </div>
 
-                    <div>
-                      <h3 className="text-sm font-black text-slate-900 uppercase">
-                        {booking.title}
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                        {booking.sportName} • {booking.location}
-                      </p>
-                    </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 uppercase">
+                          {booking.title}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                          {booking.sportName} • {booking.location}
+                        </p>
+                      </div>
 
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                      <span className="material-symbols-outlined text-orange-500 text-[18px]">schedule</span>
-                      <span>{formatBookingTime(booking.startTime)}</span>
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                        <span className="material-symbols-outlined text-orange-500 text-[18px]">schedule</span>
+                        <span>{formatBookingTime(booking.startTime)}</span>
+                      </div>
                     </div>
                   </div>
+                ))}
+              </div>
+
+              {totalBookingPages > 1 && (
+                <div className="pt-2 border-t border-slate-100">
+                  <Pagination
+                    currentPage={bookingPage}
+                    totalPages={totalBookingPages}
+                    onPageChange={setBookingPage}
+                  />
                 </div>
-              ))}
+              )}
             </div>
           )}
         </section>

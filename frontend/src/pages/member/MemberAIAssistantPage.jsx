@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { apiRequest } from '../../services/apiClient';
 import { sendMemberAssistantMessages } from '../../services/aiAssistantApi';
 import FormattedAiText from '../../components/common/FormattedAiText';
+import Pagination from '../../components/common/Pagination';
 
 const formatDateTime = (value) => new Date(value).toLocaleString('vi-VN', {
   dateStyle: 'medium',
@@ -41,11 +42,28 @@ export default function MemberAIAssistantPage() {
     };
   }, []);
 
+  const SCHEDULE_PER_PAGE = 3;
+  const [schedulePage, setSchedulePage] = useState(1);
+
+  const totalSchedulePages = Math.ceil(schedule.length / SCHEDULE_PER_PAGE) || 1;
+  const currentSchedule = useMemo(() => {
+    const start = (schedulePage - 1) * SCHEDULE_PER_PAGE;
+    return schedule.slice(start, start + SCHEDULE_PER_PAGE);
+  }, [schedule, schedulePage]);
+
+  const computedBmi = useMemo(() => {
+    if (health?.bmi && Number(health.bmi) > 0) return Number(health.bmi).toFixed(1);
+    const w = Number(health?.weightKg);
+    const h = Number(health?.heightCm);
+    if (w > 0 && h > 0) return (w / Math.pow(h / 100, 2)).toFixed(1);
+    return null;
+  }, [health]);
+
   const measurements = [
     { label: 'Cân nặng', value: health?.weightKg, unit: 'kg' },
     { label: 'Cơ nạc (SMM)', value: health?.smmKg, unit: 'kg' },
     { label: 'Tỷ lệ mỡ (PBF)', value: health?.pbfPercent, unit: '%' },
-    { label: 'BMI', value: health?.bmi, unit: '' },
+    { label: 'BMI', value: computedBmi ?? health?.bmi, unit: '' },
   ];
 
   const handleSendMessage = async (event) => {
@@ -122,21 +140,62 @@ export default function MemberAIAssistantPage() {
               </article>
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-5">
-              <h2 className="font-bold uppercase text-slate-900">Lịch tập đã đăng ký</h2>
-              {schedule.length === 0 ? (
-                <p className="mt-4 text-sm text-slate-500">Bạn chưa có booking nào được lưu.</p>
-              ) : (
-                <ul className="mt-4 space-y-3">
-                  {schedule.map((entry) => (
-                    <li key={`${entry.bookingType}-${entry.bookingId}`} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                      <p className="font-bold text-slate-900">{entry.title}</p>
-                      <p className="mt-1 text-xs text-slate-600">{entry.sportName} · {entry.location}</p>
-                      <p className="mt-1 text-xs text-slate-600">{formatDateTime(entry.startTime)}</p>
-                      <p className="mt-1 text-[11px] font-bold uppercase text-orange-600">{entry.status}</p>
-                    </li>
-                  ))}
-                </ul>
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-bold uppercase text-slate-900 text-sm">Lịch tập đã đăng ký</h2>
+                    <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 text-[10px] font-bold">
+                      {schedule.length}
+                    </span>
+                  </div>
+                  {totalSchedulePages > 1 && (
+                    <span className="text-[11px] font-medium text-slate-400">
+                      Trang {schedulePage} / {totalSchedulePages}
+                    </span>
+                  )}
+                </div>
+
+                {schedule.length === 0 ? (
+                  <div className="py-8 text-center text-slate-400 text-xs">
+                    <span className="material-symbols-outlined text-3xl mb-1 text-slate-300">event_busy</span>
+                    <p>Bạn chưa có lịch tập nào được lưu.</p>
+                  </div>
+                ) : (
+                  <ul className="mt-3 space-y-2.5">
+                    {currentSchedule.map((entry) => (
+                      <li
+                        key={`${entry.bookingType}-${entry.bookingId}`}
+                        className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 hover:bg-slate-100/70 transition"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-bold text-slate-900 text-xs truncate">{entry.title}</p>
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-black shrink-0 uppercase tracking-wider ${
+                              entry.status === 'CANCELLED'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-emerald-100 text-emerald-800'
+                            }`}
+                          >
+                            {entry.status}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-[11px] text-slate-600 truncate">{entry.sportName} · {entry.location}</p>
+                        <p className="mt-0.5 text-[11px] text-slate-500 font-medium">{formatDateTime(entry.startTime)}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {totalSchedulePages > 1 && (
+                <div className="pt-3 mt-3 border-t border-slate-100">
+                  <Pagination
+                    currentPage={schedulePage}
+                    totalPages={totalSchedulePages}
+                    onPageChange={setSchedulePage}
+                  />
+                </div>
               )}
             </section>
           </div>

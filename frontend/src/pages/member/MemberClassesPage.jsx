@@ -13,6 +13,7 @@ import {
 } from '../../services/bookingApi';
 import PaymentMethodSelector from '../../components/common/PaymentMethodSelector';
 import { getSportMedia } from '../../utils/mediaMap';
+import Pagination from '../../components/common/Pagination';
 
 const formatMoney = (amount) =>
   new Intl.NumberFormat('vi-VN', {
@@ -45,6 +46,8 @@ export default function MemberClassesPage() {
   const [timeFilter, setTimeFilter] = useState('ALL'); // 'ALL' | 'MORNING' | 'AFTERNOON' | 'EVENING'
   const [dateFilter, setDateFilter] = useState('ALL'); // 'ALL' | 'TODAY' | '3DAYS' | '7DAYS'
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const CLASSES_PER_PAGE = 6;
 
   // Modals
   const [selectedCoach, setSelectedCoach] = useState(null);
@@ -137,6 +140,18 @@ export default function MemberClassesPage() {
       return true;
     });
   }, [classes, selectedSportId, timeFilter, dateFilter, searchQuery]);
+
+  // Reset page when any filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedSportId, timeFilter, dateFilter, searchQuery]);
+
+  const totalPages = Math.ceil(filteredClasses.length / CLASSES_PER_PAGE) || 1;
+
+  const paginatedClasses = useMemo(() => {
+    const start = (currentPage - 1) * CLASSES_PER_PAGE;
+    return filteredClasses.slice(start, start + CLASSES_PER_PAGE);
+  }, [filteredClasses, currentPage]);
 
   // Xem chi tiết HLV
   const handleViewCoach = async (coachId) => {
@@ -343,8 +358,9 @@ export default function MemberClassesPage() {
             Không tìm thấy lớp học nào phù hợp với bộ lọc hiện tại.
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
-            {filteredClasses.map((cls) => {
+          <div className="space-y-6">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
+              {paginatedClasses.map((cls) => {
               const remaining = Math.max(0, cls.maxSlots - cls.bookedSlots);
               const alreadyBooked = ['BOOKED', 'CONFIRMED'].includes(cls.memberBookingStatus);
               const sportObj = sports.find((s) => s.sportId === cls.sportId);
@@ -464,6 +480,21 @@ export default function MemberClassesPage() {
                 </article>
               );
             })}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-xs text-slate-500 font-medium">
+                  Hiển thị {(currentPage - 1) * CLASSES_PER_PAGE + 1} - {Math.min(currentPage * CLASSES_PER_PAGE, filteredClasses.length)} trên tổng số {filteredClasses.length} lớp học
+                </span>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            )}
           </div>
         )}
 
