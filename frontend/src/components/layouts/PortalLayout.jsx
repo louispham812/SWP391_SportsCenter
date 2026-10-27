@@ -377,6 +377,8 @@ export default function PortalLayout({
                             ? '/coach/profile'
                             : role === 'receptionist'
                             ? '/receptionist/profile'
+                            : role === 'admin'
+                            ? '/admin/settings'
                             : '/member/profile';
                         navigate(targetProfile);
                         setProfileOpen(false);
@@ -391,6 +393,8 @@ export default function PortalLayout({
                           ? 'Hồ sơ & Thẻ HLV'
                           : role === 'receptionist'
                           ? 'Hồ sơ cá nhân'
+                          : role === 'admin'
+                          ? 'Cài đặt tài khoản quản trị'
                           : 'Hồ sơ & Thẻ số cá nhân'}
                       </span>
                     </button>

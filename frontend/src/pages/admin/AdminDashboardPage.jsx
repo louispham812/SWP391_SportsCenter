@@ -112,10 +112,10 @@ export default function AdminDashboardPage() {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-              F SPORT ADMIN · BÁO CÁO HIỆU SUẤT
+              F SPORT ADMIN · ĐIỀU HÀNH TRUNG TÂM
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
-              Báo Cáo Hiệu Suất Trung Tâm
+            <h1 className="text-2xl font-black text-slate-900 sm:text-3xl">
+              Tổng quan
             </h1>
             <p className="mt-1 text-sm text-slate-500">
               Doanh thu, đăng ký hội viên mới và hiệu suất phòng học từ cơ sở dữ liệu F Sport.
