@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { useApp } from '../../context/AppContext';
@@ -461,9 +462,9 @@ export default function MemberClassesPage() {
         )}
 
         {/* Modal Coach Profile */}
-        {selectedCoach && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200">
+        {selectedCoach && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+            <div className="w-full max-w-md my-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200">
               <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-2xl text-orange-500">sports_score</span>
@@ -472,7 +473,7 @@ export default function MemberClassesPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedCoach(null)}
-                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[20px]">close</span>
                 </button>
@@ -517,12 +518,13 @@ export default function MemberClassesPage() {
               <button
                 type="button"
                 onClick={() => setSelectedCoach(null)}
-                className="w-full rounded-xl bg-slate-900 hover:bg-slate-800 py-3 text-xs font-bold uppercase tracking-wider text-white transition"
+                className="w-full rounded-xl bg-slate-900 hover:bg-slate-800 py-3 text-xs font-bold uppercase tracking-wider text-white transition cursor-pointer"
               >
                 Đóng
               </button>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Modal Register Confirmation */}
@@ -541,9 +543,9 @@ export default function MemberClassesPage() {
             ? 'Thanh Toán Qua VNPAY'
             : 'Xác Nhận Đăng Ký';
 
-          return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className="w-full max-w-xl max-h-[92vh] flex flex-col rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+          return createPortal(
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+              <div className="w-full max-w-xl max-h-[92vh] my-auto flex flex-col rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
                 <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-2xl text-orange-500">how_to_reg</span>
@@ -552,7 +554,7 @@ export default function MemberClassesPage() {
                   <button
                     type="button"
                     onClick={() => setRegisteringSession(null)}
-                    className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+                    className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[20px]">close</span>
                   </button>
@@ -622,7 +624,7 @@ export default function MemberClassesPage() {
                     type="button"
                     disabled={submittingRegister}
                     onClick={() => setRegisteringSession(null)}
-                    className="flex-1 rounded-xl border border-slate-200 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                    className="flex-1 rounded-xl border border-slate-200 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                   >
                     Hủy
                   </button>
@@ -630,20 +632,21 @@ export default function MemberClassesPage() {
                     type="button"
                     disabled={submittingRegister}
                     onClick={handleConfirmRegister}
-                    className="flex-1 rounded-xl bg-orange-500 hover:bg-orange-600 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-orange-500/25 transition disabled:opacity-60"
+                    className="flex-1 rounded-xl bg-orange-500 hover:bg-orange-600 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-orange-500/25 transition disabled:opacity-60 cursor-pointer"
                   >
                     {actionBtnLabel}
                   </button>
                 </div>
               </div>
-            </div>
+            </div>,
+            document.body
           );
         })()}
 
         {/* Modal Cancel Registration */}
-        {cancelingBooking && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200">
+        {cancelingBooking && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+            <div className="w-full max-w-md my-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100 text-red-600">
                 <span className="material-symbols-outlined text-2xl">cancel</span>
                 <h3 className="text-lg font-bold text-slate-900">Hủy Đăng Ký Lớp Học</h3>
@@ -672,7 +675,7 @@ export default function MemberClassesPage() {
                   type="button"
                   disabled={submittingCancel}
                   onClick={() => setCancelingBooking(null)}
-                  className="flex-1 rounded-xl border border-slate-200 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                  className="flex-1 rounded-xl border border-slate-200 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                 >
                   Giữ lại lớp
                 </button>
@@ -680,13 +683,14 @@ export default function MemberClassesPage() {
                   type="button"
                   disabled={submittingCancel}
                   onClick={handleConfirmCancel}
-                  className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-red-600/20 transition disabled:opacity-60"
+                  className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-red-600/20 transition disabled:opacity-60 cursor-pointer"
                 >
                   {submittingCancel ? 'Đang xử lý...' : 'Xác Nhận Hủy & Hoàn Tiền'}
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </MemberLayout>

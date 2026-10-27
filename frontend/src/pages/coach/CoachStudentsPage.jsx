@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import CoachLayout from '../../components/layouts/CoachLayout';
 import { getCoachStudents } from '../../services/bookingApi';
 import { generateCoachPlan } from '../../services/aiAssistantApi';
@@ -757,9 +758,9 @@ export default function CoachStudentsPage() {
         </div>
 
         {/* MODAL: SOẠN GIÁO ÁN & ĐÁNH GIÁ (CÁ NHÂN HOẶC CẢ LỚP) */}
-        {(selectedStudentForPlan || planScope === 'class') && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in">
-            <div className="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl space-y-5">
+        {(selectedStudentForPlan || planScope === 'class') && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto">
+            <div className="relative w-full max-w-3xl max-h-[92vh] my-auto overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl space-y-5">
               {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
@@ -1201,13 +1202,14 @@ export default function CoachStudentsPage() {
                 </div>
               )}
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* ITEM 7: MODAL GỬI THÔNG BÁO / NHẮC NHỞ CHO HỌC VIÊN HOẶC CẢ LỚP */}
-        {noticeModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in">
-            <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl space-y-4">
+        {noticeModalOpen && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto">
+            <div className="relative w-full max-w-xl max-h-[90vh] my-auto overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-blue-500 text-white flex items-center justify-center font-black">
@@ -1372,7 +1374,8 @@ export default function CoachStudentsPage() {
                 </div>
               </form>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </CoachLayout>

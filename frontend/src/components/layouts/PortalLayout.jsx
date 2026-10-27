@@ -416,7 +416,7 @@ export default function PortalLayout({
             3. MAIN CONTENT CANVAS
            ========================================= */}
         <main className="p-3 sm:p-4 lg:p-6 pb-20 lg:pb-6 flex-1 bg-[#f7f9fb]">
-          <div className="animate-fade-in space-y-4">
+          <div className="space-y-4">
             {children}
           </div>
         </main>

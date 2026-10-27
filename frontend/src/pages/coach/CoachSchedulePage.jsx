@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import CoachLayout from '../../components/layouts/CoachLayout';
 import { ScheduleSkeleton, TableSkeleton } from '../../components/common/Skeleton';
@@ -998,9 +999,9 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
       </div>
 
       {/* Leave Request Modal (COA-12) */}
-      {isLeaveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
+      {isLeaveModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="relative w-full max-w-lg my-auto overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <span className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
@@ -1087,12 +1088,13 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       {/* Edit Profile Modal (COA-01) */}
-      {isEditingProfile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
+      {isEditingProfile && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="relative w-full max-w-lg my-auto overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <span className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
@@ -1187,7 +1189,8 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </CoachLayout>
   );

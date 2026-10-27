@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { getMemberHealthProfile, updateMemberHealthProfile, getMemberAttendance } from '../../services/memberApi';
 import { getMyWorkoutProgress, createWorkoutPlan, recordBodyProgress } from '../../services/workoutApi';
@@ -931,9 +932,9 @@ export default function MemberWorkoutPlansPage() {
         )}
 
         {/* MODAL: THÊM MỐC ĐO TIẾN ĐỘ MỚI (MEM-21) */}
-        {showAddLogModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in">
-            <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl space-y-5">
+        {showAddLogModal && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto">
+            <div className="relative w-full max-w-lg my-auto rounded-3xl bg-white p-6 shadow-2xl space-y-5">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center">
@@ -1056,7 +1057,8 @@ export default function MemberWorkoutPlansPage() {
                 </div>
               </form>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </MemberLayout>

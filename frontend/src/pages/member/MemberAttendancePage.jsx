@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { getMemberAttendance } from '../../services/memberApi';
 import { useApp } from '../../context/AppContext';
@@ -559,9 +560,9 @@ export default function MemberAttendancePage() {
       </div>
 
       {/* Dispute Modal (MEM-19) */}
-      {isDisputeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
+      {isDisputeModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="relative w-full max-w-md my-auto overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <span className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
@@ -615,7 +616,8 @@ export default function MemberAttendancePage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </MemberLayout>
   );

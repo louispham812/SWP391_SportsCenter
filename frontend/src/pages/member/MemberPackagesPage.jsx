@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { useApp } from '../../context/AppContext';
 import { getPublicPackages } from '../../services/publicContentApi';
@@ -348,9 +349,9 @@ export default function MemberPackagesPage() {
         </section>
 
         {/* Modal Confirm Checkout */}
-        {selectedPackage && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-xl max-h-[92vh] flex flex-col rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+        {selectedPackage && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+            <div className="w-full max-w-xl max-h-[92vh] my-auto flex flex-col rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
               <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-2xl text-orange-500">
@@ -367,7 +368,7 @@ export default function MemberPackagesPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedPackage(null)}
-                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[20px]">close</span>
                 </button>
@@ -422,7 +423,7 @@ export default function MemberPackagesPage() {
                   type="button"
                   disabled={submitting}
                   onClick={() => setSelectedPackage(null)}
-                  className="flex-1 rounded-xl border border-slate-200 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                  className="flex-1 rounded-xl border border-slate-200 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                 >
                   Hủy bỏ
                 </button>
@@ -430,7 +431,7 @@ export default function MemberPackagesPage() {
                   type="button"
                   disabled={submitting}
                   onClick={handleConfirmPurchase}
-                  className="flex-1 rounded-xl bg-orange-500 hover:bg-orange-600 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-orange-500/25 transition disabled:opacity-60"
+                  className="flex-1 rounded-xl bg-orange-500 hover:bg-orange-600 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-orange-500/25 transition disabled:opacity-60 cursor-pointer"
                 >
                   {submitting
                     ? 'Đang xử lý...'
@@ -444,7 +445,8 @@ export default function MemberPackagesPage() {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </MemberLayout>

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import CoachLayout from '../../components/layouts/CoachLayout';
@@ -699,14 +700,14 @@ export default function MemberSchedulePage() {
         {/* =========================================
             4. COACH PUBLIC PROFILE MODAL
            ========================================= */}
-        {selectedCoach && (
+        {selectedCoach && createPortal(
           <div
             onClick={() => setSelectedCoach(null)}
-            className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+            className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden relative animate-in zoom-in-95 duration-150"
+              className="w-full max-w-lg my-auto bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden relative"
             >
               {/* Header Cover */}
               <div className="h-28 bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 p-4 flex justify-end">
@@ -784,20 +785,21 @@ export default function MemberSchedulePage() {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* =========================================
             5. CANCEL BOOKING CONFIRMATION MODAL
            ========================================= */}
-        {cancelingBooking && (
+        {cancelingBooking && createPortal(
           <div
             onClick={() => setCancelingBooking(null)}
-            className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+            className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-4 animate-in zoom-in-95 duration-150"
+              className="w-full max-w-md my-auto bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-4"
             >
               <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto">
                 <span className="material-symbols-outlined text-[28px]">warning</span>
@@ -848,7 +850,8 @@ export default function MemberSchedulePage() {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </LayoutComponent>
