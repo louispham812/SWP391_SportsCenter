@@ -16,8 +16,17 @@ export async function apiRequest(path, options = {}) {
 
   const response = await fetch(`${API_BASE_URL}${path}`, { ...requestOptions, headers });
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `API request failed (${response.status}).`);
+    let message;
+    try {
+      // Try to parse error response as JSON first (Spring Boot error format)
+      const errorData = await response.json();
+      // Extract message from Spring Boot error response format
+      message = errorData.message || errorData.error || `API request failed (${response.status}).`;
+    } catch {
+      // Fallback to plain text if JSON parsing fails
+      message = await response.text() || `API request failed (${response.status}).`;
+    }
+    throw new Error(message);
   }
   return response.status === 204 ? null : response.json();
 }

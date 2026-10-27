@@ -125,9 +125,54 @@ export default function AuthPage() {
         }),
       });
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response));
+        // ===== FIX MỚI: XỬ LÝ PENDING_VERIFICATION =====
+        const errorData = await response.json().catch(() => null);
+        
+        // Check nếu là lỗi PENDING_VERIFICATION
+        if (errorData && errorData.error === 'PENDING_VERIFICATION') {
+          // Hiển thị thông báo từ backend
+          setAuthNotice(errorData.message);
+          
+          // Chuyển hướng đến trang verify OTP sau 2 giây
+          setTimeout(() => {
+            navigate('/verify-otp', {
+              state: {
+                email: errorData.email,
+                fromLogin: true, // Đánh dấu là từ login
+              }
+            });
+          }, 2000);
+          
+          return; // Dừng xử lý, không throw error
+        }
+        // ===== KẾT THÚC FIX MỚI =====
+        
+        // Nếu không phải PENDING_VERIFICATION, xử lý lỗi bình thường
+        throw new Error(errorData?.message || await getErrorMessage(response));
       }
-      authenticate(await response.json());
+      
+      const user = await response.json();
+      
+      // ✅ CHECK requirePasswordChange flag (Staff cần đổi password lần đầu)
+      if (user.requirePasswordChange === true) {
+        // Lưu token tạm để /change-password dùng
+        localStorage.setItem('authToken', user.token);
+        localStorage.setItem('tempUserEmail', user.email);
+        
+        navigate('/change-password', {
+          state: {
+            email: user.email,
+            fullName: user.fullName,
+            fromLogin: true,
+            message: 'Bạn cần đổi mật khẩu tạm thời để tiếp tục sử dụng hệ thống.'
+          }
+        });
+        return;
+      }
+      
+      // Normal flow: authenticate user
+      authenticate(user);
+      
     } catch (error) {
       setAuthError(getRequestErrorMessage(error, 'Đăng nhập'));
     } finally {
@@ -235,8 +280,8 @@ export default function AuthPage() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/20 text-[10px] uppercase tracking-widest font-black shadow-xs">
-                  ATHLETIC PERFORMANCE SANCTUARY
+                <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/20 text-[10px] uppercase tracking-wider font-semibold shadow-xs">
+                  TRUNG TÂM THỂ THAO ĐA NĂNG
                 </span>
                 <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
                 <span className="text-[11px] text-orange-400 font-bold tracking-wider">

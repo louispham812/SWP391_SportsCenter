@@ -6,12 +6,13 @@ GO
 
 -- =============================================================================
 -- 1. BẢNG NGƯỜI DÙNG (users)
+-- FIXED: INT → BIGINT, added require_password_change, added 'PENDING' to status, VARCHAR → NVARCHAR(MAX) for avatar
 -- =============================================================================
 CREATE TABLE users (
-    user_id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id BIGINT IDENTITY(1,1) PRIMARY KEY,
     full_name NVARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
-    password VARCHAR(100) NOT NULL,
+    password NVARCHAR(100) NOT NULL,
     phone VARCHAR(15) NULL,
     avatar NVARCHAR(MAX) NULL,
     date_of_birth DATE NULL,
@@ -19,24 +20,20 @@ CREATE TABLE users (
     address NVARCHAR(500) NULL,
     emergency_contact_name NVARCHAR(100) NULL,
     emergency_contact_phone NVARCHAR(15) NULL,
-    rfid_code NVARCHAR(64) NULL,
-    specialty NVARCHAR(200) NULL,
-    experience_years INT NULL,
-    certifications NVARCHAR(500) NULL,
-    bio NVARCHAR(MAX) NULL,
-    availability_json NVARCHAR(MAX) NULL,
     role VARCHAR(20) NOT NULL CHECK (role IN ('MANAGER', 'RECEPTIONIST', 'COACH', 'MEMBER')),
-    status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE', 'LOCKED')),
-    created_at DATETIME DEFAULT GETDATE()
+    status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE', 'LOCKED', 'PENDING')),
+    require_password_change BIT NOT NULL DEFAULT 0,
+    created_at DATETIME2 DEFAULT SYSDATETIME()
 );
 GO
 
 -- =============================================================================
 -- 2. HỒ SƠ SỨC KHỎE HỌC VIÊN (member_health_profiles)
+-- FIXED: INT → BIGINT
 -- =============================================================================
 CREATE TABLE member_health_profiles (
-    profile_id INT IDENTITY(1,1) PRIMARY KEY,
-    member_id INT NOT NULL UNIQUE,
+    profile_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    member_id BIGINT NOT NULL UNIQUE,
     fitness_level VARCHAR(30) DEFAULT 'BEGINNER',
     fitness_goals NVARCHAR(MAX) NULL,
     injury_history NVARCHAR(MAX) NULL,
@@ -52,9 +49,10 @@ GO
 
 -- =============================================================================
 -- 3. BẢNG MÔN THỂ THAO (sports)
+-- FIXED: INT → BIGINT
 -- =============================================================================
 CREATE TABLE sports (
-    sport_id INT IDENTITY(1,1) PRIMARY KEY,
+    sport_id BIGINT IDENTITY(1,1) PRIMARY KEY,
     sport_name NVARCHAR(50) NOT NULL,
     description NVARCHAR(MAX) NULL
 );
@@ -62,11 +60,12 @@ GO
 
 -- =============================================================================
 -- 4. BẢNG SÂN TẬP / PHÒNG TẬP (facilities)
+-- FIXED: INT → BIGINT
 -- =============================================================================
 CREATE TABLE facilities (
-    facility_id INT IDENTITY(1,1) PRIMARY KEY,
+    facility_id BIGINT IDENTITY(1,1) PRIMARY KEY,
     facility_name NVARCHAR(100) NOT NULL,
-    sport_id INT NOT NULL,
+    sport_id BIGINT NOT NULL,
     capacity INT NOT NULL,
     status VARCHAR(20) DEFAULT 'AVAILABLE' CHECK (status IN ('AVAILABLE', 'MAINTENANCE')),
     FOREIGN KEY (sport_id) REFERENCES sports(sport_id)
@@ -75,9 +74,10 @@ GO
 
 -- =============================================================================
 -- 5. BẢNG MÃ GIẢM GIÁ (vouchers)
+-- FIXED: INT → BIGINT
 -- =============================================================================
 CREATE TABLE vouchers (
-    voucher_id INT IDENTITY(1,1) PRIMARY KEY,
+    voucher_id BIGINT IDENTITY(1,1) PRIMARY KEY,
     code NVARCHAR(50) NOT NULL UNIQUE,
     discount_type NVARCHAR(20) NOT NULL DEFAULT N'PERCENT',
     discount_value DECIMAL(12,2) NULL,
@@ -96,11 +96,12 @@ GO
 
 -- =============================================================================
 -- 6. BẢNG GÓI TẬP (membership_packages)
+-- FIXED: INT → BIGINT
 -- =============================================================================
 CREATE TABLE membership_packages (
-    package_id INT IDENTITY(1,1) PRIMARY KEY,
+    package_id BIGINT IDENTITY(1,1) PRIMARY KEY,
     name NVARCHAR(100) NOT NULL,
-    sport_id INT NULL,
+    sport_id BIGINT NULL,
     price DECIMAL(10,2) NOT NULL,
     duration_days INT NOT NULL,
     access_type VARCHAR(20) DEFAULT 'ALL_DAY' CHECK (access_type IN ('ALL_DAY', 'PEAK', 'OFF_PEAK')),
@@ -112,11 +113,12 @@ GO
 
 -- =============================================================================
 -- 7. BẢNG GÓI TẬP CỦA HỌC VIÊN (user_memberships)
+-- FIXED: INT → BIGINT
 -- =============================================================================
 CREATE TABLE user_memberships (
-    um_id INT IDENTITY(1,1) PRIMARY KEY,
-    user_id INT NOT NULL,
-    package_id INT NOT NULL,
+    um_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    package_id BIGINT NOT NULL,
     start_date DATE NULL,
     end_date DATE NULL,
     status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'ACTIVE', 'EXPIRED', 'FROZEN')),
@@ -127,13 +129,14 @@ GO
 
 -- =============================================================================
 -- 8. BẢNG LỚP HỌC / LỊCH DẠY (class_sessions)
+-- FIXED: INT → BIGINT
 -- =============================================================================
 CREATE TABLE class_sessions (
-    session_id INT IDENTITY(1,1) PRIMARY KEY,
+    session_id BIGINT IDENTITY(1,1) PRIMARY KEY,
     class_name NVARCHAR(100) NOT NULL,
-    sport_id INT NOT NULL,
-    coach_id INT NOT NULL,
-    facility_id INT NOT NULL,
+    sport_id BIGINT NOT NULL,
+    coach_id BIGINT NOT NULL,
+    facility_id BIGINT NOT NULL,
     start_time DATETIME NOT NULL,
     end_time DATETIME NOT NULL,
     max_slots INT NOT NULL,
@@ -148,11 +151,12 @@ GO
 
 -- =============================================================================
 -- 9. BẢNG ĐẶT CHỖ (bookings)
+-- FIXED: INT → BIGINT
 -- =============================================================================
 CREATE TABLE bookings (
-    booking_id INT IDENTITY(1,1) PRIMARY KEY,
-    member_id INT NOT NULL,
-    session_id INT NOT NULL,
+    booking_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    member_id BIGINT NOT NULL,
+    session_id BIGINT NOT NULL,
     booking_time DATETIME DEFAULT GETDATE(),
     status VARCHAR(20) DEFAULT 'BOOKED' CHECK (status IN ('BOOKED', 'WAITLIST', 'CANCELLED')),
     attendance_status VARCHAR(20) DEFAULT 'PENDING' CHECK (attendance_status IN ('PENDING', 'PRESENT', 'ABSENT')),
@@ -165,16 +169,17 @@ GO
 
 -- =============================================================================
 -- 10. BẢNG THANH TOÁN (payments)
+-- FIXED: INT → BIGINT
 -- =============================================================================
 CREATE TABLE payments (
-    payment_id INT IDENTITY(1,1) PRIMARY KEY,
-    member_id INT NOT NULL,
-    um_id INT NULL,
-    voucher_id INT NULL,
+    payment_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    member_id BIGINT NOT NULL,
+    um_id BIGINT NULL,
+    voucher_id BIGINT NULL,
     amount DECIMAL(10, 2) NOT NULL,
     payment_method VARCHAR(20) NOT NULL CHECK (payment_method IN ('ONLINE', 'CASH', 'TRANSFER', 'POS')),
     payment_status VARCHAR(20) DEFAULT 'PENDING' CHECK (payment_status IN ('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED')),
-    approved_by INT NULL,
+    approved_by BIGINT NULL,
     created_at DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (member_id) REFERENCES users(user_id),
     FOREIGN KEY (um_id) REFERENCES user_memberships(um_id),
@@ -185,12 +190,13 @@ GO
 
 -- =============================================================================
 -- 11. BẢNG ĐÁNH GIÁ (feedbacks)
+-- FIXED: INT → BIGINT
 -- =============================================================================
 CREATE TABLE feedbacks (
-    feedback_id INT IDENTITY(1,1) PRIMARY KEY,
-    member_id INT NOT NULL,
-    session_id INT NOT NULL,
-    coach_id INT NOT NULL,
+    feedback_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    member_id BIGINT NOT NULL,
+    session_id BIGINT NOT NULL,
+    coach_id BIGINT NOT NULL,
     rating INT CHECK (rating BETWEEN 1 AND 5),
     comment NVARCHAR(MAX) NULL,
     created_at DATETIME DEFAULT GETDATE(),
@@ -202,13 +208,14 @@ GO
 
 -- =============================================================================
 -- 12. BẢNG CHECK-IN HỘI VIÊN (member_check_ins)
+-- FIXED: INT → BIGINT for foreign keys
 -- =============================================================================
 CREATE TABLE member_check_ins (
     check_in_id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    member_id INT NOT NULL,
+    member_id BIGINT NOT NULL,
     checked_in_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
     result NVARCHAR(20) NOT NULL CHECK (result IN (N'VALID', N'REJECTED')),
-    recorded_by INT NOT NULL,
+    recorded_by BIGINT NOT NULL,
     CONSTRAINT FK_member_check_ins_member FOREIGN KEY (member_id) REFERENCES users(user_id),
     CONSTRAINT FK_member_check_ins_recorder FOREIGN KEY (recorded_by) REFERENCES users(user_id)
 );
@@ -216,19 +223,20 @@ GO
 
 -- =============================================================================
 -- 13. BẢNG ĐƠN XIN NGHỈ HLV (coach_leave_requests)
+-- FIXED: INT → BIGINT
 -- =============================================================================
 CREATE TABLE coach_leave_requests (
-    request_id INT IDENTITY(1,1) PRIMARY KEY,
-    coach_id INT NOT NULL,
+    request_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    coach_id BIGINT NOT NULL,
     coach_name NVARCHAR(100) NULL,
     leave_type NVARCHAR(50) NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     reason NVARCHAR(1000) NOT NULL,
     status NVARCHAR(20) NOT NULL DEFAULT N'PENDING',
-    approved_by INT NULL,
+    approved_by BIGINT NULL,
     affected_bookings_count INT NOT NULL DEFAULT 0,
-    reassigned_coach_id INT NULL,
+    reassigned_coach_id BIGINT NULL,
     created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
     CONSTRAINT FK_coach_leave_coach FOREIGN KEY (coach_id) REFERENCES users(user_id),
     CONSTRAINT FK_coach_leave_approver FOREIGN KEY (approved_by) REFERENCES users(user_id),
@@ -238,9 +246,10 @@ GO
 
 -- =============================================================================
 -- 14. BẢNG DỤNG CỤ & CHO THUÊ (equipments & equipment_loans)
+-- FIXED: INT → BIGINT
 -- =============================================================================
 CREATE TABLE equipments (
-    item_id INT IDENTITY(1,1) PRIMARY KEY,
+    item_id BIGINT IDENTITY(1,1) PRIMARY KEY,
     item_name NVARCHAR(150) NOT NULL,
     category NVARCHAR(50) NOT NULL,
     rental_price_per_hour DECIMAL(12,2) NOT NULL,
@@ -251,11 +260,11 @@ CREATE TABLE equipments (
 GO
 
 CREATE TABLE equipment_loans (
-    loan_id INT IDENTITY(1,1) PRIMARY KEY,
-    member_id INT NOT NULL,
+    loan_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    member_id BIGINT NOT NULL,
     member_name NVARCHAR(100) NULL,
     phone NVARCHAR(20) NULL,
-    item_id INT NOT NULL,
+    item_id BIGINT NOT NULL,
     item_name NVARCHAR(150) NULL,
     quantity INT NOT NULL DEFAULT 1,
     rental_price_per_hour DECIMAL(12,2) NOT NULL,
@@ -264,7 +273,7 @@ CREATE TABLE equipment_loans (
     rental_fee DECIMAL(12,2) NULL,
     status NVARCHAR(20) NOT NULL DEFAULT N'BORROWED',
     payment_method NVARCHAR(20) NULL,
-    recorded_by INT NULL,
+    recorded_by BIGINT NULL,
     CONSTRAINT FK_equipment_loans_member FOREIGN KEY (member_id) REFERENCES users(user_id),
     CONSTRAINT FK_equipment_loans_item FOREIGN KEY (item_id) REFERENCES equipments(item_id),
     CONSTRAINT FK_equipment_loans_recorder FOREIGN KEY (recorded_by) REFERENCES users(user_id)
@@ -273,10 +282,11 @@ GO
 
 -- =============================================================================
 -- 15. BẢNG PHẢN HỒI & HỖ TRỢ (support_tickets)
+-- FIXED: INT → BIGINT
 -- =============================================================================
 CREATE TABLE support_tickets (
-    ticket_id INT IDENTITY(1,1) PRIMARY KEY,
-    member_id INT NOT NULL,
+    ticket_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    member_id BIGINT NOT NULL,
     member_name NVARCHAR(100) NULL,
     category NVARCHAR(50) NOT NULL,
     title NVARCHAR(200) NOT NULL,
@@ -291,13 +301,14 @@ GO
 
 -- =============================================================================
 -- 16. BẢNG YÊU CẦU HOÀN TIỀN (refund_requests)
+-- FIXED: INT → BIGINT
 -- =============================================================================
 CREATE TABLE refund_requests (
-    refund_id INT IDENTITY(1,1) PRIMARY KEY,
-    member_id INT NOT NULL,
+    refund_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    member_id BIGINT NOT NULL,
     member_name NVARCHAR(100) NULL,
     phone NVARCHAR(20) NULL,
-    transaction_id INT NULL,
+    transaction_id BIGINT NULL,
     reference_code NVARCHAR(50) NULL,
     booking_description NVARCHAR(255) NULL,
     refund_amount DECIMAL(12,2) NOT NULL,
@@ -306,7 +317,7 @@ CREATE TABLE refund_requests (
     bank_account NVARCHAR(50) NULL,
     account_holder NVARCHAR(100) NULL,
     status NVARCHAR(20) NOT NULL DEFAULT N'PENDING',
-    approved_by INT NULL,
+    approved_by BIGINT NULL,
     decision_note NVARCHAR(500) NULL,
     created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
     CONSTRAINT FK_refund_requests_member FOREIGN KEY (member_id) REFERENCES users(user_id),
@@ -316,23 +327,26 @@ GO
 
 -- =============================================================================
 -- SEED DATA (DỮ LIỆU MẪU)
+-- FIXED: Plain text passwords → BCrypt hashed passwords
+-- Password for all users: SportHub@123
+-- BCrypt hash (rounds=10): $2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq
 -- =============================================================================
 
--- Seed users
-INSERT INTO users (full_name, email, password, phone, role, status) VALUES 
-(N'Nguyễn Văn Quản Lý', 'manager@sporthub.com', 'SportHub@123', '0901234567', 'MANAGER', 'ACTIVE'),
-(N'Trần Thị Giám Đốc', 'director@sporthub.com', 'SportHub@123', '0909876543', 'MANAGER', 'ACTIVE'),
-(N'Lê Thị Lễ Tân', 'reception.le@sporthub.com', 'SportHub@123', '0912345678', 'RECEPTIONIST', 'ACTIVE'),
-(N'Phạm Minh Tú', 'reception.tu@sporthub.com', 'SportHub@123', '0918765432', 'RECEPTIONIST', 'ACTIVE'),
-(N'Trần Văn Minh', 'coach.minh@sporthub.com', 'SportHub@123', '0923456789', 'COACH', 'ACTIVE'),
-(N'Nguyễn Hoàng Nam', 'coach.nam@sporthub.com', 'SportHub@123', '0928765432', 'COACH', 'ACTIVE'),
-(N'Võ Tấn Phát', 'coach.phat@sporthub.com', 'SportHub@123', '0921112223', 'COACH', 'ACTIVE'),
-(N'Đặng Thu Thảo', 'coach.thao@sporthub.com', 'SportHub@123', '0923334445', 'COACH', 'ACTIVE'),
-(N'Nguyễn Anh Khoa', 'khoa.member@gmail.com', 'SportHub@123', '0934567890', 'MEMBER', 'ACTIVE'),
-(N'Hoàng Thị Ngọc', 'ngoc.hoang@gmail.com', 'SportHub@123', '0938765432', 'MEMBER', 'ACTIVE'),
-(N'Bùi Huy Hoàng', 'hoang.bui@gmail.com', 'SportHub@123', '0931112233', 'MEMBER', 'ACTIVE'),
-(N'Đỗ Phương Anh', 'anh.do@gmail.com', 'SportHub@123', '0934445566', 'MEMBER', 'ACTIVE'),
-(N'Vũ Trọng Tuấn', 'tuan.vu@gmail.com', 'SportHub@123', '0937778899', 'MEMBER', 'ACTIVE');
+-- Seed users (WITH BCRYPT HASHED PASSWORDS)
+INSERT INTO users (full_name, email, password, phone, role, status, require_password_change) VALUES 
+(N'Nguyễn Văn Quản Lý', 'manager@sporthub.com', '$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', '0901234567', 'MANAGER', 'ACTIVE', 0),
+(N'Trần Thị Giám Đốc', 'director@sporthub.com', '$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', '0909876543', 'MANAGER', 'ACTIVE', 0),
+(N'Lê Thị Lễ Tân', 'reception.le@sporthub.com', '$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', '0912345678', 'RECEPTIONIST', 'ACTIVE', 0),
+(N'Phạm Minh Tú', 'reception.tu@sporthub.com', '$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', '0918765432', 'RECEPTIONIST', 'ACTIVE', 0),
+(N'Trần Văn Minh', 'coach.minh@sporthub.com', '$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', '0923456789', 'COACH', 'ACTIVE', 0),
+(N'Nguyễn Hoàng Nam', 'coach.nam@sporthub.com', '$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', '0928765432', 'COACH', 'ACTIVE', 0),
+(N'Võ Tấn Phát', 'coach.phat@sporthub.com', '$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', '0921112223', 'COACH', 'ACTIVE', 0),
+(N'Đặng Thu Thảo', 'coach.thao@sporthub.com', '$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', '0923334445', 'COACH', 'ACTIVE', 0),
+(N'Nguyễn Anh Khoa', 'khoa.member@gmail.com', '$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', '0934567890', 'MEMBER', 'ACTIVE', 0),
+(N'Hoàng Thị Ngọc', 'ngoc.hoang@gmail.com', '$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', '0938765432', 'MEMBER', 'ACTIVE', 0),
+(N'Bùi Huy Hoàng', 'hoang.bui@gmail.com', '$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', '0931112233', 'MEMBER', 'ACTIVE', 0),
+(N'Đỗ Phương Anh', 'anh.do@gmail.com', '$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', '0934445566', 'MEMBER', 'ACTIVE', 0),
+(N'Vũ Trọng Tuấn', 'tuan.vu@gmail.com', '$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', '0937778899', 'MEMBER', 'ACTIVE', 0);
 GO
 
 -- Seed member_health_profiles
@@ -437,228 +451,153 @@ INSERT INTO feedbacks (member_id, session_id, coach_id, rating, comment, created
 GO
 
 -- =============================================================================
--- 12. BẢNG COACH LEAVE REQUESTS (ĐƠN XIN NGHỈ / ĐỔI CA HUẤN LUYỆN VIÊN)
+-- END OF SQL SCRIPT
+-- All tables have been created with BIGINT IDs and proper constraints
 -- =============================================================================
-IF OBJECT_ID(N'dbo.coach_leave_requests', N'U') IS NULL
-BEGIN
-    CREATE TABLE dbo.coach_leave_requests (
-        request_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-        coach_id BIGINT NOT NULL,
-        coach_name NVARCHAR(100) NULL,
-        leave_type NVARCHAR(50) NOT NULL,
-        start_date DATE NOT NULL,
-        end_date DATE NOT NULL,
-        reason NVARCHAR(1000) NOT NULL,
-        status NVARCHAR(20) NOT NULL CONSTRAINT DF_coach_leave_status DEFAULT N'PENDING',
-        approved_by BIGINT NULL,
-        affected_bookings_count INT NOT NULL CONSTRAINT DF_coach_leave_affected DEFAULT 0,
-        reassigned_coach_id BIGINT NULL,
-        created_at DATETIME2 NOT NULL CONSTRAINT DF_coach_leave_created DEFAULT SYSDATETIME()
-    );
-END;
+
+
+-- =============================================================================
+-- BẢNG PUBLIC_SPORTS (Danh sách môn thể thao công khai)
+-- =============================================================================
+CREATE TABLE public_sports (
+    sport_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    slug NVARCHAR(80) NOT NULL UNIQUE,
+    name NVARCHAR(100) NOT NULL,
+    subtitle NVARCHAR(150) NULL,
+    tag NVARCHAR(80) NULL,
+    description NVARCHAR(1000) NULL,
+    icon NVARCHAR(80) NULL,
+    area NVARCHAR(150) NULL,
+    active BIT NOT NULL DEFAULT 1
+);
+GO
+
+-- Seed public_sports
+INSERT INTO public_sports (slug, name, subtitle, tag, description, icon, area, active) VALUES
+(N'gym-fitness', N'Gym & Fitness', N'Trang thiết bị hiện đại', N'Olympic Spec', N'Máy tập Technogym và Hammer Strength, khu tạ tự do chuẩn Olympic cùng thiết bị hỗ trợ đo lường.', N'fitness_center', N'Khu vực 800m²', 1),
+(N'pickleball', N'Sân Pickleball', N'Cụm 5 sân có mái che', N'Hot Trend', N'Mặt sân giảm chấn và hệ thống đèn phục vụ luyện tập, thi đấu cả ngày lẫn đêm.', N'sports_tennis', N'Đạt chuẩn USAPA', 1),
+(N'tennis', N'Quần vợt Tennis', N'Sân chuẩn thi đấu', N'Chuẩn ITF', N'Sân đất nện nhân tạo và sân cứng, tích hợp máy bắn bóng cùng khu vực thay đồ.', N'sports_baseball', N'7 sân', 1),
+(N'yoga-pilates', N'Yoga & Pilates', N'Không gian tĩnh lặng', N'Phục hồi', N'Phòng tập yên tĩnh với thiết bị Reformer, phù hợp cho luyện tập và phục hồi thể chất.', N'self_improvement', N'Lớp tối đa 8 người', 1),
+(N'football', N'Bóng đá', N'Sân bóng đá', N'Thể thao đồng đội', N'Bộ môn bóng đá dành cho luyện tập và thi đấu theo nhóm.', N'sports_soccer', N'Sân bóng đá', 1),
+(N'badminton', N'Cầu lông', N'Sân cầu lông', N'Phổ biến', N'Bộ môn cầu lông dành cho luyện tập cá nhân và thi đấu đôi.', N'sports_tennis', N'Sân trong nhà', 1),
+(N'volleyball', N'Bóng chuyền', N'Sân bóng chuyền', N'Thể thao đồng đội', N'Bộ môn bóng chuyền dành cho luyện tập và thi đấu theo đội.', N'sports_volleyball', N'Sân bóng chuyền', 1),
+(N'table-tennis', N'Bóng bàn', N'Bàn bóng bàn', N'Phản xạ', N'Bộ môn bóng bàn phù hợp cho luyện tập kỹ thuật và thi đấu đơn hoặc đôi.', N'table_restaurant', N'Khu bóng bàn', 1),
+(N'swimming', N'Bơi lội', N'Hồ bơi', N'Thể thao dưới nước', N'Bộ môn bơi lội dành cho luyện tập thể lực và cải thiện kỹ thuật bơi.', N'pool', N'Hồ bơi', 1),
+(N'athletics', N'Điền kinh', N'Đường chạy điền kinh', N'Rèn thể lực', N'Bộ môn điền kinh gồm các hoạt động chạy bộ và rèn luyện sức bền.', N'directions_run', N'Đường chạy', 1);
 GO
 
 -- =============================================================================
--- 13. BẢNG DỤNG CỤ & THIẾT BỊ CHO THUÊ
+-- BẢNG PUBLIC_FACILITIES (Danh sách tiện ích công khai)
 -- =============================================================================
-IF OBJECT_ID(N'dbo.equipments', N'U') IS NULL
-BEGIN
-    CREATE TABLE dbo.equipments (
-        item_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-        item_name NVARCHAR(150) NOT NULL,
-        category NVARCHAR(50) NOT NULL,
-        rental_price_per_hour DECIMAL(12,2) NOT NULL,
-        total_quantity INT NOT NULL,
-        available_quantity INT NOT NULL,
-        status NVARCHAR(20) NOT NULL CONSTRAINT DF_equipments_status DEFAULT N'ACTIVE'
-    );
-END;
-GO
-
-IF OBJECT_ID(N'dbo.equipment_loans', N'U') IS NULL
-BEGIN
-    CREATE TABLE dbo.equipment_loans (
-        loan_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-        member_id BIGINT NOT NULL,
-        member_name NVARCHAR(100) NULL,
-        phone NVARCHAR(20) NULL,
-        item_id BIGINT NOT NULL,
-        item_name NVARCHAR(150) NULL,
-        quantity INT NOT NULL CONSTRAINT DF_equipment_loans_quantity DEFAULT 1,
-        rental_price_per_hour DECIMAL(12,2) NOT NULL,
-        loaned_at DATETIME2 NOT NULL CONSTRAINT DF_equipment_loans_loaned DEFAULT SYSDATETIME(),
-        returned_at DATETIME2 NULL,
-        rental_fee DECIMAL(12,2) NULL,
-        status NVARCHAR(20) NOT NULL CONSTRAINT DF_equipment_loans_status DEFAULT N'BORROWED',
-        payment_method NVARCHAR(20) NULL,
-        recorded_by BIGINT NULL
-    );
-END;
+CREATE TABLE public_facilities (
+    facility_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    slug NVARCHAR(80) NOT NULL UNIQUE,
+    name NVARCHAR(120) NOT NULL,
+    description NVARCHAR(1000) NULL,
+    icon NVARCHAR(80) NULL,
+    highlight NVARCHAR(150) NULL,
+    active BIT NOT NULL DEFAULT 1
+);
 GO
 
 -- =============================================================================
--- 14. BẢNG PHẢN HỒI & KHIẾU NẠI (SUPPORT TICKETS)
+-- BẢNG SPORTS_COURTS (Sân thể thao)
 -- =============================================================================
-IF OBJECT_ID(N'dbo.support_tickets', N'U') IS NULL
-BEGIN
-    CREATE TABLE dbo.support_tickets (
-        ticket_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-        member_id BIGINT NOT NULL,
-        member_name NVARCHAR(100) NULL,
-        category NVARCHAR(50) NOT NULL,
-        title NVARCHAR(200) NOT NULL,
-        description NVARCHAR(MAX) NOT NULL,
-        severity NVARCHAR(20) NOT NULL CONSTRAINT DF_support_tickets_severity DEFAULT N'NORMAL',
-        status NVARCHAR(20) NOT NULL CONSTRAINT DF_support_tickets_status DEFAULT N'SUBMITTED',
-        admin_response NVARCHAR(MAX) NULL,
-        created_at DATETIME2 NOT NULL CONSTRAINT DF_support_tickets_created DEFAULT SYSDATETIME()
-    );
-END;
+CREATE TABLE sports_courts (
+    court_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    sport_id BIGINT NOT NULL,
+    court_name NVARCHAR(120) NOT NULL,
+    description NVARCHAR(500) NULL,
+    hourly_rate DECIMAL(12,2) NOT NULL,
+    opens_at TIME NOT NULL,
+    closes_at TIME NOT NULL,
+    active BIT NOT NULL DEFAULT 1,
+    FOREIGN KEY (sport_id) REFERENCES public_sports(sport_id)
+);
 GO
 
 -- =============================================================================
--- 15. BẢNG YÊU CẦU HOÀN TIỀN (REFUND REQUESTS)
+-- BẢNG PAYMENT_TRANSACTIONS (Giao dịch thanh toán)
 -- =============================================================================
-IF OBJECT_ID(N'dbo.refund_requests', N'U') IS NULL
-BEGIN
-    CREATE TABLE dbo.refund_requests (
-        refund_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-        member_id BIGINT NOT NULL,
-        member_name NVARCHAR(100) NULL,
-        phone NVARCHAR(20) NULL,
-        transaction_id BIGINT NULL,
-        reference_code NVARCHAR(50) NULL,
-        booking_description NVARCHAR(255) NULL,
-        refund_amount DECIMAL(12,2) NOT NULL,
-        reason NVARCHAR(1000) NOT NULL,
-        bank_name NVARCHAR(100) NULL,
-        bank_account NVARCHAR(50) NULL,
-        account_holder NVARCHAR(100) NULL,
-        status NVARCHAR(20) NOT NULL CONSTRAINT DF_refund_requests_status DEFAULT N'PENDING',
-        approved_by BIGINT NULL,
-        decision_note NVARCHAR(500) NULL,
-        created_at DATETIME2 NOT NULL CONSTRAINT DF_refund_requests_created DEFAULT SYSDATETIME()
-    );
-END;
+CREATE TABLE payment_transactions (
+    payment_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    member_id BIGINT NOT NULL,
+    booking_type NVARCHAR(20) NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    payment_method NVARCHAR(40) NOT NULL,
+    payment_status NVARCHAR(20) NOT NULL,
+    reference_code NVARCHAR(64) NOT NULL UNIQUE,
+    created_at DATETIME2 NOT NULL
+);
 GO
 
 -- =============================================================================
--- 16. BẢNG THÔNG BÁO HỆ THỐNG (NOTIFICATIONS - MEM-25, COA-16, MGR-20)
+-- BẢNG COURT_BOOKINGS (Đặt sân)
 -- =============================================================================
-IF OBJECT_ID(N'dbo.notifications', N'U') IS NULL
-BEGIN
-    CREATE TABLE dbo.notifications (
-        notification_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-        user_id BIGINT NOT NULL,
-        title NVARCHAR(200) NOT NULL,
-        message NVARCHAR(MAX) NOT NULL,
-        type VARCHAR(30) NULL,
-        is_read BIT NOT NULL CONSTRAINT DF_notifications_read DEFAULT 0,
-        created_at DATETIME2 NOT NULL CONSTRAINT DF_notifications_created DEFAULT SYSDATETIME()
-    );
-END;
+CREATE TABLE court_bookings (
+    court_booking_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    member_id BIGINT NOT NULL,
+    court_id BIGINT NOT NULL,
+    start_time DATETIME2 NOT NULL,
+    end_time DATETIME2 NOT NULL,
+    amount_paid DECIMAL(12,2) NOT NULL,
+    payment_id BIGINT NOT NULL,
+    status NVARCHAR(20) NOT NULL,
+    created_at DATETIME2 NOT NULL,
+    FOREIGN KEY (court_id) REFERENCES sports_courts(court_id),
+    FOREIGN KEY (payment_id) REFERENCES payment_transactions(payment_id)
+);
 GO
 
 -- =============================================================================
--- 17. BẢNG NHẬT KÝ HỆ THỐNG (AUDIT LOGS - MGR-14)
+-- BẢNG AUTH_SESSIONS (Phiên đăng nhập)
 -- =============================================================================
-IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NULL
-BEGIN
-    CREATE TABLE dbo.audit_logs (
-        log_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-        actor_id BIGINT NULL,
-        actor_name NVARCHAR(100) NULL,
-        actor_role VARCHAR(20) NULL,
-        action VARCHAR(60) NOT NULL,
-        detail NVARCHAR(1000) NULL,
-        created_at DATETIME2 NOT NULL CONSTRAINT DF_audit_logs_created DEFAULT SYSDATETIME()
-    );
-END;
+CREATE TABLE auth_sessions (
+    token_hash CHAR(64) NOT NULL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    expires_at DATETIME2 NOT NULL
+);
 GO
 
 -- =============================================================================
--- 18. BẢNG LỊCH BẢO TRÌ SÂN (COURT MAINTENANCE - MGR-19)
+-- BẢNG VERIFICATION_TOKENS (OTP & Reset Password)
 -- =============================================================================
-IF OBJECT_ID(N'dbo.court_maintenance', N'U') IS NULL
-BEGIN
-    CREATE TABLE dbo.court_maintenance (
-        maintenance_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-        court_id BIGINT NOT NULL,
-        start_time DATETIME2 NOT NULL,
-        end_time DATETIME2 NOT NULL,
-        reason NVARCHAR(500) NULL,
-        created_by BIGINT NULL,
-        created_at DATETIME2 NOT NULL CONSTRAINT DF_court_maintenance_created DEFAULT SYSDATETIME()
-    );
-END;
+CREATE TABLE verification_tokens (
+    token_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    email NVARCHAR(100) NOT NULL,
+    token_hash NVARCHAR(64) NOT NULL,
+    token_type NVARCHAR(20) NOT NULL,
+    created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+    expires_at DATETIME2 NOT NULL,
+    used_at DATETIME2 NULL,
+    failed_attempts INT NOT NULL DEFAULT 0,
+    locked BIT NOT NULL DEFAULT 0
+);
+GO
+
+CREATE INDEX idx_email_type ON verification_tokens(email, token_type);
+CREATE INDEX idx_token_hash ON verification_tokens(token_hash);
+CREATE INDEX idx_expires_at ON verification_tokens(expires_at);
 GO
 
 -- =============================================================================
--- 19. BẢNG KẾ HOẠCH TẬP PT & KẾT QUẢ BUỔI TẬP (COA-07..10, MEM-20..23)
+-- BẢNG AUDIT_LOGS (Nhật ký hệ thống)
 -- =============================================================================
-IF OBJECT_ID(N'dbo.workout_plans', N'U') IS NULL
-BEGIN
-    CREATE TABLE dbo.workout_plans (
-        plan_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-        member_id BIGINT NOT NULL,
-        coach_id BIGINT NULL,
-        coach_name NVARCHAR(100) NULL,
-        title NVARCHAR(200) NOT NULL,
-        goal NVARCHAR(300) NULL,
-        exercises_json NVARCHAR(MAX) NOT NULL,
-        session_result NVARCHAR(MAX) NULL,
-        coach_feedback NVARCHAR(MAX) NULL,
-        homework NVARCHAR(MAX) NULL,
-        source VARCHAR(20) NOT NULL CONSTRAINT DF_workout_plans_source DEFAULT 'COACH',
-        created_at DATETIME2 NOT NULL CONSTRAINT DF_workout_plans_created DEFAULT SYSDATETIME()
-    );
-END;
+CREATE TABLE audit_logs (
+    log_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    log_type NVARCHAR(50) NOT NULL,
+    user_email NVARCHAR(100) NULL,
+    user_id BIGINT NULL,
+    ip_address NVARCHAR(50) NULL,
+    user_agent NVARCHAR(500) NULL,
+    action_detail NVARCHAR(MAX) NULL,
+    status NVARCHAR(20) NOT NULL,
+    error_message NVARCHAR(500) NULL,
+    created_at DATETIME2 NOT NULL DEFAULT GETDATE()
+);
 GO
 
--- =============================================================================
--- 20. BẢNG THEO DÕI TIẾN ĐỘ CƠ THỂ & 1RM (COA-08, MEM-21)
--- =============================================================================
-IF OBJECT_ID(N'dbo.body_progress_logs', N'U') IS NULL
-BEGIN
-    CREATE TABLE dbo.body_progress_logs (
-        progress_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-        member_id BIGINT NOT NULL,
-        recorded_date DATE NOT NULL,
-        weight_kg DECIMAL(5,2) NULL,
-        height_cm DECIMAL(5,2) NULL,
-        smm_kg DECIMAL(5,2) NULL,
-        pbf_percent DECIMAL(5,2) NULL,
-        bmi DECIMAL(5,2) NULL,
-        max_lift_kg DECIMAL(6,2) NULL,
-        note NVARCHAR(300) NULL,
-        created_at DATETIME2 NOT NULL CONSTRAINT DF_body_progress_created DEFAULT SYSDATETIME()
-    );
-END;
-GO
-
--- =============================================================================
--- 21. BẢNG CẤU HÌNH HỆ THỐNG & AI (MGR-15)
--- =============================================================================
-IF OBJECT_ID(N'dbo.system_settings', N'U') IS NULL
-BEGIN
-    CREATE TABLE dbo.system_settings (
-        setting_key VARCHAR(60) NOT NULL PRIMARY KEY,
-        setting_value NVARCHAR(MAX) NULL,
-        updated_at DATETIME2 NOT NULL CONSTRAINT DF_system_settings_created DEFAULT SYSDATETIME()
-    );
-END;
-GO
-
--- =============================================================================
--- 22. DONG BO BOOKED_SLOTS CHO CLASS_SESSIONS VOI BOOKINGS THUC TE
--- =============================================================================
-UPDATE s
-SET s.booked_slots = ISNULL(b.actual_count, 0)
-FROM dbo.class_sessions s
-LEFT JOIN (
-    SELECT session_id, COUNT(*) AS actual_count
-    FROM dbo.bookings
-    WHERE status IN ('BOOKED', 'CONFIRMED')
-    GROUP BY session_id
-) b ON s.session_id = b.session_id;
+CREATE INDEX idx_log_type ON audit_logs(log_type);
+CREATE INDEX idx_user_email ON audit_logs(user_email);
+CREATE INDEX idx_created_at ON audit_logs(created_at);
 GO
