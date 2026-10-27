@@ -37,24 +37,6 @@ public class User {
     @Column(name = "avatar", columnDefinition = "NVARCHAR(MAX)")
     private String avatar;
 
-    @Column(name = "rfid_code", length = 64)
-    private String rfidCode;
-
-    @Column(name = "specialty", length = 200)
-    private String specialty;
-
-    @Column(name = "experience_years")
-    private Integer experienceYears;
-
-    @Column(name = "certifications", length = 500)
-    private String certifications;
-
-    @Column(name = "bio", columnDefinition = "NVARCHAR(MAX)")
-    private String bio;
-
-    @Column(name = "availability_json", columnDefinition = "NVARCHAR(MAX)")
-    private String availabilityJson;
-
     @Column(length = 20)
     private String gender;
 
@@ -72,7 +54,11 @@ public class User {
 
     @Builder.Default
     @Column(length = 20)
-    private String status = "ACTIVE"; // ACTIVE, INACTIVE, LOCKED
+    private String status = "ACTIVE"; // ACTIVE, INACTIVE, LOCKED, PENDING
+
+    @Builder.Default
+    @Column(name = "require_password_change", nullable = false)
+    private Boolean requirePasswordChange = false;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
