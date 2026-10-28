@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 @Service
 public class AuditLogService {
@@ -46,7 +47,7 @@ public class AuditLogService {
     /**
      * Ghi audit log thành công
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.READ_UNCOMMITTED)
     public void logSuccess(String logType, String userEmail, Long userId, String actionDetail) {
         try {
             String actorName = resolveActorName(userId, userEmail);
@@ -77,7 +78,7 @@ public class AuditLogService {
     /**
      * Ghi audit log thất bại
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.READ_UNCOMMITTED)
     public void logFailure(String logType, String userEmail, Long userId, String actionDetail, String errorMessage) {
         try {
             String actorName = resolveActorName(userId, userEmail);

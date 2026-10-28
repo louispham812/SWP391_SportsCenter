@@ -125,30 +125,33 @@ export default function AuthPage() {
         }),
       });
       if (!response.ok) {
-        // ===== FIX MỚI: XỬ LÝ PENDING_VERIFICATION =====
-        const errorData = await response.json().catch(() => null);
+        // Parse error response
+        let errorData = null;
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          // Nếu không parse được JSON, dùng text response
+          const errorText = await response.text();
+          throw new Error(errorText || `Đăng nhập thất bại (${response.status})`);
+        }
         
         // Check nếu là lỗi PENDING_VERIFICATION
         if (errorData && errorData.error === 'PENDING_VERIFICATION') {
-          // Hiển thị thông báo từ backend
           setAuthNotice(errorData.message);
-          
-          // Chuyển hướng đến trang verify OTP sau 2 giây
           setTimeout(() => {
             navigate('/verify-otp', {
               state: {
                 email: errorData.email,
-                fromLogin: true, // Đánh dấu là từ login
+                fromLogin: true,
               }
             });
           }, 2000);
-          
-          return; // Dừng xử lý, không throw error
+          return;
         }
-        // ===== KẾT THÚC FIX MỚI =====
         
-        // Nếu không phải PENDING_VERIFICATION, xử lý lỗi bình thường
-        throw new Error(errorData?.message || await getErrorMessage(response));
+        // Xử lý lỗi bình thường (user not found, wrong password, etc.)
+        const errorMessage = errorData?.message || errorData?.error || 'Đăng nhập thất bại';
+        throw new Error(errorMessage);
       }
       
       const user = await response.json();

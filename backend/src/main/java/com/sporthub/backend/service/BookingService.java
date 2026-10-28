@@ -1240,15 +1240,27 @@ public class BookingService {
                 .orElseThrow(() -> notFound("Không tìm thấy thông tin đặt chỗ."));
         ClassSession session = classSessionRepository.findById(booking.getSessionId())
                 .orElseThrow(() -> notFound("Không tìm thấy lớp học liên quan."));
-        if ("COACH".equals(actorRole) && !session.getCoachId().equals(actorId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không được phân công lớp học này.");
-        }
-        if (!ACTIVE_STATUSES.contains(booking.getStatus().toUpperCase(Locale.ROOT))) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Chỉ đặt chỗ đã xác nhận mới được điểm danh.");
-        }
-
-        // ✅ Lưu trạng thái cũ để xử lý quota
+        
+        // ✅ Lưu trạng thái cũ để check permission
         AttendanceStatus oldStatus = booking.getAttendanceStatus();
+        
+        // ✅ Permission check: RECEPTIONIST chỉ được SỬA điểm danh, KHÔNG được TẠO lần đầu
+        if ("RECEPTIONIST".equals(actorRole) && oldStatus == AttendanceStatus.PENDING) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, 
+                "Lễ tân không được tạo điểm danh lần đầu. Chỉ Coach được điểm danh cho lớp/PT.");
+        }
+        
+        // ✅ Permission check: COACH chỉ điểm danh lớp MÌNH phụ trách
+        if ("COACH".equals(actorRole) && !session.getCoachId().equals(actorId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, 
+                "Bạn không được phân công lớp học này.");
+        }
+        
+        // ✅ Validate: Booking phải ACTIVE
+        if (!ACTIVE_STATUSES.contains(booking.getStatus().toUpperCase(Locale.ROOT))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                "Chỉ đặt chỗ đã xác nhận mới được điểm danh.");
+        }
 
         booking.setAttendanceStatus(attendanceStatus);
         if (coachNote != null) {
@@ -1261,6 +1273,7 @@ public class BookingService {
             // Chỉ xử lý nếu trạng thái thay đổi
             if (oldStatus != attendanceStatus) {
                 Long membershipId = booking.getMembershipId();
+                LocalDateTime bookingStartTime = session.getStartTime();
                 
                 // ===== CASE 1: PENDING → X (Điểm danh lần đầu) =====
                 if (oldStatus == AttendanceStatus.PENDING) {
@@ -1268,15 +1281,15 @@ public class BookingService {
                         // PENDING → PRESENT/UNEXCUSED: held → used (trừ quota)
                         membershipService.consumeQuota(membershipId, 1);
                     } else if (attendanceStatus == AttendanceStatus.EXCUSED_ABSENCE) {
-                        // PENDING → EXCUSED: held → remaining (hoàn quota nếu gói còn hiệu lực)
-                        membershipService.refundQuotaForExcusedAbsence(membershipId, 1);
+                        // PENDING → EXCUSED: held → remaining hoặc held → used (tùy booking trong/ngoài thời hạn)
+                        membershipService.refundQuotaForExcusedAbsence(membershipId, 1, bookingStartTime);
                     }
                 }
                 
                 // ===== CASE 2: PRESENT → EXCUSED_ABSENCE (Sửa thành vắng có phép) =====
                 else if (oldStatus == AttendanceStatus.PRESENT && attendanceStatus == AttendanceStatus.EXCUSED_ABSENCE) {
-                    // used → remaining (hoàn quota nếu gói còn hiệu lực)
-                    membershipService.refundUsedQuotaForExcusedAbsence(membershipId, 1);
+                    // used → remaining hoặc used không đổi (tùy booking trong/ngoài thời hạn)
+                    membershipService.refundUsedQuotaForExcusedAbsence(membershipId, 1, bookingStartTime);
                 }
                 
                 // ===== CASE 3: PRESENT → UNEXCUSED_ABSENCE (Không đổi quota) =====
@@ -1294,8 +1307,8 @@ public class BookingService {
                 
                 // ===== CASE 6: UNEXCUSED_ABSENCE → EXCUSED_ABSENCE (Sửa thành vắng có phép) =====
                 else if (oldStatus == AttendanceStatus.UNEXCUSED_ABSENCE && attendanceStatus == AttendanceStatus.EXCUSED_ABSENCE) {
-                    // used → remaining (hoàn quota nếu gói còn hiệu lực)
-                    membershipService.refundUsedQuotaForExcusedAbsence(membershipId, 1);
+                    // used → remaining hoặc used không đổi (tùy booking trong/ngoài thời hạn)
+                    membershipService.refundUsedQuotaForExcusedAbsence(membershipId, 1, bookingStartTime);
                 }
             }
         }

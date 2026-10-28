@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -191,48 +192,81 @@ public class MembershipService {
 
     /**
      * Hoàn quota khi vắng có phép (EXCUSED_ABSENCE)
-     * held → remaining (nếu gói chưa hết hạn)
+     * held → remaining (nếu booking trong thời hạn gói)
+     * held → used (nếu booking ngoài thời hạn gói)
+     * 
+     * Business Rule:
+     * - Booking TRONG thời hạn gói (startTime <= endDate): Hoàn quota (held → remaining)
+     * - Booking NGOÀI thời hạn gói (startTime > endDate): KHÔNG hoàn (held → used, quota mất)
+     * 
+     * @param membershipId ID membership
+     * @param quotaAmount số quota (thường = 1)
+     * @param bookingStartTime thời gian bắt đầu của booking
      */
     @Transactional
-    public void refundQuotaForExcusedAbsence(Long membershipId, int quotaAmount) {
+    public void refundQuotaForExcusedAbsence(Long membershipId, int quotaAmount, LocalDateTime bookingStartTime) {
         UserMembership membership = userMembershipRepository.findById(membershipId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
                     "Membership không tồn tại"));
 
         membership.setHeldQuotaSessions(membership.getHeldQuotaSessions() - quotaAmount);
 
-        // Chỉ hoàn nếu gói chưa hết hạn
-        if (membership.getEndDate() != null && membership.getEndDate().isAfter(LocalDate.now())) {
+        // Kiểm tra booking có trong thời hạn gói không
+        boolean isWithinPeriod = isBookingWithinMembershipPeriod(membership, bookingStartTime);
+        
+        if (isWithinPeriod) {
+            // Booking trong thời hạn gói → Hoàn quota
             membership.setRemainingQuotaSessions(membership.getRemainingQuotaSessions() + quotaAmount);
+        } else {
+            // Booking ngoài thời hạn gói → KHÔNG hoàn, chuyển held → used (quota mất)
+            membership.setUsedQuotaSessions(membership.getUsedQuotaSessions() + quotaAmount);
         }
-        // Nếu đã hết hạn: held giảm nhưng không hoàn vào remaining (quota mất luôn)
 
         userMembershipRepository.save(membership);
         validateQuotaFormula(membership);
+    }
+    
+    /**
+     * Helper method: Kiểm tra booking có trong thời hạn membership không
+     * 
+     * @param membership UserMembership
+     * @param bookingStartTime Thời gian bắt đầu của booking
+     * @return true nếu booking trong thời hạn, false nếu ngoài thời hạn
+     */
+    private boolean isBookingWithinMembershipPeriod(UserMembership membership, LocalDateTime bookingStartTime) {
+        if (membership.getEndDate() == null || bookingStartTime == null) {
+            return false;
+        }
+        return !bookingStartTime.toLocalDate().isAfter(membership.getEndDate());
     }
 
     /**
      * Hoàn quota từ used về remaining khi sửa điểm danh
      * PRESENT/UNEXCUSED → EXCUSED_ABSENCE
      * 
-     * Logic:
-     * - used GIẢM
-     * - remaining TĂNG (nếu gói còn hiệu lực)
-     * - held KHÔNG ĐỔI
+     * Business Rule:
+     * - Booking TRONG thời hạn gói (startTime <= endDate): Hoàn quota (used → remaining)
+     * - Booking NGOÀI thời hạn gói (startTime > endDate): Giữ nguyên used (không hoàn, không thay đổi)
+     * 
+     * @param membershipId ID membership
+     * @param quotaAmount số quota (thường = 1)
+     * @param bookingStartTime thời gian bắt đầu của booking
      */
     @Transactional
-    public void refundUsedQuotaForExcusedAbsence(Long membershipId, int quotaAmount) {
+    public void refundUsedQuotaForExcusedAbsence(Long membershipId, int quotaAmount, LocalDateTime bookingStartTime) {
         UserMembership membership = userMembershipRepository.findById(membershipId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
                     "Membership không tồn tại"));
 
-        membership.setUsedQuotaSessions(membership.getUsedQuotaSessions() - quotaAmount);
-
-        // Chỉ hoàn nếu gói chưa hết hạn
-        if (membership.getEndDate() != null && membership.getEndDate().isAfter(LocalDate.now())) {
+        // Kiểm tra booking có trong thời hạn gói không
+        boolean isWithinPeriod = isBookingWithinMembershipPeriod(membership, bookingStartTime);
+        
+        if (isWithinPeriod) {
+            // Booking trong thời hạn → Hoàn quota
+            membership.setUsedQuotaSessions(membership.getUsedQuotaSessions() - quotaAmount);
             membership.setRemainingQuotaSessions(membership.getRemainingQuotaSessions() + quotaAmount);
         }
-        // Nếu đã hết hạn: used giảm nhưng không hoàn vào remaining (quota mất luôn)
+        // Nếu booking ngoài thời hạn: Không làm gì (used và remaining giữ nguyên, quota mất)
 
         userMembershipRepository.save(membership);
         validateQuotaFormula(membership);

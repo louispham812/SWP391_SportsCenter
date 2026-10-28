@@ -34,29 +34,21 @@ public class AuthController {
             return ResponseEntity.ok(response);
         } catch (PendingVerificationException e) {
             // Tài khoản PENDING → Frontend cần redirect đến trang verify OTP
+            // Xử lý đặc biệt tại controller vì cần format response khác với GlobalExceptionHandler
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "PENDING_VERIFICATION");
             errorResponse.put("email", e.getEmail());
             errorResponse.put("message", e.getMessage());
             errorResponse.put("redirectTo", "/verify-otp");
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
         }
+        // Các exception khác để GlobalExceptionHandler xử lý → trả về JSON format nhất quán
     }
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
-        try {
-            AuthResponse response = authService.register(request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        AuthResponse response = authService.register(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @DeleteMapping("/session")
@@ -72,68 +64,41 @@ public class AuthController {
     public ResponseEntity<?> changePassword(
             @RequestBody com.sporthub.backend.dto.ChangePasswordRequest request,
             @RequestHeader(name = "Authorization", required = false) String authorization) {
-        try {
-            String token = authorization != null && authorization.startsWith("Bearer ")
-                    ? authorization.substring(7).trim()
-                    : null;
-            AuthResponse response = authService.changePassword(request, token);
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        String token = authorization != null && authorization.startsWith("Bearer ")
+                ? authorization.substring(7).trim()
+                : null;
+        AuthResponse response = authService.changePassword(request, token);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/verify-email")
     public ResponseEntity<?> verifyEmail(@RequestBody com.sporthub.backend.dto.VerifyOtpRequest request) {
-        try {
-            AuthResponse response = authService.verifyEmail(request);
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        AuthResponse response = authService.verifyEmail(request);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/resend-otp")
     public ResponseEntity<?> resendOtp(@RequestBody com.sporthub.backend.dto.ResendOtpRequest request) {
-        try {
-            authService.resendOtp(request);
-            return ResponseEntity.ok("Mã xác thực OTP mới đã được gửi thành công!");
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        authService.resendOtp(request);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Mã xác thực OTP mới đã được gửi thành công!"));
     }
 
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody com.sporthub.backend.dto.ForgotPasswordRequest request) {
-        try {
-            String message = authService.forgotPassword(request);
-            return ResponseEntity.ok(java.util.Map.of("success", true, "message", message));
-        } catch (com.sporthub.backend.exception.PendingVerificationException e) {
-            // Re-throw để GlobalExceptionHandler xử lý (trả về 403 với error code)
-            throw e;
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(java.util.Map.of("success", false, "message", e.getMessage()));
-        }
+        String message = authService.forgotPassword(request);
+        return ResponseEntity.ok(Map.of("success", true, "message", message));
     }
 
     @PostMapping("/verify-code")
     public ResponseEntity<?> verifyCode(@RequestBody com.sporthub.backend.dto.VerifyCodeRequest request) {
-        try {
-            com.sporthub.backend.dto.VerifyCodeResponse response = authService.verifyCode(request);
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(java.util.Map.of("success", false, "message", e.getMessage()));
-        }
+        com.sporthub.backend.dto.VerifyCodeResponse response = authService.verifyCode(request);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody com.sporthub.backend.dto.ResetPasswordRequest request) {
-        try {
-            String message = authService.resetPassword(request);
-            return ResponseEntity.ok(java.util.Map.of("success", true, "message", message));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(java.util.Map.of("success", false, "message", e.getMessage()));
-        }
+        String message = authService.resetPassword(request);
+        return ResponseEntity.ok(Map.of("success", true, "message", message));
     }
     
     /**

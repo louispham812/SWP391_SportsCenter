@@ -12,6 +12,7 @@ import com.sporthub.backend.dto.MemberPackagePurchaseResponse;
 import com.sporthub.backend.dto.MemberProfileRequest;
 import com.sporthub.backend.dto.MemberProfileResponse;
 import com.sporthub.backend.dto.MemberTransactionResponse;
+import com.sporthub.backend.dto.MembershipQuotaResponse;
 import com.sporthub.backend.entity.Booking;
 import com.sporthub.backend.entity.ClassSession;
 import com.sporthub.backend.entity.MemberHealthProfile;
@@ -191,6 +192,67 @@ public class MemberProfileController {
                             membership.getStatus());
                 })
                 .toList();
+    }
+
+    @GetMapping("/quota")
+    @Transactional(readOnly = true)
+    public MembershipQuotaResponse getQuota(Authentication authentication) {
+        Long userId = memberId(authentication);
+        
+        // Tìm membership ACTIVE và chưa hết hạn
+        List<UserMembership> activeMemberships = membershipRepository.findByUserIdAndStatus(userId, "ACTIVE")
+                .stream()
+                .filter(m -> m.getEndDate() != null && m.getEndDate().isAfter(LocalDate.now()))
+                .toList();
+        
+        if (activeMemberships.isEmpty()) {
+            // Không có gói tập nào đang active
+            return new MembershipQuotaResponse(
+                    null,
+                    null,
+                    "Chưa có gói tập",
+                    null,
+                    null,
+                    null,
+                    0,
+                    0,
+                    0,
+                    0,
+                    false,
+                    "Bạn chưa có gói tập nào. Vui lòng đăng ký gói để sử dụng dịch vụ.");
+        }
+        
+        // Lấy membership đầu tiên (active và chưa hết hạn)
+        UserMembership membership = activeMemberships.get(0);
+        
+        // Lấy thông tin package
+        MembershipPackage pkg = packageRepository.findById(membership.getPackageId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                    "Không tìm thấy thông tin gói tập"));
+        
+        int remaining = membership.getRemainingQuotaSessions() != null ? membership.getRemainingQuotaSessions() : 0;
+        int held = membership.getHeldQuotaSessions() != null ? membership.getHeldQuotaSessions() : 0;
+        int used = membership.getUsedQuotaSessions() != null ? membership.getUsedQuotaSessions() : 0;
+        int initial = membership.getInitialQuotaSessions() != null ? membership.getInitialQuotaSessions() : 0;
+        
+        boolean canUse = remaining > 0 && membership.getEndDate().isAfter(LocalDate.now());
+        
+        String message = String.format("Còn %d/%d buổi (đã dùng: %d, đang giữ: %d)", 
+                remaining, initial, used, held);
+        
+        return new MembershipQuotaResponse(
+                membership.getMembershipId(),
+                pkg.getPackageId(),
+                pkg.getName(),
+                pkg.getPackageType() != null ? pkg.getPackageType().name() : "VIP",
+                membership.getStartDate(),
+                membership.getEndDate(),
+                initial,
+                remaining,
+                held,
+                used,
+                canUse,
+                message);
     }
 
     @PostMapping("/memberships")
