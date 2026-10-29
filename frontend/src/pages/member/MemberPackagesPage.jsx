@@ -85,21 +85,15 @@ export default function MemberPackagesPage() {
     setCheckoutError('');
     try {
       const result = await purchaseMembership(selectedPackage.packageId, paymentMethod);
-      showToast({
-        title: actionType === 'renew' ? 'Gia hạn thành công' : actionType === 'upgrade' ? 'Nâng cấp thành công' : 'Đăng ký thành công',
-        message: `Mã giao dịch: ${result?.referenceCode || 'VQR-PKG'}. Quyền lợi gói ${selectedPackage.name} đã được kích hoạt!`,
-        type: 'success',
-      });
+      const title = actionType === 'renew' ? 'Gia hạn thành công' : actionType === 'upgrade' ? 'Nâng cấp thành công' : 'Đăng ký thành công';
+      const message = `Gói ${selectedPackage.name} đang chờ Quản lý phê duyệt. Mã GD: ${result?.referenceCode || 'VQR-PKG'}`;
+      showToast(title, message, 'success');
       setSelectedPackage(null);
       await loadData();
     } catch (err) {
       const errorMsg = err.message || 'Không thể thực hiện giao dịch gói tập.';
       setCheckoutError(errorMsg);
-      showToast({
-        title: 'Thao tác không thành công',
-        message: errorMsg,
-        type: 'error',
-      });
+      showToast('Thao tác không thành công', errorMsg, 'error');
     } finally {
       setSubmitting(false);
     }

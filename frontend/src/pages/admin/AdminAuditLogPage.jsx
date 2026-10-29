@@ -24,7 +24,8 @@ export default function AdminAuditLogPage() {
     const q = query.trim().toLowerCase();
     if (!q) return logs;
     return logs.filter((l) =>
-      [l.action, l.detail, l.actorName, l.actorRole].some((v) => (v || '').toLowerCase().includes(q)));
+      [l.action, l.logType, l.detail, l.actionDetail, l.actorName, l.userEmail, l.actorRole]
+        .some((v) => (v || '').toLowerCase().includes(q)));
   }, [logs, query]);
 
   const totalPages = Math.ceil(filtered.length / LOGS_PER_PAGE) || 1;
@@ -59,9 +60,16 @@ export default function AdminAuditLogPage() {
                 {paginatedLogs.map((l) => (
                   <tr key={l.logId} className="border-t border-slate-100 hover:bg-slate-50/50">
                     <td className="p-3 whitespace-nowrap">{l.createdAt ? new Date(l.createdAt).toLocaleString('vi-VN') : ''}</td>
-                    <td className="p-3">{l.actorName || `#${l.actorId ?? '-'}`} <span className="text-xs text-slate-400">{l.actorRole}</span></td>
-                    <td className="p-3 font-mono text-xs">{l.action}</td>
-                    <td className="p-3 text-slate-600">{l.detail}</td>
+                    <td className="p-3 font-medium text-slate-800">
+                      {l.actorName || l.userEmail || (l.actorId || l.userId ? `#${l.actorId || l.userId}` : 'Hệ thống')}
+                      {l.actorRole && (
+                        <span className="ml-1.5 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-xs font-normal text-slate-500">
+                          {l.actorRole}
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3 font-mono text-xs font-semibold text-primary">{l.action || l.logType || '-'}</td>
+                    <td className="p-3 text-slate-600">{l.detail || l.actionDetail || l.errorMessage || '-'}</td>
                   </tr>
                 ))}
                 {filtered.length === 0 && (

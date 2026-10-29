@@ -46,9 +46,10 @@ export default function ResetPasswordPage() {
     upper: /[A-Z]/.test(newPassword),
     lower: /[a-z]/.test(newPassword),
     number: /[0-9]/.test(newPassword),
+    special: /[@$!%*?&#]/.test(newPassword), // Special char requirement
   };
 
-  const isAllValid = criteria.length && criteria.upper && criteria.lower && criteria.number;
+  const isAllValid = criteria.length && criteria.upper && criteria.lower && criteria.number && criteria.special;
   const isMatch = confirmPassword && newPassword === confirmPassword;
   const isMismatch = confirmPassword && newPassword !== confirmPassword;
 
@@ -62,7 +63,7 @@ export default function ResetPasswordPage() {
     }
 
     if (!isAllValid) {
-      setErrorMessage('Mật khẩu chưa đáp ứng đầy đủ các tiêu chuẩn bảo mật (tối thiểu 8 ký tự, có chữ hoa, chữ thường và số).');
+      setErrorMessage('Mật khẩu chưa đáp ứng đầy đủ các tiêu chuẩn bảo mật (tối thiểu 8 ký tự, có chữ hoa, chữ thường, số và ký tự đặc biệt @$!%*?&#).');
       return;
     }
 
@@ -370,6 +371,12 @@ export default function ResetPasswordPage() {
                         {criteria.number ? 'check_circle' : 'radio_button_unchecked'}
                       </span>
                       <span>Có ít nhất 1 chữ số (0-9)</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 font-bold col-span-2 ${criteria.special ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      <span className="material-symbols-outlined text-[15px]">
+                        {criteria.special ? 'check_circle' : 'radio_button_unchecked'}
+                      </span>
+                      <span>Ký tự đặc biệt (@$!%*?&#)</span>
                     </div>
                   </div>
                 </div>

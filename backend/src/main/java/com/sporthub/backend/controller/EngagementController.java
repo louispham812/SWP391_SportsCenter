@@ -20,6 +20,7 @@ import com.sporthub.backend.repository.SportsCourtRepository;
 import com.sporthub.backend.repository.SystemSettingRepository;
 import com.sporthub.backend.repository.UserRepository;
 import com.sporthub.backend.service.EngagementService;
+import com.sporthub.backend.enums.AttendanceStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -118,7 +119,7 @@ public class EngagementController {
         Set<Long> reviewed = new HashSet<>();
         feedbackRepository.findByMemberId(memberId).forEach(f -> reviewed.add(f.getSessionId()));
         return bookingRepository.findByMemberId(memberId).stream()
-                .filter(b -> "PRESENT".equalsIgnoreCase(b.getAttendanceStatus()))
+                .filter(b -> AttendanceStatus.PRESENT.equals(b.getAttendanceStatus()))
                 .filter(b -> !reviewed.contains(b.getSessionId()))
                 .map(b -> classSessionRepository.findById(b.getSessionId()).orElse(null))
                 .filter(s -> s != null)
@@ -149,7 +150,7 @@ public class EngagementController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy buổi học."));
         boolean attended = bookingRepository.findByMemberId(memberId).stream()
                 .anyMatch(b -> b.getSessionId().equals(session.getSessionId())
-                        && "PRESENT".equalsIgnoreCase(b.getAttendanceStatus()));
+                        && AttendanceStatus.PRESENT.equals(b.getAttendanceStatus()));
         if (!attended) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "Chỉ được đánh giá buổi học bạn đã tham dự (được điểm danh có mặt).");

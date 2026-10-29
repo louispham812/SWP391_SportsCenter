@@ -14,8 +14,7 @@ export default function OtpVerificationPage() {
   const initialEmail = location.state?.email || queryParams.get('email') || '';
   const initialFullName = location.state?.fullName || queryParams.get('fullName') || 'Hội viên';
 
-  const [email, setEmail] = useState(initialEmail);
-  const [isEditingEmail, setIsEditingEmail] = useState(!initialEmail);
+  const [email] = useState(initialEmail); // Cố định, không cho edit
 
   // 6 digits array
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
@@ -62,10 +61,10 @@ export default function OtpVerificationPage() {
 
   // Auto focus first input on mount
   useEffect(() => {
-    if (inputRefs.current[0] && !isEditingEmail) {
+    if (inputRefs.current[0]) {
       inputRefs.current[0].focus();
     }
-  }, [isEditingEmail]);
+  }, []);
 
   const formatTimer = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -297,49 +296,23 @@ export default function OtpVerificationPage() {
           {/* Body Content */}
           <div className="p-6 sm:p-8 space-y-6">
 
-            {/* Email Identification Box */}
+            {/* Email Identification Box - CỐ ĐỊNH */}
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col gap-2">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <div className="flex items-center text-xs font-bold text-slate-500 uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[16px] text-orange-500">mail</span>
                   <span>Email nhận mã:</span>
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setIsEditingEmail(!isEditingEmail)}
-                  className="text-orange-600 hover:underline font-extrabold cursor-pointer"
-                >
-                  {isEditingEmail ? 'Xong' : 'Thay đổi'}
-                </button>
               </div>
 
-              {isEditingEmail ? (
-                <div className="flex items-center gap-2 mt-1">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@example.com"
-                    className="flex-1 bg-white px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-orange-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingEmail(false)}
-                    className="px-3 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800"
-                  >
-                    Lưu
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-extrabold text-slate-900 break-all">
-                    {email || '(Chưa nhập email)'}
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-md">
-                    <span className="material-symbols-outlined text-[14px]">check</span> Đã gửi mã
-                  </span>
-                </div>
-              )}
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-extrabold text-slate-900 break-all">
+                  {email || '(Chưa nhập email)'}
+                </span>
+                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-md">
+                  <span className="material-symbols-outlined text-[14px]">check</span> Đã gửi mã
+                </span>
+              </div>
             </div>
 
             {/* Alert & Notice */}
@@ -472,20 +445,13 @@ export default function OtpVerificationPage() {
             </div>
 
             {/* Bottom Links */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+            <div className="flex items-center justify-center pt-2 border-t border-slate-100 text-xs">
               <Link
                 to="/register"
                 className="text-slate-500 hover:text-slate-900 font-bold flex items-center gap-1 transition-colors"
               >
                 <span className="material-symbols-outlined text-[16px]">arrow_back</span>
                 <span>Đăng ký tài khoản khác</span>
-              </Link>
-              <Link
-                to="/change-password"
-                className="text-orange-600 hover:underline font-bold flex items-center gap-1"
-              >
-                <span>Đổi mật khẩu tạm</span>
-                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
               </Link>
             </div>
 

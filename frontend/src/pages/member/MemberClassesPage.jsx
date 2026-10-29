@@ -59,9 +59,76 @@ export default function MemberClassesPage() {
   const [registeringSession, setRegisteringSession] = useState(null);
   const [sessionQuote, setSessionQuote] = useState(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
+  const [paymentMode, setPaymentMode] = useState('RETAIL'); // 'QUOTA' | 'RETAIL'
   const [paymentMethod, setPaymentMethod] = useState('VIETQR');
   const [submittingRegister, setSubmittingRegister] = useState(false);
   const [registerError, setRegisterError] = useState('');
+
+  // Member Quota State - fetch from API
+  const [memberQuota, setMemberQuota] = useState({
+    packageName: 'Đang tải...',
+    initialQuota: 0,
+    usedQuota: 0,
+    heldQuota: 0,
+    remainingQuota: 0,
+    canUseForBooking: false,
+  });
+  const [quotaLoading, setQuotaLoading] = useState(true);
+
+  // Fetch member quota from API
+  useEffect(() => {
+    const fetchQuota = async () => {
+      try {
+        setQuotaLoading(true);
+        const response = await fetch('http://localhost:8080/api/v1/members/me/quota', {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('sports_center_token')}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setMemberQuota({
+            packageName: data.packageName || 'Chưa có gói tập',
+            initialQuota: data.initialQuota || 0,
+            usedQuota: data.usedQuota || 0,
+            heldQuota: data.heldQuota || 0,
+            remainingQuota: data.remainingQuota || 0,
+            canUseForBooking: data.canUseForBooking || false,
+          });
+        } else {
+          // Nếu lỗi, set về mặc định (không có gói)
+          setMemberQuota({
+            packageName: 'Chưa có gói tập',
+            initialQuota: 0,
+            usedQuota: 0,
+            heldQuota: 0,
+            remainingQuota: 0,
+            canUseForBooking: false,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch quota:', err);
+        setMemberQuota({
+          packageName: 'Chưa có gói tập',
+          initialQuota: 0,
+          usedQuota: 0,
+          heldQuota: 0,
+          remainingQuota: 0,
+          canUseForBooking: false,
+        });
+      } finally {
+        setQuotaLoading(false);
+      }
+    };
+    
+    fetchQuota();
+  }, []); // Chỉ gọi 1 lần khi mount
+
+  // Voucher State
+  const [voucherCode, setVoucherCode] = useState('');
+  const [appliedVoucher, setAppliedVoucher] = useState(null);
+  const [voucherError, setVoucherError] = useState('');
 
   // Load quote with active membership discount whenever a session is selected
   useEffect(() => {
@@ -69,6 +136,10 @@ export default function MemberClassesPage() {
       setRegisterError('');
       setQuoteLoading(true);
       setPaymentMethod('VIETQR');
+      setPaymentMode('RETAIL');
+      setAppliedVoucher(null);
+      setVoucherCode('');
+      setVoucherError('');
       getBookingQuote('CLASS', registeringSession.sessionId)
         .then((q) => setSessionQuote(q))
         .catch(() => setSessionQuote(null))
@@ -161,19 +232,93 @@ export default function MemberClassesPage() {
       const coachProfile = await getCoachPublicProfile(coachId);
       setSelectedCoach(coachProfile);
     } catch (err) {
-      showToast({
-        title: 'Huấn luyện viên',
-        message: err.message || 'Không thể tải hồ sơ huấn luyện viên.',
-        type: 'warning',
-      });
+      showToast('Huấn luyện viên', err.message || 'Không thể tải hồ sơ huấn luyện viên.', 'warning');
     } finally {
       setCoachLoading(false);
     }
   };
 
+  // Handle Voucher Application (MGR-18)
+  const applyVoucher = async () => {
+    setVoucherError('');
+    if (!voucherCode.trim()) return;
+
+    const code = voucherCode.trim().toUpperCase();
+    
+    // Try local vouchers first
+    let vouchers = [];
+    try {
+      const saved = localStorage.getItem('sports_center_vouchers');
+      vouchers = saved ? JSON.parse(saved) : [];
+    } catch {
+      vouchers = [];
+    }
+
+    const fallbackVouchers = [
+      { code: 'WELCOME20', discountType: 'PERCENT', discountValue: 20, status: 'ACTIVE' },
+      { code: 'SUMMER50K', discountType: 'FIXED', discountValue: 50000, status: 'ACTIVE' },
+      { code: 'EXTEND30D', discountType: 'EXTEND_DURATION', discountValue: 30, status: 'ACTIVE' },
+    ];
+    const allVouchers = [...fallbackVouchers, ...vouchers];
+    const found = allVouchers.find((v) => v.code.toUpperCase() === code && (v.status === 'ACTIVE' || v.active));
+
+    if (!found) {
+      setVoucherError('Mã ưu đãi không hợp lệ hoặc đã hết hạn.');
+      return;
+    }
+    setAppliedVoucher(found);
+  };
+
+  const removeVoucher = () => {
+    setAppliedVoucher(null);
+    setVoucherCode('');
+    setVoucherError('');
+  };
+
   // Xác nhận đăng ký lớp
   const handleConfirmRegister = async () => {
     if (!registeringSession) return;
+
+    // Business rule: Quota validation (CLASS always needs 1 quota)
+    const requiredQuota = 1;
+    if (paymentMode === 'QUOTA') {
+      if (memberQuota.remainingQuota < requiredQuota) {
+        showToast(
+          'Không đủ quota',
+          `Số buổi trong gói hội viên của bạn không đủ (cần ${requiredQuota} buổi, hiện còn ${memberQuota.remainingQuota} buổi). Vui lòng thanh toán theo giá bán lẻ hoặc nạp thêm gói tập.`,
+          'error'
+        );
+        return;
+      }
+
+      // Xử lý thanh toán bằng quota - Backend tính toán và trừ quota
+      setSubmittingRegister(true);
+      try {
+        const confirmation = await checkoutBooking(
+          'CLASS',
+          registeringSession.sessionId,
+          registeringSession.startTime,
+          registeringSession.endTime,
+          'MEMBERSHIP_QUOTA',
+          true  // useQuota = true
+        );
+        
+        showToast(
+          'Đăng ký thành công!',
+          confirmation.quotaMessage || `Lớp "${registeringSession.className}" đã được thêm vào Thời khóa biểu! Đã trừ ${requiredQuota} buổi từ gói hội viên.`,
+          'success'
+        );
+        setRegisteringSession(null);
+        await loadData();
+      } catch (err) {
+        showToast('Đăng ký thất bại', err.message || 'Không thể đăng ký lớp học này bằng quota.', 'error');
+      } finally {
+        setSubmittingRegister(false);
+      }
+      return;
+    }
+
+    // Retail payment mode
     setSubmittingRegister(true);
     setRegisterError('');
     try {
@@ -184,21 +329,17 @@ export default function MemberClassesPage() {
         registeringSession.endTime,
         paymentMethod
       );
-      showToast({
-        title: 'Đăng ký thành công!',
-        message: `Mã xác nhận: ${confirmation.referenceCode || 'TXN-OK'}. Lớp "${registeringSession.className}" đã được thêm vào Thời khóa biểu!`,
-        type: 'success',
-      });
+      showToast(
+        'Đăng ký thành công!',
+        `Mã xác nhận: ${confirmation.referenceCode || 'TXN-OK'}. Lớp "${registeringSession.className}" đã được thêm vào Thời khóa biểu!`,
+        'success'
+      );
       setRegisteringSession(null);
       await loadData();
     } catch (err) {
       const errorMsg = err.message || 'Không thể đăng ký lớp học này.';
       setRegisterError(errorMsg);
-      showToast({
-        title: 'Đăng ký thất bại',
-        message: errorMsg,
-        type: 'error',
-      });
+      showToast('Đăng ký thất bại', errorMsg, 'error');
     } finally {
       setSubmittingRegister(false);
     }
@@ -210,19 +351,15 @@ export default function MemberClassesPage() {
     setSubmittingCancel(true);
     try {
       await cancelMemberBooking('CLASS', cancelingBooking.bookingId);
-      showToast({
-        title: 'Hủy đăng ký thành công',
-        message: 'Lớp học đã được xóa khỏi thời khóa biểu. 100% học phí đã được hoàn vào ví giao dịch sandbox.',
-        type: 'success',
-      });
+      showToast(
+        'Hủy đăng ký thành công',
+        'Lớp học đã được xóa khỏi thời khóa biểu. 100% học phí đã được hoàn vào ví giao dịch sandbox.',
+        'success'
+      );
       setCancelingBooking(null);
       await loadData();
     } catch (err) {
-      showToast({
-        title: 'Không thể hủy lớp',
-        message: err.message || 'Chỉ được hủy trước giờ bắt đầu ít nhất 2 tiếng.',
-        type: 'error',
-      });
+      showToast('Không thể hủy lớp', err.message || 'Chỉ được hủy trước giờ bắt đầu ít nhất 2 tiếng.', 'error');
     } finally {
       setSubmittingCancel(false);
     }
@@ -564,26 +701,41 @@ export default function MemberClassesPage() {
           document.body
         )}
 
-        {/* Modal Register Confirmation */}
+        {/* Full Page Payment UI (like court booking) */}
         {registeringSession && (() => {
+          const requiredQuota = 1; // CLASS always needs 1 quota
           const originalPrice = sessionQuote?.originalAmount ?? registeringSession.priceAmount;
-          const discountAmt = sessionQuote?.discountAmount ?? 0;
-          const finalPrice = sessionQuote?.amount ?? sessionQuote?.finalAmount ?? registeringSession.priceAmount;
+          const systemDiscount = sessionQuote?.discountAmount ?? 0;
+
+          // Calculate voucher discount (only for RETAIL mode)
+          let voucherDiscount = 0;
+          if (paymentMode === 'RETAIL' && appliedVoucher) {
+            if (appliedVoucher.discountType === 'PERCENT') {
+              voucherDiscount = Math.round((originalPrice * appliedVoucher.discountValue) / 100);
+            } else if (appliedVoucher.discountType === 'FIXED') {
+              voucherDiscount = Math.min(originalPrice, appliedVoucher.discountValue);
+            }
+          }
+
+          const finalRetailPrice = Math.max(0, originalPrice - systemDiscount - voucherDiscount);
+          const finalPrice = paymentMode === 'QUOTA' ? 0 : finalRetailPrice;
 
           const actionBtnLabel = submittingRegister
             ? 'Đang xử lý...'
+            : paymentMode === 'QUOTA'
+            ? `Xác Nhận Đặt Chỗ — Trừ ${requiredQuota} Buổi Gói Tập (Còn: ${memberQuota.remainingQuota - requiredQuota} buổi)`
             : paymentMethod === 'VIETQR'
-            ? 'Tôi Đã Chuyển Khoản — Đăng Ký'
+            ? `Tôi Đã Chuyển Khoản — Xác Nhận ${formatMoney(finalPrice)}`
             : paymentMethod === 'CASH_COUNTER'
-            ? 'Đặt Chỗ — Trả Tại Quầy'
+            ? `Giữ Chỗ (Thanh Toán Tại Quầy) — ${formatMoney(finalPrice)}`
             : paymentMethod === 'VNPAY'
-            ? 'Thanh Toán Qua VNPAY'
-            : 'Xác Nhận Đăng Ký';
+            ? `Thanh Toán Qua VNPAY — ${formatMoney(finalPrice)}`
+            : `Xác Nhận & Thanh Toán ${formatMoney(finalPrice)}`;
 
           return createPortal(
             <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-              <div className="w-full max-w-xl max-h-[92vh] my-auto flex flex-col rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
-                <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100">
+              <div className="w-full max-w-3xl max-h-[92vh] my-auto flex flex-col rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+                <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100 shrink-0">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-2xl text-orange-500">how_to_reg</span>
                     <h3 className="text-lg font-bold text-slate-900">Xác Nhận Đăng Ký & Thanh Toán</h3>
@@ -597,63 +749,272 @@ export default function MemberClassesPage() {
                   </button>
                 </div>
 
+                {/* Scrollable Content */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                  {/* Course card info */}
-                  <div className="rounded-2xl bg-orange-50/70 border border-orange-100 p-4">
-                    <div className="text-xs text-orange-800 font-bold uppercase tracking-wider">Khóa học thể thao</div>
-                    <div className="text-xl font-bold text-slate-900 mt-0.5">{registeringSession.className}</div>
-                    <div className="text-xs text-slate-600 mt-1 flex flex-wrap items-center gap-3">
-                      <span>Huấn luyện viên: <strong>{registeringSession.coachName}</strong></span>
-                      <span>·</span>
-                      <span>Sân: <strong>{registeringSession.facilityName || 'F Sport Center'}</strong></span>
-                    </div>
-                  </div>
-
-                  {/* Class schedule & price breakdown */}
-                  <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-4 space-y-2 text-xs">
-                    <div className="flex justify-between text-slate-600">
-                      <span>Thời gian diễn ra:</span>
-                      <strong className="text-slate-900">{formatDate(registeringSession.startTime)}</strong>
+                  {/* Main payment card */}
+                  <div className="space-y-6">
+                    {/* Class info header */}
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider text-orange-600">
+                        Đăng ký lớp học
+                      </div>
+                      <h2 className="mt-2 text-2xl font-bold text-slate-900">{registeringSession.className}</h2>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {sports.find(s => s.sportId === registeringSession.sportId)?.name || 'Thể thao'}
+                      </p>
                     </div>
 
-                    <div className="flex justify-between text-slate-600 pt-1 border-t border-slate-200/60">
-                      <span>Học phí niêm yết:</span>
-                      <span className={`font-semibold ${discountAmt > 0 ? 'line-through text-slate-400' : 'text-slate-800'}`}>
-                        {formatMoney(originalPrice)}
+                    {/* Detailed info section */}
+                    <dl className="space-y-3 rounded-2xl bg-slate-50 border border-slate-200/80 p-5 text-sm">
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-slate-500">Thời gian học</dt>
+                        <dd className="text-right font-semibold text-slate-800">
+                          {formatDate(registeringSession.startTime)}
+                        </dd>
+                      </div>
+
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-slate-500">Kết thúc</dt>
+                        <dd className="text-right font-semibold text-slate-800">
+                          {new Date(registeringSession.endTime).toLocaleTimeString('vi-VN', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })} (60 phút)
+                        </dd>
+                      </div>
+
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-slate-500">Địa điểm / HLV</dt>
+                        <dd className="text-right font-semibold text-slate-800">
+                          {registeringSession.coachName} · {registeringSession.facilityName || 'F Sport Center'}
+                        </dd>
+                      </div>
+
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-slate-500">Môn thể thao</dt>
+                        <dd className="text-right font-semibold text-slate-800">
+                          {sports.find(s => s.sportId === registeringSession.sportId)?.name || 'Thể thao'}
+                        </dd>
+                      </div>
+
+                      {/* Price breakdown */}
+                      <div className="flex justify-between gap-4 border-t border-slate-200/60 pt-3">
+                        <dt className="text-slate-500">Học phí niêm yết</dt>
+                        <dd className={`font-semibold ${paymentMode === 'QUOTA' || systemDiscount > 0 ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                          {formatMoney(originalPrice)}
+                        </dd>
+                      </div>
+
+                      {paymentMode === 'QUOTA' && (
+                        <div className="flex justify-between items-center rounded-lg bg-orange-100/70 px-3 py-1.5 text-xs text-orange-900 font-semibold">
+                          <span className="flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-sm text-orange-600">verified</span>
+                            Khấu trừ Quota Gói Hội Viên ({memberQuota.packageName}):
+                          </span>
+                          <strong className="font-bold text-orange-700">Trừ {requiredQuota} Buổi (0đ)</strong>
+                        </div>
+                      )}
+
+                      {paymentMode === 'RETAIL' && systemDiscount > 0 && (
+                        <div className="flex justify-between items-center rounded-lg bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800">
+                          <span className="flex items-center gap-1.5 font-semibold">
+                            <span className="material-symbols-outlined text-sm text-emerald-600">stars</span>
+                            {sessionQuote?.discountLabel || 'Ưu đãi thẻ hội viên'}
+                          </span>
+                          <strong className="font-bold text-emerald-700">-{formatMoney(systemDiscount)}</strong>
+                        </div>
+                      )}
+
+                      {paymentMode === 'RETAIL' && voucherDiscount > 0 && (
+                        <div className="flex justify-between items-center rounded-lg bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800">
+                          <span className="flex items-center gap-1.5 font-semibold">
+                            <span className="material-symbols-outlined text-sm text-emerald-600">sell</span>
+                            Voucher ưu đãi ({appliedVoucher.code}):
+                          </span>
+                          <strong className="font-bold text-emerald-700">-{formatMoney(voucherDiscount)}</strong>
+                        </div>
+                      )}
+
+                      {paymentMode === 'RETAIL' && appliedVoucher?.discountType === 'EXTEND_DURATION' && (
+                        <div className="flex justify-between items-center rounded-lg bg-blue-50 px-3 py-1.5 text-xs text-blue-800">
+                          <span className="flex items-center gap-1.5 font-semibold">
+                            <span className="material-symbols-outlined text-sm text-blue-600">more_time</span>
+                            Ưu đãi Voucher ({appliedVoucher.code}):
+                          </span>
+                          <strong className="font-bold text-blue-700">Tặng thêm 30 ngày thời hạn gói</strong>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between gap-4 border-t border-slate-200 pt-3">
+                        <dt className="font-bold text-slate-800">Tổng thanh toán</dt>
+                        <dd className="text-xl font-extrabold text-orange-600">{formatMoney(finalPrice)}</dd>
+                      </div>
+                    </dl>
+
+                    {/* QUOTA VS RETAIL SELECTOR */}
+                    <div className="space-y-3">
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                        Phương Thức Quyết Toán (Quota Gói vs Bán Lẻ)
                       </span>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Option 1: Use Quota */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (memberQuota.remainingQuota < requiredQuota) {
+                              showToast(
+                                'Không đủ quota',
+                                `Số buổi trong gói hội viên của bạn không đủ (cần ${requiredQuota} buổi, hiện còn ${memberQuota.remainingQuota} buổi). Vui lòng thanh toán theo giá bán lẻ hoặc nạp thêm gói tập.`,
+                                'error'
+                              );
+                              return;
+                            }
+                            setPaymentMode('QUOTA');
+                          }}
+                          className={`p-4 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                            paymentMode === 'QUOTA'
+                              ? 'border-orange-500 bg-orange-50/50 ring-2 ring-orange-500/20'
+                              : 'border-slate-200 bg-white hover:border-slate-300'
+                          } ${memberQuota.remainingQuota < requiredQuota ? 'opacity-60 cursor-not-allowed bg-slate-50' : ''}`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-[18px] text-orange-600">card_membership</span>
+                                Dùng Buổi Gói Hội Viên ({requiredQuota} buổi)
+                              </span>
+                              {paymentMode === 'QUOTA' && (
+                                <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-1">{memberQuota.packageName}</p>
+                          </div>
+                          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span className="text-slate-500">Số dư khả dụng:</span>
+                            <span className={`font-extrabold ${memberQuota.remainingQuota >= requiredQuota ? 'text-emerald-600' : 'text-red-500'}`}>
+                              {memberQuota.remainingQuota} / {memberQuota.initialQuota} buổi
+                            </span>
+                          </div>
+                        </button>
+
+                        {/* Option 2: Retail Cash / QR */}
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMode('RETAIL')}
+                          className={`p-4 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                            paymentMode === 'RETAIL'
+                              ? 'border-orange-500 bg-orange-50/50 ring-2 ring-orange-500/20'
+                              : 'border-slate-200 bg-white hover:border-slate-300'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-[18px] text-blue-600">payments</span>
+                                Thanh Toán Giá Bán Lẻ
+                              </span>
+                              {paymentMode === 'RETAIL' && (
+                                <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-1">Chuyển khoản VietQR, VNPay hoặc tiền mặt</p>
+                          </div>
+                          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span className="text-slate-500">Cần thanh toán:</span>
+                            <span className="font-extrabold text-orange-600">{formatMoney(finalRetailPrice)}</span>
+                          </div>
+                        </button>
+                      </div>
                     </div>
 
-                    {discountAmt > 0 && (
-                      <div className="flex justify-between items-center text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">
-                        <span className="flex items-center gap-1 font-semibold">
-                          <span className="material-symbols-outlined text-sm">stars</span>
-                          {sessionQuote?.discountLabel || 'Ưu đãi thẻ hội viên:'}
-                        </span>
-                        <strong className="font-bold">-{formatMoney(discountAmt)}</strong>
+                    {/* VOUCHER INPUT BOX (Only applicable for RETAIL payment) */}
+                    {paymentMode === 'RETAIL' && (
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px] text-orange-500">confirmation_number</span>
+                          Mã Giảm Giá / Voucher (MGR-18)
+                        </label>
+
+                        {appliedVoucher ? (
+                          <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded bg-emerald-600 text-white font-mono font-bold text-[11px]">
+                                {appliedVoucher.code}
+                              </span>
+                              <span className="text-emerald-800 font-semibold">
+                                {appliedVoucher.discountType === 'PERCENT'
+                                  ? `Giảm ${appliedVoucher.discountValue}%`
+                                  : appliedVoucher.discountType === 'FIXED'
+                                  ? `Giảm ${formatMoney(appliedVoucher.discountValue)}`
+                                  : 'Tặng 30 ngày gia hạn'}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={removeVoucher}
+                              className="text-xs text-red-500 hover:text-red-700 font-bold"
+                            >
+                              Hủy bỏ
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="Nhập mã (ví dụ: WELCOME20, SUMMER50K)"
+                              value={voucherCode}
+                              onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                              className="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold uppercase tracking-wider bg-white focus:ring-2 focus:ring-orange-500 outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={applyVoucher}
+                              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-sm transition cursor-pointer"
+                            >
+                              Áp Dụng
+                            </button>
+                          </div>
+                        )}
+                        {voucherError && <p className="text-[11px] text-red-600 font-medium">{voucherError}</p>}
                       </div>
                     )}
 
-                    <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-200">
-                      <span className="font-bold text-slate-900">Cần thanh toán:</span>
-                      <span className="text-xl font-extrabold text-orange-600">
-                        {formatMoney(finalPrice)}
-                      </span>
+                    {/* Payment method selector (Only for Retail mode) */}
+                    {paymentMode === 'RETAIL' && (
+                      <div className="space-y-3">
+                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                          Phương Thức Thanh Toán
+                        </span>
+                        <PaymentMethodSelector
+                          selectedMethod={paymentMethod}
+                          onChange={setPaymentMethod}
+                          amount={finalPrice}
+                          transferMemo={`VQRCLS${registeringSession.sessionId}`}
+                        />
+                      </div>
+                    )}
+
+                    {/* Policy notice */}
+                    <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-4 text-xs text-blue-900 flex items-start gap-3">
+                      <span className="material-symbols-outlined text-[20px] text-blue-600 shrink-0 mt-0.5">verified_user</span>
+                      <div className="space-y-0.5">
+                        <div className="font-bold text-slate-900">Quy định hủy lớp học:</div>
+                        <p className="text-blue-800 leading-relaxed">
+                          Bạn được phép <strong>hủy đăng ký trước giờ học ít nhất 2 tiếng</strong> và nhận <strong>hoàn tiền 100%</strong> vào tài khoản sandbox. 
+                          Lịch học sẽ tự động được đồng bộ vào Thời khóa biểu của bạn.
+                        </p>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Payment method selector */}
-                  <PaymentMethodSelector
-                    selectedMethod={paymentMethod}
-                    onChange={setPaymentMethod}
-                    amount={finalPrice}
-                    transferMemo={`VQRCLS${registeringSession.sessionId}`}
-                  />
-
-                  {/* Policy hint */}
-                  <div className="rounded-xl bg-blue-50 p-3 text-[11px] text-blue-900 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-blue-600 shrink-0">info</span>
-                    <span>Bạn được hủy lớp và nhận hoàn 100% trước giờ bắt đầu ít nhất 2 tiếng. Lịch học sẽ tự động đồng bộ vào Thời khóa biểu.</span>
-                  </div>
+                  {paymentMode === 'RETAIL' && (
+                    <PaymentMethodSelector
+                      selectedMethod={paymentMethod}
+                      onChange={setPaymentMethod}
+                      amount={finalPrice}
+                      transferMemo={`VQRCLS${registeringSession.sessionId}`}
+                    />
+                  )}
 
                   {/* Inline Error Alert */}
                   {registerError && (
@@ -667,7 +1028,8 @@ export default function MemberClassesPage() {
                   )}
                 </div>
 
-                <div className="p-6 pt-3 border-t border-slate-100 flex gap-3 bg-white">
+                {/* Fixed Bottom Actions */}
+                <div className="p-6 pt-3 border-t border-slate-100 flex gap-3 bg-white shrink-0">
                   <button
                     type="button"
                     disabled={submittingRegister}
@@ -680,7 +1042,7 @@ export default function MemberClassesPage() {
                     type="button"
                     disabled={submittingRegister}
                     onClick={handleConfirmRegister}
-                    className="flex-1 rounded-xl bg-orange-500 hover:bg-orange-600 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-orange-500/25 transition disabled:opacity-60 cursor-pointer"
+                    className="flex-[2] rounded-xl bg-orange-500 hover:bg-orange-600 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-orange-500/25 transition disabled:opacity-60 cursor-pointer"
                   >
                     {actionBtnLabel}
                   </button>

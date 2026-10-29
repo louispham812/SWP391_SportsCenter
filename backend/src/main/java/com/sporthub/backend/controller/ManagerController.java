@@ -1,66 +1,50 @@
 package com.sporthub.backend.controller;
 
-import com.sporthub.backend.dto.PendingStaffRegistrationResponse;
-import com.sporthub.backend.dto.ManagerUserResponse;
+import com.sporthub.backend.dto.CreateUserRequest;
 import com.sporthub.backend.dto.ManagerMemberResponse;
 import com.sporthub.backend.dto.ManagerPackageRequest;
-import com.sporthub.backend.entity.User;
+import com.sporthub.backend.dto.ManagerUserResponse;
+import com.sporthub.backend.dto.MembershipQuotaResponse;
+import com.sporthub.backend.dto.PendingStaffRegistrationResponse;
 import com.sporthub.backend.entity.MembershipPackage;
 import com.sporthub.backend.entity.PublicSport;
+import com.sporthub.backend.entity.User;
 import com.sporthub.backend.repository.MembershipPackageRepository;
 import com.sporthub.backend.repository.PublicSportRepository;
 import com.sporthub.backend.repository.UserRepository;
+import com.sporthub.backend.service.AuditLogService;
+import com.sporthub.backend.service.AuthService;
+import com.sporthub.backend.service.EmailService;
+import com.sporthub.backend.service.MembershipService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.sporthub.backend.dto.CreateUserRequest;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-
-import com.sporthub.backend.entity.UserMembership;
-import com.sporthub.backend.entity.RefundRequest;
-import com.sporthub.backend.entity.PaymentTransaction;
-import com.sporthub.backend.repository.UserMembershipRepository;
-import com.sporthub.backend.repository.RefundRequestRepository;
-import com.sporthub.backend.repository.PaymentTransactionRepository;
-import com.sporthub.backend.service.EngagementService;
+import java.util.Optional;
 
 @RestController
-@RequestMapping({"/api/v1/manager", "/api/manager"})
+@RequestMapping("/api/v1/manager")
 @CrossOrigin(origins = "*")
 public class ManagerController {
 
     private static final List<String> STAFF_ROLES = List.of("COACH", "RECEPTIONIST");
+    
     private final UserRepository userRepository;
     private final MembershipPackageRepository packageRepository;
     private final PublicSportRepository sportRepository;
     private final PasswordEncoder passwordEncoder;
-    private final UserMembershipRepository userMembershipRepository;
-    private final EngagementService engagementService;
-    private final RefundRequestRepository refundRequestRepository;
-    private final PaymentTransactionRepository paymentTransactionRepository;
+    private final EmailService emailService;
+    private final AuditLogService auditLogService;
+    private final AuthService authService;
+    private final MembershipService membershipService;
 
     @Autowired
     public ManagerController(
@@ -68,33 +52,18 @@ public class ManagerController {
             MembershipPackageRepository packageRepository,
             PublicSportRepository sportRepository,
             PasswordEncoder passwordEncoder,
-            UserMembershipRepository userMembershipRepository,
-            EngagementService engagementService,
-            RefundRequestRepository refundRequestRepository,
-            PaymentTransactionRepository paymentTransactionRepository) {
+            EmailService emailService,
+            AuditLogService auditLogService,
+            AuthService authService,
+            MembershipService membershipService) {
         this.userRepository = userRepository;
         this.packageRepository = packageRepository;
         this.sportRepository = sportRepository;
         this.passwordEncoder = passwordEncoder;
-        this.userMembershipRepository = userMembershipRepository;
-        this.engagementService = engagementService;
-        this.refundRequestRepository = refundRequestRepository;
-        this.paymentTransactionRepository = paymentTransactionRepository;
-    }
-
-    public ManagerController(
-            UserRepository userRepository,
-            MembershipPackageRepository packageRepository,
-            PublicSportRepository sportRepository,
-            PasswordEncoder passwordEncoder) {
-        this(userRepository, packageRepository, sportRepository, passwordEncoder, null, null, null, null);
-    }
-
-    public ManagerController(
-            UserRepository userRepository,
-            MembershipPackageRepository packageRepository,
-            PublicSportRepository sportRepository) {
-        this(userRepository, packageRepository, sportRepository, new BCryptPasswordEncoder(), null, null, null, null);
+        this.emailService = emailService;
+        this.auditLogService = auditLogService;
+        this.authService = authService;
+        this.membershipService = membershipService;
     }
 
     @GetMapping("/staff-registrations")
@@ -239,6 +208,183 @@ public class ManagerController {
         return packageRepository.save(membershipPackage);
     }
 
+    @PatchMapping("/members/{userId}/lock")
+    @Transactional
+    public ManagerMemberResponse lockMember(
+            @PathVariable Long userId,
+            Authentication authentication) {
+        requireManager(authentication);
+        return updateMemberStatus(userId, "ACTIVE", "LOCKED");
+    }
+
+    @PatchMapping("/members/{userId}/unlock")
+    @Transactional
+    public ManagerMemberResponse unlockMember(
+            @PathVariable Long userId,
+            Authentication authentication) {
+        requireManager(authentication);
+        return updateMemberStatus(userId, "LOCKED", "ACTIVE");
+    }
+
+    @PatchMapping("/staff-registrations/{userId}/approve")
+    @Transactional
+    public PendingStaffRegistrationResponse approveRegistration(
+            @PathVariable Long userId,
+            Authentication authentication) {
+        requireManager(authentication);
+        return decide(userId, "ACTIVE");
+    }
+
+    @PatchMapping("/staff-registrations/{userId}/reject")
+    @Transactional
+    public PendingStaffRegistrationResponse rejectRegistration(
+            @PathVariable Long userId,
+            Authentication authentication) {
+        requireManager(authentication);
+        return decide(userId, "INACTIVE");
+    }
+
+    /**
+     * MGR-08: Manager approve membership
+     * PENDING_APPROVAL -> ACTIVE
+     */
+    @PatchMapping("/memberships/{membershipId}/approve")
+    @Transactional
+    public MembershipQuotaResponse approveMembership(
+            @PathVariable Long membershipId,
+            Authentication authentication) {
+        requireManager(authentication);
+        
+        User manager = userRepository.findByEmailIgnoreCase(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Manager không tồn tại"));
+
+        membershipService.approveMembership(membershipId, manager.getUserId());
+
+        return new MembershipQuotaResponse(
+                membershipId,
+                "Membership Package", 
+                0,
+                0
+        );
+    }
+
+    /**
+     * MGR-09: Manager reject membership
+     * PENDING_APPROVAL -> REJECTED
+     */
+    @PatchMapping("/memberships/{membershipId}/reject")
+    @Transactional
+    public String rejectMembership(
+            @PathVariable Long membershipId,
+            @RequestParam(required = false) String reason,
+            Authentication authentication) {
+        requireManager(authentication);
+        
+        User manager = userRepository.findByEmailIgnoreCase(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Manager không tồn tại"));
+
+        String rejectReason = reason == null || reason.isBlank() 
+                ? "Không đạt yêu cầu duyệt" 
+                : reason.trim();
+        
+        membershipService.rejectMembership(membershipId, rejectReason, manager.getUserId());
+
+        return "Membership đã bị từ chối thành công";
+    }
+
+    @PostMapping("/users")
+    @Transactional
+    public ManagerUserResponse createUser(
+            @RequestBody CreateUserRequest request,
+            Authentication authentication) {
+        requireStaffOrManager(authentication);
+
+        String fullName = request.fullName() == null ? "" : request.fullName().trim();
+        String email = request.email() == null ? "" : request.email().trim().toLowerCase(Locale.ROOT);
+        String phone = request.phone() == null ? "" : request.phone().trim();
+        String password = request.password();
+        String targetRole = request.role() == null ? "" : request.role().trim().toUpperCase(Locale.ROOT);
+
+        if (fullName.isEmpty() || email.isEmpty() || phone.isEmpty() || password == null || password.isBlank() || targetRole.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng điền đầy đủ các thông tin bắt buộc.");
+        }
+        if (fullName.length() > 100 || email.length() > 100 || phone.length() > 15) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên, email hoặc số điện thoại vượt quá độ dài cho phép.");
+        }
+        if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Địa chỉ email không hợp lệ.");
+        }
+        if (password.length() < 8) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mật khẩu phải có ít nhất 8 ký tự.");
+        }
+        
+        Optional<User> existingUser = authService.findUserByEmail(email);
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
+            String status = user.getStatus();
+            
+            if ("PENDING".equalsIgnoreCase(status)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                    "Email này đang chờ xác thực OTP. Người dùng có thể đăng nhập để nhận lại mã OTP.");
+            } else if ("ACTIVE".equalsIgnoreCase(status)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                    String.format("Email đã được sử dụng bởi %s (%s).", user.getFullName(), user.getRole()));
+            } else if ("LOCKED".equalsIgnoreCase(status)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                    "Email này tồn tại với tài khoản bị khóa. Vui lòng kiểm tra lại.");
+            } else {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Email này đã tồn tại trong hệ thống.");
+            }
+        }
+
+        boolean isManagerUser = isManager(authentication);
+        if (!isManagerUser) {
+            if (!List.of("MEMBER", "COACH", "RECEPTIONIST").contains(targetRole)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Lễ tân chỉ có quyền tạo tài khoản Hội viên, Huấn luyện viên hoặc Lễ tân.");
+            }
+        } else {
+            if (!List.of("MEMBER", "COACH", "RECEPTIONIST", "MANAGER", "ADMIN").contains(targetRole)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vai trò không hợp lệ.");
+            }
+        }
+
+        boolean requirePasswordChange = true;
+
+        User user = User.builder()
+                .fullName(fullName)
+                .email(email)
+                .phone(phone)
+                .passwordHash(passwordEncoder.encode(password))
+                .role(targetRole)
+                .status("ACTIVE")
+                .requirePasswordChange(requirePasswordChange)
+                .build();
+
+        User savedUser = userRepository.save(user);
+        
+        try {
+            emailService.sendTemporaryPasswordEmail(savedUser.getEmail(), savedUser.getFullName(), password, savedUser.getRole());
+            auditLogService.logSuccess("CREATE_USER_ADMIN_PANEL", savedUser.getEmail(), savedUser.getUserId(), 
+                    "User created via Admin Panel | Role: " + savedUser.getRole() + " | RequirePasswordChange: true | Temporary password sent");
+        } catch (Exception e) {
+            auditLogService.logFailure("CREATE_USER_ADMIN_PANEL", 
+                    savedUser.getEmail(), savedUser.getUserId(), 
+                    "User created but email failed | Role: " + savedUser.getRole(), 
+                    e.getMessage());
+        }
+        
+        return new ManagerUserResponse(
+                savedUser.getUserId(),
+                savedUser.getFullName(),
+                savedUser.getEmail(),
+                savedUser.getPhone(),
+                savedUser.getRole(),
+                savedUser.getStatus(),
+                savedUser.getCreatedAt());
+    }
+
     private void validatePackage(ManagerPackageRequest request) {
         if (request.name() == null || request.name().isBlank() || request.name().trim().length() > 100) {
             throw new ResponseStatusException(
@@ -279,165 +425,10 @@ public class ManagerController {
         membershipPackage.setStatus(request.status().trim().toUpperCase(Locale.ROOT));
     }
 
-    public record PackageStatusRequest(String status) {
-    }
-
-    @GetMapping("/memberships/pending")
-    @Transactional(readOnly = true)
-    public List<UserMembership> getPendingMemberships(Authentication authentication) {
-        requireManager(authentication);
-        if (userMembershipRepository == null) return List.of();
-        return userMembershipRepository.findByStatusIgnoreCase("PENDING");
-    }
-
-    @PostMapping("/memberships/{membershipId}/approve")
-    @Transactional
-    public UserMembership approveMembership(
-            @PathVariable Long membershipId,
-            Authentication authentication) {
-        requireManager(authentication);
-        if (userMembershipRepository == null) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Repository not initialized.");
-        }
-        UserMembership membership = userMembershipRepository.findById(membershipId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thông tin gói hội viên."));
-        if (!"PENDING".equalsIgnoreCase(membership.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Gói hội viên này không ở trạng thái PENDING hoặc đã được xử lý.");
-        }
-        MembershipPackage pkg = packageRepository.findById(membership.getPackageId()).orElse(null);
-        int duration = pkg != null ? Math.max(1, pkg.getDurationDays()) : 30;
-        LocalDate startDate = LocalDate.now();
-        LocalDate endDate = startDate.plusDays(duration - 1);
-
-        membership.setStartDate(startDate);
-        membership.setEndDate(endDate);
-        membership.setStatus("ACTIVE");
-        UserMembership saved = userMembershipRepository.save(membership);
-
-        Long managerId = actorId(authentication);
-        if (engagementService != null) {
-            String pkgName = pkg != null ? pkg.getName() : ("Gói #" + membership.getPackageId());
-            engagementService.audit(managerId, "MANAGER", "MEMBERSHIP_APPROVED",
-                    "membershipId=" + membershipId + ", userId=" + membership.getUserId() + ", package=" + pkgName);
-            engagementService.notifyUser(membership.getUserId(), "Gói hội viên đã kích hoạt",
-                    "Gói tập \"" + pkgName + "\" của bạn đã được Quản lý duyệt kích hoạt thành công (Hạn: " + endDate + ").", "MEMBERSHIP");
-        }
-        return saved;
-    }
-
-    @PostMapping("/memberships/{membershipId}/reject")
-    @Transactional
-    public UserMembership rejectMembership(
-            @PathVariable Long membershipId,
-            @RequestBody(required = false) Map<String, String> body,
-            Authentication authentication) {
-        requireManager(authentication);
-        if (userMembershipRepository == null) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Repository not initialized.");
-        }
-        UserMembership membership = userMembershipRepository.findById(membershipId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thông tin gói hội viên."));
-        if (!"PENDING".equalsIgnoreCase(membership.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Gói hội viên này không ở trạng thái PENDING hoặc đã được xử lý.");
-        }
-        membership.setStatus("REJECTED");
-        UserMembership saved = userMembershipRepository.save(membership);
-
-        MembershipPackage pkg = packageRepository.findById(membership.getPackageId()).orElse(null);
-        BigDecimal amount = pkg != null ? pkg.getPrice() : BigDecimal.ZERO;
-        User member = userRepository.findById(membership.getUserId()).orElse(null);
-        Long managerId = actorId(authentication);
-        String reason = (body != null && body.get("reason") != null && !body.get("reason").isBlank())
-                ? body.get("reason").trim()
-                : "Quản lý từ chối kích hoạt gói tập #" + membershipId;
-
-        if (refundRequestRepository != null) {
-            RefundRequest refund = RefundRequest.builder()
-                    .memberId(membership.getUserId())
-                    .memberName(member != null ? member.getFullName() : "Hội viên")
-                    .phone(member != null ? member.getPhone() : "")
-                    .refundAmount(amount)
-                    .reason(reason)
-                    .status("APPROVED")
-                    .approvedBy(managerId)
-                    .decisionNote("Tự động tạo lệnh hoàn tiền 100% do Quản lý từ chối kích hoạt gói tập")
-                    .createdAt(LocalDateTime.now())
-                    .build();
-            refundRequestRepository.save(refund);
-        }
-
-        if (paymentTransactionRepository != null) {
-            paymentTransactionRepository.findByMemberIdOrderByCreatedAtDesc(membership.getUserId()).stream()
-                    .filter(tx -> "MEMBERSHIP_PACKAGE".equalsIgnoreCase(tx.getBookingType()) && !"REFUNDED".equalsIgnoreCase(tx.getPaymentStatus()))
-                    .findFirst()
-                    .ifPresent(tx -> {
-                        tx.setPaymentStatus("REFUNDED");
-                        paymentTransactionRepository.save(tx);
-                    });
-        }
-
-        if (engagementService != null) {
-            engagementService.audit(managerId, "MANAGER", "MEMBERSHIP_REJECTED",
-                    "membershipId=" + membershipId + ", userId=" + membership.getUserId() + ", reason=" + reason);
-            engagementService.notifyUser(membership.getUserId(), "Yêu cầu gói hội viên bị từ chối",
-                    "Yêu cầu kích hoạt gói tập của bạn đã bị từ chối. Lý do: " + reason + ". Số tiền đã được chuyển sang quy trình hoàn tiền.", "MEMBERSHIP");
-        }
-        return saved;
-    }
-
-    @PatchMapping("/members/{userId}/lock")
-    @Transactional
-    public ManagerMemberResponse lockMember(
-            @PathVariable Long userId,
-            Authentication authentication) {
-        requireManager(authentication);
-        Long currentManagerId = actorId(authentication);
-        if (userId.equals(currentManagerId)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không thể tự khóa tài khoản của chính mình (BR-03).");
-        }
-        User target = userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy hội viên."));
-        if (List.of("MANAGER", "ADMIN").contains(target.getRole().toUpperCase(Locale.ROOT))) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Không được phép khóa tài khoản Quản trị viên hoặc Quản lý (BR-03).");
-        }
-        return updateMemberStatus(userId, "ACTIVE", "LOCKED");
-    }
-
-    @PatchMapping("/members/{userId}/unlock")
-    @Transactional
-    public ManagerMemberResponse unlockMember(
-            @PathVariable Long userId,
-            Authentication authentication) {
-        requireManager(authentication);
-        return updateMemberStatus(userId, "LOCKED", "ACTIVE");
-    }
-
-    @PatchMapping("/staff-registrations/{userId}/approve")
-    @Transactional
-    public PendingStaffRegistrationResponse approveRegistration(
-            @PathVariable Long userId,
-            Authentication authentication) {
-        requireManager(authentication);
-        return decide(userId, "ACTIVE");
-    }
-
-    @PatchMapping("/staff-registrations/{userId}/reject")
-    @Transactional
-    public PendingStaffRegistrationResponse rejectRegistration(
-            @PathVariable Long userId,
-            Authentication authentication) {
-        requireManager(authentication);
-        return decide(userId, "INACTIVE");
-    }
-
     private PendingStaffRegistrationResponse decide(Long userId, String status) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Không tìm thấy đăng ký nhân viên."));
-        if (List.of("MANAGER", "ADMIN").contains(user.getRole().toUpperCase(Locale.ROOT))) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN, "Không thể thao tác trên tài khoản Quản lý hoặc Quản trị viên (BR-03).");
-        }
         if (!"PENDING".equalsIgnoreCase(user.getStatus())
                 || !STAFF_ROLES.contains(user.getRole().toUpperCase(Locale.ROOT))) {
             throw new ResponseStatusException(
@@ -459,10 +450,6 @@ public class ManagerController {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Không tìm thấy hội viên."));
-        if (List.of("MANAGER", "ADMIN").contains(user.getRole().toUpperCase(Locale.ROOT))) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN, "Không được phép khóa tài khoản Quản trị viên hoặc Quản lý (BR-03).");
-        }
         if (!"MEMBER".equalsIgnoreCase(user.getRole())) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Tài khoản này không phải hội viên.");
@@ -479,73 +466,6 @@ public class ManagerController {
                 savedUser.getFullName(),
                 savedUser.getEmail(),
                 savedUser.getPhone(),
-                savedUser.getStatus(),
-                savedUser.getCreatedAt());
-    }
-
-    @PostMapping("/users")
-    @Transactional
-    public ManagerUserResponse createUser(
-            @RequestBody CreateUserRequest request,
-            Authentication authentication) {
-        requireStaffOrManager(authentication);
-
-        String fullName = request.fullName() == null ? "" : request.fullName().trim();
-        String email = request.email() == null ? "" : request.email().trim().toLowerCase(Locale.ROOT);
-        String phone = request.phone() == null ? "" : request.phone().trim();
-        String password = request.password();
-        String targetRole = request.role() == null ? "" : request.role().trim().toUpperCase(Locale.ROOT);
-
-        if (fullName.isEmpty() || email.isEmpty() || phone.isEmpty() || password == null || password.isBlank() || targetRole.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng điền đầy đủ các thông tin bắt buộc.");
-        }
-        if (fullName.length() > 100 || email.length() > 100 || phone.length() > 15) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên, email hoặc số điện thoại vượt quá độ dài cho phép.");
-        }
-        if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Địa chỉ email không hợp lệ.");
-        }
-        if (password.length() < 8) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mật khẩu phải có ít nhất 8 ký tự.");
-        }
-        if (userRepository.existsByEmailIgnoreCase(email)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email này đã tồn tại trong hệ thống.");
-        }
-
-        boolean isManagerUser = isManager(authentication);
-        if (!isManagerUser) {
-            // Lễ tân tạo ở trang quản trị: MEMBER, COACH hoặc RECEPTIONIST
-            if (!List.of("MEMBER", "COACH", "RECEPTIONIST").contains(targetRole)) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Lễ tân chỉ có quyền tạo tài khoản Hội viên, Huấn luyện viên hoặc Lễ tân.");
-            }
-        } else {
-            // Manager tạo ở trang quản trị: cả 4 vai trò
-            if (!List.of("MEMBER", "COACH", "RECEPTIONIST", "MANAGER", "ADMIN").contains(targetRole)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vai trò không hợp lệ.");
-            }
-        }
-
-        // Chuẩn hóa ADMIN -> MANAGER để đảm bảo toàn vẹn ràng buộc CSDL (BR-01)
-        if ("ADMIN".equalsIgnoreCase(targetRole)) {
-            targetRole = "MANAGER";
-        }
-
-        User user = User.builder()
-                .fullName(fullName)
-                .email(email)
-                .phone(phone)
-                .passwordHash(passwordEncoder.encode(password))
-                .role(targetRole)
-                .status("ACTIVE")
-                .build();
-
-        User savedUser = userRepository.save(user);
-        return new ManagerUserResponse(
-                savedUser.getUserId(),
-                savedUser.getFullName(),
-                savedUser.getEmail(),
-                savedUser.getPhone(),
-                savedUser.getRole(),
                 savedUser.getStatus(),
                 savedUser.getCreatedAt());
     }
@@ -572,14 +492,5 @@ public class ManagerController {
         }
     }
 
-    private Long actorId(Authentication authentication) {
-        if (authentication == null || authentication.getName() == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập.");
-        }
-        try {
-            return Long.valueOf(authentication.getName());
-        } catch (NumberFormatException exception) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Phiên đăng nhập không hợp lệ.");
-        }
-    }
+    public record PackageStatusRequest(String status) {}
 }

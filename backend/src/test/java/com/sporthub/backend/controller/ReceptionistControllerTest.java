@@ -36,13 +36,20 @@ class ReceptionistControllerTest {
     private final UserMembershipRepository membershipRepository = mock(UserMembershipRepository.class);
     private final MembershipPackageRepository packageRepository = mock(MembershipPackageRepository.class);
     private final MemberCheckInRepository checkInRepository = mock(MemberCheckInRepository.class);
+    private final com.sporthub.backend.service.EmailService emailService = mock(com.sporthub.backend.service.EmailService.class);
+    private final com.sporthub.backend.service.AuditLogService auditLogService = mock(com.sporthub.backend.service.AuditLogService.class);
+    private final com.sporthub.backend.service.AuthService authService = mock(com.sporthub.backend.service.AuthService.class);
     private final ReceptionistController controller = new ReceptionistController(
             userRepository,
             paymentRepository,
             paymentTransactionRepository,
             membershipRepository,
             packageRepository,
-            checkInRepository);
+            checkInRepository,
+            new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(),
+            emailService,
+            auditLogService,
+            authService);
     private final UsernamePasswordAuthenticationToken receptionist =
             new UsernamePasswordAuthenticationToken(
                     "3", "", List.of(new SimpleGrantedAuthority("ROLE_RECEPTIONIST")));

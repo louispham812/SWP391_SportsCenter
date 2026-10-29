@@ -781,6 +781,16 @@ IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NULL
         created_at DATETIME2 NOT NULL CONSTRAINT DF_audit_logs_created DEFAULT SYSDATETIME()
     );
 
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.audit_logs', N'action') IS NULL
+BEGIN
+    ALTER TABLE dbo.audit_logs ADD actor_id BIGINT NULL;
+    ALTER TABLE dbo.audit_logs ADD actor_name NVARCHAR(100) NULL;
+    ALTER TABLE dbo.audit_logs ADD actor_role VARCHAR(20) NULL;
+    ALTER TABLE dbo.audit_logs ADD action VARCHAR(60) NULL;
+    ALTER TABLE dbo.audit_logs ADD detail NVARCHAR(1000) NULL;
+END;
+
 -- ===== Lich bao tri san (MGR-19) =====
 IF OBJECT_ID(N'dbo.court_maintenance', N'U') IS NULL
     CREATE TABLE dbo.court_maintenance (

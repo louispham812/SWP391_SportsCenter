@@ -125,9 +125,57 @@ export default function AuthPage() {
         }),
       });
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response));
+        // Parse error response
+        let errorData = null;
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          // Nếu không parse được JSON, dùng text response
+          const errorText = await response.text();
+          throw new Error(errorText || `Đăng nhập thất bại (${response.status})`);
+        }
+        
+        // Check nếu là lỗi PENDING_VERIFICATION
+        if (errorData && errorData.error === 'PENDING_VERIFICATION') {
+          setAuthNotice(errorData.message);
+          setTimeout(() => {
+            navigate('/verify-otp', {
+              state: {
+                email: errorData.email,
+                fromLogin: true,
+              }
+            });
+          }, 2000);
+          return;
+        }
+        
+        // Xử lý lỗi bình thường (user not found, wrong password, etc.)
+        const errorMessage = errorData?.message || errorData?.error || 'Đăng nhập thất bại';
+        throw new Error(errorMessage);
       }
-      authenticate(await response.json());
+      
+      const user = await response.json();
+      
+      // ✅ CHECK requirePasswordChange flag (Staff cần đổi password lần đầu)
+      if (user.requirePasswordChange === true) {
+        // Lưu token tạm để /change-password dùng
+        localStorage.setItem('authToken', user.token);
+        localStorage.setItem('tempUserEmail', user.email);
+        
+        navigate('/change-password', {
+          state: {
+            email: user.email,
+            fullName: user.fullName,
+            fromLogin: true,
+            message: 'Bạn cần đổi mật khẩu tạm thời để tiếp tục sử dụng hệ thống.'
+          }
+        });
+        return;
+      }
+      
+      // Normal flow: authenticate user
+      authenticate(user);
+      
     } catch (error) {
       setAuthError(getRequestErrorMessage(error, 'Đăng nhập'));
     } finally {
@@ -441,21 +489,12 @@ export default function AuthPage() {
                         <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
                           Mật khẩu
                         </label>
-                        <div className="flex items-center gap-2">
-                          <Link
-                            to="/change-password"
-                            className="text-xs text-orange-600 hover:underline font-bold cursor-pointer"
-                          >
-                            Đổi mật khẩu tạm?
-                          </Link>
-                          <span className="text-slate-300">|</span>
-                          <Link
-                            to="/forgot-password"
-                            className="text-xs text-orange-600 hover:text-orange-700 hover:underline font-bold cursor-pointer"
-                          >
-                            Quên mật khẩu?
-                          </Link>
-                        </div>
+                        <Link
+                          to="/forgot-password"
+                          className="text-xs text-orange-600 hover:text-orange-700 hover:underline font-bold cursor-pointer"
+                        >
+                          Quên mật khẩu?
+                        </Link>
                       </div>
                       <div className="relative flex items-center">
                         <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">
