@@ -35,7 +35,10 @@ public class BookingFlowController {
     }
 
     @GetMapping("/courts")
-    public ResponseEntity<List<CourtSlotResponse>> getAvailableCourtSlots(@RequestParam Long sportId) {
+    public ResponseEntity<List<CourtSlotResponse>> getAvailableCourtSlots(@RequestParam(required = false) Long sportId) {
+        if (sportId == null) {
+            return ResponseEntity.ok(List.of());
+        }
         return ResponseEntity.ok(bookingService.getAvailableCourtSlots(sportId));
     }
 

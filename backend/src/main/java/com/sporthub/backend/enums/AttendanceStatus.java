@@ -18,5 +18,6 @@ public enum AttendanceStatus {
     PENDING,              // Chưa điểm danh
     PRESENT,              // Có mặt
     EXCUSED_ABSENCE,      // Vắng có phép
-    UNEXCUSED_ABSENCE     // Vắng không phép
+    UNEXCUSED_ABSENCE,    // Vắng không phép
+    ABSENT                // Vắng mặt (tương thích dữ liệu seed)
 }

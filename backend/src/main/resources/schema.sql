@@ -207,6 +207,33 @@ BEGIN
     ALTER TABLE dbo.bookings ADD payment_id BIGINT NULL
 END;
 
+IF OBJECT_ID(N'dbo.bookings', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.bookings', N'uses_membership_quota') IS NULL
+BEGIN
+    ALTER TABLE dbo.bookings ADD uses_membership_quota BIT NULL CONSTRAINT DF_bookings_uses_membership_quota DEFAULT 0
+END;
+
+IF OBJECT_ID(N'dbo.bookings', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.bookings', N'membership_id') IS NULL
+BEGIN
+    ALTER TABLE dbo.bookings ADD membership_id INT NULL
+END;
+
+IF OBJECT_ID(N'dbo.bookings', N'U') IS NOT NULL
+   AND EXISTS (
+       SELECT 1 FROM sys.check_constraints
+       WHERE parent_object_id = OBJECT_ID(N'dbo.bookings')
+         AND definition LIKE N'%attendance_status%'
+         AND definition NOT LIKE N'%EXCUSED_ABSENCE%'
+   )
+    EXEC(N'
+        DECLARE @ckName sysname;
+        SELECT TOP 1 @ckName = name FROM sys.check_constraints WHERE parent_object_id = OBJECT_ID(N''dbo.bookings'') AND definition LIKE ''%attendance_status%'';
+        IF @ckName IS NOT NULL
+            EXEC(''ALTER TABLE dbo.bookings DROP CONSTRAINT '' + @ckName);
+        ALTER TABLE dbo.bookings ADD CONSTRAINT CK_bookings_attendance_status CHECK (attendance_status IN (''PENDING'', ''PRESENT'', ''EXCUSED_ABSENCE'', ''UNEXCUSED_ABSENCE'', ''ABSENT''));
+    ');
+
 IF NOT EXISTS (SELECT 1 FROM dbo.public_sports WHERE slug = N'gym-fitness')
     INSERT INTO dbo.public_sports (slug, name, subtitle, tag, description, icon, area, active)
     VALUES (N'gym-fitness', N'Gym & Fitness', N'Trang thiết bị hiện đại', N'Olympic Spec',
