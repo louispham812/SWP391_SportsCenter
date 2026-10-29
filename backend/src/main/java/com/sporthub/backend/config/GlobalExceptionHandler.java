@@ -1,5 +1,6 @@
 package com.sporthub.backend.config;
 
+import com.sporthub.backend.exception.PendingVerificationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -22,6 +23,16 @@ public class GlobalExceptionHandler {
         body.put("error", ex.getStatusCode().toString());
         body.put("message", ex.getReason() != null ? ex.getReason() : "Yêu cầu không hợp lệ.");
         return ResponseEntity.status(ex.getStatusCode()).body(body);
+    }
+
+    @ExceptionHandler(PendingVerificationException.class)
+    public ResponseEntity<Map<String, Object>> handlePendingVerificationException(PendingVerificationException ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("error", "PENDING_VERIFICATION");
+        body.put("email", ex.getEmail());
+        body.put("message", ex.getMessage());
+        body.put("redirectTo", "/verify-otp");
+        return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
