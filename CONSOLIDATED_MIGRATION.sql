@@ -98,7 +98,7 @@ BEGIN
     PRINT 'Adding membership_id column to bookings...';
     
     ALTER TABLE bookings
-    ADD membership_id BIGINT NULL,
+    ADD membership_id INT NULL,
         CONSTRAINT FK_bookings_membership FOREIGN KEY (membership_id) 
         REFERENCES user_memberships(um_id);
     
