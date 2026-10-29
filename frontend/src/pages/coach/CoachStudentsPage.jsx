@@ -9,6 +9,8 @@ import { CardGridSkeleton } from '../../components/common/Skeleton';
 import { useApp } from '../../context/AppContext';
 import Pagination from '../../components/common/Pagination';
 import { getAvatarImageUrl } from '../../utils/avatarHelper';
+import FormattedAiText from '../../components/common/FormattedAiText';
+import { cleanMarkdownText } from '../../utils/markdownUtils';
 
 export default function CoachStudentsPage() {
   const [students, setStudents] = useState([]);
@@ -1048,7 +1050,7 @@ export default function CoachStudentsPage() {
                     <textarea
                       rows="2"
                       value={planForm.sessionResult}
-                      onChange={(e) => setPlanForm({ ...planForm, sessionResult: e.target.value })}
+                      onChange={(e) => setPlanForm({ ...planForm, sessionResult: cleanMarkdownText(e.target.value) })}
                       placeholder="VD: Squat 75kg 4x10 mượt mà. 1RM Squat ước tính đạt 95kg. Thời gian hoàn thành 45 phút."
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-orange-500 bg-slate-50 focus:bg-white"
                     />
@@ -1063,7 +1065,7 @@ export default function CoachStudentsPage() {
                     <textarea
                       rows="2"
                       value={planForm.coachFeedback}
-                      onChange={(e) => setPlanForm({ ...planForm, coachFeedback: e.target.value })}
+                      onChange={(e) => setPlanForm({ ...planForm, coachFeedback: cleanMarkdownText(e.target.value) })}
                       placeholder="VD: Cảm giác bóng và bộ chân di chuyển tiến bộ rõ rệt. Cần chú ý giữ nhịp thở đều ở set thứ 4."
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-orange-500 bg-slate-50 focus:bg-white"
                     />
@@ -1078,7 +1080,7 @@ export default function CoachStudentsPage() {
                     <textarea
                       rows="2"
                       value={planForm.homework}
-                      onChange={(e) => setPlanForm({ ...planForm, homework: e.target.value })}
+                      onChange={(e) => setPlanForm({ ...planForm, homework: cleanMarkdownText(e.target.value) })}
                       placeholder="VD: Chạy bộ nhẹ 20 phút các ngày nghỉ. Bổ sung đủ 1.8g protein/kg và ngủ đủ 7-8 tiếng."
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-orange-500 bg-slate-50 focus:bg-white"
                     />
@@ -1205,20 +1207,23 @@ export default function CoachStudentsPage() {
                                   </div>
 
                                   {p.sessionResult && (
-                                    <div className="p-2.5 rounded-xl bg-blue-50/80 border border-blue-100 text-[11px] text-blue-900">
-                                      <strong>Kết quả:</strong> {p.sessionResult}
+                                    <div className="p-2.5 rounded-xl bg-blue-50/80 border border-blue-100 text-[11px] text-blue-900 space-y-1">
+                                      <strong className="block text-[10px] uppercase tracking-wider text-blue-700">Kết quả:</strong>
+                                      <FormattedAiText content={p.sessionResult} />
                                     </div>
                                   )}
 
                                   {p.coachFeedback && (
-                                    <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-100 text-[11px] text-emerald-900">
-                                      <strong>Nhận xét HLV:</strong> {p.coachFeedback}
+                                    <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-100 text-[11px] text-emerald-900 space-y-1">
+                                      <strong className="block text-[10px] uppercase tracking-wider text-emerald-700">Nhận xét HLV:</strong>
+                                      <FormattedAiText content={p.coachFeedback} />
                                     </div>
                                   )}
 
                                   {p.homework && (
-                                    <div className="p-2.5 rounded-xl bg-purple-50/80 border border-purple-100 text-[11px] text-purple-900">
-                                      <strong>Bài tập về nhà:</strong> {p.homework}
+                                    <div className="p-2.5 rounded-xl bg-purple-50/80 border border-purple-100 text-[11px] text-purple-900 space-y-1">
+                                      <strong className="block text-[10px] uppercase tracking-wider text-purple-700">Bài tập về nhà:</strong>
+                                      <FormattedAiText content={p.homework} />
                                     </div>
                                   )}
                                 </div>

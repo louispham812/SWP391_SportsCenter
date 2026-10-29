@@ -144,8 +144,8 @@ public class AiAssistantService {
                         + "Đưa ra kế hoạch có cấu trúc theo buổi, bài tập, số hiệp/lần hoặc thời lượng, "
                         + "mức độ tăng tiến và lưu ý an toàn. Không chẩn đoán bệnh; điều chỉnh hoặc yêu cầu "
                         + "tham vấn chuyên gia nếu hồ sơ có chấn thương. "
-                        + "Quy tắc định dạng: Trình bày mạch lạc, câu văn ngắn gọn, dễ hiểu. "
-                        + "Sử dụng danh sách gạch đầu dòng rõ ràng. KHÔNG lạm dụng các ký tự Markdown thô.",
+                        + "Quy tắc định dạng: Trình bày giáo án rõ ràng theo từng phần (Khởi động, Bài tập chính, Hồi phục, Dặn dò). "
+                        + "Dùng danh sách gạch đầu dòng hoặc đánh số thứ tự rõ ràng. KHÔNG lạm dụng các ký tự Markdown thô như ##, ###, đường kẻ --- hoặc bọc dấu sao ** quá mức.",
                 context + "\n\nYêu cầu của HLV: " + goal,
                 List.of(new AssistantMessageRequest("user", "Hãy tạo giáo án cho học viên này.")));
     }
@@ -285,7 +285,7 @@ public class AiAssistantService {
             }
         } catch (Exception exception) {
             log.error("Exception calling AI API: {}", exception.getMessage(), exception);
-            System.err.println("[AiAssistantService] Exception calling AI API: " + exception.getMessage());
+            System.err.println("[AiAssistantService] Exception calling AI API [" + baseUrl + "]: " + exception.getMessage());
         }
 
         return generateDomainAnswer(lastUserMessage, databaseContext);
