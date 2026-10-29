@@ -90,6 +90,21 @@ BEGIN
     )
 END;
 
+IF OBJECT_ID(N'dbo.verification_tokens', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.verification_tokens (
+        token_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        email VARCHAR(100) NOT NULL,
+        token_hash VARCHAR(64) NOT NULL,
+        token_type VARCHAR(20) NOT NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_verification_tokens_created DEFAULT SYSDATETIME(),
+        expires_at DATETIME2 NOT NULL,
+        used_at DATETIME2 NULL,
+        failed_attempts INT NOT NULL CONSTRAINT DF_verification_tokens_failed DEFAULT 0,
+        locked BIT NOT NULL CONSTRAINT DF_verification_tokens_locked DEFAULT 0
+    )
+END;
+
 IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
     EXEC(N'
         DECLARE @statusConstraintName sysname;
@@ -579,7 +594,8 @@ IF OBJECT_ID(N'dbo.vouchers', N'U') IS NOT NULL
 IF COL_LENGTH('dbo.vouchers', 'max_discount_amount') IS NOT NULL
     EXEC(N'UPDATE dbo.vouchers SET discount_amount = max_discount_amount WHERE discount_amount IS NULL AND max_discount_amount IS NOT NULL;');
 
-UPDATE dbo.vouchers SET discount_value = discount_percent WHERE discount_value IS NULL AND discount_percent IS NOT NULL;
+IF COL_LENGTH('dbo.vouchers', 'discount_value') IS NOT NULL
+    EXEC(N'UPDATE dbo.vouchers SET discount_value = discount_percent WHERE discount_value IS NULL AND discount_percent IS NOT NULL;');
 
 IF NOT EXISTS (SELECT 1 FROM dbo.vouchers WHERE code = N'TET2026')
     INSERT INTO dbo.vouchers (code, discount_type, discount_value, discount_percent, discount_amount, min_purchase, valid_until, usage_limit, used_count, applies_to, status)
@@ -795,6 +811,30 @@ IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_log
 
 IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'detail') IS NULL
     ALTER TABLE dbo.audit_logs ADD detail NVARCHAR(1000) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'log_type') IS NULL
+    ALTER TABLE dbo.audit_logs ADD log_type VARCHAR(50) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'user_email') IS NULL
+    ALTER TABLE dbo.audit_logs ADD user_email VARCHAR(100) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'user_id') IS NULL
+    ALTER TABLE dbo.audit_logs ADD user_id BIGINT NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'ip_address') IS NULL
+    ALTER TABLE dbo.audit_logs ADD ip_address VARCHAR(50) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'user_agent') IS NULL
+    ALTER TABLE dbo.audit_logs ADD user_agent VARCHAR(500) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'action_detail') IS NULL
+    ALTER TABLE dbo.audit_logs ADD action_detail NVARCHAR(MAX) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'status') IS NULL
+    ALTER TABLE dbo.audit_logs ADD status VARCHAR(20) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'error_message') IS NULL
+    ALTER TABLE dbo.audit_logs ADD error_message NVARCHAR(500) NULL;
 
 -- ===== Lich bao tri san (MGR-19) =====
 IF OBJECT_ID(N'dbo.court_maintenance', N'U') IS NULL

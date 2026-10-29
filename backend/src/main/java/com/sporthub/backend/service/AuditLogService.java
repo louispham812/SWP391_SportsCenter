@@ -111,7 +111,7 @@ public class AuditLogService {
     /**
      * Ghi audit log với IP và User Agent (cho HTTP requests)
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.READ_UNCOMMITTED)
     public void logWithRequest(String logType, String userEmail, Long userId, 
                                String actionDetail, String status, String errorMessage,
                                String ipAddress, String userAgent) {
