@@ -157,6 +157,28 @@ public class AuthService {
             auditLogService.logFailure("REGISTER", email, null, "Registration attempt", "Password too short");
             throw new IllegalArgumentException("Mật khẩu phải có ít nhất 8 ký tự.");
         }
+
+        boolean hasUpper = false;
+        boolean hasLower = false;
+        boolean hasDigit = false;
+        for (char c : password.toCharArray()) {
+            if (Character.isUpperCase(c)) hasUpper = true;
+            else if (Character.isLowerCase(c)) hasLower = true;
+            else if (Character.isDigit(c)) hasDigit = true;
+        }
+        if (!hasUpper || !hasLower || !hasDigit) {
+            if (auditLogService != null) {
+                auditLogService.logFailure("REGISTER", email, null, "Registration attempt", "Password missing required character sets (BR-02)");
+            }
+            throw new IllegalArgumentException("Mật khẩu phải bao gồm ít nhất 1 chữ in hoa, 1 chữ thường và 1 chữ số (BR-02).");
+        }
+
+        if (!phone.matches("^[0-9]{10,15}$")) {
+            if (auditLogService != null) {
+                auditLogService.logFailure("REGISTER", email, null, "Registration attempt", "Invalid phone format");
+            }
+            throw new IllegalArgumentException("Số điện thoại không hợp lệ (phải từ 10 đến 15 chữ số).");
+        }
         
         // Check email availability với logic theo status
         Optional<User> existingUser = findUserByEmail(email);

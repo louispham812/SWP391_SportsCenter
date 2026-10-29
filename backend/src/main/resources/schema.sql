@@ -781,15 +781,20 @@ IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NULL
         created_at DATETIME2 NOT NULL CONSTRAINT DF_audit_logs_created DEFAULT SYSDATETIME()
     );
 
-IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL
-   AND COL_LENGTH(N'dbo.audit_logs', N'action') IS NULL
-BEGIN
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'actor_id') IS NULL
     ALTER TABLE dbo.audit_logs ADD actor_id BIGINT NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'actor_name') IS NULL
     ALTER TABLE dbo.audit_logs ADD actor_name NVARCHAR(100) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'actor_role') IS NULL
     ALTER TABLE dbo.audit_logs ADD actor_role VARCHAR(20) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'action') IS NULL
     ALTER TABLE dbo.audit_logs ADD action VARCHAR(60) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'detail') IS NULL
     ALTER TABLE dbo.audit_logs ADD detail NVARCHAR(1000) NULL;
-END;
 
 -- ===== Lich bao tri san (MGR-19) =====
 IF OBJECT_ID(N'dbo.court_maintenance', N'U') IS NULL
@@ -854,3 +859,39 @@ LEFT JOIN (
     WHERE status IN ('BOOKED', 'CONFIRMED')
     GROUP BY session_id
 ) b ON s.session_id = b.session_id;
+
+-- ===== Bo sung: users.require_password_change =====
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.users', N'require_password_change') IS NULL
+    ALTER TABLE dbo.users ADD require_password_change BIT NOT NULL CONSTRAINT DF_users_require_pw_change DEFAULT 0;
+
+-- ===== Bo sung: membership_packages.package_type, quota_sessions, quota_courts =====
+IF OBJECT_ID(N'dbo.membership_packages', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.membership_packages', N'package_type') IS NULL
+    ALTER TABLE dbo.membership_packages ADD package_type NVARCHAR(20) NULL CONSTRAINT DF_packages_package_type DEFAULT 'VIP';
+
+IF OBJECT_ID(N'dbo.membership_packages', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.membership_packages', N'quota_sessions') IS NULL
+    ALTER TABLE dbo.membership_packages ADD quota_sessions INT NULL CONSTRAINT DF_packages_quota_sessions DEFAULT 0;
+
+IF OBJECT_ID(N'dbo.membership_packages', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.membership_packages', N'quota_courts') IS NULL
+    ALTER TABLE dbo.membership_packages ADD quota_courts INT NULL CONSTRAINT DF_packages_quota_courts DEFAULT 0;
+
+-- ===== Bo sung: user_memberships quota tracking =====
+IF OBJECT_ID(N'dbo.user_memberships', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.user_memberships', N'remaining_quota_sessions') IS NULL
+    ALTER TABLE dbo.user_memberships ADD remaining_quota_sessions INT NULL CONSTRAINT DF_user_memberships_remaining_quota DEFAULT 0;
+
+IF OBJECT_ID(N'dbo.user_memberships', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.user_memberships', N'held_quota_sessions') IS NULL
+    ALTER TABLE dbo.user_memberships ADD held_quota_sessions INT NULL CONSTRAINT DF_user_memberships_held_quota DEFAULT 0;
+
+IF OBJECT_ID(N'dbo.user_memberships', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.user_memberships', N'used_quota_sessions') IS NULL
+    ALTER TABLE dbo.user_memberships ADD used_quota_sessions INT NULL CONSTRAINT DF_user_memberships_used_quota DEFAULT 0;
+
+IF OBJECT_ID(N'dbo.user_memberships', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.user_memberships', N'initial_quota_sessions') IS NULL
+    ALTER TABLE dbo.user_memberships ADD initial_quota_sessions INT NULL CONSTRAINT DF_user_memberships_initial_quota DEFAULT 0;
+

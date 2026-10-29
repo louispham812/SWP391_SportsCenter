@@ -1132,6 +1132,11 @@ public class BookingService {
         if (!"CONFIRMED".equalsIgnoreCase(booking.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Trạng thái đặt sân không thể hủy.");
         }
+        if (booking.getStartTime() != null
+                && booking.getStartTime().minusHours(2).isBefore(LocalDateTime.now())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Không thể hủy lịch khi còn dưới 2 tiếng trước giờ bắt đầu.");
+        }
         
         // ✅ Tính refund policy theo DATABASE_SCHEMA_SPECIFICATION.md Section 5.3.1
         boolean isCancelledOnTime = booking.getStartTime() == null 
@@ -1246,9 +1251,9 @@ public class BookingService {
         AttendanceStatus oldStatus = booking.getAttendanceStatus();
         
         // ✅ Permission check: RECEPTIONIST chỉ được SỬA điểm danh, KHÔNG được TẠO lần đầu
-        if ("RECEPTIONIST".equals(actorRole) && oldStatus == AttendanceStatus.PENDING) {
+        if ("RECEPTIONIST".equals(actorRole) && (oldStatus == null || oldStatus == AttendanceStatus.PENDING)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, 
-                "Lễ tân không được tạo điểm danh lần đầu. Chỉ Coach được điểm danh cho lớp/PT.");
+                "Lễ tân không được tạo điểm danh lần đầu. Chỉ Coach được điểm danh cho lớp/PT (BR-14).");
         }
         
         // ✅ Permission check: COACH chỉ điểm danh lớp MÌNH phụ trách
@@ -1263,9 +1268,15 @@ public class BookingService {
                 "Chỉ đặt chỗ đã xác nhận mới được điểm danh.");
         }
 
+        String absenceTag = switch (normalizedStatus) {
+            case "EXCUSED_ABSENCE" -> "[Vắng có phép]";
+            case "UNEXCUSED_ABSENCE", "ABSENT" -> "[Vắng không phép]";
+            default -> null;
+        };
         booking.setAttendanceStatus(attendanceStatus);
-        if (coachNote != null) {
-            booking.setCoachNote(coachNote.trim());
+        if (coachNote != null || absenceTag != null) {
+            String note = coachNote == null ? "" : coachNote.trim().replaceFirst("^\\[Vắng (có|không) phép\\]\\s*", "");
+            booking.setCoachNote(absenceTag == null ? note : (absenceTag + " " + note).trim());
         }
         Booking saved = bookingRepository.save(booking);
 
