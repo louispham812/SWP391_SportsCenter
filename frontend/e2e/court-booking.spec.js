@@ -55,16 +55,17 @@ test('member selects a database court, checks out, and gets a persisted booking'
     hour: '2-digit',
     minute: '2-digit',
   });
-  await page.getByRole('button', { name: slotLabel, exact: true }).first().click();
+  await page.getByRole('button', { name: new RegExp(`^${slotLabel}`) }).first().click();
+  await page.getByRole('button', { name: /Tiếp tục thanh toán/ }).click();
 
   await expect(page).toHaveURL(/\/member\/book\/checkout\/court\//);
   await expect(page.getByRole('heading', { name: 'Xác nhận booking & thanh toán' })).toBeVisible();
-  await expect(page.getByText('Chế độ thanh toán SANDBOX')).toBeVisible();
-  await page.getByRole('button', { name: /Xác nhận & thanh toán/ }).click();
+  await page.getByRole('button', { name: /Sandbox/i }).click();
+  await page.getByRole('button', { name: /Xác Nhận & Thanh Toán/i }).click();
 
   await expect(page).toHaveURL(/\/member\/book\/confirmation$/);
   await expect(page.getByRole('heading', { name: 'Booking đã xác nhận' })).toBeVisible();
-  await expect(page.getByText('Thanh toán PAID')).toBeVisible();
+  await expect(page.getByText(/PAID/)).toBeVisible();
 
   const scheduleResponse = await page.request.get(`${apiBaseUrl}/booking-flow/schedule`, {
     headers: authHeaders,

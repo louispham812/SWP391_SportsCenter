@@ -40,6 +40,16 @@ export default defineConfig({
       dependencies: ['schedule-readback'],
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      name: 'comprehensive-roles',
+      testMatch: /comprehensive-roles\.spec\.js/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'demo-audit',
+      testMatch: /demo-audit\.spec\.js/,
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
   webServer: [
     {

@@ -12,12 +12,11 @@ export function readMemberTestData() {
 export async function loginMember(page) {
   const { email, password, name } = readMemberTestData();
   await page.goto('/login');
-  await page.locator('#login-role').selectOption('MEMBER');
   await page.getByPlaceholder('name@example.com / 0912...').fill(email);
   await page.getByPlaceholder('••••••••').fill(password);
   await page.getByRole('button', { name: 'ĐĂNG NHẬP NGAY' }).click();
   await expect(page).toHaveURL(/\/member$/);
-  await expect(page.getByRole('heading', { name: `Xin chào, ${name}` })).toBeVisible();
+  await expect(page.getByRole('heading', { name: new RegExp(name, 'i') })).toBeVisible();
 }
 
 export async function logoutMember(page) {

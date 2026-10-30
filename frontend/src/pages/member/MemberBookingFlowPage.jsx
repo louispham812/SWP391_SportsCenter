@@ -805,35 +805,16 @@ function CheckoutPage({ bookingType, itemId }) {
     const fetchQuota = async () => {
       try {
         setQuotaLoading(true);
-        const response = await fetch('http://localhost:8080/api/v1/members/me/quota', {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('sports_center_token')}`,
-          },
+        const data = await apiRequest('/members/me/quota');
+        setMemberQuota({
+          packageName: data.packageName || 'Chưa có gói tập',
+          initialQuota: data.initialQuota || 0,
+          usedQuota: data.usedQuota || 0,
+          heldQuota: data.heldQuota || 0,
+          remainingQuota: data.remainingQuota || 0,
+          canUseForBooking: data.canUseForBooking || false,
         });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setMemberQuota({
-            packageName: data.packageName || 'Chưa có gói tập',
-            initialQuota: data.initialQuota || 0,
-            usedQuota: data.usedQuota || 0,
-            heldQuota: data.heldQuota || 0,
-            remainingQuota: data.remainingQuota || 0,
-            canUseForBooking: data.canUseForBooking || false,
-          });
-        } else {
-          // Nếu lỗi, set về mặc định (không có gói)
-          setMemberQuota({
-            packageName: 'Chưa có gói tập',
-            initialQuota: 0,
-            usedQuota: 0,
-            heldQuota: 0,
-            remainingQuota: 0,
-            canUseForBooking: false,
-          });
-        }
       } catch (err) {
-        console.error('Failed to fetch quota:', err);
         setMemberQuota({
           packageName: 'Chưa có gói tập',
           initialQuota: 0,
