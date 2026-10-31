@@ -217,8 +217,14 @@ export default function OtpVerificationPage() {
       });
 
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || 'Không thể gửi lại mã OTP lúc này.');
+        let errorMessage = 'Không thể gửi lại mã OTP lúc này.';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          // If JSON parsing fails, fallback to default message
+        }
+        throw new Error(errorMessage);
       }
 
       setTimer(600); // Reset timer 10 phút
