@@ -58,7 +58,7 @@ export default function MemberPackagesPage() {
   const currentPackage = useMemo(() => {
     if (!currentMembership) return null;
     return (
-      packages.find((p) => p.packageName === currentMembership.packageName || p.name === currentMembership.packageName) ||
+      packages.find((p) => p.name === currentMembership.packageName) ||
       null
     );
   }, [currentMembership, packages]);
@@ -322,7 +322,7 @@ export default function MemberPackagesPage() {
               {packages.map((pkg) => {
                 const pkgPrice = Number(pkg.price || 0);
                 const currentPrice = currentPackage ? Number(currentPackage.price || 0) : 0;
-                const isCurrent = currentMembership && (pkg.packageName === currentMembership.packageName || pkg.name === currentMembership.packageName);
+                const isCurrent = currentMembership && (pkg.name === currentMembership.packageName);
                 const isLower = currentMembership && !isCurrent && pkgPrice < currentPrice;
                 const isSamePriceDiffPkg = currentMembership && !isCurrent && pkgPrice === currentPrice;
                 const isHigher = currentMembership && !isCurrent && pkgPrice > currentPrice;
@@ -547,8 +547,7 @@ export default function MemberPackagesPage() {
                 </button>
               </div>
             </div>
-          </div>,
-          document.body
+          </div>
         )}
 
         {/* QR Payment Modal */}

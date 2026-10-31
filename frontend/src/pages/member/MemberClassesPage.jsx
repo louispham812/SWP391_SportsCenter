@@ -1102,14 +1102,6 @@ export default function MemberClassesPage() {
                       </div>
                     </div>
                   </div>
-                  {paymentMode === 'RETAIL' && (
-                    <PaymentMethodSelector
-                      selectedMethod={paymentMethod}
-                      onChange={setPaymentMethod}
-                      amount={finalPrice}
-                      transferMemo={`VQRCLS${registeringSession.sessionId}`}
-                    />
-                  )}
 
                   {/* Inline Error Alert */}
                   {registerError && (
@@ -1199,8 +1191,8 @@ export default function MemberClassesPage() {
         )}
 
         {/* QR Payment Modal */}
-        {showQrModal && qrData && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+        {showQrModal && qrData && createPortal(
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200">
               <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-2">
@@ -1303,7 +1295,8 @@ export default function MemberClassesPage() {
                 Hủy và Đóng
               </button>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </MemberLayout>
