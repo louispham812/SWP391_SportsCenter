@@ -54,8 +54,9 @@ import java.util.stream.Collectors;
 @Service
 public class BookingService {
 
+    // ACTIVE_STATUSES: BOOKED (chờ thanh toán) + CONFIRMED (đã thanh toán) để đếm slot chính xác
+    // Chi tiết: xem PAYMENT_FLOW_DOCUMENTATION.md - Rule 4
     private static final List<String> ACTIVE_STATUSES = List.of("BOOKED", "CONFIRMED");
-    private static final List<String> WAITLIST_STATUSES = List.of("WAITLIST");
     private static final List<String> ALL_ACTIVE_STATUSES = List.of("BOOKED", "CONFIRMED", "WAITLIST");
 
     private final BookingRepository bookingRepository;
@@ -70,6 +71,7 @@ public class BookingService {
     private final MembershipPackageRepository membershipPackageRepository;
     private final MembershipService membershipService;
     private final AuditLogService auditLogService;
+    private final PaymentService paymentService;
 
     public BookingService(
             BookingRepository bookingRepository,
@@ -83,7 +85,8 @@ public class BookingService {
             UserMembershipRepository userMembershipRepository,
             MembershipPackageRepository membershipPackageRepository,
             @Lazy MembershipService membershipService,
-            AuditLogService auditLogService) {
+            AuditLogService auditLogService,
+            PaymentService paymentService) {
         this.bookingRepository = bookingRepository;
         this.classSessionRepository = classSessionRepository;
         this.userRepository = userRepository;
@@ -96,6 +99,7 @@ public class BookingService {
         this.membershipPackageRepository = membershipPackageRepository;
         this.membershipService = membershipService;
         this.auditLogService = auditLogService;
+        this.paymentService = paymentService;
     }
 
     @Transactional(readOnly = true)
@@ -586,7 +590,8 @@ public class BookingService {
         booking.setEndTime(request.endTime());
         booking.setAmountPaid(discount.finalAmount());
         booking.setPaymentId(payment.getPaymentId());
-        booking.setStatus("CONFIRMED");
+        // NEW: Set PENDING first, only CONFIRMED after payment success
+        booking.setStatus(payment.getPaymentMethod().equalsIgnoreCase("CASH_COUNTER") ? "CONFIRMED" : "PENDING");
         booking.setCreatedAt(LocalDateTime.now());
         CourtBooking saved = courtBookingRepository.save(booking);
         return new BookingConfirmationResponse(
@@ -626,6 +631,8 @@ public class BookingService {
                 .memberId(memberId)
                 .sessionId(session.getSessionId())
                 .bookingTime(LocalDateTime.now())
+                // Database constraint: BOOKED, WAITLIST, CANCELLED only
+                // Payment tracking via payment_transactions.payment_status (PENDING/PAID)
                 .status("BOOKED")
                 .attendanceStatus(AttendanceStatus.PENDING)
                 .feeAmount(discount.finalAmount())
@@ -839,24 +846,12 @@ public class BookingService {
         );
     }
 
+    /**
+     * ✅ DEPRECATED: Use PaymentService.createPayment() instead
+     * Kept for backward compatibility if needed
+     */
     private PaymentTransaction createPaymentTransaction(Long memberId, String bookingType, BigDecimal amount, String paymentMethod) {
-        String method = (paymentMethod == null || paymentMethod.isBlank()) ? "SANDBOX" : paymentMethod.toUpperCase(Locale.ROOT);
-        String prefix = switch (method) {
-            case "VIETQR", "QR" -> "VQR";
-            case "VNPAY" -> "VNP";
-            case "MOMO" -> "MOM";
-            case "CASH_COUNTER", "CASH" -> "CSH";
-            default -> "SBX";
-        };
-        PaymentTransaction payment = new PaymentTransaction();
-        payment.setMemberId(memberId);
-        payment.setBookingType(bookingType);
-        payment.setAmount(amount);
-        payment.setPaymentMethod(method);
-        payment.setPaymentStatus("PAID");
-        payment.setReferenceCode(prefix + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
-        payment.setCreatedAt(LocalDateTime.now());
-        return paymentTransactionRepository.save(payment);
+        return paymentService.createPayment(memberId, bookingType, amount, paymentMethod);
     }
 
     @Transactional(readOnly = true)
@@ -1001,6 +996,8 @@ public class BookingService {
         return bookingRepository.findByMemberIdAndStatusIn(memberId, ALL_ACTIVE_STATUSES);
     }
 
+    // Get session roster - includes both BOOKED and CONFIRMED bookings
+    // Chi tiết: PAYMENT_FLOW_DOCUMENTATION.md - Rule 9
     @Transactional(readOnly = true)
     public List<RosterBookingResponse> getSessionRoster(Long sessionId, Long actorId, String actorRole) {
         ClassSession session = classSessionRepository.findById(sessionId)
@@ -1026,6 +1023,8 @@ public class BookingService {
         }).toList();
     }
 
+    // Cancel booking - Refund policy: cancel trước 2 giờ mới được hoàn tiền
+    // Chi tiết: PAYMENT_FLOW_DOCUMENTATION.md - Rule 6
     @Transactional
     public Booking cancelClassBooking(Long bookingId, Long actorId) {
         Booking booking = bookingRepository.findById(bookingId)
@@ -1039,14 +1038,13 @@ public class BookingService {
         if ("CANCELLED".equalsIgnoreCase(booking.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Đặt chỗ này đã được hủy.");
         }
-        if (!ACTIVE_STATUSES.contains(booking.getStatus().toUpperCase(Locale.ROOT))
-                && !WAITLIST_STATUSES.contains(booking.getStatus().toUpperCase(Locale.ROOT))) {
+        if (!ACTIVE_STATUSES.contains(booking.getStatus().toUpperCase(Locale.ROOT))) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Trạng thái đặt chỗ không thể hủy.");
         }
 
         boolean wasBooked = ACTIVE_STATUSES.contains(booking.getStatus().toUpperCase(Locale.ROOT));
         
-        // ✅ Tính refund policy theo DATABASE_SCHEMA_SPECIFICATION.md Section 5.3.1
+        // Refund policy: cancel trước 2 giờ → REFUNDED, cancel sau 2 giờ → giữ nguyên PAID
         boolean isCancelledOnTime = session.getStartTime() == null 
                 || !session.getStartTime().minusHours(2).isBefore(LocalDateTime.now());
         
@@ -1087,15 +1085,9 @@ public class BookingService {
                             .map(PaymentTransaction::getPaymentMethod)
                             .orElse("SANDBOX");
                 }
-                PaymentTransaction refund = new PaymentTransaction();
-                refund.setMemberId(actorId);
-                refund.setBookingType("CLASS_REFUND");
-                refund.setAmount(refundAmount);
-                refund.setPaymentMethod(origMethod);
-                refund.setPaymentStatus("REFUNDED");
-                refund.setReferenceCode("RFD-CLS-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
-                refund.setCreatedAt(LocalDateTime.now());
-                paymentTransactionRepository.save(refund);
+                
+                // ✅ Use PaymentService instead of manual creation
+                paymentService.createRefund(actorId, "CLASS_REFUND", refundAmount, origMethod);
             }
             
             // Ghi audit log
@@ -1105,15 +1097,7 @@ public class BookingService {
         }
 
         if (wasBooked) {
-            Booking nextInLine = bookingRepository
-                    .findBySessionIdAndStatusInOrderByBookingTimeAsc(booking.getSessionId(), WAITLIST_STATUSES)
-                    .stream()
-                    .findFirst()
-                    .orElse(null);
-            if (nextInLine != null) {
-                nextInLine.setStatus("BOOKED");
-                bookingRepository.save(nextInLine);
-            }
+            // No waitlist in this system - just update booked_slots
         }
         long remainingBooked = bookingRepository.countBySessionIdAndStatusIn(booking.getSessionId(), ACTIVE_STATUSES);
         session.setBookedSlots((int) remainingBooked);
@@ -1162,15 +1146,9 @@ public class BookingService {
                             .map(PaymentTransaction::getPaymentMethod)
                             .orElse("SANDBOX");
                 }
-                PaymentTransaction refund = new PaymentTransaction();
-                refund.setMemberId(actorId);
-                refund.setBookingType("COURT_REFUND");
-                refund.setAmount(refundAmount);
-                refund.setPaymentMethod(origMethod);
-                refund.setPaymentStatus("REFUNDED");
-                refund.setReferenceCode("RFD-CRT-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
-                refund.setCreatedAt(LocalDateTime.now());
-                paymentTransactionRepository.save(refund);
+                
+                // ✅ Use PaymentService instead of manual creation
+                paymentService.createRefund(actorId, "COURT_REFUND", refundAmount, origMethod);
             }
             
             // Ghi audit log

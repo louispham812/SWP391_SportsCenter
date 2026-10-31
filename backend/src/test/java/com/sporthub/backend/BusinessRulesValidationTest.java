@@ -97,6 +97,7 @@ class BusinessRulesValidationTest {
         CourtMaintenanceRepository courtMaintenanceRepository = mock(CourtMaintenanceRepository.class);
         SportsCourtRepository sportsCourtRepository = mock(SportsCourtRepository.class);
         PublicFacilityRepository publicFacilityRepository = mock(PublicFacilityRepository.class);
+        PaymentService paymentService = mock(PaymentService.class);
 
         bookingService = new BookingService(
                 bookingRepository,
@@ -110,7 +111,8 @@ class BusinessRulesValidationTest {
                 userMembershipRepository,
                 packageRepository,
                 membershipService,
-                auditLogService
+                auditLogService,
+                paymentService
         );
 
         coachLeaveRequestRepository = mock(CoachLeaveRequestRepository.class);

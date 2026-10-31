@@ -205,6 +205,27 @@ public class RefundRequestController {
         }
 
         if (engagementService != null) {
+            // Send notification to member
+            String notificationTitle = decision.approved() 
+                    ? "Yêu cầu hoàn tiền đã được duyệt" 
+                    : "Yêu cầu hoàn tiền bị từ chối";
+            
+            String notificationMessage = decision.approved()
+                    ? String.format("Yêu cầu hoàn tiền %,.0f VNĐ đã được duyệt. " +
+                            "Tiền sẽ được chuyển về tài khoản trong 3-5 ngày làm việc.",
+                            refund.getRefundAmount().doubleValue())
+                    : String.format("Yêu cầu hoàn tiền %,.0f VNĐ đã bị từ chối. Lý do: %s",
+                            refund.getRefundAmount().doubleValue(),
+                            decision.decisionNote() != null ? decision.decisionNote().trim() : "Không đủ điều kiện");
+            
+            engagementService.notifyUser(
+                    refund.getMemberId(),
+                    notificationTitle,
+                    notificationMessage,
+                    "REFUND"
+            );
+
+            // Audit log
             engagementService.audit(managerId, "MANAGER", "REFUND_DECIDED",
                     "refundId=" + id + ", status=" + refund.getStatus() +
                     ", amount=" + refund.getRefundAmount() +
