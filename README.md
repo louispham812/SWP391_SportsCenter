@@ -53,7 +53,7 @@ Trung tâm thể thao đa năng **SportHub** phục vụ các bộ môn đa dạ
 | **Frontend Framework** | **React 19**, **Vite v8.3** | Single Page Application (SPA), HMR siêu tốc, tối ưu hóa bundle |
 | **Giao diện & Styling** | **Tailwind CSS v3**, Lucide React | Giao diện hiện đại, responsive, hỗ trợ In hóa đơn nhiệt K80 |
 | **Routing** | **React Router DOM v7** | Quản lý điều hướng và Route Guards bảo vệ theo vai trò |
-| **Trí tuệ Nhân tạo** | **OpenAI API** (`gpt-4o-mini`) | Trợ lý tư vấn thể thao, gợi ý bài tập và giải đáp nghiệp vụ |
+| **Trí tuệ Nhân tạo** | **Google Gemini API** (`gemini-flash-lite-latest`) | Trợ lý tư vấn thể thao, gợi ý bài tập và giải đáp nghiệp vụ |
 | **Testing & Linter** | **JUnit 5**, **Playwright E2E**, **Oxlint** | 84/84 Unit & Integration Tests Backend PASS, 25/25 Playwright E2E Tests PASS bao phủ 7 luồng nghiệp vụ |
 
 ---
@@ -152,7 +152,7 @@ SWP391_SportsCenter/
 33. **Quản lý cơ sở vật chất, gói tập & voucher:** Thiết lập thông tin sân bãi, giá thuê theo giờ, danh mục gói tập và mã giảm giá.
 34. **Xét duyệt hoàn tiền (Refund Management):** Phê duyệt hoặc từ chối các yêu cầu hoàn tiền của học viên; tự động cập nhật trạng thái giao dịch sang `REFUNDED`.
 35. **Báo cáo hiệu suất nhân viên (Staff Performance):** Đánh giá hiệu suất Lễ tân (số lượt check-in, doanh số POS) và Huấn luyện viên (số buổi dạy, đánh giá trung bình, hoa hồng phải trả).
-36. **Cấu hình Trợ lý AI (AI Config):** Bật/tắt AI, lựa chọn model GPT-4o-mini, điều chỉnh Temperature và tùy biến System Prompt nghiệp vụ.
+36. **Cấu hình Trợ lý AI (AI Config):** Bật/tắt AI, cấu hình model Gemini (`gemini-flash-lite-latest`), điều chỉnh Temperature và tùy biến System Prompt nghiệp vụ.
 37. **Phát sóng thông báo (Broadcast Notification):** Gửi thông báo đại chúng tới toàn thể hội viên hoặc theo nhóm đối tượng.
 
 ### 5. 🛡️ Phân Hệ Quản Trị Viên (Admin)
@@ -266,6 +266,12 @@ Cơ sở dữ liệu mẫu được nạp sẵn tài khoản đại diện cho c
    spring.datasource.username=sa
    spring.datasource.password=12345
    spring.sql.init.mode=always
+   ```
+4. (Tùy chọn) Cấu hình Trợ lý AI Google Gemini trong file `.env` (tham khảo mẫu tại `.env.example`):
+   ```properties
+   GEMINI_API_KEY=your_gemini_api_key_here
+   GEMINI_MODEL=gemini-flash-lite-latest
+   AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
    ```
 
 ---

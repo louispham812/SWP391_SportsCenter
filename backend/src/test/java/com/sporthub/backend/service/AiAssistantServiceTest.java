@@ -181,20 +181,6 @@ class AiAssistantServiceTest {
             return key.trim();
         }
         try {
-            java.nio.file.Path localProps = java.nio.file.Paths.get("src/main/resources/application-local.properties");
-            if (java.nio.file.Files.exists(localProps)) {
-                java.util.Properties props = new java.util.Properties();
-                try (java.io.InputStream in = java.nio.file.Files.newInputStream(localProps)) {
-                    props.load(in);
-                    String localKey = props.getProperty("app.openai.api-key");
-                    if (localKey != null && !localKey.isBlank()) {
-                        return localKey.trim();
-                    }
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        try {
             java.nio.file.Path envPath = java.nio.file.Paths.get(".env");
             if (!java.nio.file.Files.exists(envPath)) {
                 envPath = java.nio.file.Paths.get("backend/.env");
@@ -203,6 +189,10 @@ class AiAssistantServiceTest {
                 for (String line : java.nio.file.Files.readAllLines(envPath)) {
                     if (line.startsWith("GEMINI_API_KEY=")) {
                         String val = line.substring("GEMINI_API_KEY=".length()).trim();
+                        if (!val.isBlank()) return val;
+                    }
+                    if (line.startsWith("app.openai.api-key=")) {
+                        String val = line.substring("app.openai.api-key=".length()).trim();
                         if (!val.isBlank()) return val;
                     }
                 }

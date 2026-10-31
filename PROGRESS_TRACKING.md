@@ -105,7 +105,7 @@
 - [x] **MGR-11:** Quản lý và xét duyệt các yêu cầu hoàn tiền (Refund Management): Phê duyệt (`APPROVED`) hoặc Từ chối (`REJECTED`).
 - [x] **MGR-12:** Đồng bộ trạng thái giao dịch sang `REFUNDED` sau khi duyệt hoàn tiền thành công.
 - [x] **MGR-13:** Chặn thao tác duyệt lại lần 2 các đơn hoàn tiền đã có quyết định.
-- [x] **MGR-14:** Cấu hình & tinh chỉnh Trợ lý Thể thao AI (AI Assistant Configuration): Bật/tắt AI, lựa chọn model (GPT-4o-mini), điều chỉnh nhiệt độ (Temperature), cấu hình System Prompt nghiệp vụ.
+- [x] **MGR-14:** Cấu hình & tinh chỉnh Trợ lý Thể thao AI (AI Assistant Configuration): Bật/tắt AI, cấu hình model Gemini (`gemini-flash-lite-latest`), điều chỉnh nhiệt độ (Temperature), cấu hình System Prompt nghiệp vụ.
 - [x] **MGR-15:** Gửi thông báo phát sóng (Broadcast Notification) tới toàn bộ thành viên hoặc theo từng phân quyền.
 - [x] **MGR-16:** Xem toàn bộ phản hồi, khiếu nại và đánh giá dịch vụ của khách hàng.
 - [x] **MGR-17:** Giám sát danh sách lớp học thể thao, can thiệp hủy ca học khi phát sinh sự cố bất khả kháng.
@@ -170,7 +170,7 @@ Cơ sở dữ liệu **`SportsCenterDB`** trên Microsoft SQL Server đã đư�
 - **Kết quả:** **`84/84 PASS`** (0 Failures, 0 Errors, 0 Skipped).
 - **Phạm vi kiểm thử:**
   - `DatabaseConnectionTest`: Xác thực kết nối CSDL, tính toàn vẹn 21 bảng và dữ liệu tài khoản demo.
-  - `AiAssistantServiceTest`: Kiểm tra tích hợp mô hình OpenAI GPT-4o-mini, xử lý fallback an toàn khi mất kết nối mạng.
+  - `AiAssistantServiceTest`: Kiểm tra tích hợp mô hình Google Gemini API (`gemini-flash-lite-latest`), xử lý fallback an toàn khi mất kết nối mạng.
   - `BookingServiceTest`: Kiểm tra thuật toán chống trùng lịch đặt sân, thuật toán tính giá chiết khấu thẻ hội viên, quy trình hủy và hoàn tiền vé.
   - 11 Test Suites mở rộng (Service, Security, Financial, Maintenance, POS, Audit): 64/64 PASS.
 
