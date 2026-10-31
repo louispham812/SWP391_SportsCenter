@@ -107,12 +107,12 @@
    - Nhập tiêu đề & nội dung thông báo $\rightarrow$ Bấm **"Gửi thông báo"**.
    - Kiểm tra trên **[Tab 4 - Member]** (`/member/notifications`) và **[Tab 3 - Coach]** (`/coach/notifications`): Cả hai vai trò nhận được thông báo tức thì.
 4. **[Tab 1 - Admin]** Cấu hình Hệ thống (`/admin/settings`) & Nhật ký Kiểm toán (`/admin/audit-logs`):
-   - Tại `/admin/settings`: Tinh chỉnh tham số vận hành và cấu hình AI Assistant (Model `gpt-4o-mini`, Temperature, System Prompt) $\rightarrow$ Bấm **"Lưu Cấu Hình"**.
+   - Tại `/admin/settings`: Tinh chỉnh tham số vận hành và cấu hình AI Assistant (Model `gemini-flash-lite-latest`, Temperature, System Prompt) $\rightarrow$ Bấm **"Lưu Cấu Hình"**.
    - Tại `/admin/audit-logs`: Kiểm tra bảng nhật ký an toàn hệ thống ghi nhận đầy đủ mọi hành động nhạy cảm kèm thời gian và người thực hiện.
 
 ---
 
-### 🤖 LUỒNG 6: Hồ Sơ Cá Nhân Đa Vai Trò & Trợ Lý Thể Thao AI Assistant (`gpt-4o-mini`)
+### 🤖 LUỒNG 6: Hồ Sơ Cá Nhân Đa Vai Trò & Trợ Lý Thể Thao AI Assistant (`gemini-flash-lite-latest`)
 > **File test tự động:** [`frontend/e2e/flow6-profiles-ai.spec.js`](./frontend/e2e/flow6-profiles-ai.spec.js)
 
 1. **Cập nhật Hồ sơ 3 Vai trò**:
