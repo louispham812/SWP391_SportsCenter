@@ -72,6 +72,8 @@ public class WorkoutProgressController {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.sporthub.backend.repository.BookingRepository bookingRepository;
 
+    private final tools.jackson.databind.ObjectMapper objectMapper = new tools.jackson.databind.ObjectMapper();
+
     public WorkoutProgressController(
             WorkoutPlanRepository workoutPlanRepository,
             BodyProgressLogRepository bodyProgressLogRepository,
@@ -200,6 +202,59 @@ public class WorkoutProgressController {
         }
 
         return saved;
+    }
+
+    /**
+     * Member hoặc Coach đánh dấu hoàn thành bài tập trong kế hoạch.
+     */
+    @PatchMapping("/plans/{planId}/toggle-exercise")
+    @Transactional
+    public Map<String, Object> togglePlanExercise(
+            @PathVariable Long planId,
+            @RequestParam int exerciseIndex,
+            Authentication auth) {
+        Long currentId = actorId(auth);
+        String currentRole = actorRole(auth);
+
+        WorkoutPlan plan = workoutPlanRepository.findById(planId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy kế hoạch tập."));
+
+        if (!currentId.equals(plan.getMemberId()) &&
+            !"COACH".equalsIgnoreCase(currentRole) &&
+            !"MANAGER".equalsIgnoreCase(currentRole) &&
+            !"ADMIN".equalsIgnoreCase(currentRole)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền cập nhật kế hoạch tập này.");
+        }
+
+        try {
+            List<Map<String, Object>> exercises = objectMapper.readValue(
+                    plan.getExercisesJson() != null ? plan.getExercisesJson() : "[]",
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, Map.class)
+            );
+
+            if (exerciseIndex >= 0 && exerciseIndex < exercises.size()) {
+                Map<String, Object> ex = new LinkedHashMap<>(exercises.get(exerciseIndex));
+                boolean currentCompleted = Boolean.TRUE.equals(ex.get("completed"));
+                ex.put("completed", !currentCompleted);
+                exercises.set(exerciseIndex, ex);
+
+                plan.setExercisesJson(objectMapper.writeValueAsString(exercises));
+                workoutPlanRepository.save(plan);
+
+                Map<String, Object> res = new LinkedHashMap<>();
+                res.put("planId", planId);
+                res.put("exerciseIndex", exerciseIndex);
+                res.put("completed", !currentCompleted);
+                res.put("exercises", exercises);
+                return res;
+            } else {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ mục bài tập không hợp lệ.");
+            }
+        } catch (ResponseStatusException rse) {
+            throw rse;
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi cập nhật trạng thái bài tập: " + e.getMessage());
+        }
     }
 
     /**

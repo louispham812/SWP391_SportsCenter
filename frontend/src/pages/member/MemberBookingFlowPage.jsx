@@ -301,6 +301,10 @@ function CourtPicker({ sportId }) {
   };
 
   const handleSlotClick = (courtId, clickedSlot, courtSlots) => {
+    if (clickedSlot.status === 'MAINTENANCE') {
+      setSelectionHint('Khung giờ này đang trong thời gian bảo trì, vui lòng chọn khung giờ khác.');
+      return;
+    }
     setSelectionHint('');
     if (selectedCourtId !== courtId || selectedSlots.length === 0) {
       setSelectedCourtId(courtId);
@@ -405,34 +409,66 @@ function CourtPicker({ sportId }) {
             )}
           </div>
 
+          {/* Cảnh báo nếu toàn bộ sân đang bảo trì */}
+          {courts.length > 0 && courts.every((cId) => {
+            const cSlots = slots.filter((slot) => slot.courtId === cId && slot.startTime.startsWith(selectedDate));
+            return cSlots.length > 0 && cSlots.every((s) => s.status === 'MAINTENANCE');
+          }) && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-800 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[20px] text-red-600">construction</span>
+              <span>
+                Toàn bộ sân / làn bơi của bộ môn này trong ngày đã chọn đang trong thời gian bảo trì kỹ thuật (Tạm ngưng nhận đặt). Quý hội viên vui lòng chọn ngày khác hoặc liên hệ trung tâm.
+              </span>
+            </div>
+          )}
+
           <div className="space-y-4 pb-24">
             {courts.map((courtId) => {
               const courtSlots = slots.filter((slot) => slot.courtId === courtId && slot.startTime.startsWith(selectedDate));
               const court = courtSlots[0];
+              if (!court) return null;
               const isCurrentCourtSelected = selectedCourtId === courtId && selectedSlots.length > 0;
+              const isCourtMaintenance = courtSlots.length > 0 && courtSlots.every((s) => s.status === 'MAINTENANCE');
+
               return (
                 <section
                   key={courtId}
                   className={`rounded-2xl border bg-white p-5 shadow-sm transition ${
-                    isCurrentCourtSelected ? 'border-orange-500 ring-2 ring-orange-500/15' : 'border-slate-200'
+                    isCourtMaintenance
+                      ? 'border-amber-200 bg-amber-50/20 opacity-90'
+                      : isCurrentCourtSelected
+                      ? 'border-orange-500 ring-2 ring-orange-500/15'
+                      : 'border-slate-200'
                   }`}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
                         <h2 className="font-bold text-slate-900">{court.courtName}</h2>
-                        {isCurrentCourtSelected && (
+                        {isCourtMaintenance ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 border border-red-200 px-2.5 py-0.5 text-[11px] font-bold text-red-800">
+                            <span className="material-symbols-outlined text-[13px]">construction</span>
+                            Đang bảo trì - Tạm ngưng nhận đặt
+                          </span>
+                        ) : isCurrentCourtSelected ? (
                           <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-[11px] font-bold text-orange-700">
                             Đã chọn {selectedSlots.length} giờ liên tiếp
                           </span>
-                        )}
+                        ) : null}
                       </div>
                       <p className="mt-1 text-xs text-slate-500">{court.description}</p>
+                      {isCourtMaintenance && (
+                        <p className="mt-1.5 text-xs text-amber-800 font-semibold flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[15px]">info</span>
+                          Sân / Làn bơi này đang trong kế hoạch bảo dưỡng định kỳ của trung tâm. Tạm thời không nhận đặt chỗ mới.
+                        </p>
+                      )}
                     </div>
                     <span className="text-sm font-extrabold text-orange-600">{formatMoney(court.hourlyRate)} / giờ</span>
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
                     {courtSlots.map((slot) => {
+                      const isSlotMaintenance = slot.status === 'MAINTENANCE';
                       const isSelected =
                         isCurrentCourtSelected && selectedSlots.some((s) => s.startTime === slot.startTime);
                       const startStr = new Date(slot.startTime).toLocaleTimeString('vi-VN', {
@@ -443,6 +479,22 @@ function CourtPicker({ sportId }) {
                         hour: '2-digit',
                         minute: '2-digit',
                       });
+
+                      if (isSlotMaintenance) {
+                        return (
+                          <div
+                            key={`${slot.courtId}-${slot.startTime}`}
+                            className="rounded-xl border border-dashed border-amber-300 bg-amber-50/70 text-slate-400 px-2.5 py-2 text-xs font-semibold flex flex-col items-center justify-center gap-0.5 cursor-not-allowed select-none"
+                            title="Khung giờ này đang bảo trì"
+                          >
+                            <span className="line-through text-slate-400 text-[11px]">{startStr}</span>
+                            <span className="text-[10px] text-amber-800 font-bold flex items-center gap-0.5">
+                              <span className="material-symbols-outlined text-[12px]">build</span>Bảo trì
+                            </span>
+                          </div>
+                        );
+                      }
+
                       return (
                         <button
                           key={`${slot.courtId}-${slot.startTime}`}

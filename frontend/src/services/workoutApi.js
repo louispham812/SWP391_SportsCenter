@@ -27,3 +27,8 @@ export const recordBodyProgress = (data) =>
     method: 'POST',
     body: JSON.stringify(data),
   });
+
+export const togglePlanExercise = (planId, exerciseIndex) =>
+  apiRequest(`/workout-progress/plans/${planId}/toggle-exercise?exerciseIndex=${exerciseIndex}`, {
+    method: 'PATCH',
+  });

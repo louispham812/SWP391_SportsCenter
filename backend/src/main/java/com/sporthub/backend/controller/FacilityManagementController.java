@@ -45,6 +45,7 @@ public class FacilityManagementController {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PublicFacilityRepository publicFacilityRepository;
     private final SportsCourtRepository sportsCourtRepository;
+    private final com.sporthub.backend.service.FacilityCourtSyncService syncService;
 
     @Autowired
     public FacilityManagementController(
@@ -56,7 +57,8 @@ public class FacilityManagementController {
             EngagementService engagementService,
             PaymentTransactionRepository paymentTransactionRepository,
             PublicFacilityRepository publicFacilityRepository,
-            SportsCourtRepository sportsCourtRepository) {
+            SportsCourtRepository sportsCourtRepository,
+            com.sporthub.backend.service.FacilityCourtSyncService syncService) {
         this.facilityRepository = facilityRepository;
         this.sportRepository = sportRepository;
         this.userRepository = userRepository;
@@ -66,6 +68,7 @@ public class FacilityManagementController {
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.publicFacilityRepository = publicFacilityRepository;
         this.sportsCourtRepository = sportsCourtRepository;
+        this.syncService = syncService;
     }
 
     public FacilityManagementController(
@@ -73,7 +76,7 @@ public class FacilityManagementController {
             SportRepository sportRepository,
             UserRepository userRepository,
             ClassSessionRepository classSessionRepository) {
-        this(facilityRepository, sportRepository, userRepository, classSessionRepository, null, null, null, null, null);
+        this(facilityRepository, sportRepository, userRepository, classSessionRepository, null, null, null, null, null, null);
     }
 
     @GetMapping("/facilities")
@@ -112,21 +115,12 @@ public class FacilityManagementController {
         }
         Facility facility = facilityRepository.findById(facilityId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy cơ sở."));
-        facility.setStatus(request.status());
-        facilityRepository.save(facility);
-
-        boolean isAvailable = "AVAILABLE".equalsIgnoreCase(request.status());
-        if (publicFacilityRepository != null) {
-            publicFacilityRepository.findById(facilityId).ifPresent(pf -> {
-                pf.setActive(isAvailable);
-                publicFacilityRepository.save(pf);
-            });
-        }
-        if (sportsCourtRepository != null) {
-            sportsCourtRepository.findById(facilityId).ifPresent(sc -> {
-                sc.setActive(isAvailable);
-                sportsCourtRepository.save(sc);
-            });
+        if (syncService != null) {
+            syncService.syncFromFacility(facilityId, request.status());
+            facility = facilityRepository.findById(facilityId).orElse(facility);
+        } else {
+            facility.setStatus(request.status());
+            facilityRepository.save(facility);
         }
 
         String sportName = sportRepository.findById(facility.getSportId())

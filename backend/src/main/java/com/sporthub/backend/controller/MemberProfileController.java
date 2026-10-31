@@ -498,9 +498,9 @@ public class MemberProfileController {
             String sportName = sportMap.getOrDefault(session.getSportId(), "Thể thao");
 
             String status = booking.getAttendanceStatus() == null ? "PENDING" : booking.getAttendanceStatus().name();
-            if ("PRESENT".equals(status)) {
+            if ("PRESENT".equals(status) || "ATTENDED".equals(status)) {
                 attended++;
-            } else if ("ABSENT".equals(status)) {
+            } else if ("EXCUSED_ABSENCE".equals(status) || "UNEXCUSED_ABSENCE".equals(status) || "ABSENT".equals(status)) {
                 absent++;
             } else {
                 pending++;

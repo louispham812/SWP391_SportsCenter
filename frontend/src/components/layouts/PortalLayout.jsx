@@ -297,9 +297,10 @@ export default function PortalLayout({
                     <button
                       onClick={() => {
                         setNotificationsOpen(false);
-                        navigate('/member/notifications');
+                        const targetNotifRoute = role === 'coach' ? '/coach/notifications' : role === 'admin' ? '/admin/broadcast' : '/member/notifications';
+                        navigate(targetNotifRoute);
                       }}
-                      className="text-[11px] font-bold text-orange-600 hover:text-orange-700"
+                      className="text-[11px] font-bold text-orange-600 hover:text-orange-700 cursor-pointer"
                     >
                       Xem tất cả
                     </button>
@@ -315,8 +316,12 @@ export default function PortalLayout({
                           key={item.id}
                           onClick={() => {
                             setNotificationsOpen(false);
-                            if (item.link) navigate(item.link);
-                            else navigate('/member/notifications');
+                            if (item.link) {
+                              navigate(item.link);
+                            } else {
+                              const targetNotifRoute = role === 'coach' ? '/coach/notifications' : role === 'admin' ? '/admin/broadcast' : '/member/notifications';
+                              navigate(targetNotifRoute);
+                            }
                           }}
                           className="py-2.5 px-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors"
                         >

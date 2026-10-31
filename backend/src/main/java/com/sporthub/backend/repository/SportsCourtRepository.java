@@ -12,6 +12,8 @@ import java.util.Optional;
 
 public interface SportsCourtRepository extends JpaRepository<SportsCourt, Long> {
     List<SportsCourt> findBySportIdAndActiveTrueOrderByCourtIdAsc(Long sportId);
+    List<SportsCourt> findBySportIdOrderByCourtIdAsc(Long sportId);
+    List<SportsCourt> findBySportId(Long sportId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select court from SportsCourt court where court.courtId = :courtId")

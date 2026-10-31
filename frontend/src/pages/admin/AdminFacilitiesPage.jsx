@@ -255,6 +255,7 @@ export default function AdminFacilitiesPage() {
       setIsMaintenanceModalOpen(false);
       setMaintenanceForm({ courtId: '', startTime: '', endTime: '', reason: '' });
       await loadMaintenance();
+      await loadFacilities();
     } catch (err) {
       showToast('Lỗi lên lịch bảo trì', err.message || 'Không thể tạo lịch bảo trì.', 'danger');
     } finally {
@@ -267,6 +268,7 @@ export default function AdminFacilitiesPage() {
       await deleteMaintenance(id);
       showToast('Thành công', 'Đã xóa lịch bảo trì. Sân đã được mở lại hoạt động bình thường.', 'success');
       await loadMaintenance();
+      await loadFacilities();
     } catch (err) {
       showToast('Lỗi', err.message || 'Không thể xóa lịch bảo trì.', 'danger');
     }

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { getMemberHealthProfile, updateMemberHealthProfile, getMemberAttendance } from '../../services/memberApi';
-import { getMyWorkoutProgress, createWorkoutPlan, recordBodyProgress } from '../../services/workoutApi';
+import { getMyWorkoutProgress, createWorkoutPlan, recordBodyProgress, togglePlanExercise } from '../../services/workoutApi';
 import { useApp } from '../../context/AppContext';
 import FormattedAiText from '../../components/common/FormattedAiText';
 import { CardGridSkeleton } from '../../components/common/Skeleton';
@@ -70,6 +70,9 @@ export default function MemberWorkoutPlansPage() {
       localStorage.setItem('member_completed_exercises', JSON.stringify(next));
       return next;
     });
+    togglePlanExercise(planId, exIdx).catch((err) => {
+      console.warn('Lỗi lưu trạng thái bài tập lên DB:', err);
+    });
   };
 
   useEffect(() => {
@@ -112,8 +115,22 @@ export default function MemberWorkoutPlansPage() {
       }
 
       if (workoutProgressRes) {
-        setPlans(workoutProgressRes.plans || []);
+        const loadedPlans = workoutProgressRes.plans || [];
+        setPlans(loadedPlans);
         setBodyLogs(workoutProgressRes.bodyLogs || []);
+
+        const dbCompleted = {};
+        loadedPlans.forEach((p) => {
+          try {
+            const list = JSON.parse(p.exercisesJson || '[]');
+            list.forEach((ex, idx) => {
+              if (ex.completed) {
+                dbCompleted[`${p.planId}-${idx}`] = true;
+              }
+            });
+          } catch {}
+        });
+        setCompletedExercises((prev) => ({ ...prev, ...dbCompleted }));
       }
     } catch (err) {
       console.error('Error loading workout plans:', err);

@@ -7,8 +7,11 @@ import java.util.List;
 
 public interface CourtMaintenanceRepository extends JpaRepository<CourtMaintenance, Long> {
     List<CourtMaintenance> findAllByOrderByStartTimeDesc();
+    List<CourtMaintenance> findByCourtId(Long courtId);
+    List<CourtMaintenance> findByCourtIdAndEndTimeAfter(Long courtId, LocalDateTime now);
     List<CourtMaintenance> findByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(
             Long courtId, LocalDateTime end, LocalDateTime start);
     boolean existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(
             Long courtId, LocalDateTime end, LocalDateTime start);
+    void deleteByCourtId(Long courtId);
 }

@@ -65,6 +65,7 @@ public class EngagementController {
     private final MemberCheckInRepository memberCheckInRepository;
     private final ReceptionPaymentRepository paymentRepository;
     private final SystemSettingRepository systemSettingRepository;
+    private final com.sporthub.backend.service.FacilityCourtSyncService syncService;
 
     @Autowired
     public EngagementController(
@@ -79,7 +80,8 @@ public class EngagementController {
             EngagementService engagementService,
             MemberCheckInRepository memberCheckInRepository,
             ReceptionPaymentRepository paymentRepository,
-            SystemSettingRepository systemSettingRepository) {
+            SystemSettingRepository systemSettingRepository,
+            com.sporthub.backend.service.FacilityCourtSyncService syncService) {
         this.feedbackRepository = feedbackRepository;
         this.bookingRepository = bookingRepository;
         this.classSessionRepository = classSessionRepository;
@@ -92,6 +94,7 @@ public class EngagementController {
         this.memberCheckInRepository = memberCheckInRepository;
         this.paymentRepository = paymentRepository;
         this.systemSettingRepository = systemSettingRepository;
+        this.syncService = syncService;
     }
 
     public EngagementController(
@@ -106,7 +109,7 @@ public class EngagementController {
             EngagementService engagementService) {
         this(feedbackRepository, bookingRepository, classSessionRepository, userRepository,
              notificationRepository, auditLogRepository, maintenanceRepository, courtRepository,
-             engagementService, null, null, null);
+             engagementService, null, null, null, null);
     }
 
     // ------------------------------------------------------------------ Feedback
@@ -297,13 +300,17 @@ public class EngagementController {
         requireRole(auth, "MANAGER", "ADMIN");
         var court = courtRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sân."));
-        if (body != null && body.containsKey("active")) {
-            court.setActive(Boolean.TRUE.equals(body.get("active")));
+        boolean active = body != null && body.containsKey("active") ? Boolean.TRUE.equals(body.get("active")) : court.isActive();
+        if (syncService != null) {
+            syncService.syncFromCourt(id, active);
+            court = courtRepository.findById(id).orElse(court);
+        } else {
+            court.setActive(active);
+            court = courtRepository.save(court);
         }
-        var saved = courtRepository.save(court);
         engagementService.audit(actorId(auth), actorRole(auth), "COURT_STATUS_UPDATED",
-                "court=" + id + ", active=" + saved.isActive());
-        return Map.of("courtId", saved.getCourtId(), "active", saved.isActive(), "courtName", saved.getCourtName());
+                "court=" + id + ", active=" + court.isActive());
+        return Map.of("courtId", court.getCourtId(), "active", court.isActive(), "courtName", court.getCourtName());
     }
 
     @PostMapping("/manager/maintenance")
@@ -327,6 +334,9 @@ public class EngagementController {
                 .createdBy(actorId(auth))
                 .createdAt(LocalDateTime.now())
                 .build());
+        if (syncService != null) {
+            syncService.syncFromMaintenanceCreate(request.courtId(), request.startTime(), request.endTime(), request.reason());
+        }
         engagementService.audit(actorId(auth), actorRole(auth), "MAINTENANCE_CREATED",
                 "court=" + request.courtId() + ", " + request.startTime() + " -> " + request.endTime());
         Map<String, Object> result = new LinkedHashMap<>();
@@ -338,10 +348,15 @@ public class EngagementController {
     @Transactional
     public Map<String, Object> deleteMaintenance(@PathVariable Long id, Authentication auth) {
         requireRole(auth, "MANAGER", "ADMIN");
-        if (!maintenanceRepository.existsById(id)) {
+        CourtMaintenance existing = maintenanceRepository.findById(id).orElse(null);
+        if (existing == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy lịch bảo trì.");
         }
+        Long courtId = existing.getCourtId();
         maintenanceRepository.deleteById(id);
+        if (syncService != null) {
+            syncService.syncFromMaintenanceDelete(courtId);
+        }
         engagementService.audit(actorId(auth), actorRole(auth), "MAINTENANCE_DELETED", "id=" + id);
         return Map.of("deleted", true);
     }

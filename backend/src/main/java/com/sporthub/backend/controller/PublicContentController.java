@@ -33,6 +33,6 @@ public class PublicContentController {
 
     @GetMapping("/facilities")
     public List<PublicFacility> getFacilities() {
-        return facilityRepository.findByActiveTrueOrderByFacilityIdAsc();
+        return facilityRepository.findAllByOrderByFacilityIdAsc();
     }
 }

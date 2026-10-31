@@ -55,6 +55,16 @@ export default defineConfig({
       testMatch: /maintenance-lock\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      name: 'swimming-lane-maintenance',
+      testMatch: /swimming-lane-maintenance\.spec\.js/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'final-audit',
+      testMatch: /final-audit-cross-role\.spec\.js/,
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
   webServer: [
     {

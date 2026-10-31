@@ -73,6 +73,7 @@ public class BookingService {
     private final MembershipPackageRepository membershipPackageRepository;
     private final MembershipService membershipService;
     private final AuditLogService auditLogService;
+    private final com.sporthub.backend.repository.FacilityRepository facilityRepository;
 
     public BookingService(
             BookingRepository bookingRepository,
@@ -88,6 +89,28 @@ public class BookingService {
             MembershipPackageRepository membershipPackageRepository,
             @Lazy MembershipService membershipService,
             AuditLogService auditLogService) {
+        this(bookingRepository, classSessionRepository, userRepository, publicSportRepository,
+                publicFacilityRepository, sportsCourtRepository, courtBookingRepository,
+                courtMaintenanceRepository, paymentTransactionRepository, userMembershipRepository,
+                membershipPackageRepository, membershipService, auditLogService, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public BookingService(
+            BookingRepository bookingRepository,
+            ClassSessionRepository classSessionRepository,
+            UserRepository userRepository,
+            PublicSportRepository publicSportRepository,
+            PublicFacilityRepository publicFacilityRepository,
+            SportsCourtRepository sportsCourtRepository,
+            CourtBookingRepository courtBookingRepository,
+            CourtMaintenanceRepository courtMaintenanceRepository,
+            PaymentTransactionRepository paymentTransactionRepository,
+            UserMembershipRepository userMembershipRepository,
+            MembershipPackageRepository membershipPackageRepository,
+            @Lazy MembershipService membershipService,
+            AuditLogService auditLogService,
+            com.sporthub.backend.repository.FacilityRepository facilityRepository) {
         this.bookingRepository = bookingRepository;
         this.classSessionRepository = classSessionRepository;
         this.userRepository = userRepository;
@@ -101,6 +124,7 @@ public class BookingService {
         this.membershipPackageRepository = membershipPackageRepository;
         this.membershipService = membershipService;
         this.auditLogService = auditLogService;
+        this.facilityRepository = facilityRepository;
     }
 
     @Transactional(readOnly = true)
@@ -122,8 +146,15 @@ public class BookingService {
                 : bookingRepository.findBySessionIdInAndStatusIn(sessionIds, ACTIVE_STATUSES).stream()
                         .collect(Collectors.groupingBy(Booking::getSessionId, Collectors.counting()));
 
+        Map<Long, String> facilityStatuses = (facilityRepository != null)
+                ? facilityRepository.findAll().stream()
+                        .collect(Collectors.toMap(com.sporthub.backend.entity.Facility::getFacilityId, com.sporthub.backend.entity.Facility::getStatus, (a, b) -> a))
+                : Map.of();
+
         return sessions.stream().map(session -> {
             Booking booking = bookingsBySession.get(session.getSessionId());
+            String facStatus = facilityStatuses.get(session.getFacilityId());
+            String effectiveStatus = ("MAINTENANCE".equalsIgnoreCase(facStatus)) ? "MAINTENANCE" : session.getStatus();
             return new ClassSessionResponse(
                     session.getSessionId(),
                     session.getClassName(),
@@ -135,7 +166,7 @@ public class BookingService {
                     session.getEndTime(),
                     session.getMaxSlots(),
                     bookedCounts.getOrDefault(session.getSessionId(), 0L).intValue(),
-                    session.getStatus(),
+                    effectiveStatus,
                     booking == null ? null : booking.getBookingId(),
                     booking == null ? null : booking.getStatus(),
                     session.getPriceAmount());
@@ -282,7 +313,7 @@ public class BookingService {
         PublicSport sport = getActiveSport(sportId);
         LocalDate today = LocalDate.now();
         LocalDateTime horizon = today.plusDays(14).atStartOfDay();
-        return sportsCourtRepository.findBySportIdAndActiveTrueOrderByCourtIdAsc(sportId).stream()
+        return sportsCourtRepository.findBySportIdOrderByCourtIdAsc(sportId).stream()
                 .flatMap(court -> {
                     LocalDateTime from = today.atStartOfDay();
                     List<CourtBooking> existingBookings = courtBookingRepository
@@ -306,22 +337,36 @@ public class BookingService {
         LocalDateTime slot = date.atTime(court.getOpensAt());
         LocalDateTime close = date.atTime(court.getClosesAt());
         List<CourtSlotResponse> slots = new java.util.ArrayList<>();
+        boolean courtInactive = !court.isActive();
         while (!slot.plusHours(1).isAfter(close)) {
             LocalDateTime end = slot.plusHours(1);
             LocalDateTime candidate = slot;
             boolean occupied = existingBookings.stream().anyMatch(booking ->
                     booking.getStartTime().isBefore(end) && booking.getEndTime().isAfter(candidate));
-            boolean underMaintenance = maintenanceWindows != null && maintenanceWindows.stream().anyMatch(m ->
-                    m.getStartTime().isBefore(end) && m.getEndTime().isAfter(candidate));
-            if (slot.isAfter(now) && !occupied && !underMaintenance) {
-                slots.add(new CourtSlotResponse(
-                        court.getCourtId(),
-                        court.getCourtName(),
-                        court.getDescription(),
-                        sport.getName(),
-                        court.getHourlyRate(),
-                        slot,
-                        end));
+            boolean underMaintenance = courtInactive || (maintenanceWindows != null && maintenanceWindows.stream().anyMatch(m ->
+                    m.getStartTime().isBefore(end) && m.getEndTime().isAfter(candidate)));
+            if (slot.isAfter(now)) {
+                if (underMaintenance) {
+                    slots.add(new CourtSlotResponse(
+                            court.getCourtId(),
+                            court.getCourtName(),
+                            court.getDescription(),
+                            sport.getName(),
+                            court.getHourlyRate(),
+                            slot,
+                            end,
+                            "MAINTENANCE"));
+                } else if (!occupied) {
+                    slots.add(new CourtSlotResponse(
+                            court.getCourtId(),
+                            court.getCourtName(),
+                            court.getDescription(),
+                            sport.getName(),
+                            court.getHourlyRate(),
+                            slot,
+                            end,
+                            "AVAILABLE"));
+                }
             }
             slot = end;
         }
@@ -578,8 +623,10 @@ public class BookingService {
 
     private BookingConfirmationResponse checkoutCourt(Long memberId, CheckoutRequest request) {
         SportsCourt court = sportsCourtRepository.findByIdForUpdate(request.itemId())
-                .filter(SportsCourt::isActive)
-                .orElseThrow(() -> notFound("Không tìm thấy sân đang hoạt động."));
+                .orElseThrow(() -> notFound("Không tìm thấy sân thể thao."));
+        if (!court.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Sân này đang trong lịch bảo trì, tạm thời không nhận đặt chỗ.");
+        }
         long hours = validateCourtSlot(court, request.startTime(), request.endTime());
         if (courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(court.getCourtId(), request.endTime(), request.startTime())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Sân này đang trong lịch bảo trì, không thể đặt chỗ.");
@@ -966,6 +1013,13 @@ public class BookingService {
                 || !session.getStartTime().isAfter(LocalDateTime.now())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Lớp học không còn mở đăng ký.");
         }
+        if (session.getFacilityId() != null && facilityRepository != null) {
+            facilityRepository.findById(session.getFacilityId()).ifPresent(f -> {
+                if ("MAINTENANCE".equalsIgnoreCase(f.getStatus())) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Cơ sở vật chất của lớp học này đang trong thời gian bảo trì, tạm thời không nhận đăng ký.");
+                }
+            });
+        }
         requirePrice(session.getPriceAmount());
     }
 
@@ -1017,9 +1071,12 @@ public class BookingService {
     }
 
     private SportsCourt getActiveCourt(Long courtId) {
-        return sportsCourtRepository.findById(courtId)
-                .filter(SportsCourt::isActive)
-                .orElseThrow(() -> notFound("Không tìm thấy sân đang hoạt động."));
+        SportsCourt court = sportsCourtRepository.findById(courtId)
+                .orElseThrow(() -> notFound("Không tìm thấy sân thể thao."));
+        if (!court.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Sân/Làn bơi này đang trong lịch bảo trì, tạm thời không nhận đặt chỗ.");
+        }
+        return court;
     }
 
     @Transactional(readOnly = true)

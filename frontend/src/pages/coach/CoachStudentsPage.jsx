@@ -1198,10 +1198,30 @@ export default function CoachStudentsPage() {
                                     </span>
                                   </div>
 
+                                  {parsedExercises.length > 0 && (
+                                    <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 pt-1">
+                                      <span>Tiến độ học viên:</span>
+                                      <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                        {parsedExercises.filter(e => e.completed).length}/{parsedExercises.length} bài hoàn thành
+                                      </span>
+                                    </div>
+                                  )}
+
                                   <div className="flex flex-wrap gap-1.5 pt-1">
                                     {parsedExercises.map((e, i) => (
-                                      <span key={i} className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[11px] font-medium text-slate-700">
+                                      <span
+                                        key={i}
+                                        className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium flex items-center gap-1.5 ${
+                                          e.completed
+                                            ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                                            : 'bg-white border-slate-200 text-slate-700'
+                                        }`}
+                                      >
+                                        <span className={`material-symbols-outlined text-[14px] ${e.completed ? 'text-emerald-600 font-bold' : 'text-slate-300'}`}>
+                                          {e.completed ? 'check_circle' : 'radio_button_unchecked'}
+                                        </span>
                                         <strong>{e.name}</strong>: {e.sets}x{e.reps} {e.weightKg > 0 ? `(${e.weightKg}kg)` : ''}
+                                        {e.completed && <span className="text-[10px] font-bold text-emerald-600 uppercase">Đã tập</span>}
                                       </span>
                                     ))}
                                   </div>

@@ -78,10 +78,16 @@ test('manager schedules maintenance to lock court, blocks member booking, and un
   const slots = await slotsRes.json();
 
   // Court 2 should have NO available slots today because of maintenance
-  const court2TodaySlots = slots.filter(
-    (s) => s.courtId === 2 && s.startTime.startsWith(today),
+  const court2TodayAvailableSlots = slots.filter(
+    (s) => s.courtId === 2 && s.startTime.startsWith(today) && (!s.status || s.status === 'AVAILABLE'),
   );
-  expect(court2TodaySlots.length).toBe(0);
+  expect(court2TodayAvailableSlots.length).toBe(0);
+
+  // All Court 2 slots during maintenance window should be marked MAINTENANCE
+  const court2TodayMaintSlots = slots.filter(
+    (s) => s.courtId === 2 && s.startTime.startsWith(today) && s.status === 'MAINTENANCE',
+  );
+  expect(court2TodayMaintSlots.length).toBeGreaterThan(0);
 
   // 6. Member attempts direct quote on Court 2 during maintenance -> MUST BE 409 Conflict
   const quoteRes = await page.request.get(
