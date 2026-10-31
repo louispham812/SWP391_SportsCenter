@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import CreateUserModal from '../../components/common/CreateUserModal';
 import { TableSkeleton } from '../../components/common/Skeleton';
+import Pagination from '../../components/common/Pagination';
 import { apiRequest } from '../../services/apiClient';
 import { getStaffPerformance } from '../../services/managerApi';
 
@@ -261,30 +262,16 @@ export default function AdminStaffPage() {
                 </table>
               </div>
               <footer className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-sm text-slate-500">
-                  {usersPage.totalElements} tài khoản trong database
+                <span className="text-sm text-slate-500 font-medium">
+                  {usersPage.totalElements} tài khoản
                 </span>
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPage((current) => Math.max(0, current - 1))}
-                    disabled={page === 0 || loading}
-                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Trước
-                  </button>
-                  <span className="px-2 text-sm text-slate-600">
-                    {usersPage.totalPages === 0 ? 0 : page + 1} / {usersPage.totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setPage((current) => current + 1)}
-                    disabled={page + 1 >= usersPage.totalPages || loading}
-                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Sau
-                  </button>
-                </div>
+                {usersPage.totalPages > 1 && (
+                  <Pagination
+                    currentPage={page + 1}
+                    totalPages={usersPage.totalPages}
+                    onPageChange={(p) => setPage(p - 1)}
+                  />
+                )}
               </footer>
             </>
           )}

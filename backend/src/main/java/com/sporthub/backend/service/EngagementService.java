@@ -7,6 +7,8 @@ import com.sporthub.backend.repository.AuditLogRepository;
 import com.sporthub.backend.repository.NotificationRepository;
 import com.sporthub.backend.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -32,6 +34,7 @@ public class EngagementService {
         this.userRepository = userRepository;
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void notifyUser(Long userId, String title, String message, String type) {
         if (userId == null) {
             return;
@@ -62,6 +65,7 @@ public class EngagementService {
         return recipients.size();
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void audit(Long actorId, String actorRole, String action, String detail) {
         try {
             String name = actorId == null ? null

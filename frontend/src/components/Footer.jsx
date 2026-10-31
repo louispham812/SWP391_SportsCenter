@@ -62,7 +62,7 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-slate-100 text-xs text-slate-500 font-medium">
-          <p>© 2026 F SPORT CENTER · ATHLETIC PERFORMANCE SANCTUARY</p>
+          <p>© 2026 F SPORT CENTER · Trung Tâm Thể Thao Đa Năng</p>
           <span className="font-bold text-orange-600 uppercase tracking-wider">PERFORMANCE FIRST</span>
         </div>
       </div>

@@ -44,3 +44,27 @@ export const checkInReceptionMember = (data) =>
     body: JSON.stringify(data),
   });
 
+export const getReceptionistOverview = () =>
+  apiRequest('/receptionist/dashboard-overview');
+
+export const getReceptionistProfile = () =>
+  apiRequest('/receptionist/profile');
+
+export const updateReceptionistProfile = (data) =>
+  apiRequest('/receptionist/profile', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+
+export const updateReceptionistAvatar = (avatar) =>
+  apiRequest('/receptionist/avatar', {
+    method: 'PUT',
+    body: JSON.stringify({ avatar }),
+  });
+
+export const changeReceptionistPassword = (data) =>
+  apiRequest('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+

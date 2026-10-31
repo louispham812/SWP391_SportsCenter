@@ -27,14 +27,17 @@ import MemberAIAssistantPage from './pages/member/MemberAIAssistantPage';
 import MemberProfilePage from './pages/member/MemberProfilePage';
 
 // Receptionist Portal Pages
+import ReceptionDashboardPage from './pages/receptionist/ReceptionDashboardPage';
 import ReceptionCheckInPage from './pages/receptionist/ReceptionCheckInPage';
 import ReceptionPOSPage from './pages/receptionist/ReceptionPOSPage';
 import ReceptionMembersPage from './pages/receptionist/ReceptionMembersPage';
 import ReceptionClassesPage from './pages/receptionist/ReceptionClassesPage';
 import ReceptionShiftReportPage from './pages/receptionist/ReceptionShiftReportPage';
 import ReceptionEquipmentPage from './pages/receptionist/ReceptionEquipmentPage';
+import ReceptionProfilePage from './pages/receptionist/ReceptionProfilePage';
 
 // Coach Portal Pages (Chỉ giữ các trang đã tạo)
+import CoachDashboardPage from './pages/coach/CoachDashboardPage';
 import CoachSchedulePage from './pages/coach/CoachSchedulePage';
 import CoachStudentsPage from './pages/coach/CoachStudentsPage';
 import CoachAttendancePage from './pages/coach/CoachAttendancePage';
@@ -118,15 +121,18 @@ function App() {
 
           <Route path="/member/reviews" element={<RequireRole role="member"><MemberReviewsPage /></RequireRole>} />
           {/* Receptionist Routes */}
-          <Route path="/receptionist" element={<RequireRole role="receptionist"><ReceptionCheckInPage /></RequireRole>} />
+          <Route path="/receptionist" element={<RequireRole role="receptionist"><ReceptionDashboardPage /></RequireRole>} />
+          <Route path="/receptionist/checkin" element={<RequireRole role="receptionist"><ReceptionCheckInPage /></RequireRole>} />
+          <Route path="/receptionist/check-in" element={<RequireRole role="receptionist"><ReceptionCheckInPage /></RequireRole>} />
           <Route path="/receptionist/pos" element={<RequireRole role="receptionist"><ReceptionPOSPage /></RequireRole>} />
           <Route path="/receptionist/equipment" element={<RequireRole role="receptionist"><ReceptionEquipmentPage /></RequireRole>} />
           <Route path="/receptionist/members" element={<RequireRole role="receptionist"><ReceptionMembersPage /></RequireRole>} />
           <Route path="/receptionist/classes" element={<RequireRole role="receptionist"><ReceptionClassesPage /></RequireRole>} />
           <Route path="/receptionist/shift" element={<RequireRole role="receptionist"><ReceptionShiftReportPage /></RequireRole>} />
+          <Route path="/receptionist/profile" element={<RequireRole role="receptionist"><ReceptionProfilePage /></RequireRole>} />
 
           {/* Coach Routes */}
-          <Route path="/coach" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
+          <Route path="/coach" element={<RequireRole role="coach"><CoachDashboardPage /></RequireRole>} />
           <Route path="/coach/schedule" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
           <Route path="/coach/students" element={<RequireRole role="coach"><CoachStudentsPage /></RequireRole>} />
           <Route path="/coach/attendance" element={<RequireRole role="coach"><CoachAttendancePage /></RequireRole>} />

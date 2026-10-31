@@ -241,8 +241,8 @@ export default function AboutPage() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-orange-600 bg-orange-100/70 px-3 py-1 rounded-full">
-                    DATABASE CONTENT
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-orange-700 bg-orange-100/70 px-3 py-1 rounded-full">
+                    BỘ MÔN NỔI BẬT
                   </span>
                   <h3 className="text-xl sm:text-3xl font-black uppercase text-slate-900 mt-2">
                     Các Bộ Môn Được Đào Tạo Trực Tiếp

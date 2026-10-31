@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import CoachLayout from '../../components/layouts/CoachLayout';
 import { getCoachStudents } from '../../services/bookingApi';
 import { generateCoachPlan } from '../../services/aiAssistantApi';
@@ -6,6 +7,10 @@ import { createWorkoutPlan, createClassWorkoutPlan, getMemberWorkoutProgress } f
 import { sendCoachNotice } from '../../services/coachApi';
 import { CardGridSkeleton } from '../../components/common/Skeleton';
 import { useApp } from '../../context/AppContext';
+import Pagination from '../../components/common/Pagination';
+import { getAvatarImageUrl } from '../../utils/avatarHelper';
+import FormattedAiText from '../../components/common/FormattedAiText';
+import { cleanMarkdownText } from '../../utils/markdownUtils';
 
 export default function CoachStudentsPage() {
   const [students, setStudents] = useState([]);
@@ -16,6 +21,8 @@ export default function CoachStudentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClassFilter, setSelectedClassFilter] = useState('ALL');
   const [selectedLevelFilter, setSelectedLevelFilter] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const STUDENTS_PER_PAGE = 6;
   const [generatingBookingId, setGeneratingBookingId] = useState(null);
   const [plans, setPlans] = useState({});
   const [planErrors, setPlanErrors] = useState({});
@@ -163,6 +170,17 @@ export default function CoachStudentsPage() {
       return matchesSearch && matchesClass && matchesLevel;
     });
   }, [students, searchQuery, selectedClassFilter, selectedLevelFilter]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedClassFilter, selectedLevelFilter]);
+
+  const totalPages = Math.ceil(filteredStudents.length / STUDENTS_PER_PAGE) || 1;
+  const paginatedStudents = useMemo(() => {
+    const start = (currentPage - 1) * STUDENTS_PER_PAGE;
+    return filteredStudents.slice(start, start + STUDENTS_PER_PAGE);
+  }, [filteredStudents, currentPage]);
 
   const totalEnrollments = useMemo(() => {
     return students.reduce((sum, s) => sum + s.sessions.length, 0);
@@ -439,13 +457,13 @@ export default function CoachStudentsPage() {
         {/* Header */}
         <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200/80 text-orange-700 text-xs font-semibold mb-2">
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-              F SPORT COACH · QUẢN LÝ HỌC VIÊN
+              Quản lý học viên
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Học Viên & Giáo Án</h1>
+            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Học viên &amp; Giáo án</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Quản lý hồ sơ thể lực PAR-Q, giao giáo án bài tập cá nhân / cả lớp và gửi thông báo trực tiếp.
+              Quản lý hồ sơ sức khỏe, giao giáo án bài tập cá nhân hoặc cả lớp và gửi thông báo dặn dò.
             </p>
           </div>
 
@@ -540,8 +558,9 @@ export default function CoachStudentsPage() {
             <span>Không tìm thấy học viên nào phù hợp với bộ lọc hiện tại.</span>
           </div>
         ) : (
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {filteredStudents.map((student) => {
+          <div className="space-y-6">
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 items-stretch">
+              {paginatedStudents.map((student) => {
               // Check if student has overlapping sessions with this coach
               const hasStudentTimeConflict = student.sessions.some((s1, idx) =>
                 student.sessions.some(
@@ -554,7 +573,7 @@ export default function CoachStudentsPage() {
               return (
                 <article
                   key={student.id}
-                  className={`rounded-2xl border p-5 shadow-sm transition-all flex flex-col justify-between ${
+                  className={`rounded-2xl border p-5 shadow-sm transition-all h-full flex flex-col justify-between ${
                     hasStudentTimeConflict
                       ? 'border-rose-300 bg-rose-50/20'
                       : 'border-slate-200 bg-white hover:border-orange-300'
@@ -564,9 +583,9 @@ export default function CoachStudentsPage() {
                     {/* Top row: Avatar & Basic Info */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-3">
-                        {student.avatar && student.avatar.startsWith('data:image') ? (
+                        {getAvatarImageUrl(student.avatar) ? (
                           <img
-                            src={student.avatar}
+                            src={getAvatarImageUrl(student.avatar)}
                             alt={student.name}
                             className="h-12 w-12 rounded-xl object-cover border border-slate-200 shadow-xs shrink-0"
                           />
@@ -725,7 +744,7 @@ export default function CoachStudentsPage() {
                   </div>
 
                   {/* Action Buttons: Giao Giáo Án & Gửi Thông Báo */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2">
+                  <div className="mt-auto pt-3.5 border-t border-slate-100 grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => openPlanModal(student)}
@@ -746,7 +765,21 @@ export default function CoachStudentsPage() {
                 </article>
               );
             })}
-          </section>
+            </section>
+
+            {totalPages > 1 && (
+              <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-xs text-slate-500 font-medium">
+                  Hiển thị {(currentPage - 1) * STUDENTS_PER_PAGE + 1} - {Math.min(currentPage * STUDENTS_PER_PAGE, filteredStudents.length)} trên tổng số {filteredStudents.length} học viên
+                </span>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            )}
+          </div>
         )}
 
         <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-xs text-amber-900 flex items-start gap-3">
@@ -757,9 +790,9 @@ export default function CoachStudentsPage() {
         </div>
 
         {/* MODAL: SOẠN GIÁO ÁN & ĐÁNH GIÁ (CÁ NHÂN HOẶC CẢ LỚP) */}
-        {(selectedStudentForPlan || planScope === 'class') && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in">
-            <div className="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl space-y-5">
+        {(selectedStudentForPlan || planScope === 'class') && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto">
+            <div className="relative w-full max-w-3xl max-h-[92vh] my-auto overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl space-y-5">
               {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
@@ -1017,7 +1050,7 @@ export default function CoachStudentsPage() {
                     <textarea
                       rows="2"
                       value={planForm.sessionResult}
-                      onChange={(e) => setPlanForm({ ...planForm, sessionResult: e.target.value })}
+                      onChange={(e) => setPlanForm({ ...planForm, sessionResult: cleanMarkdownText(e.target.value) })}
                       placeholder="VD: Squat 75kg 4x10 mượt mà. 1RM Squat ước tính đạt 95kg. Thời gian hoàn thành 45 phút."
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-orange-500 bg-slate-50 focus:bg-white"
                     />
@@ -1032,7 +1065,7 @@ export default function CoachStudentsPage() {
                     <textarea
                       rows="2"
                       value={planForm.coachFeedback}
-                      onChange={(e) => setPlanForm({ ...planForm, coachFeedback: e.target.value })}
+                      onChange={(e) => setPlanForm({ ...planForm, coachFeedback: cleanMarkdownText(e.target.value) })}
                       placeholder="VD: Cảm giác bóng và bộ chân di chuyển tiến bộ rõ rệt. Cần chú ý giữ nhịp thở đều ở set thứ 4."
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-orange-500 bg-slate-50 focus:bg-white"
                     />
@@ -1047,7 +1080,7 @@ export default function CoachStudentsPage() {
                     <textarea
                       rows="2"
                       value={planForm.homework}
-                      onChange={(e) => setPlanForm({ ...planForm, homework: e.target.value })}
+                      onChange={(e) => setPlanForm({ ...planForm, homework: cleanMarkdownText(e.target.value) })}
                       placeholder="VD: Chạy bộ nhẹ 20 phút các ngày nghỉ. Bổ sung đủ 1.8g protein/kg và ngủ đủ 7-8 tiếng."
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-orange-500 bg-slate-50 focus:bg-white"
                     />
@@ -1174,20 +1207,23 @@ export default function CoachStudentsPage() {
                                   </div>
 
                                   {p.sessionResult && (
-                                    <div className="p-2.5 rounded-xl bg-blue-50/80 border border-blue-100 text-[11px] text-blue-900">
-                                      <strong>Kết quả:</strong> {p.sessionResult}
+                                    <div className="p-2.5 rounded-xl bg-blue-50/80 border border-blue-100 text-[11px] text-blue-900 space-y-1">
+                                      <strong className="block text-[10px] uppercase tracking-wider text-blue-700">Kết quả:</strong>
+                                      <FormattedAiText content={p.sessionResult} />
                                     </div>
                                   )}
 
                                   {p.coachFeedback && (
-                                    <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-100 text-[11px] text-emerald-900">
-                                      <strong>Nhận xét HLV:</strong> {p.coachFeedback}
+                                    <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-100 text-[11px] text-emerald-900 space-y-1">
+                                      <strong className="block text-[10px] uppercase tracking-wider text-emerald-700">Nhận xét HLV:</strong>
+                                      <FormattedAiText content={p.coachFeedback} />
                                     </div>
                                   )}
 
                                   {p.homework && (
-                                    <div className="p-2.5 rounded-xl bg-purple-50/80 border border-purple-100 text-[11px] text-purple-900">
-                                      <strong>Bài tập về nhà:</strong> {p.homework}
+                                    <div className="p-2.5 rounded-xl bg-purple-50/80 border border-purple-100 text-[11px] text-purple-900 space-y-1">
+                                      <strong className="block text-[10px] uppercase tracking-wider text-purple-700">Bài tập về nhà:</strong>
+                                      <FormattedAiText content={p.homework} />
                                     </div>
                                   )}
                                 </div>
@@ -1201,13 +1237,14 @@ export default function CoachStudentsPage() {
                 </div>
               )}
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* ITEM 7: MODAL GỬI THÔNG BÁO / NHẮC NHỞ CHO HỌC VIÊN HOẶC CẢ LỚP */}
-        {noticeModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in">
-            <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl space-y-4">
+        {noticeModalOpen && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto">
+            <div className="relative w-full max-w-xl max-h-[90vh] my-auto overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-blue-500 text-white flex items-center justify-center font-black">
@@ -1372,7 +1409,8 @@ export default function CoachStudentsPage() {
                 </div>
               </form>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </CoachLayout>

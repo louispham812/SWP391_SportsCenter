@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { getAvatarImageUrl, getAvatarInitials } from '../utils/avatarHelper';
 
 export default function Navbar() {
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
@@ -54,8 +55,8 @@ export default function Navbar() {
               F SPORT <span className="text-orange-500">CENTER</span>
             </span>
             {/* Đã đổi slogan chuẩn Thương hiệu Thể thao */}
-            <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
-              ATHLETIC PERFORMANCE SANCTUARY
+            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+              TRUNG TÂM THỂ THAO ĐA NĂNG
             </span>
           </div>
         </Link>
@@ -91,9 +92,20 @@ export default function Navbar() {
               <Link
                 to={accountPath}
                 title={`Khu vực ${currentUser.roleTitle}`}
-                className="w-9 h-9 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 flex items-center justify-center text-orange-600 font-black text-xs transition-colors"
+                className="w-9 h-9 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 flex items-center justify-center text-orange-600 font-black text-xs transition-colors overflow-hidden shrink-0"
               >
-                {currentUser.avatar || <span className="material-symbols-outlined text-[20px]">person</span>}
+                {getAvatarImageUrl(currentUser.avatar) ? (
+                  <img
+                    src={getAvatarImageUrl(currentUser.avatar)}
+                    alt={currentUser.name || 'Avatar'}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <span>{getAvatarInitials(currentUser.name, 'US')}</span>
+                )}
               </Link>
               <button
                 type="button"

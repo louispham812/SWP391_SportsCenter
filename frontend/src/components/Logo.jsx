@@ -31,7 +31,7 @@ export default function Logo({ className = '', showText = true, isDark = false }
           <span className={`text-[10px] uppercase tracking-widest font-bold ${
             isDark ? 'text-slate-400' : 'text-slate-500'
           }`}>
-            FPT Athletic Sanctuary
+            Trung Tâm Thể Thao Đa Năng
           </span>
         </div>
       )}

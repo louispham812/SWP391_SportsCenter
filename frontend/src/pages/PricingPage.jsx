@@ -89,15 +89,15 @@ export default function PricingPage() {
           
           {/* Header Trang Bảng Giá */}
           <div className="text-center max-w-3xl mx-auto space-y-3 mb-8">
-            <span className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-600 text-[11px] font-black uppercase tracking-wider">
+            <span className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-orange-50 border border-orange-200/80 text-orange-700 text-xs font-semibold">
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-              BẢNG GIÁ HỘI VIÊN • F SPORT CENTER
+              Bảng giá hội viên
             </span>
-            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 uppercase tracking-tight">
-              Chọn Gói Tập <span className="text-orange-500">Phù Hợp Với Bạn</span>
+            <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">
+              Chọn gói tập <span className="text-orange-500">phù hợp với bạn</span>
             </h1>
-            <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed max-w-2xl mx-auto">
-              Dữ liệu giá và thời hạn cập nhật trực tiếp theo thời gian thực từ cơ sở dữ liệu hệ thống. Không phụ phí ẩn, tích hợp đặc quyền đo InBody và tiện ích 5 sao.
+            <p className="text-xs sm:text-sm text-slate-600 font-normal leading-relaxed max-w-2xl mx-auto">
+              Bảng giá niêm yết minh bạch, không phụ phí ẩn, tích hợp trọn vẹn tiện ích rèn luyện và dịch vụ kiểm tra thể trạng.
             </p>
           </div>
 

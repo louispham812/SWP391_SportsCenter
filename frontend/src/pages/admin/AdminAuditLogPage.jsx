@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import { getAuditLogs } from '../../services/engagementApi';
 import { TableSkeleton } from '../../components/common/Skeleton';
+import Pagination from '../../components/common/Pagination';
 
 // MGR-14: Xem Audit Log (dữ liệu thật từ bảng audit_logs)
 export default function AdminAuditLogPage() {
@@ -9,6 +10,8 @@ export default function AdminAuditLogPage() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const LOGS_PER_PAGE = 10;
 
   useEffect(() => {
     getAuditLogs()
@@ -25,11 +28,25 @@ export default function AdminAuditLogPage() {
         .some((v) => (v || '').toLowerCase().includes(q)));
   }, [logs, query]);
 
+  const totalPages = Math.ceil(filtered.length / LOGS_PER_PAGE) || 1;
+  const paginatedLogs = useMemo(() => {
+    const start = (currentPage - 1) * LOGS_PER_PAGE;
+    return filtered.slice(start, start + LOGS_PER_PAGE);
+  }, [filtered, currentPage]);
+
   return (
     <AdminLayout>
       <div className="space-y-4">
         <h1 className="text-xl font-bold text-primary uppercase">Nhật ký hệ thống (Audit Log)</h1>
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Lọc theo hành động, người thực hiện, nội dung..." className="w-full max-w-md rounded-lg border border-slate-200 p-2 text-sm" />
+        <input
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setCurrentPage(1);
+          }}
+          placeholder="Lọc theo hành động, người thực hiện, nội dung..."
+          className="w-full max-w-md rounded-lg border border-slate-200 p-2 text-sm"
+        />
         {error && <p className="text-sm text-red-600">{error}</p>}
         {loading ? (
           <TableSkeleton rows={6} cols={4} />
@@ -40,7 +57,7 @@ export default function AdminAuditLogPage() {
                 <tr><th className="p-3">Thời gian</th><th className="p-3">Người thực hiện</th><th className="p-3">Hành động</th><th className="p-3">Chi tiết</th></tr>
               </thead>
               <tbody>
-                {filtered.map((l) => (
+                {paginatedLogs.map((l) => (
                   <tr key={l.logId} className="border-t border-slate-100 hover:bg-slate-50/50">
                     <td className="p-3 whitespace-nowrap">{l.createdAt ? new Date(l.createdAt).toLocaleString('vi-VN') : ''}</td>
                     <td className="p-3 font-medium text-slate-800">
@@ -60,6 +77,19 @@ export default function AdminAuditLogPage() {
                 )}
               </tbody>
             </table>
+
+            {totalPages > 1 && (
+              <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-xs text-slate-500 font-medium">
+                  Hiển thị {(currentPage - 1) * LOGS_PER_PAGE + 1} - {Math.min(currentPage * LOGS_PER_PAGE, filtered.length)} trên {filtered.length} nhật ký
+                </span>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -214,6 +214,15 @@ public class ManagerController {
             @PathVariable Long userId,
             Authentication authentication) {
         requireManager(authentication);
+        Long currentManagerId = actorId(authentication);
+        if (currentManagerId != null && currentManagerId.equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quản lý không thể tự khóa tài khoản của chính mình (BR-03).");
+        }
+        User targetUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng."));
+        if ("MANAGER".equalsIgnoreCase(targetUser.getRole()) || "ADMIN".equalsIgnoreCase(targetUser.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Không thể khóa tài khoản có vai trò Quản lý hoặc Quản trị viên (BR-03).");
+        }
         return updateMemberStatus(userId, "ACTIVE", "LOCKED");
     }
 
@@ -489,6 +498,19 @@ public class ManagerController {
         if (!isManager(authentication)) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN, "Chỉ Quản lý mới được thực hiện thao tác này.");
+        }
+    }
+
+    private Long actorId(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            return null;
+        }
+        try {
+            return Long.valueOf(authentication.getName());
+        } catch (NumberFormatException e) {
+            return userRepository.findByEmailIgnoreCase(authentication.getName())
+                    .map(User::getUserId)
+                    .orElse(null);
         }
     }
 

@@ -16,17 +16,38 @@ export async function apiRequest(path, options = {}) {
 
   const response = await fetch(`${API_BASE_URL}${path}`, { ...requestOptions, headers });
   if (!response.ok) {
-    let message;
+    const rawText = await response.text();
+    let message = '';
     try {
-      // Try to parse error response as JSON first (Spring Boot error format)
-      const errorData = await response.json();
-      // Extract message from Spring Boot error response format
-      message = errorData.message || errorData.error || `API request failed (${response.status}).`;
+      const parsed = JSON.parse(rawText);
+      message = parsed.message || parsed.error_description || parsed.detail || '';
+      if (!message && parsed.error && parsed.error !== 'Conflict' && parsed.error !== 'Bad Request') {
+        message = parsed.error;
+      }
     } catch {
-      // Fallback to plain text if JSON parsing fails
-      message = await response.text() || `API request failed (${response.status}).`;
+      message = rawText;
     }
-    throw new Error(message);
+
+    if (!message || message.trim() === '') {
+      if (response.status === 409) {
+        message = 'Lịch học hoặc đặt chỗ bị trùng khung giờ với lịch hiện có của bạn.';
+      } else if (response.status === 400) {
+        message = 'Thông tin gửi lên không hợp lệ.';
+      } else if (response.status === 401) {
+        message = 'Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.';
+      } else if (response.status === 403) {
+        message = 'Bạn không có quyền thực hiện thao tác này.';
+      } else if (response.status === 404) {
+        message = 'Không tìm thấy dữ liệu yêu cầu.';
+      } else {
+        message = `Hệ thống gặp sự cố (${response.status}). Vui lòng thử lại sau ít phút.`;
+      }
+    }
+
+    const err = new Error(message);
+    err.status = response.status;
+    err.raw = rawText;
+    throw err;
   }
   return response.status === 204 ? null : response.json();
 }

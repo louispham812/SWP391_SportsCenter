@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext';
 
 export default function ToastContainer() {
@@ -6,8 +7,8 @@ export default function ToastContainer() {
 
   if (!toasts || toasts.length === 0) return null;
 
-  return (
-    <div className="fixed top-5 right-5 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
+  return createPortal(
+    <div className="fixed top-5 right-5 z-[100000] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
       {toasts.map((toast) => {
         const isSuccess = toast.type === 'success';
         const isError = toast.type === 'error';
@@ -16,7 +17,7 @@ export default function ToastContainer() {
         return (
           <div
             key={toast.id}
-            className={`pointer-events-auto transform transition-all duration-300 animate-in fade-in slide-in-from-top-4 flex items-start gap-3 p-4 rounded-2xl shadow-xl border backdrop-blur-xl ${
+            className={`pointer-events-auto transform transition-all duration-300 animate-in fade-in slide-in-from-top-4 flex items-start gap-3 p-4 rounded-2xl shadow-2xl border backdrop-blur-xl ${
               isSuccess
                 ? 'bg-slate-900/95 text-white border-slate-700/80 shadow-[0_8px_30px_rgba(0,19,43,0.3)]'
                 : isError
@@ -65,7 +66,7 @@ export default function ToastContainer() {
             {/* Close */}
             <button
               onClick={() => removeToast(toast.id)}
-              className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
+              className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10 cursor-pointer"
               type="button"
             >
               <span className="material-symbols-outlined text-[16px]">close</span>
@@ -73,6 +74,7 @@ export default function ToastContainer() {
           </div>
         );
       })}
-    </div>
+    </div>,
+    document.body
   );
 }

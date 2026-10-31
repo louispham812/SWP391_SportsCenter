@@ -421,7 +421,7 @@ export default function ChangePasswordPage() {
 
       {/* Footer */}
       <footer className="w-full py-4 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white">
-        © 2026 F SPORT CENTER • Athletic Performance Sanctuary. Hotline hỗ trợ: 1900 8899
+        © 2026 F SPORT CENTER • Trung Tâm Thể Thao Đa Năng. Hotline hỗ trợ: 1900 8899
       </footer>
     </div>
   );

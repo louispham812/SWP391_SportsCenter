@@ -90,6 +90,21 @@ BEGIN
     )
 END;
 
+IF OBJECT_ID(N'dbo.verification_tokens', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.verification_tokens (
+        token_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        email VARCHAR(100) NOT NULL,
+        token_hash VARCHAR(64) NOT NULL,
+        token_type VARCHAR(20) NOT NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_verification_tokens_created DEFAULT SYSDATETIME(),
+        expires_at DATETIME2 NOT NULL,
+        used_at DATETIME2 NULL,
+        failed_attempts INT NOT NULL CONSTRAINT DF_verification_tokens_failed DEFAULT 0,
+        locked BIT NOT NULL CONSTRAINT DF_verification_tokens_locked DEFAULT 0
+    )
+END;
+
 IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
     EXEC(N'
         DECLARE @statusConstraintName sysname;
@@ -191,6 +206,33 @@ IF OBJECT_ID(N'dbo.bookings', N'U') IS NOT NULL
 BEGIN
     ALTER TABLE dbo.bookings ADD payment_id BIGINT NULL
 END;
+
+IF OBJECT_ID(N'dbo.bookings', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.bookings', N'uses_membership_quota') IS NULL
+BEGIN
+    ALTER TABLE dbo.bookings ADD uses_membership_quota BIT NULL CONSTRAINT DF_bookings_uses_membership_quota DEFAULT 0
+END;
+
+IF OBJECT_ID(N'dbo.bookings', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.bookings', N'membership_id') IS NULL
+BEGIN
+    ALTER TABLE dbo.bookings ADD membership_id INT NULL
+END;
+
+IF OBJECT_ID(N'dbo.bookings', N'U') IS NOT NULL
+   AND EXISTS (
+       SELECT 1 FROM sys.check_constraints
+       WHERE parent_object_id = OBJECT_ID(N'dbo.bookings')
+         AND definition LIKE N'%attendance_status%'
+         AND definition NOT LIKE N'%EXCUSED_ABSENCE%'
+   )
+    EXEC(N'
+        DECLARE @ckName sysname;
+        SELECT TOP 1 @ckName = name FROM sys.check_constraints WHERE parent_object_id = OBJECT_ID(N''dbo.bookings'') AND definition LIKE ''%attendance_status%'';
+        IF @ckName IS NOT NULL
+            EXEC(''ALTER TABLE dbo.bookings DROP CONSTRAINT '' + @ckName);
+        ALTER TABLE dbo.bookings ADD CONSTRAINT CK_bookings_attendance_status CHECK (attendance_status IN (''PENDING'', ''PRESENT'', ''EXCUSED_ABSENCE'', ''UNEXCUSED_ABSENCE'', ''ABSENT''));
+    ');
 
 IF NOT EXISTS (SELECT 1 FROM dbo.public_sports WHERE slug = N'gym-fitness')
     INSERT INTO dbo.public_sports (slug, name, subtitle, tag, description, icon, area, active)
@@ -579,7 +621,8 @@ IF OBJECT_ID(N'dbo.vouchers', N'U') IS NOT NULL
 IF COL_LENGTH('dbo.vouchers', 'max_discount_amount') IS NOT NULL
     EXEC(N'UPDATE dbo.vouchers SET discount_amount = max_discount_amount WHERE discount_amount IS NULL AND max_discount_amount IS NOT NULL;');
 
-UPDATE dbo.vouchers SET discount_value = discount_percent WHERE discount_value IS NULL AND discount_percent IS NOT NULL;
+IF COL_LENGTH('dbo.vouchers', 'discount_value') IS NOT NULL
+    EXEC(N'UPDATE dbo.vouchers SET discount_value = discount_percent WHERE discount_value IS NULL AND discount_percent IS NOT NULL;');
 
 IF NOT EXISTS (SELECT 1 FROM dbo.vouchers WHERE code = N'TET2026')
     INSERT INTO dbo.vouchers (code, discount_type, discount_value, discount_percent, discount_amount, min_purchase, valid_until, usage_limit, used_count, applies_to, status)
@@ -781,15 +824,44 @@ IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NULL
         created_at DATETIME2 NOT NULL CONSTRAINT DF_audit_logs_created DEFAULT SYSDATETIME()
     );
 
-IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL
-   AND COL_LENGTH(N'dbo.audit_logs', N'action') IS NULL
-BEGIN
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'actor_id') IS NULL
     ALTER TABLE dbo.audit_logs ADD actor_id BIGINT NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'actor_name') IS NULL
     ALTER TABLE dbo.audit_logs ADD actor_name NVARCHAR(100) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'actor_role') IS NULL
     ALTER TABLE dbo.audit_logs ADD actor_role VARCHAR(20) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'action') IS NULL
     ALTER TABLE dbo.audit_logs ADD action VARCHAR(60) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'detail') IS NULL
     ALTER TABLE dbo.audit_logs ADD detail NVARCHAR(1000) NULL;
-END;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'log_type') IS NULL
+    ALTER TABLE dbo.audit_logs ADD log_type VARCHAR(50) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'user_email') IS NULL
+    ALTER TABLE dbo.audit_logs ADD user_email VARCHAR(100) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'user_id') IS NULL
+    ALTER TABLE dbo.audit_logs ADD user_id BIGINT NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'ip_address') IS NULL
+    ALTER TABLE dbo.audit_logs ADD ip_address VARCHAR(50) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'user_agent') IS NULL
+    ALTER TABLE dbo.audit_logs ADD user_agent VARCHAR(500) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'action_detail') IS NULL
+    ALTER TABLE dbo.audit_logs ADD action_detail NVARCHAR(MAX) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'status') IS NULL
+    ALTER TABLE dbo.audit_logs ADD status VARCHAR(20) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'error_message') IS NULL
+    ALTER TABLE dbo.audit_logs ADD error_message NVARCHAR(500) NULL;
 
 -- ===== Lich bao tri san (MGR-19) =====
 IF OBJECT_ID(N'dbo.court_maintenance', N'U') IS NULL
@@ -854,3 +926,39 @@ LEFT JOIN (
     WHERE status IN ('BOOKED', 'CONFIRMED')
     GROUP BY session_id
 ) b ON s.session_id = b.session_id;
+
+-- ===== Bo sung: users.require_password_change =====
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.users', N'require_password_change') IS NULL
+    ALTER TABLE dbo.users ADD require_password_change BIT NOT NULL CONSTRAINT DF_users_require_pw_change DEFAULT 0;
+
+-- ===== Bo sung: membership_packages.package_type, quota_sessions, quota_courts =====
+IF OBJECT_ID(N'dbo.membership_packages', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.membership_packages', N'package_type') IS NULL
+    ALTER TABLE dbo.membership_packages ADD package_type NVARCHAR(20) NULL CONSTRAINT DF_packages_package_type DEFAULT 'VIP';
+
+IF OBJECT_ID(N'dbo.membership_packages', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.membership_packages', N'quota_sessions') IS NULL
+    ALTER TABLE dbo.membership_packages ADD quota_sessions INT NULL CONSTRAINT DF_packages_quota_sessions DEFAULT 0;
+
+IF OBJECT_ID(N'dbo.membership_packages', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.membership_packages', N'quota_courts') IS NULL
+    ALTER TABLE dbo.membership_packages ADD quota_courts INT NULL CONSTRAINT DF_packages_quota_courts DEFAULT 0;
+
+-- ===== Bo sung: user_memberships quota tracking =====
+IF OBJECT_ID(N'dbo.user_memberships', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.user_memberships', N'remaining_quota_sessions') IS NULL
+    ALTER TABLE dbo.user_memberships ADD remaining_quota_sessions INT NULL CONSTRAINT DF_user_memberships_remaining_quota DEFAULT 0;
+
+IF OBJECT_ID(N'dbo.user_memberships', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.user_memberships', N'held_quota_sessions') IS NULL
+    ALTER TABLE dbo.user_memberships ADD held_quota_sessions INT NULL CONSTRAINT DF_user_memberships_held_quota DEFAULT 0;
+
+IF OBJECT_ID(N'dbo.user_memberships', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.user_memberships', N'used_quota_sessions') IS NULL
+    ALTER TABLE dbo.user_memberships ADD used_quota_sessions INT NULL CONSTRAINT DF_user_memberships_used_quota DEFAULT 0;
+
+IF OBJECT_ID(N'dbo.user_memberships', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.user_memberships', N'initial_quota_sessions') IS NULL
+    ALTER TABLE dbo.user_memberships ADD initial_quota_sessions INT NULL CONSTRAINT DF_user_memberships_initial_quota DEFAULT 0;
+

@@ -98,7 +98,7 @@ BEGIN
     PRINT 'Adding membership_id column to bookings...';
     
     ALTER TABLE bookings
-    ADD membership_id BIGINT NULL,
+    ADD membership_id INT NULL,
         CONSTRAINT FK_bookings_membership FOREIGN KEY (membership_id) 
         REFERENCES user_memberships(um_id);
     
@@ -179,6 +179,70 @@ WHERE um.status = 'ACTIVE'
   AND um.initial_quota_sessions IS NULL;
 
 PRINT '✅ Existing ACTIVE memberships initialized';
+GO
+
+-- ============================================================================
+-- STEP 6: Auth, Users, Verification Tokens, and Audit Log Columns
+-- ============================================================================
+PRINT 'Checking auth, users, verification tokens, and audit log columns...';
+
+IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.users', N'require_password_change') IS NULL
+BEGIN
+    ALTER TABLE dbo.users ADD require_password_change BIT NOT NULL CONSTRAINT DF_users_require_pw_change DEFAULT 0;
+    PRINT '✅ Added require_password_change to users';
+END
+
+IF OBJECT_ID(N'dbo.auth_sessions', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.auth_sessions (
+        token_hash CHAR(64) NOT NULL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        expires_at DATETIME2 NOT NULL
+    );
+    PRINT '✅ Created auth_sessions table';
+END
+
+IF OBJECT_ID(N'dbo.verification_tokens', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.verification_tokens (
+        token_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        email VARCHAR(100) NOT NULL,
+        token_hash VARCHAR(64) NOT NULL,
+        token_type VARCHAR(20) NOT NULL,
+        created_at DATETIME2 NOT NULL CONSTRAINT DF_verification_tokens_created DEFAULT SYSDATETIME(),
+        expires_at DATETIME2 NOT NULL,
+        used_at DATETIME2 NULL,
+        failed_attempts INT NOT NULL CONSTRAINT DF_verification_tokens_failed DEFAULT 0,
+        locked BIT NOT NULL CONSTRAINT DF_verification_tokens_locked DEFAULT 0
+    );
+    PRINT '✅ Created verification_tokens table';
+END
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'log_type') IS NULL
+    ALTER TABLE dbo.audit_logs ADD log_type VARCHAR(50) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'user_email') IS NULL
+    ALTER TABLE dbo.audit_logs ADD user_email VARCHAR(100) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'user_id') IS NULL
+    ALTER TABLE dbo.audit_logs ADD user_id BIGINT NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'ip_address') IS NULL
+    ALTER TABLE dbo.audit_logs ADD ip_address VARCHAR(50) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'user_agent') IS NULL
+    ALTER TABLE dbo.audit_logs ADD user_agent VARCHAR(500) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'action_detail') IS NULL
+    ALTER TABLE dbo.audit_logs ADD action_detail NVARCHAR(MAX) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'status') IS NULL
+    ALTER TABLE dbo.audit_logs ADD status VARCHAR(20) NULL;
+
+IF OBJECT_ID(N'dbo.audit_logs', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.audit_logs', N'error_message') IS NULL
+    ALTER TABLE dbo.audit_logs ADD error_message NVARCHAR(500) NULL;
+
+PRINT '✅ Added audit_logs columns';
 GO
 
 -- ============================================================================

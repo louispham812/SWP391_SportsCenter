@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
 import CreateUserModal from '../../components/common/CreateUserModal';
 import QrCodeSvg from '../../components/common/QrCodeSvg';
+import Pagination from '../../components/common/Pagination';
 import {
   searchReceptionistMembers,
   updateReceptionMemberAvatar,
@@ -291,13 +292,15 @@ export default function ReceptionMembersPage() {
                   </tbody>
                 </table>
               </div>
-              <div className="flex items-center justify-between border-t border-slate-100 px-5 py-4 text-sm">
-                <span className="text-slate-500">Tổng cộng {result.totalElements} hội viên</span>
-                <div className="flex items-center gap-2">
-                  <button disabled={page === 0} onClick={() => setPage((current) => current - 1)} className="rounded-lg border px-3 py-1.5 disabled:opacity-40 cursor-pointer">Trước</button>
-                  <span className="text-xs text-slate-500">{page + 1} / {Math.max(result.totalPages, 1)}</span>
-                  <button disabled={page + 1 >= result.totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-lg border px-3 py-1.5 disabled:opacity-40 cursor-pointer">Sau</button>
-                </div>
+              <div className="flex flex-col sm:flex-row items-center justify-between border-t border-slate-100 px-5 py-4 gap-3 text-sm">
+                <span className="text-slate-500 font-medium">Tổng cộng {result.totalElements} hội viên</span>
+                {result.totalPages > 1 && (
+                  <Pagination
+                    currentPage={page + 1}
+                    totalPages={result.totalPages}
+                    onPageChange={(p) => setPage(p - 1)}
+                  />
+                )}
               </div>
             </>
           ) : (

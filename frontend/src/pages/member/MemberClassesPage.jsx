@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { useApp } from '../../context/AppContext';
@@ -12,6 +13,7 @@ import {
 } from '../../services/bookingApi';
 import PaymentMethodSelector from '../../components/common/PaymentMethodSelector';
 import { getSportMedia } from '../../utils/mediaMap';
+import Pagination from '../../components/common/Pagination';
 
 const formatMoney = (amount) =>
   new Intl.NumberFormat('vi-VN', {
@@ -44,6 +46,8 @@ export default function MemberClassesPage() {
   const [timeFilter, setTimeFilter] = useState('ALL'); // 'ALL' | 'MORNING' | 'AFTERNOON' | 'EVENING'
   const [dateFilter, setDateFilter] = useState('ALL'); // 'ALL' | 'TODAY' | '3DAYS' | '7DAYS'
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const CLASSES_PER_PAGE = 6;
 
   // Modals
   const [selectedCoach, setSelectedCoach] = useState(null);
@@ -58,6 +62,7 @@ export default function MemberClassesPage() {
   const [paymentMode, setPaymentMode] = useState('RETAIL'); // 'QUOTA' | 'RETAIL'
   const [paymentMethod, setPaymentMethod] = useState('VIETQR');
   const [submittingRegister, setSubmittingRegister] = useState(false);
+  const [registerError, setRegisterError] = useState('');
 
   // QR Modal & Polling State
   const [showQrModal, setShowQrModal] = useState(false);
@@ -134,6 +139,7 @@ export default function MemberClassesPage() {
   // Load quote with active membership discount whenever a session is selected
   useEffect(() => {
     if (registeringSession) {
+      setRegisterError('');
       setQuoteLoading(true);
       setPaymentMethod('VIETQR');
       setPaymentMode('RETAIL');
@@ -146,6 +152,7 @@ export default function MemberClassesPage() {
         .finally(() => setQuoteLoading(false));
     } else {
       setSessionQuote(null);
+      setRegisterError('');
     }
   }, [registeringSession]);
 
@@ -210,6 +217,18 @@ export default function MemberClassesPage() {
       return true;
     });
   }, [classes, selectedSportId, timeFilter, dateFilter, searchQuery]);
+
+  // Reset page when any filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedSportId, timeFilter, dateFilter, searchQuery]);
+
+  const totalPages = Math.ceil(filteredClasses.length / CLASSES_PER_PAGE) || 1;
+
+  const paginatedClasses = useMemo(() => {
+    const start = (currentPage - 1) * CLASSES_PER_PAGE;
+    return filteredClasses.slice(start, start + CLASSES_PER_PAGE);
+  }, [filteredClasses, currentPage]);
 
   // Xem chi tiết HLV
   const handleViewCoach = async (coachId) => {
@@ -307,6 +326,7 @@ export default function MemberClassesPage() {
 
     // Retail payment mode
     setSubmittingRegister(true);
+    setRegisterError('');
     try {
       const confirmation = await checkoutBooking(
         'CLASS',
@@ -570,8 +590,9 @@ export default function MemberClassesPage() {
             Không tìm thấy lớp học nào phù hợp với bộ lọc hiện tại.
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredClasses.map((cls) => {
+          <div className="space-y-6">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
+              {paginatedClasses.map((cls) => {
               const remaining = Math.max(0, cls.maxSlots - cls.bookedSlots);
               const alreadyBooked = ['BOOKED', 'CONFIRMED'].includes(cls.memberBookingStatus);
               const sportObj = sports.find((s) => s.sportId === cls.sportId);
@@ -580,7 +601,7 @@ export default function MemberClassesPage() {
               return (
                 <article
                   key={cls.sessionId}
-                  className="group flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-orange-400 hover:shadow-xl"
+                  className="group flex flex-col justify-between h-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-orange-400 hover:shadow-md"
                 >
                   <div>
                     {/* Cover Image */}
@@ -656,7 +677,7 @@ export default function MemberClassesPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="p-5 pt-0">
+                  <div className="p-5 pt-0 mt-auto">
                     {alreadyBooked ? (
                       <div className="space-y-2">
                         <div className="text-center text-[11px] font-bold text-emerald-700 bg-emerald-50 py-1.5 rounded-xl border border-emerald-200">
@@ -691,13 +712,28 @@ export default function MemberClassesPage() {
                 </article>
               );
             })}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-xs text-slate-500 font-medium">
+                  Hiển thị {(currentPage - 1) * CLASSES_PER_PAGE + 1} - {Math.min(currentPage * CLASSES_PER_PAGE, filteredClasses.length)} trên tổng số {filteredClasses.length} lớp học
+                </span>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            )}
           </div>
         )}
 
         {/* Modal Coach Profile */}
-        {selectedCoach && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200">
+        {selectedCoach && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+            <div className="w-full max-w-md my-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200">
               <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-2xl text-orange-500">sports_score</span>
@@ -706,7 +742,7 @@ export default function MemberClassesPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedCoach(null)}
-                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[20px]">close</span>
                 </button>
@@ -751,12 +787,13 @@ export default function MemberClassesPage() {
               <button
                 type="button"
                 onClick={() => setSelectedCoach(null)}
-                className="w-full rounded-xl bg-slate-900 hover:bg-slate-800 py-3 text-xs font-bold uppercase tracking-wider text-white transition"
+                className="w-full rounded-xl bg-slate-900 hover:bg-slate-800 py-3 text-xs font-bold uppercase tracking-wider text-white transition cursor-pointer"
               >
                 Đóng
               </button>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Full Page Payment UI (like court booking) */}
@@ -790,10 +827,9 @@ export default function MemberClassesPage() {
             ? `Thanh Toán Qua VNPAY — ${formatMoney(finalPrice)}`
             : `Xác Nhận & Thanh Toán ${formatMoney(finalPrice)}`;
 
-          return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
-                {/* Modal Header */}
+          return createPortal(
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+              <div className="w-full max-w-3xl max-h-[92vh] my-auto flex flex-col rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
                 <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100 shrink-0">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-2xl text-orange-500">how_to_reg</span>
@@ -802,7 +838,7 @@ export default function MemberClassesPage() {
                   <button
                     type="button"
                     onClick={() => setRegisteringSession(null)}
-                    className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+                    className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[20px]">close</span>
                   </button>
@@ -1066,6 +1102,25 @@ export default function MemberClassesPage() {
                       </div>
                     </div>
                   </div>
+                  {paymentMode === 'RETAIL' && (
+                    <PaymentMethodSelector
+                      selectedMethod={paymentMethod}
+                      onChange={setPaymentMethod}
+                      amount={finalPrice}
+                      transferMemo={`VQRCLS${registeringSession.sessionId}`}
+                    />
+                  )}
+
+                  {/* Inline Error Alert */}
+                  {registerError && (
+                    <div className="rounded-2xl bg-red-50 border border-red-200 p-4 text-xs text-red-800 flex items-start gap-3 animate-in fade-in">
+                      <span className="material-symbols-outlined text-[20px] text-red-600 shrink-0 mt-0.5">error</span>
+                      <div className="space-y-0.5">
+                        <div className="font-bold text-red-900">Không thể hoàn tất đăng ký:</div>
+                        <p className="leading-relaxed font-medium">{registerError}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Fixed Bottom Actions */}
@@ -1074,7 +1129,7 @@ export default function MemberClassesPage() {
                     type="button"
                     disabled={submittingRegister}
                     onClick={() => setRegisteringSession(null)}
-                    className="flex-1 rounded-xl border border-slate-200 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition disabled:opacity-60"
+                    className="flex-1 rounded-xl border border-slate-200 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                   >
                     Hủy
                   </button>
@@ -1082,20 +1137,21 @@ export default function MemberClassesPage() {
                     type="button"
                     disabled={submittingRegister}
                     onClick={handleConfirmRegister}
-                    className="flex-[2] rounded-xl bg-orange-500 hover:bg-orange-600 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-orange-500/25 transition disabled:cursor-wait disabled:opacity-60"
+                    className="flex-[2] rounded-xl bg-orange-500 hover:bg-orange-600 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-orange-500/25 transition disabled:opacity-60 cursor-pointer"
                   >
                     {actionBtnLabel}
                   </button>
                 </div>
               </div>
-            </div>
+            </div>,
+            document.body
           );
         })()}
 
         {/* Modal Cancel Registration */}
-        {cancelingBooking && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200">
+        {cancelingBooking && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+            <div className="w-full max-w-md my-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100 text-red-600">
                 <span className="material-symbols-outlined text-2xl">cancel</span>
                 <h3 className="text-lg font-bold text-slate-900">Hủy Đăng Ký Lớp Học</h3>
@@ -1124,7 +1180,7 @@ export default function MemberClassesPage() {
                   type="button"
                   disabled={submittingCancel}
                   onClick={() => setCancelingBooking(null)}
-                  className="flex-1 rounded-xl border border-slate-200 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                  className="flex-1 rounded-xl border border-slate-200 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                 >
                   Giữ lại lớp
                 </button>
@@ -1132,13 +1188,14 @@ export default function MemberClassesPage() {
                   type="button"
                   disabled={submittingCancel}
                   onClick={handleConfirmCancel}
-                  className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-red-600/20 transition disabled:opacity-60"
+                  className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-red-600/20 transition disabled:opacity-60 cursor-pointer"
                 >
                   {submittingCancel ? 'Đang xử lý...' : 'Xác Nhận Hủy & Hoàn Tiền'}
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* QR Payment Modal */}

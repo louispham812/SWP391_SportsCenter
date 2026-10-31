@@ -3,6 +3,8 @@ import MemberLayout from '../../components/layouts/MemberLayout';
 import { getMemberTransactions, getMemberProfile } from '../../services/memberApi';
 import { apiRequest } from '../../services/apiClient';
 import { useApp } from '../../context/AppContext';
+import { TableSkeleton } from '../../components/common/Skeleton';
+import Pagination from '../../components/common/Pagination';
 
 export default function MemberTransactionsPage() {
   const { showToast } = useApp();
@@ -11,6 +13,8 @@ export default function MemberTransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterType, setFilterType] = useState('ALL'); // 'ALL' | 'MEMBERSHIP' | 'CLASS' | 'COURT' | 'REFUNDED' | 'QUOTA'
+  const [currentPage, setCurrentPage] = useState(1);
+  const TX_PER_PAGE = 8;
   const [selectedReceipt, setSelectedReceipt] = useState(null);
 
   // Modals for MEM-26 and MEM-31
@@ -87,6 +91,13 @@ export default function MemberTransactionsPage() {
       return t.itemType === filterType;
     });
   }, [transactions, filterType]);
+
+  const totalPages = Math.ceil(filteredTransactions.length / TX_PER_PAGE) || 1;
+
+  const paginatedTransactions = useMemo(() => {
+    const start = (currentPage - 1) * TX_PER_PAGE;
+    return filteredTransactions.slice(start, start + TX_PER_PAGE);
+  }, [filteredTransactions, currentPage]);
 
   const stats = useMemo(() => {
     let totalSpent = 0;
@@ -239,7 +250,7 @@ export default function MemberTransactionsPage() {
     setAccountHolder('');
     showToast(
       'Yêu cầu hoàn tiền đã gửi',
-      'Đã chuyển đến Quản lý xét duyệt theo quy chế hoàn tiền 2 tiếng (MGR-16).',
+      'Đã chuyển đến Quản lý xét duyệt theo quy chế hoàn tiền 2 tiếng.',
       'success'
     );
   };
@@ -315,7 +326,7 @@ export default function MemberTransactionsPage() {
               Lịch Sử Giao Dịch & Hóa Đơn Điện Tử
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Tra cứu minh bạch toàn bộ các khoản thanh toán gói hội viên, phí đặt lớp, khấu trừ quota 0đ (MEM-12) và hoàn tiền tự động khi hủy lịch.
+              Tra cứu minh bạch toàn bộ các khoản thanh toán gói hội viên, phí đặt lớp, khấu trừ quota 0đ và hoàn tiền tự động khi hủy lịch.
             </p>
           </div>
 
@@ -326,7 +337,7 @@ export default function MemberTransactionsPage() {
               className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-orange-600 hover:bg-slate-50 text-xs font-bold shadow-sm transition-all cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px] text-amber-500">report_problem</span>
-              Gửi Khiếu Nại (MEM-26)
+              Gửi Khiếu Nại
             </button>
 
             <button
@@ -335,7 +346,7 @@ export default function MemberTransactionsPage() {
               className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-sm shadow-orange-500/20 transition-all cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">currency_exchange</span>
-              Yêu Cầu Hoàn Tiền 
+              Yêu Cầu Hoàn Tiền
             </button>
 
             <button
@@ -369,7 +380,7 @@ export default function MemberTransactionsPage() {
             </div>
             <span className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
               <span className="material-symbols-outlined text-[14px]">published_with_changes</span>
-              Hoàn 100% khi hủy trước 2 giờ (MGR-16)
+              Hoàn 100% khi hủy trước 2 giờ
             </span>
           </div>
 
@@ -399,7 +410,10 @@ export default function MemberTransactionsPage() {
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setFilterType(tab.id)}
+                  onClick={() => {
+                    setFilterType(tab.id);
+                    setCurrentPage(1);
+                  }}
                   type="button"
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                     filterType === tab.id
@@ -414,12 +428,9 @@ export default function MemberTransactionsPage() {
           </div>
 
           {/* Table */}
-          <div className="p-4 sm:p-6">
+          <div className="p-4 sm:p-5">
             {loading ? (
-              <div className="py-20 text-center text-slate-500 flex flex-col items-center gap-3">
-                <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-xs font-semibold">Đang tải sổ giao dịch...</span>
-              </div>
+              <TableSkeleton rows={5} cols={6} />
             ) : error ? (
               <div className="p-6 text-center text-red-600 bg-red-50 rounded-xl text-xs">
                 {error}
@@ -449,7 +460,7 @@ export default function MemberTransactionsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredTransactions.map((tx) => {
+                    {paginatedTransactions.map((tx) => {
                       const typeMeta = getItemTypeBadge(tx.itemType, tx.paymentStatus, tx.amount);
                       const isRefund = tx.paymentStatus === 'REFUNDED';
                       const isQuota = tx.itemType === 'QUOTA' || parseFloat(tx.amount) === 0;
@@ -524,6 +535,20 @@ export default function MemberTransactionsPage() {
                 </table>
               </div>
             )}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="pt-4 mt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-xs text-slate-500 font-medium">
+                  Hiển thị {(currentPage - 1) * TX_PER_PAGE + 1} - {Math.min(currentPage * TX_PER_PAGE, filteredTransactions.length)} trên tổng số {filteredTransactions.length} giao dịch
+                </span>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -557,7 +582,7 @@ export default function MemberTransactionsPage() {
                   {selectedReceipt.paymentStatus === 'REFUNDED'
                     ? 'PHIẾU XÁC NHẬN HOÀN TIỀN ĐIỆN TỬ'
                     : parseFloat(selectedReceipt.amount) === 0
-                    ? 'BIÊN LAI KHẤU TRỪ HẠN NGẠCH GÓI TẬP (MEM-12)'
+                    ? 'BIÊN LAI KHẤU TRỪ HẠN NGẠCH GÓI TẬP'
                     : 'HÓA ĐƠN XÁC NHẬN THANH TOÁN ĐIỆN TỬ'}
                 </p>
                 <span className="inline-block mt-2 font-mono text-[11px] font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
@@ -661,7 +686,7 @@ export default function MemberTransactionsPage() {
                     <span className="material-symbols-outlined text-[20px]">currency_exchange</span>
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-900 text-base">Gửi Yêu Cầu Hoàn Tiền (MEM-31)</h3>
+                    <h3 className="font-bold text-slate-900 text-base">Gửi Yêu Cầu Hoàn Tiền</h3>
                     <p className="text-xs text-slate-500">Áp dụng cho hủy lịch trước 2h hoặc yêu cầu hoàn phí theo quy chế</p>
                   </div>
                 </div>
@@ -745,7 +770,7 @@ export default function MemberTransactionsPage() {
                 </div>
 
                 <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900">
-                  <strong>Lưu ý quy chế (MGR-16):</strong> Hệ thống đối soát mốc thời gian hủy booking trước 2 tiếng. Sau khi Quản lý duyệt, số tiền sẽ được chuyển khoản trực tiếp qua ngân hàng thụ hưởng trong vòng 24 giờ.
+                  <strong>Lưu ý quy chế:</strong> Hệ thống đối soát mốc thời gian hủy booking trước 2 tiếng. Sau khi Quản lý duyệt, số tiền sẽ được chuyển khoản trực tiếp qua ngân hàng thụ hưởng trong vòng 24 giờ.
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
@@ -784,7 +809,7 @@ export default function MemberTransactionsPage() {
                     <span className="material-symbols-outlined text-[20px]">report_problem</span>
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-900 text-base">Gửi Khiếu Nại & Góp Ý Dịch Vụ (MEM-26)</h3>
+                    <h3 className="font-bold text-slate-900 text-base">Gửi Khiếu Nại & Góp Ý Dịch Vụ</h3>
                     <p className="text-xs text-slate-500">Tiếp nhận khiếu nại điểm danh sai, chất lượng sân hoặc Huấn luyện viên</p>
                   </div>
                 </div>

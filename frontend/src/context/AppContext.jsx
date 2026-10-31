@@ -34,6 +34,27 @@ export function AppProvider({ children }) {
     setToasts((current) => current.filter((toast) => toast.id !== id));
   };
 
+  const formatToastMessage = (rawMsg) => {
+    if (!rawMsg) return '';
+    if (typeof rawMsg !== 'string') return String(rawMsg);
+    const trimmed = rawMsg.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed.message) return parsed.message;
+        if (parsed.status === 409) return 'Lịch tập hoặc đặt chỗ bị trùng khung giờ với lịch hiện có của bạn.';
+        if (parsed.status === 400) return 'Dữ liệu yêu cầu không hợp lệ.';
+        if (parsed.status === 401) return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+        if (parsed.status === 403) return 'Bạn không có quyền thực hiện thao tác này.';
+        if (parsed.status === 404) return 'Không tìm thấy dữ liệu yêu cầu.';
+        if (parsed.error) return `Lỗi: ${parsed.error}`;
+      } catch {
+        // not json
+      }
+    }
+    return trimmed;
+  };
+
   const showToast = (titleOrObj, message, type = 'success') => {
     idCounter += 1;
     const id = `toast_${Date.now()}_${idCounter}`;
@@ -43,7 +64,7 @@ export function AppProvider({ children }) {
         {
           id,
           title: titleOrObj.title || '',
-          message: titleOrObj.message || '',
+          message: formatToastMessage(titleOrObj.message || ''),
           type: titleOrObj.type || 'success',
         },
       ]);
@@ -53,7 +74,7 @@ export function AppProvider({ children }) {
         {
           id,
           title: titleOrObj || '',
-          message: message || '',
+          message: formatToastMessage(message || ''),
           type: type || 'success',
         },
       ]);

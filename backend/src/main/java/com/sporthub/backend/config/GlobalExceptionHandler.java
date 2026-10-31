@@ -1,5 +1,6 @@
-package com.sporthub.backend.exception;
+package com.sporthub.backend.config;
 
+import com.sporthub.backend.exception.PendingVerificationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -11,9 +12,6 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Global exception handler để format error responses một cách consistent
- */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -22,7 +20,7 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("timestamp", LocalDateTime.now());
         body.put("status", ex.getStatusCode().value());
-        body.put("error", ex.getStatusCode().toString().replace(String.valueOf(ex.getStatusCode().value()) + " ", ""));
+        body.put("error", ex.getStatusCode().toString());
         body.put("message", ex.getReason() != null ? ex.getReason() : "Yêu cầu không hợp lệ.");
         return ResponseEntity.status(ex.getStatusCode()).body(body);
     }

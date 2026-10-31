@@ -74,9 +74,9 @@ export default function LandingPage() {
               {/* Nội dung Banner bên trái */}
               <div className="lg:col-span-7 space-y-6">
                 
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-600 text-[10px] font-black uppercase tracking-widest">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200/80 text-orange-700 text-xs font-semibold">
                   <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-                  F SPORT CENTER • FPT ATHLETIC SANCTUARY
+                  F Sport Center · Trung Tâm Thể Thao Đa Năng
                 </div>
 
                 <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black uppercase tracking-tight text-slate-900 leading-none">

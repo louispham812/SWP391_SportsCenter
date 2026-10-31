@@ -172,44 +172,44 @@ export default function ReceptionCheckInPage() {
           </div>
         )}
 
-        {/* 1. KHỐI QUÉT MÃ QR & QUẸT THẺ TỪ RFID (REC-08, MEM-10) */}
-        <section className="rounded-2xl border-2 border-orange-500/50 bg-gradient-to-br from-slate-900 via-slate-950 to-orange-950 p-6 text-white shadow-xl relative overflow-hidden">
+        {/* 1. KHỐI QUÉT MÃ QR & QUẸT THẺ TỪ RFID */}
+        <section className="rounded-2xl border border-orange-200 bg-gradient-to-r from-orange-50/80 via-white to-amber-50/50 p-6 shadow-sm relative overflow-hidden">
           <div className="relative z-10 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold">
-                  <span className="material-symbols-outlined text-[20px]">qr_code_scanner</span>
+              <div className="flex items-center gap-3">
+                <span className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-bold shadow-sm shadow-orange-500/20">
+                  <span className="material-symbols-outlined text-[22px]">qr_code_scanner</span>
                 </span>
                 <div>
-                  <h2 className="font-headline-sm text-base font-black uppercase tracking-tight text-white">
-                    Quét Mã QR Hoặc Quẹt Thẻ Từ RFID
+                  <h2 className="text-base font-bold text-slate-900">
+                    Quét Mã QR hoặc Quẹt Thẻ RFID
                   </h2>
-                  <p className="text-xs text-orange-200/80">Hỗ trợ đầu đọc mã vạch / QR 2D và đầu quét thẻ RFID USB</p>
+                  <p className="text-xs text-slate-500">Hỗ trợ đầu đọc thẻ RFID và máy quét mã QR tự động</p>
                 </div>
               </div>
-              <span className="px-2.5 py-1 rounded-full bg-orange-500/20 border border-orange-400/40 text-[11px] font-bold text-orange-300 self-start sm:self-auto">
+              <span className="px-3 py-1 rounded-full bg-orange-100 text-[11px] font-semibold text-orange-800 border border-orange-200 self-start sm:self-auto">
                 Tự động nhận dạng mã
               </span>
             </div>
 
             <form onSubmit={handleLookupCard} className="flex flex-col sm:flex-row gap-2.5">
-              <div className="relative flex-1">
-                <span className="material-symbols-outlined absolute left-3.5 top-3.5 text-slate-400 text-[20px]">
+              <div className="relative flex-1 flex items-center">
+                <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">
                   contactless
                 </span>
                 <input
                   type="text"
                   value={scanCode}
                   onChange={(e) => setScanCode(e.target.value)}
-                  placeholder="Quét mã QR (SPORTHUB-MEMBER-...) hoặc quẹt thẻ từ (RFID-SH-...)..."
-                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-800/90 border border-slate-700 text-sm font-mono font-bold text-white placeholder-slate-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/30"
+                  placeholder="Quét mã QR thẻ hội viên hoặc quẹt thẻ từ RFID..."
+                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-white border border-slate-300 text-sm font-mono font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 shadow-xs"
                   autoFocus
                 />
               </div>
               <button
                 type="submit"
                 disabled={lookingUp || !scanCode.trim()}
-                className="py-3 px-6 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-bold uppercase tracking-wider transition shadow-md shadow-orange-500/30 disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                className="py-3 px-6 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold uppercase tracking-wider transition shadow-sm shadow-orange-500/20 disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
               >
                 <span className="material-symbols-outlined text-[18px]">search</span>
                 <span>{lookingUp ? 'Đang tra cứu...' : 'Tra Cứu Thẻ'}</span>

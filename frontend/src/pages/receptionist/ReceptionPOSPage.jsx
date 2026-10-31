@@ -219,7 +219,7 @@ export default function ReceptionPOSPage() {
               </select>
             )}
             {packages.length === 0 && !loading && (
-              <p className="text-xs text-slate-500">Chưa có gói tập đang mở bán trong database.</p>
+              <p className="text-xs text-slate-500">Chưa có gói tập nào đang mở bán.</p>
             )}
             <p className="text-[11px] text-slate-400">
               * Hệ thống tự động phát hiện nếu hội viên đang có gói cùng loại còn hạn để cộng nối tiếp ngày hết hạn.

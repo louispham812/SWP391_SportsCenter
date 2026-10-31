@@ -235,7 +235,7 @@ export default function AdminFacilitiesPage() {
       setShowAddClassModal(false);
       setSessionForm(emptySession);
       setSuccess(`Đã tạo ${createdSessions.length} buổi học, lặp hàng tuần theo thứ và giờ đã chọn.`);
-      showToast('Thành công', `Đã tạo ${createdSessions.length} ca học trong cơ sở dữ liệu.`, 'success');
+      showToast('Thành công', `Đã tạo ${createdSessions.length} ca học thành công.`, 'success');
     } catch (requestError) {
       setError(requestError.message || 'Không thể tạo lịch lớp.');
     } finally {
@@ -354,7 +354,7 @@ export default function AdminFacilitiesPage() {
               <CardGridSkeleton count={4} cols="grid grid-cols-1 md:grid-cols-2 gap-4" />
             ) : facilities.length === 0 ? (
               <p className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-                Cơ sở dữ liệu chưa có cơ sở nào.
+                Chưa có tiện ích hoặc cơ sở nào được tạo.
               </p>
             ) : (
               <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -791,7 +791,7 @@ export default function AdminFacilitiesPage() {
                   className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold">Hủy</button>
                 <button type="submit" disabled={saving}
                   className="rounded-xl bg-orange-500 hover:bg-orange-600 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/20 active:scale-[0.98] transition-all disabled:opacity-60">
-                  {saving ? 'Đang lưu...' : 'Lưu vào cơ sở dữ liệu'}
+                  {saving ? 'Đang lưu...' : 'Tạo Lịch Ca Học'}
                 </button>
               </div>
             </form>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { getMemberNotifications } from '../../services/memberApi';
+import { getAvatarImageUrl, getAvatarInitials } from '../../utils/avatarHelper';
 
 export default function PortalLayout({
   role = 'member', // 'member' | 'receptionist' | 'coach' | 'admin'
@@ -58,7 +59,7 @@ export default function PortalLayout({
 
   // System pages directory for quick jump
   const systemPages = [
-    { title: 'Tổng quan Hội viên', subtitle: 'Bảng điều khiển cá nhân, lịch tập hôm nay', path: '/member', icon: 'dashboard', roleName: 'Hội viên' },
+    { title: 'Tổng quan', subtitle: 'Bảng điều khiển cá nhân, lịch tập hôm nay', path: '/member', icon: 'dashboard', roleName: 'Hội viên' },
     { title: 'Gói tập & Quyền lợi', subtitle: 'Xem gói tập, gia hạn và nâng cấp thẻ', path: '/member/packages', icon: 'card_membership', roleName: 'Hội viên' },
     { title: 'Đăng ký lớp học', subtitle: 'Đăng ký và hủy lịch lớp học thể thao theo kỳ', path: '/member/classes', icon: 'school', roleName: 'Hội viên' },
     { title: 'Đặt sân chơi', subtitle: 'Chọn môn thể thao, sân, khung giờ và thanh toán', path: '/member/book/court/sports', icon: 'sports_tennis', roleName: 'Hội viên' },
@@ -70,9 +71,12 @@ export default function PortalLayout({
     { title: 'Lịch sử giao dịch', subtitle: 'Biên lai điện tử, hoàn tiền và chi tiêu', path: '/member/transactions', icon: 'account_balance_wallet', roleName: 'Hội viên' },
     { title: 'Hồ sơ & Thẻ số cá nhân', subtitle: 'Mã QR check-in, thông tin cá nhân', path: '/member/profile', icon: 'badge', roleName: 'Hội viên' },
     { title: 'Hồ sơ & Thẻ HLV', subtitle: 'Thông tin cá nhân, thẻ số HLV, chuyên môn và bằng cấp', path: '/coach/profile', icon: 'badge', roleName: 'HLV' },
-    { title: 'Check-in Lễ tân tại quầy', subtitle: 'Quét thẻ RFID, tìm kiếm hội viên, mở tủ đồ', path: '/receptionist', icon: 'how_to_reg', roleName: 'Lễ tân' },
+    { title: 'Tổng quan Lễ tân', subtitle: 'Bảng vận hành trung tâm, theo dõi check-in và doanh thu ca', path: '/receptionist', icon: 'dashboard', roleName: 'Lễ tân' },
+    { title: 'Check-in Lễ tân tại quầy', subtitle: 'Quét thẻ RFID, tìm kiếm hội viên, mở cổng tự động', path: '/receptionist/checkin', icon: 'how_to_reg', roleName: 'Lễ tân' },
+    { title: 'Hồ sơ nhân viên Lễ tân', subtitle: 'Mã QR nhân viên, thẻ định danh ca trực và bảo mật tài khoản', path: '/receptionist/profile', icon: 'account_circle', roleName: 'Lễ tân' },
     { title: 'Bán hàng POS & Thu ngân', subtitle: 'Bán gói tập, nước uống, thiết bị thể thao', path: '/receptionist/pos', icon: 'point_of_sale', roleName: 'Lễ tân' },
-    { title: 'Lịch dạy HLV trong tuần', subtitle: 'Lịch ca dạy, phòng tập, số lượng học viên', path: '/coach', icon: 'calendar_today', roleName: 'HLV' },
+    { title: 'Tổng quan', subtitle: 'Bảng điều khiển HLV, ca dạy hôm nay và hiệu suất', path: '/coach', icon: 'dashboard', roleName: 'HLV' },
+    { title: 'Lịch dạy HLV trong tuần', subtitle: 'Lịch ca dạy, phòng tập, số lượng học viên', path: '/coach/schedule', icon: 'calendar_month', roleName: 'HLV' },
     { title: 'Học viên của tôi', subtitle: 'Hồ sơ học viên, mục tiêu thể chất PAR-Q', path: '/coach/students', icon: 'groups', roleName: 'HLV' },
     { title: 'Điểm danh & Đánh giá buổi tập', subtitle: 'Ghi nhận chuyên cần, gửi bài tập về nhà', path: '/coach/attendance', icon: 'fact_check', roleName: 'HLV' },
     { title: 'Tổng quan Quản lý Trung tâm', subtitle: 'Doanh thu, tỉ lệ lấp đầy sân, báo cáo vận hành', path: '/admin', icon: 'grid_view', roleName: 'Admin' },
@@ -115,8 +119,8 @@ export default function PortalLayout({
                 <span className="font-headline-sm text-[15px] text-slate-900 tracking-tight font-black leading-tight">
                   F SPORT <span className="text-orange-500">CENTER</span>
                 </span>
-                <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mt-0.5">
-                  ATHLETIC SANCTUARY
+                <span className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">
+                  TRUNG TÂM THỂ THAO ĐA NĂNG
                 </span>
               </div>
             </Link>
@@ -177,10 +181,10 @@ export default function PortalLayout({
         <div className="p-4 bg-slate-50 border-t border-slate-200">
           <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-slate-200 shadow-sm">
             <div className="w-10 h-10 rounded-full bg-slate-900 text-orange-400 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm overflow-hidden">
-              {currentUser?.avatar && (currentUser.avatar.startsWith('data:') || currentUser.avatar.startsWith('http') || currentUser.avatar.startsWith('/')) ? (
-                <img src={currentUser.avatar} alt="Avatar" className="w-full h-full object-cover" />
+              {getAvatarImageUrl(currentUser?.avatar) ? (
+                <img src={getAvatarImageUrl(currentUser.avatar)} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
-                currentUser?.avatar || 'US'
+                <span>{getAvatarInitials(currentUser?.name, 'US')}</span>
               )}
             </div>
             <div className="flex flex-col min-w-0 flex-1">
@@ -251,8 +255,8 @@ export default function PortalLayout({
           <div className="flex items-center gap-3 shrink-0 ml-3">
             <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="font-bold uppercase tracking-wider text-[10px]">
-                HỆ THỐNG TRỰC TUYẾN
+              <span className="font-semibold text-[11px]">
+                Hệ thống trực tuyến
               </span>
             </div>
 
@@ -345,10 +349,10 @@ export default function PortalLayout({
                 type="button"
                 className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center font-bold text-xs shadow-sm hover:bg-orange-100 hover:ring-2 hover:ring-orange-500 transition-all cursor-pointer overflow-hidden p-0"
               >
-                {currentUser?.avatar && (currentUser.avatar.startsWith('data:') || currentUser.avatar.startsWith('http') || currentUser.avatar.startsWith('/')) ? (
-                  <img src={currentUser.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                {getAvatarImageUrl(currentUser?.avatar) ? (
+                  <img src={getAvatarImageUrl(currentUser.avatar)} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  currentUser?.avatar || 'US'
+                  <span>{getAvatarInitials(currentUser?.name, 'US')}</span>
                 )}
               </button>
 
@@ -368,7 +372,14 @@ export default function PortalLayout({
                   <div className="py-2 flex flex-col gap-1">
                     <button
                       onClick={() => {
-                        const targetProfile = role === 'coach' ? '/coach/profile' : '/member/profile';
+                        const targetProfile =
+                          role === 'coach'
+                            ? '/coach/profile'
+                            : role === 'receptionist'
+                            ? '/receptionist/profile'
+                            : role === 'admin'
+                            ? '/admin/settings'
+                            : '/member/profile';
                         navigate(targetProfile);
                         setProfileOpen(false);
                       }}
@@ -377,7 +388,15 @@ export default function PortalLayout({
                       <span className="material-symbols-outlined text-[18px] text-slate-500">
                         account_circle
                       </span>
-                      <span>{role === 'coach' ? 'Hồ sơ & Thẻ HLV' : 'Hồ sơ & Thẻ số cá nhân'}</span>
+                      <span>
+                        {role === 'coach'
+                          ? 'Hồ sơ & Thẻ HLV'
+                          : role === 'receptionist'
+                          ? 'Hồ sơ cá nhân'
+                          : role === 'admin'
+                          ? 'Cài đặt tài khoản quản trị'
+                          : 'Hồ sơ & Thẻ số cá nhân'}
+                      </span>
                     </button>
                     <button
                       onClick={() => {
@@ -416,7 +435,7 @@ export default function PortalLayout({
             3. MAIN CONTENT CANVAS
            ========================================= */}
         <main className="p-3 sm:p-4 lg:p-6 pb-20 lg:pb-6 flex-1 bg-[#f7f9fb]">
-          <div className="animate-fade-in space-y-4">
+          <div className="space-y-4">
             {children}
           </div>
         </main>

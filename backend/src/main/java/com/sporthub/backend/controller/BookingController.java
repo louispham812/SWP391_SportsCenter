@@ -36,10 +36,11 @@ public class BookingController {
 
     @GetMapping("/coach-schedule")
     public ResponseEntity<List<CoachScheduleEntryResponse>> getCoachSchedule(
-            @RequestParam LocalDate weekStart,
+            @RequestParam(required = false) LocalDate weekStart,
             Authentication authentication) {
         requireRole(authentication, "COACH");
-        return ResponseEntity.ok(bookingService.getCoachSchedule(actorId(authentication), weekStart));
+        LocalDate effectiveWeekStart = weekStart != null ? weekStart : LocalDate.now().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
+        return ResponseEntity.ok(bookingService.getCoachSchedule(actorId(authentication), effectiveWeekStart));
     }
 
     @GetMapping("/coach-students")
@@ -50,10 +51,11 @@ public class BookingController {
 
     @GetMapping("/receptionist-schedule")
     public ResponseEntity<List<ReceptionistClassResponse>> getReceptionistSchedule(
-            @RequestParam LocalDate weekStart,
+            @RequestParam(required = false) LocalDate weekStart,
             Authentication authentication) {
         requireAnyRole(actorRole(authentication), "RECEPTIONIST", "MANAGER", "ADMIN");
-        return ResponseEntity.ok(bookingService.getReceptionistSchedule(weekStart));
+        LocalDate effectiveWeekStart = weekStart != null ? weekStart : LocalDate.now().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
+        return ResponseEntity.ok(bookingService.getReceptionistSchedule(effectiveWeekStart));
     }
 
     @GetMapping("/my-schedule")

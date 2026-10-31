@@ -9,6 +9,7 @@ import {
   updateCoachProfile,
 } from '../../services/coachApi';
 import { compressImageFile } from '../../utils/imageCompressor';
+import { getAvatarImageUrl, getAvatarInitials } from '../../utils/avatarHelper';
 
 export default function CoachProfilePage() {
   const { currentUser, updateProfile, showToast } = useApp();
@@ -152,7 +153,7 @@ export default function CoachProfilePage() {
       });
       showToast({
         title: 'Cập nhật thành công',
-        message: 'Hồ sơ cá nhân HLV đã được lưu vào cơ sở dữ liệu.',
+        message: 'Hồ sơ huấn luyện viên đã được lưu thành công.',
         type: 'success',
       });
     } catch (err) {
@@ -212,7 +213,7 @@ export default function CoachProfilePage() {
     return (
       <CoachLayout>
         <p role="status" className="p-6 text-sm text-slate-500 font-medium">
-          Đang tải hồ sơ huấn luyện viên từ cơ sở dữ liệu...
+          Đang tải hồ sơ huấn luyện viên...
         </p>
       </CoachLayout>
     );
@@ -322,11 +323,11 @@ export default function CoachProfilePage() {
               <div className="flex items-center justify-between mb-6 relative z-10">
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 rounded-2xl border-2 border-orange-500/80 overflow-hidden bg-slate-800 flex items-center justify-center shadow-lg shrink-0">
-                    {coachAvatar ? (
-                      <img src={coachAvatar} alt="Coach Avatar" className="w-full h-full object-cover" />
+                    {getAvatarImageUrl(coachAvatar || currentUser?.avatar) ? (
+                      <img src={getAvatarImageUrl(coachAvatar || currentUser?.avatar)} alt="Coach Avatar" className="w-full h-full object-cover" />
                     ) : (
                       <span className="font-bold text-lg text-orange-400">
-                        {currentUser?.avatar || currentUser?.name?.slice(0, 2).toUpperCase() || 'HC'}
+                        {getAvatarInitials(profileForm.fullName || currentUser?.name, 'HC')}
                       </span>
                     )}
                   </div>
@@ -521,11 +522,11 @@ export default function CoachProfilePage() {
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-center gap-4">
                   <div className="relative group shrink-0">
                     <div className="w-20 h-20 rounded-2xl overflow-hidden bg-slate-800 border-2 border-orange-500 shadow-md flex items-center justify-center">
-                      {coachAvatar ? (
-                        <img src={coachAvatar} alt="Coach Avatar" className="w-full h-full object-cover" />
+                      {getAvatarImageUrl(coachAvatar || currentUser?.avatar) ? (
+                        <img src={getAvatarImageUrl(coachAvatar || currentUser?.avatar)} alt="Coach Avatar" className="w-full h-full object-cover" />
                       ) : (
                         <span className="text-2xl font-black text-orange-400">
-                          {currentUser?.avatar || currentUser?.name?.slice(0, 2).toUpperCase() || 'HC'}
+                          {getAvatarInitials(profileForm.fullName || currentUser?.name, 'HC')}
                         </span>
                       )}
                     </div>
