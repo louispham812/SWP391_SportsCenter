@@ -20,6 +20,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
@@ -201,18 +202,39 @@ public class AuthService {
             }
         }
 
-        // Rule: Member tự đăng ký phải verify OTP qua email trước khi ACTIVE
+        String targetRole = request.getRole() != null && !request.getRole().isBlank()
+                ? request.getRole().trim().toUpperCase(Locale.ROOT)
+                : MEMBER_ROLE;
+        if (!List.of("MEMBER", "COACH", "RECEPTIONIST").contains(targetRole)) {
+            targetRole = MEMBER_ROLE;
+        }
+
+        // Rule: Member tự đăng ký phải verify OTP qua email trước khi ACTIVE; Nhân viên đăng ký chờ Manager duyệt
         User user = User.builder()
                 .fullName(fullName)
                 .email(email)
                 .phone(phone)
                 .passwordHash(passwordEncoder.encode(password))
-                .role(MEMBER_ROLE)
-                .status("PENDING") // Chờ verify OTP
-                .requirePasswordChange(false) // Member không cần đổi password
+                .role(targetRole)
+                .status("PENDING") // Chờ verify OTP hoặc Quản trị duyệt
+                .requirePasswordChange(false)
                 .build();
 
         User savedUser = userRepository.save(user);
+
+        if ("COACH".equals(targetRole) || "RECEPTIONIST".equals(targetRole)) {
+            auditLogService.logSuccess("REGISTER_STAFF", email, savedUser.getUserId(),
+                    "Staff registration (" + targetRole + ") | Status: PENDING | Awaiting Manager approval");
+            return AuthResponse.builder()
+                    .userId(savedUser.getUserId())
+                    .email(savedUser.getEmail())
+                    .fullName(savedUser.getFullName())
+                    .role(savedUser.getRole())
+                    .status(savedUser.getStatus())
+                    .requirePasswordChange(false)
+                    .message("Đăng ký tài khoản nhân sự thành công! Tài khoản đang chờ Quản trị viên phê duyệt.")
+                    .build();
+        }
         
         // Generate và gửi OTP qua email để verify account
         String otp = generateOTP();

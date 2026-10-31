@@ -71,6 +71,8 @@ public class WorkoutProgressController {
     private com.sporthub.backend.repository.ClassSessionRepository classSessionRepository;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.sporthub.backend.repository.BookingRepository bookingRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.sporthub.backend.repository.MemberHealthProfileRepository healthProfileRepository;
 
     private final tools.jackson.databind.ObjectMapper objectMapper = new tools.jackson.databind.ObjectMapper();
 
@@ -383,6 +385,23 @@ public class WorkoutProgressController {
                 .build();
 
         BodyProgressLog saved = bodyProgressLogRepository.save(log);
+
+        if (healthProfileRepository != null && req != null) {
+            try {
+                com.sporthub.backend.entity.MemberHealthProfile hp = healthProfileRepository.findByMemberId(targetMemberId)
+                        .orElseGet(() -> {
+                            com.sporthub.backend.entity.MemberHealthProfile created = new com.sporthub.backend.entity.MemberHealthProfile();
+                            created.setMemberId(targetMemberId);
+                            return created;
+                        });
+                if (req.weightKg() != null) hp.setWeightKg(req.weightKg());
+                if (req.heightCm() != null) hp.setHeightCm(req.heightCm());
+                if (req.smmKg() != null) hp.setSmmKg(req.smmKg());
+                if (req.pbfPercent() != null) hp.setPbfPercent(req.pbfPercent());
+                if (bmi != null) hp.setBmi(bmi);
+                healthProfileRepository.save(hp);
+            } catch (Exception ignored) {}
+        }
 
         engagementService.audit(actorId, role, "RECORD_BODY_PROGRESS",
                 "memberId=" + targetMemberId + ", date=" + recordedDate + ", weight=" + saved.getWeightKg() + "kg");

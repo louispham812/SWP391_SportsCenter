@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import CoachLayout from '../../components/layouts/CoachLayout';
 import { getCoachStudents, getUpcomingClasses } from '../../services/bookingApi';
 import { generateCoachPlan } from '../../services/aiAssistantApi';
-import { createWorkoutPlan, createClassWorkoutPlan, getMemberWorkoutProgress } from '../../services/workoutApi';
+import { createWorkoutPlan, createClassWorkoutPlan, getMemberWorkoutProgress, recordBodyProgress } from '../../services/workoutApi';
 import { sendCoachNotice } from '../../services/coachApi';
 import { CardGridSkeleton } from '../../components/common/Skeleton';
 import { useApp } from '../../context/AppContext';
@@ -36,6 +36,16 @@ export default function CoachStudentsPage() {
   const [savingPlan, setSavingPlan] = useState(false);
   const [studentProgress, setStudentProgress] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState(false);
+  const [showBodyLogForm, setShowBodyLogForm] = useState(false);
+  const [bodyLogForm, setBodyLogForm] = useState({
+    weightKg: '',
+    heightCm: '',
+    smmKg: '',
+    pbfPercent: '',
+    maxLiftKg: '',
+    note: '',
+  });
+  const [savingBodyLog, setSavingBodyLog] = useState(false);
 
   // Notice Modal State
   const [noticeModalOpen, setNoticeModalOpen] = useState(false);
@@ -366,6 +376,36 @@ export default function CoachStudentsPage() {
       showToast({ title: 'Lỗi', message: err.message || 'Không thể lưu giáo án tập luyện.', type: 'error' });
     } finally {
       setSavingPlan(false);
+    }
+  };
+
+  const handleSaveBodyLog = async (e) => {
+    e.preventDefault();
+    if (!selectedStudentForPlan) return;
+    if (!bodyLogForm.weightKg && !bodyLogForm.maxLiftKg) {
+      showToast({ title: 'Cảnh báo', message: 'Vui lòng nhập cân nặng hoặc mức tạ 1RM.', type: 'warning' });
+      return;
+    }
+    setSavingBodyLog(true);
+    try {
+      await recordBodyProgress({
+        memberId: selectedStudentForPlan.id,
+        weightKg: bodyLogForm.weightKg ? Number(bodyLogForm.weightKg) : null,
+        heightCm: bodyLogForm.heightCm ? Number(bodyLogForm.heightCm) : null,
+        smmKg: bodyLogForm.smmKg ? Number(bodyLogForm.smmKg) : null,
+        pbfPercent: bodyLogForm.pbfPercent ? Number(bodyLogForm.pbfPercent) : null,
+        maxLiftKg: bodyLogForm.maxLiftKg ? Number(bodyLogForm.maxLiftKg) : null,
+        note: bodyLogForm.note.trim() || 'HLV ghi nhận tiến độ',
+      });
+      showToast({ title: 'Thành công', message: `Đã ghi nhận chỉ số thể trạng & 1RM cho ${selectedStudentForPlan.name}!`, type: 'success' });
+      setShowBodyLogForm(false);
+      setBodyLogForm({ weightKg: '', heightCm: '', smmKg: '', pbfPercent: '', maxLiftKg: '', note: '' });
+      const updated = await getMemberWorkoutProgress(selectedStudentForPlan.id);
+      setStudentProgress(updated);
+    } catch (err) {
+      showToast({ title: 'Lỗi', message: err.message || 'Không thể lưu chỉ số thể trạng.', type: 'error' });
+    } finally {
+      setSavingBodyLog(false);
     }
   };
 
@@ -1147,9 +1187,103 @@ export default function CoachStudentsPage() {
                     <>
                       {/* Bảng mốc đo cơ thể */}
                       <div className="space-y-2">
-                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
-                          Chỉ số Thể trạng & 1RM Gần Đây
-                        </span>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                            Chỉ số Thể trạng & 1RM Gần Đây
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowBodyLogForm(!showBodyLogForm)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition shadow-2xs cursor-pointer"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">
+                              {showBodyLogForm ? 'close' : 'add'}
+                            </span>
+                            <span>{showBodyLogForm ? 'Đóng form' : 'Ghi nhận chỉ số mới'}</span>
+                          </button>
+                        </div>
+
+                        {showBodyLogForm && (
+                          <form onSubmit={handleSaveBodyLog} className="p-4 rounded-xl border border-orange-200 bg-orange-50/40 space-y-3">
+                            <h4 className="text-xs font-bold text-slate-900 uppercase">Nhập Chỉ Số Cơ Thể &amp; 1RM (MEM-21 / COA-08)</h4>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">Cân nặng (kg)</label>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  placeholder="VD: 70.5"
+                                  value={bodyLogForm.weightKg}
+                                  onChange={(e) => setBodyLogForm({ ...bodyLogForm, weightKg: e.target.value })}
+                                  className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white font-bold outline-none focus:border-orange-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">Chiều cao (cm)</label>
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  placeholder="VD: 175"
+                                  value={bodyLogForm.heightCm}
+                                  onChange={(e) => setBodyLogForm({ ...bodyLogForm, heightCm: e.target.value })}
+                                  className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white font-bold outline-none focus:border-orange-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">Cơ nạc SMM (kg)</label>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  placeholder="VD: 34.2"
+                                  value={bodyLogForm.smmKg}
+                                  onChange={(e) => setBodyLogForm({ ...bodyLogForm, smmKg: e.target.value })}
+                                  className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white font-bold outline-none focus:border-orange-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">Mỡ PBF (%)</label>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  placeholder="VD: 16.5"
+                                  value={bodyLogForm.pbfPercent}
+                                  onChange={(e) => setBodyLogForm({ ...bodyLogForm, pbfPercent: e.target.value })}
+                                  className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white font-bold outline-none focus:border-orange-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-blue-700 uppercase mb-0.5">Mức tạ 1RM tối đa (kg)</label>
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  placeholder="VD: 110"
+                                  value={bodyLogForm.maxLiftKg}
+                                  onChange={(e) => setBodyLogForm({ ...bodyLogForm, maxLiftKg: e.target.value })}
+                                  className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-blue-300 bg-white font-bold text-blue-700 outline-none focus:border-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">Ghi chú</label>
+                                <input
+                                  type="text"
+                                  placeholder="VD: Kỷ lục Bench/Squat"
+                                  value={bodyLogForm.note}
+                                  onChange={(e) => setBodyLogForm({ ...bodyLogForm, note: e.target.value })}
+                                  className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white outline-none focus:border-orange-500"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end pt-1">
+                              <button
+                                type="submit"
+                                disabled={savingBodyLog}
+                                className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold uppercase transition disabled:opacity-50 cursor-pointer"
+                              >
+                                {savingBodyLog ? 'Đang lưu...' : 'Lưu chỉ số thể trạng & 1RM'}
+                              </button>
+                            </div>
+                          </form>
+                        )}
                         {studentProgress.bodyLogs?.length === 0 ? (
                           <p className="text-xs text-slate-400 bg-slate-50 p-3 rounded-xl border border-slate-200">
                             Chưa có bản ghi đo InBody / 1RM nào.

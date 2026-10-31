@@ -6,7 +6,20 @@ const testDataPath = path.join(import.meta.dirname, '.member-test-data.json');
 const apiBaseUrl = process.env.E2E_API_BASE_URL || 'http://127.0.0.1:8080/api/v1';
 
 export function readMemberTestData() {
-  return JSON.parse(fs.readFileSync(testDataPath, 'utf8'));
+  if (fs.existsSync(testDataPath)) {
+    try {
+      return JSON.parse(fs.readFileSync(testDataPath, 'utf8'));
+    } catch {
+      // fallback to default
+    }
+  }
+  return {
+    name: 'Nguyễn Anh Khoa',
+    email: 'khoa.member@gmail.com',
+    phone: '0934567890',
+    password: 'SportHub@123',
+    userId: 9,
+  };
 }
 
 export async function loginMember(page) {

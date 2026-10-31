@@ -8,5 +8,11 @@ public record ReceptionistMemberResponse(
         String email,
         String phone,
         String status,
-        LocalDateTime createdAt) {
+        LocalDateTime createdAt,
+        String emergencyContactName,
+        String emergencyContactPhone) {
+
+    public ReceptionistMemberResponse(Long userId, String fullName, String email, String phone, String status, LocalDateTime createdAt) {
+        this(userId, fullName, email, phone, status, createdAt, null, null);
+    }
 }

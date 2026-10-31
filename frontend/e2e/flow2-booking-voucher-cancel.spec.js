@@ -14,6 +14,22 @@ test.describe('LUỒNG 2: Luồng Đặt Sân, Áp Mã Voucher & Hủy Lịch (M
     ));
     const authHeaders = { Authorization: `Bearer ${session.token}` };
 
+    const currentScheduleResponse = await page.request.get(
+      `${apiBaseUrl}/booking-flow/schedule`,
+      { headers: authHeaders },
+    );
+    const currentBookings = currentScheduleResponse.ok() ? await currentScheduleResponse.json() : [];
+    const isOverlappingWithMember = (slot) => {
+      const sStart = new Date(slot.startTime).getTime();
+      const sEnd = new Date(slot.endTime).getTime();
+      return currentBookings.some((b) => {
+        if (b.status === 'CANCELLED') return false;
+        const bStart = new Date(b.startTime).getTime();
+        const bEnd = new Date(b.endTime).getTime();
+        return sStart < bEnd && sEnd > bStart;
+      });
+    };
+
     // Lấy danh sách môn thể thao và tìm khung giờ cách hiện tại > 3 tiếng để test hủy lịch
     const sportsResponse = await page.request.get(`${apiBaseUrl}/public/content/sports`);
     expect(sportsResponse.ok()).toBeTruthy();
@@ -29,7 +45,8 @@ test.describe('LUỒNG 2: Luồng Đặt Sân, Áp Mã Voucher & Hủy Lịch (M
       if (!slotsResponse.ok()) continue;
       const slots = await slotsResponse.json();
       const cancellableSlot = slots.find(
-        (slot) => new Date(slot.startTime).getTime() >= Date.now() + (3.5 * 60 * 60 * 1000),
+        (slot) => new Date(slot.startTime).getTime() >= Date.now() + (3.5 * 60 * 60 * 1000)
+          && !isOverlappingWithMember(slot),
       );
       if (cancellableSlot) {
         selectedSport = sport;
@@ -53,12 +70,13 @@ test.describe('LUỒNG 2: Luồng Đặt Sân, Áp Mã Voucher & Hủy Lịch (M
     });
     await page.getByRole('button', { name: slotDateLabel, exact: true }).click();
 
-    // Chọn khung giờ trên UI
+    // Chọn khung giờ trên UI đúng sân đã chọn
     const slotLabel = new Date(selectedSlot.startTime).toLocaleTimeString('vi-VN', {
       hour: '2-digit',
       minute: '2-digit',
     });
-    const timeSlotBtn = page.getByRole('button', { name: new RegExp(`^${slotLabel}`) }).first();
+    const courtSection = page.locator('section', { hasText: selectedSlot.courtName });
+    const timeSlotBtn = courtSection.getByRole('button', { name: new RegExp(`^${slotLabel}`) }).first();
     await timeSlotBtn.click();
 
     // Bấm nút "Tiếp tục thanh toán"

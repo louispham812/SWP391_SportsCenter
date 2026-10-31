@@ -14,7 +14,7 @@ export default defineConfig({
     baseURL: appBaseUrl,
     browserName: 'chromium',
     screenshot: 'only-on-failure',
-    trace: 'retain-on-failure',
+    trace: 'on-first-retry',
   },
   projects: [
     {
