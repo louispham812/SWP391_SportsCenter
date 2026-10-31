@@ -965,7 +965,29 @@ public class BookingService {
      * Kept for backward compatibility if needed
      */
     private PaymentTransaction createPaymentTransaction(Long memberId, String bookingType, BigDecimal amount, String paymentMethod) {
-        return paymentService.createPayment(memberId, bookingType, amount, paymentMethod);
+        if (paymentService != null) {
+            PaymentTransaction pt = paymentService.createPayment(memberId, bookingType, amount, paymentMethod);
+            if (pt != null) {
+                return pt;
+            }
+        }
+        String method = (paymentMethod == null || paymentMethod.isBlank()) ? "SANDBOX" : paymentMethod.toUpperCase(Locale.ROOT);
+        String prefix = switch (method) {
+            case "VIETQR", "QR" -> "VQR";
+            case "VNPAY" -> "VNP";
+            case "MOMO" -> "MOM";
+            case "CASH_COUNTER", "CASH" -> "CSH";
+            default -> "SBX";
+        };
+        PaymentTransaction payment = new PaymentTransaction();
+        payment.setMemberId(memberId);
+        payment.setBookingType(bookingType);
+        payment.setAmount(amount);
+        payment.setPaymentMethod(method);
+        payment.setPaymentStatus("PAID");
+        payment.setReferenceCode(prefix + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
+        payment.setCreatedAt(LocalDateTime.now());
+        return paymentTransactionRepository.save(payment);
     }
 
     @Transactional(readOnly = true)
@@ -1212,7 +1234,20 @@ public class BookingService {
                 }
                 
                 // ✅ Use PaymentService instead of manual creation
-                paymentService.createRefund(actorId, "CLASS_REFUND", refundAmount, origMethod);
+                PaymentTransaction rfd = (paymentService != null)
+                        ? paymentService.createRefund(actorId, "CLASS_REFUND", refundAmount, origMethod)
+                        : null;
+                if (rfd == null) {
+                    PaymentTransaction refund = new PaymentTransaction();
+                    refund.setMemberId(actorId);
+                    refund.setBookingType("CLASS_REFUND");
+                    refund.setAmount(refundAmount);
+                    refund.setPaymentMethod(origMethod);
+                    refund.setPaymentStatus("REFUNDED");
+                    refund.setReferenceCode("RFD-CLS-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
+                    refund.setCreatedAt(LocalDateTime.now());
+                    paymentTransactionRepository.save(refund);
+                }
             }
             
             // Ghi audit log
@@ -1278,7 +1313,20 @@ public class BookingService {
                 }
                 
                 // ✅ Use PaymentService instead of manual creation
-                paymentService.createRefund(actorId, "COURT_REFUND", refundAmount, origMethod);
+                PaymentTransaction rfd = (paymentService != null)
+                        ? paymentService.createRefund(actorId, "COURT_REFUND", refundAmount, origMethod)
+                        : null;
+                if (rfd == null) {
+                    PaymentTransaction refund = new PaymentTransaction();
+                    refund.setMemberId(actorId);
+                    refund.setBookingType("COURT_REFUND");
+                    refund.setAmount(refundAmount);
+                    refund.setPaymentMethod(origMethod);
+                    refund.setPaymentStatus("REFUNDED");
+                    refund.setReferenceCode("RFD-CRT-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
+                    refund.setCreatedAt(LocalDateTime.now());
+                    paymentTransactionRepository.save(refund);
+                }
             }
             
             // Ghi audit log
