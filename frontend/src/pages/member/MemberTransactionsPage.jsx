@@ -412,13 +412,13 @@ export default function MemberTransactionsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {paginatedTransactions.map((tx) => {
+                    {paginatedTransactions.map((tx, idx) => {
                       const typeMeta = getItemTypeBadge(tx.itemType, tx.paymentStatus, tx.amount);
                       const isRefund = tx.paymentStatus === 'REFUNDED';
                       const isQuota = tx.itemType === 'QUOTA' || parseFloat(tx.amount) === 0;
 
                       return (
-                        <tr key={tx.id} className="hover:bg-slate-50/70 transition-colors">
+                        <tr key={tx.id || tx.transactionId || tx.paymentId || tx.referenceCode || `tx-${idx}`} className="hover:bg-slate-50/70 transition-colors">
                           <td className="py-3.5 px-4 font-mono font-bold text-slate-800">
                             {tx.referenceCode || `TX-${tx.id}`}
                           </td>

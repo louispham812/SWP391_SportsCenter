@@ -150,7 +150,7 @@ public class ReceptionistController {
                 .toList();
     }
 
-    @PostMapping("/check-ins")
+    @PostMapping({"/check-ins", "/check-in"})
     @Transactional
     public ReceptionistCheckInResponse recordCheckIn(
             @RequestBody ReceptionistCheckInRequest request,

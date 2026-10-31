@@ -33,13 +33,13 @@ export const lookupReceptionCard = (code) =>
   apiRequest(`/receptionist/lookup-card?code=${encodeURIComponent(code)}`);
 
 export const sellReceptionMembership = (saleData) =>
-  apiRequest('/receptionist/memberships', {
+  apiRequest('/receptionist/membership-sales', {
     method: 'POST',
     body: JSON.stringify(saleData),
   });
 
 export const checkInReceptionMember = (data) =>
-  apiRequest('/receptionist/check-in', {
+  apiRequest('/receptionist/check-ins', {
     method: 'POST',
     body: JSON.stringify(data),
   });

@@ -153,6 +153,14 @@ function App() {
           <Route path="/admin/broadcast" element={<RequireRole role="admin"><AdminBroadcastPage /></RequireRole>} />
           <Route path="/admin/audit-logs" element={<RequireRole role="admin"><AdminAuditLogPage /></RequireRole>} />
           <Route path="/admin/maintenance" element={<RequireRole role="admin"><AdminMaintenancePage /></RequireRole>} />
+
+          {/* Convenient Aliases for Cross-Role / Root Navigation */}
+          <Route path="/workout-plans" element={<Navigate to="/member/workout-plans" replace />} />
+          <Route path="/reviews" element={<Navigate to="/member/reviews" replace />} />
+          <Route path="/ai-assistant" element={<Navigate to="/member/ai-assistant" replace />} />
+          <Route path="/profile" element={<Navigate to="/member/profile" replace />} />
+          <Route path="/transactions" element={<Navigate to="/member/transactions" replace />} />
+
           {/* Fallback Route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

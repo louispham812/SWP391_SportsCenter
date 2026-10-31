@@ -27,6 +27,22 @@ export async function loginManager(page) {
   await expect(page).toHaveURL(/\/admin/);
 }
 
+export async function loginCoach(page) {
+  await page.goto('/login');
+  await page.getByPlaceholder('name@example.com / 0912...').fill('coach.minh@sporthub.com');
+  await page.getByPlaceholder('••••••••').fill('SportHub@123');
+  await page.getByRole('button', { name: 'ĐĂNG NHẬP NGAY' }).click();
+  await expect(page).toHaveURL(/\/coach/);
+}
+
+export async function loginReceptionist(page) {
+  await page.goto('/login');
+  await page.getByPlaceholder('name@example.com / 0912...').fill('reception.le@sporthub.com');
+  await page.getByPlaceholder('••••••••').fill('SportHub@123');
+  await page.getByRole('button', { name: 'ĐĂNG NHẬP NGAY' }).click();
+  await expect(page).toHaveURL(/\/receptionist/);
+}
+
 export async function logoutMember(page) {
   const token = await page.evaluate(() => {
     const session = JSON.parse(sessionStorage.getItem('sports-center-auth-session') || 'null');

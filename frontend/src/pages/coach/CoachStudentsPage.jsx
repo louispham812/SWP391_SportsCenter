@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import CoachLayout from '../../components/layouts/CoachLayout';
-import { getCoachStudents } from '../../services/bookingApi';
+import { getCoachStudents, getUpcomingClasses } from '../../services/bookingApi';
 import { generateCoachPlan } from '../../services/aiAssistantApi';
 import { createWorkoutPlan, createClassWorkoutPlan, getMemberWorkoutProgress } from '../../services/workoutApi';
 import { sendCoachNotice } from '../../services/coachApi';
@@ -15,6 +15,7 @@ import { cleanMarkdownText } from '../../utils/markdownUtils';
 export default function CoachStudentsPage() {
   const [students, setStudents] = useState([]);
   const [rawBookings, setRawBookings] = useState([]);
+  const [assignedClasses, setAssignedClasses] = useState([]);
   const { showToast } = useApp();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -65,8 +66,12 @@ export default function CoachStudentsPage() {
   const loadStudents = async () => {
     try {
       setLoading(true);
-      const bookings = await getCoachStudents();
+      const [bookings, upcoming] = await Promise.all([
+        getCoachStudents().catch(() => []),
+        getUpcomingClasses().catch(() => []),
+      ]);
       setRawBookings(bookings || []);
+      setAssignedClasses(upcoming || []);
       const byMember = new Map();
 
       (bookings || []).forEach((booking) => {
@@ -135,8 +140,23 @@ export default function CoachStudentsPage() {
         });
       }
     });
+    assignedClasses.forEach((c) => {
+      if (c.sessionId && !map.has(c.sessionId)) {
+        map.set(c.sessionId, {
+          sessionId: c.sessionId,
+          className: c.className,
+          startTime: c.startTime,
+        });
+      }
+    });
     return Array.from(map.values());
-  }, [rawBookings]);
+  }, [rawBookings, assignedClasses]);
+
+  useEffect(() => {
+    if (!selectedSessionIdForClassPlan && uniqueSessions.length > 0) {
+      setSelectedSessionIdForClassPlan(String(uniqueSessions[0].sessionId));
+    }
+  }, [uniqueSessions, selectedSessionIdForClassPlan]);
 
   // Distinct class names for filter dropdown
   const classOptions = useMemo(() => {

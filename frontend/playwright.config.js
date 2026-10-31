@@ -65,6 +65,11 @@ export default defineConfig({
       testMatch: /final-audit-cross-role\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      name: 'flow-e2e',
+      testMatch: /flow\d+.*\.spec\.js/,
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
   webServer: [
     {
