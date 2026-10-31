@@ -1,0 +1,21 @@
+#!/bin/sh
+# Git pre-push hook to prevent direct push to main branch
+
+remote="$1"
+url="$2"
+
+while read -r local_ref local_sha remote_ref remote_sha
+do
+    if [ "$remote_ref" = "refs/heads/main" ]; then
+        echo ""
+        echo "================================================================"
+        echo "[BLOCKED] DIRECT PUSH TO 'main' IS NOT ALLOWED!"
+        echo "Target remote: $remote ($url)"
+        echo "Please push to a feature branch and create a Pull Request (PR)."
+        echo "================================================================"
+        echo ""
+        exit 1
+    fi
+done
+
+exit 0
