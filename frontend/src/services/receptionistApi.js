@@ -29,17 +29,23 @@ export const updateReceptionMemberRfid = (memberId, rfidCode) =>
     body: JSON.stringify({ rfidCode }),
   });
 
+export const updateReceptionMemberEmergencyContact = (memberId, data) =>
+  apiRequest(`/receptionist/members/${memberId}/emergency-contact`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+
 export const lookupReceptionCard = (code) =>
   apiRequest(`/receptionist/lookup-card?code=${encodeURIComponent(code)}`);
 
 export const sellReceptionMembership = (saleData) =>
-  apiRequest('/receptionist/memberships', {
+  apiRequest('/receptionist/membership-sales', {
     method: 'POST',
     body: JSON.stringify(saleData),
   });
 
 export const checkInReceptionMember = (data) =>
-  apiRequest('/receptionist/check-in', {
+  apiRequest('/receptionist/check-ins', {
     method: 'POST',
     body: JSON.stringify(data),
   });

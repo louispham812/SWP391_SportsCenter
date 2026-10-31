@@ -2,7 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import NotificationList from '../../components/common/NotificationList';
-import { getMemberNotifications } from '../../services/memberApi';
+import {
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from '../../services/engagementApi';
 
 export default function MemberNotificationsPage() {
   const [notifications, setNotifications] = useState([]);
@@ -19,9 +23,20 @@ export default function MemberNotificationsPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getMemberNotifications();
+      const data = await getNotifications();
       if (Array.isArray(data)) {
         setNotifications(data);
+      } else if (data && Array.isArray(data.items)) {
+        setNotifications(data.items.map((item) => ({
+          id: item.notificationId,
+          notificationId: item.notificationId,
+          type: item.type || 'SYSTEM',
+          title: item.title,
+          message: item.message,
+          isRead: item.read,
+          read: item.read,
+          createdAt: item.createdAt,
+        })));
       } else {
         setNotifications([]);
       }
@@ -33,15 +48,26 @@ export default function MemberNotificationsPage() {
     }
   };
 
-  const handleMarkAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true, read: true })));
+    } catch (err) {
+      console.warn('Lỗi đánh dấu đã đọc tất cả:', err);
+    }
   };
 
-  const handleNotificationClick = (item) => {
-    // Mark as read
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n))
-    );
+  const handleNotificationClick = async (item) => {
+    try {
+      if (!item.isRead && !item.read) {
+        await markNotificationRead(item.notificationId || item.id);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === item.id ? { ...n, isRead: true, read: true } : n))
+        );
+      }
+    } catch (err) {
+      console.warn('Lỗi đánh dấu đã đọc:', err);
+    }
     if (item.link) {
       navigate(item.link);
     }

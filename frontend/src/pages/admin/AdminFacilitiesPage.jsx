@@ -11,6 +11,12 @@ import {
   updateManagerClassSession,
   cancelManagerClassSession,
 } from '../../services/managerApi';
+import {
+  createMaintenance,
+  deleteMaintenance,
+  getMaintenanceList,
+} from '../../services/engagementApi';
+import { apiRequest } from '../../services/apiClient';
 import { useApp } from '../../context/AppContext';
 
 const emptySession = {
@@ -25,38 +31,12 @@ const emptySession = {
   priceAmount: 0,
 };
 
-const MAINTENANCE_STORAGE_KEY = 'sports_center_court_maintenances';
-
-const INITIAL_MAINTENANCES = [
-  {
-    maintenanceId: 301,
-    courtName: 'Sân Pickleball Số 02',
-    courtId: 2,
-    startTime: '2026-10-22T08:00',
-    endTime: '2026-10-22T12:00',
-    reason: 'Thay mặt thảm thi đấu và căng lại lưới chuẩn quốc tế',
-    status: 'SCHEDULED',
-    affectedBookingsCount: 3,
-    createdAt: '2026-10-20T11:00:00',
-  },
-  {
-    maintenanceId: 299,
-    courtName: 'Sân Tennis Trung Tâm',
-    courtId: 1,
-    startTime: '2026-10-15T13:00',
-    endTime: '2026-10-15T17:00',
-    reason: 'Sửa chữa dàn đèn chiếu sáng LED ban đêm',
-    status: 'COMPLETED',
-    affectedBookingsCount: 2,
-    createdAt: '2026-10-12T09:30:00',
-  },
-];
-
 export default function AdminFacilitiesPage() {
   const { showToast } = useApp();
   const [activeTab, setActiveTab] = useState('facilities'); // 'facilities' | 'maintenance'
 
   const [facilities, setFacilities] = useState([]);
+  const [courts, setCourts] = useState([]);
   const [sports, setSports] = useState([]);
   const [coaches, setCoaches] = useState([]);
   const [showAddClassModal, setShowAddClassModal] = useState(false);
@@ -67,14 +47,7 @@ export default function AdminFacilitiesPage() {
   const [success, setSuccess] = useState('');
 
   // Maintenance Windows State (MGR-19)
-  const [maintenances, setMaintenances] = useState(() => {
-    try {
-      const stored = localStorage.getItem(MAINTENANCE_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : INITIAL_MAINTENANCES;
-    } catch {
-      return INITIAL_MAINTENANCES;
-    }
-  });
+  const [maintenances, setMaintenances] = useState([]);
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
   const [maintenanceForm, setMaintenanceForm] = useState({
     courtId: '',
@@ -193,9 +166,23 @@ export default function AdminFacilitiesPage() {
     }
   }, []);
 
+  const loadMaintenance = useCallback(async () => {
+    try {
+      const [courtList, maintenanceList] = await Promise.all([
+        apiRequest('/manager/courts'),
+        getMaintenanceList(),
+      ]);
+      setCourts(courtList || []);
+      setMaintenances(maintenanceList || []);
+    } catch (err) {
+      console.warn('Không thể tải dữ liệu bảo trì:', err);
+    }
+  }, []);
+
   useEffect(() => {
     loadFacilities();
-  }, [loadFacilities]);
+    loadMaintenance();
+  }, [loadFacilities, loadMaintenance]);
 
   const availableFacilities = facilities.filter(
     (facility) =>
@@ -211,6 +198,7 @@ export default function AdminFacilitiesPage() {
         facility.status === 'AVAILABLE' ? 'MAINTENANCE' : 'AVAILABLE',
       );
       await loadFacilities();
+      await loadMaintenance();
       showToast('Cập nhật thành công', `Đã đổi trạng thái cơ sở "${facility.facilityName}".`, 'info');
     } catch (requestError) {
       setError(requestError.message || 'Không thể cập nhật trạng thái cơ sở.');
@@ -244,37 +232,46 @@ export default function AdminFacilitiesPage() {
   };
 
   // Create Maintenance Window (MGR-19)
-  const handleCreateMaintenance = (e) => {
+  const handleCreateMaintenance = async (e) => {
     e.preventDefault();
     if (!maintenanceForm.courtId || !maintenanceForm.startTime || !maintenanceForm.endTime) {
       showToast('Lỗi', 'Vui lòng chọn sân và thời gian bảo trì.', 'warning');
       return;
     }
+    setSaving(true);
+    try {
+      await createMaintenance({
+        courtId: Number(maintenanceForm.courtId),
+        startTime: maintenanceForm.startTime,
+        endTime: maintenanceForm.endTime,
+        reason: maintenanceForm.reason.trim() || 'Bảo dưỡng định kỳ theo tiêu chuẩn',
+      });
+      const selectedCourt = courts.find((c) => String(c.courtId) === String(maintenanceForm.courtId));
+      showToast(
+        'Lên lịch bảo trì thành công',
+        `Đã khóa sân "${selectedCourt?.courtName || '#' + maintenanceForm.courtId}" trong khung giờ bảo trì. Sân sẽ bị chặn đặt chỗ tự động.`,
+        'success'
+      );
+      setIsMaintenanceModalOpen(false);
+      setMaintenanceForm({ courtId: '', startTime: '', endTime: '', reason: '' });
+      await loadMaintenance();
+      await loadFacilities();
+    } catch (err) {
+      showToast('Lỗi lên lịch bảo trì', err.message || 'Không thể tạo lịch bảo trì.', 'danger');
+    } finally {
+      setSaving(false);
+    }
+  };
 
-    const fac = facilities.find((f) => String(f.facilityId) === String(maintenanceForm.courtId));
-    const newMaint = {
-      maintenanceId: Date.now(),
-      courtId: Number(maintenanceForm.courtId),
-      courtName: fac?.facilityName || `Sân #${maintenanceForm.courtId}`,
-      startTime: maintenanceForm.startTime,
-      endTime: maintenanceForm.endTime,
-      reason: maintenanceForm.reason.trim() || 'Bảo dưỡng định kỳ theo tiêu chuẩn',
-      status: 'SCHEDULED',
-      affectedBookingsCount: 2,
-      createdAt: new Date().toISOString(),
-    };
-
-    const updated = [newMaint, ...maintenances];
-    setMaintenances(updated);
-    localStorage.setItem(MAINTENANCE_STORAGE_KEY, JSON.stringify(updated));
-
-    showToast(
-      'Lên lịch bảo trì thành công',
-      `Đã khóa sân "${newMaint.courtName}" trong khung giờ bảo trì. Hệ thống đã gửi thông báo để khách tự chọn đổi lịch hoặc hủy hoàn tiền 100%.`,
-      'success'
-    );
-    setIsMaintenanceModalOpen(false);
-    setMaintenanceForm({ courtId: '', startTime: '', endTime: '', reason: '' });
+  const handleDeleteMaintenance = async (id) => {
+    try {
+      await deleteMaintenance(id);
+      showToast('Thành công', 'Đã xóa lịch bảo trì. Sân đã được mở lại hoạt động bình thường.', 'success');
+      await loadMaintenance();
+      await loadFacilities();
+    } catch (err) {
+      showToast('Lỗi', err.message || 'Không thể xóa lịch bảo trì.', 'danger');
+    }
   };
 
   return (
@@ -559,40 +556,59 @@ export default function AdminFacilitiesPage() {
                     <th className="px-5 py-3">Mã &amp; Tên sân</th>
                     <th className="px-5 py-3">Khung giờ bảo trì</th>
                     <th className="px-5 py-3">Lý do bảo dưỡng</th>
-                    <th className="px-5 py-3">Booking bị ảnh hưởng</th>
                     <th className="px-5 py-3">Trạng thái</th>
+                    <th className="px-5 py-3 text-right">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
                   {maintenances.map((m) => (
                     <tr key={m.maintenanceId} className="hover:bg-slate-50">
                       <td className="px-5 py-4">
-                        <strong className="block text-slate-900 text-sm">{m.courtName}</strong>
+                        <strong className="block text-slate-900 text-sm">
+                          {m.courtName || courts.find((c) => c.courtId === m.courtId)?.courtName || `Sân #${m.courtId}`}
+                        </strong>
                         <span className="text-slate-400 text-[11px]">Mã bảo trì: #{m.maintenanceId}</span>
                       </td>
                       <td className="px-5 py-4 text-slate-700">
                         {new Date(m.startTime).toLocaleString('vi-VN')} →{' '}
                         {new Date(m.endTime).toLocaleString('vi-VN')}
                       </td>
-                      <td className="px-5 py-4 max-w-xs text-slate-600">{m.reason}</td>
-                      <td className="px-5 py-4">
-                        <span className="px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-800 font-bold border border-amber-200">
-                          {m.affectedBookingsCount || 0} booking đã thông báo
-                        </span>
-                      </td>
+                      <td className="px-5 py-4 max-w-xs text-slate-600">{m.reason || 'Bảo dưỡng định kỳ'}</td>
                       <td className="px-5 py-4">
                         <span
                           className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
                             m.status === 'COMPLETED'
                               ? 'bg-slate-100 text-slate-700 border-slate-200'
+                              : m.status === 'IN_PROGRESS'
+                              ? 'bg-amber-50 text-amber-800 border-amber-200'
                               : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                           }`}
                         >
-                          {m.status === 'COMPLETED' ? 'Đã hoàn tất' : 'Đã lên lịch (SCHEDULED)'}
+                          {m.status === 'COMPLETED'
+                            ? 'Đã hoàn tất'
+                            : m.status === 'IN_PROGRESS'
+                            ? 'Đang khóa bảo trì'
+                            : 'Đã lên lịch (SCHEDULED)'}
                         </span>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMaintenance(m.maintenanceId)}
+                          className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer"
+                        >
+                          Xóa / Mở sân
+                        </button>
                       </td>
                     </tr>
                   ))}
+                  {maintenances.length === 0 && (
+                    <tr>
+                      <td colSpan="5" className="px-5 py-8 text-center text-slate-500 text-xs">
+                        Chưa có lịch bảo trì nào. Bấm "Lên lịch mới" để tạo khung giờ khóa sân.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -626,13 +642,16 @@ export default function AdminFacilitiesPage() {
                     className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none cursor-pointer"
                   >
                     <option value="">-- Chọn sân bãi --</option>
-                    {facilities.map((f) => (
+                    {courts.map((c) => (
+                      <option key={c.courtId} value={c.courtId}>
+                        {c.courtName} (Mã #{c.courtId})
+                      </option>
+                    ))}
+                    {courts.length === 0 && facilities.map((f) => (
                       <option key={f.facilityId} value={f.facilityId}>
                         {f.facilityName} ({f.sportName || 'Chung'})
                       </option>
                     ))}
-                    <option value="1">Sân Tennis Trung Tâm</option>
-                    <option value="2">Sân Pickleball Số 02</option>
                   </select>
                 </div>
 

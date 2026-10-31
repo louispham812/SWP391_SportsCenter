@@ -79,7 +79,7 @@ public class AiAssistantService {
                 ? DEFAULT_BASE_URL
                 : baseUrl.trim();
         this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
+                .connectTimeout(Duration.ofSeconds(15))
                 .build();
     }
 
@@ -302,24 +302,57 @@ public class AiAssistantService {
     private String tryCallAi(
             String systemPrompt,
             String databaseContext,
-            List<AssistantMessageRequest> messages) throws IOException, InterruptedException {
+            List<AssistantMessageRequest> messages) {
         boolean isNativeGemini = baseUrl != null && (baseUrl.contains(":generateContent")
                 || (baseUrl.contains("/models/") && !baseUrl.contains("/openai/")));
 
         if (isNativeGemini) {
-            return tryCallNativeGemini(baseUrl, systemPrompt, databaseContext, messages);
+            try {
+                return tryCallNativeGemini(baseUrl, systemPrompt, databaseContext, messages);
+            } catch (Exception ex) {
+                log.warn("Direct Native Gemini API call failed: {}", ex.getMessage());
+                System.err.println("[AiAssistantService] Direct Native Gemini API call failed: " + ex.getMessage());
+                return null;
+            }
         }
 
-        String answer = tryCallOpenAi(systemPrompt, databaseContext, messages);
-        if (answer != null && !answer.isBlank()) {
-            return answer;
+        try {
+            String answer = tryCallOpenAi(systemPrompt, databaseContext, messages);
+            if (answer != null && !answer.isBlank()) {
+                return answer;
+            }
+        } catch (Exception ex) {
+            log.warn("OpenAI-compatible call failed or timed out: {}", ex.getMessage());
+            System.err.println("[AiAssistantService] OpenAI-compatible call failed or timed out: " + ex.getMessage());
         }
 
-        // Fallback: If OpenAI-compatible endpoint failed on Google Generative Language, try native Gemini endpoint
+        // Fallback: If OpenAI-compatible endpoint failed or timed out on Google Generative Language, try native Gemini endpoint
         if (baseUrl != null && baseUrl.contains("generativelanguage.googleapis.com")) {
             String nativeFallbackUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent";
             log.info("Attempting fallback to native Gemini endpoint: {}", nativeFallbackUrl);
-            return tryCallNativeGemini(nativeFallbackUrl, systemPrompt, databaseContext, messages);
+            try {
+                String nativeAnswer = tryCallNativeGemini(nativeFallbackUrl, systemPrompt, databaseContext, messages);
+                if (nativeAnswer != null && !nativeAnswer.isBlank()) {
+                    return nativeAnswer;
+                }
+            } catch (Exception ex) {
+                log.warn("Native Gemini API fallback failed: {}", ex.getMessage());
+                System.err.println("[AiAssistantService] Native Gemini API fallback failed: " + ex.getMessage());
+            }
+
+            // Secondary resilience fallback: if primary model had high demand spike (HTTP 503), try gemini-3.5-flash-lite directly
+            if (!"gemini-3.5-flash-lite".equalsIgnoreCase(model)) {
+                String model35Url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent";
+                log.info("Attempting secondary fallback to gemini-3.5-flash-lite: {}", model35Url);
+                try {
+                    String answer35 = tryCallNativeGemini(model35Url, systemPrompt, databaseContext, messages);
+                    if (answer35 != null && !answer35.isBlank()) {
+                        return answer35;
+                    }
+                } catch (Exception ex) {
+                    log.warn("Secondary fallback to gemini-3.5-flash-lite failed: {}", ex.getMessage());
+                }
+            }
         }
 
         return null;
@@ -351,7 +384,7 @@ public class AiAssistantService {
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(targetUrl))
-                .timeout(Duration.ofSeconds(30))
+                .timeout(Duration.ofSeconds(60))
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
@@ -364,6 +397,7 @@ public class AiAssistantService {
             if (answer.isTextual() && !answer.asText().isBlank()) {
                 return answer.asText();
             }
+            log.warn("AI OpenAI-compatible endpoint returned 200 but content was empty or non-textual: {}", response.body());
         } else {
             log.warn("AI API request to [{}] failed with HTTP {}: {}", targetUrl, response.statusCode(), response.body());
             System.err.println("[AiAssistantService] AI API request to [" + targetUrl + "] failed with HTTP "
@@ -403,7 +437,7 @@ public class AiAssistantService {
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(targetUrl))
-                .timeout(Duration.ofSeconds(30))
+                .timeout(Duration.ofSeconds(60))
                 .header("Content-Type", "application/json")
                 .header("x-goog-api-key", apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
@@ -411,11 +445,22 @@ public class AiAssistantService {
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() >= 200 && response.statusCode() < 300) {
-            JsonNode answer = objectMapper.readTree(response.body())
-                    .path("candidates").path(0).path("content").path("parts").path(0).path("text");
-            if (answer.isTextual() && !answer.asText().isBlank()) {
-                return answer.asText();
+            JsonNode candidate = objectMapper.readTree(response.body())
+                    .path("candidates").path(0);
+            JsonNode parts = candidate.path("content").path("parts");
+            if (parts.isArray()) {
+                StringBuilder textBuilder = new StringBuilder();
+                for (JsonNode part : parts) {
+                    if (part.has("text") && !part.path("thought").asBoolean(false)) {
+                        textBuilder.append(part.path("text").asText());
+                    }
+                }
+                String text = textBuilder.toString();
+                if (!text.isBlank()) {
+                    return text;
+                }
             }
+            log.warn("Native Gemini API returned 200 but candidate parts contained no text: {}", response.body());
         } else {
             log.warn("Native Gemini API request to [{}] failed with HTTP {}: {}", targetUrl, response.statusCode(), response.body());
             System.err.println("[AiAssistantService] Native Gemini API request to [" + targetUrl + "] failed with HTTP "

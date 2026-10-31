@@ -43,34 +43,7 @@ const formatTime = (value) =>
 const LEAVE_STORAGE_KEY = 'sports_center_coach_leave_requests';
 const AVAILABILITY_STORAGE_KEY = 'sports_center_coach_availability';
 
-const INITIAL_LEAVE_REQUESTS = [
-  {
-    requestId: 101,
-    coachId: 2,
-    coachName: 'Coach Nguyễn Văn A',
-    leaveType: 'SICK_LEAVE',
-    startDate: '2026-10-25',
-    endDate: '2026-10-26',
-    reason: 'Sốt xuất huyết cần theo dõi tại cơ sở y tế',
-    status: 'PENDING',
-    affectedBookingsCount: 3,
-    createdAt: '2026-10-20T08:30:00',
-  },
-  {
-    requestId: 98,
-    coachId: 2,
-    coachName: 'Coach Nguyễn Văn A',
-    leaveType: 'PERSONAL_LEAVE',
-    startDate: '2026-10-05',
-    endDate: '2026-10-06',
-    reason: 'Tham gia kỳ thi nâng hạng Huấn luyện viên ITF Level 2',
-    status: 'APPROVED',
-    approvedBy: 'Giám đốc Trung tâm',
-    affectedBookingsCount: 2,
-    reassigned: true,
-    createdAt: '2026-10-01T14:15:00',
-  },
-];
+const INITIAL_LEAVE_REQUESTS = [];
 
 const INITIAL_AVAILABILITY = [
   { day: 'MONDAY', label: 'Thứ Hai', morning: true, afternoon: true, evening: false },
@@ -289,7 +262,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
     let current = true;
     apiRequest('/coach/leave-requests')
       .then((data) => {
-        if (current && Array.isArray(data) && data.length > 0) {
+        if (current && Array.isArray(data)) {
           setLeaveRequests(data);
           localStorage.setItem(LEAVE_STORAGE_KEY, JSON.stringify(data));
         }

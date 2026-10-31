@@ -12,10 +12,12 @@ import com.sporthub.backend.entity.PublicFacility;
 import com.sporthub.backend.entity.PublicSport;
 import com.sporthub.backend.entity.SportsCourt;
 import com.sporthub.backend.entity.User;
+import com.sporthub.backend.entity.CourtMaintenance;
 import com.sporthub.backend.enums.AttendanceStatus;
 import com.sporthub.backend.repository.BookingRepository;
 import com.sporthub.backend.repository.ClassSessionRepository;
 import com.sporthub.backend.repository.CourtBookingRepository;
+import com.sporthub.backend.repository.CourtMaintenanceRepository;
 import com.sporthub.backend.repository.PaymentTransactionRepository;
 import com.sporthub.backend.repository.PublicFacilityRepository;
 import com.sporthub.backend.repository.PublicSportRepository;
@@ -53,6 +55,7 @@ class BookingServiceTest {
     private final PublicFacilityRepository publicFacilityRepository = mock(PublicFacilityRepository.class);
     private final SportsCourtRepository sportsCourtRepository = mock(SportsCourtRepository.class);
     private final CourtBookingRepository courtBookingRepository = mock(CourtBookingRepository.class);
+    private final CourtMaintenanceRepository courtMaintenanceRepository = mock(CourtMaintenanceRepository.class);
     private final PaymentTransactionRepository paymentTransactionRepository = mock(PaymentTransactionRepository.class);
     private final UserMembershipRepository userMembershipRepository = mock(UserMembershipRepository.class);
     private final MembershipPackageRepository membershipPackageRepository = mock(MembershipPackageRepository.class);
@@ -70,6 +73,7 @@ class BookingServiceTest {
                 publicFacilityRepository,
                 sportsCourtRepository,
                 courtBookingRepository,
+                courtMaintenanceRepository,
                 paymentTransactionRepository,
                 userMembershipRepository,
                 membershipPackageRepository,
@@ -364,7 +368,68 @@ class BookingServiceTest {
         PublicFacility facility = new PublicFacility();
         facility.setFacilityId(id);
         facility.setName(name);
+        facility.setActive(true);
         return facility;
+    }
+
+    @Test
+    void courtSlotQuoteRejectsWhenCourtUnderMaintenance() {
+        SportsCourt court = court();
+        when(sportsCourtRepository.findById(33L)).thenReturn(Optional.of(court));
+        when(publicSportRepository.findById(4L)).thenReturn(Optional.of(sport(4L, "Pickleball")));
+        LocalDateTime start = LocalDate.now().plusDays(1).atTime(8, 0);
+        LocalDateTime end = start.plusHours(1);
+        when(courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(33L, end, start))
+                .thenReturn(true);
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () ->
+                bookingService.getQuote("COURT", 33L, start, end, 11L));
+        assertEquals(409, ex.getStatusCode().value());
+        org.junit.jupiter.api.Assertions.assertTrue(ex.getReason().contains("bảo trì"));
+    }
+
+    @Test
+    void courtCheckoutRejectsWhenCourtUnderMaintenance() {
+        SportsCourt court = court();
+        User member = User.builder().userId(11L).role("MEMBER").status("ACTIVE").build();
+        when(userRepository.findById(11L)).thenReturn(Optional.of(member));
+        when(sportsCourtRepository.findByIdForUpdate(33L)).thenReturn(Optional.of(court));
+        LocalDateTime start = LocalDate.now().plusDays(1).atTime(9, 0);
+        LocalDateTime end = start.plusHours(1);
+        when(courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(33L, end, start))
+                .thenReturn(true);
+
+        CheckoutRequest request = new CheckoutRequest("COURT", 33L, start, end, "VIETQR");
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () ->
+                bookingService.checkout(11L, request));
+        assertEquals(409, ex.getStatusCode().value());
+        org.junit.jupiter.api.Assertions.assertTrue(ex.getReason().contains("bảo trì"));
+    }
+
+    @Test
+    void courtSlotsExcludeMaintenanceHours() {
+        SportsCourt court = court();
+        when(sportsCourtRepository.findBySportIdAndActiveTrueOrderByCourtIdAsc(4L))
+                .thenReturn(List.of(court));
+        when(publicSportRepository.findById(4L)).thenReturn(Optional.of(sport(4L, "Pickleball")));
+        LocalDateTime startMaint = LocalDate.now().atTime(8, 0);
+        LocalDateTime endMaint = LocalDate.now().atTime(12, 0);
+        CourtMaintenance maint = CourtMaintenance.builder()
+                .maintenanceId(1L)
+                .courtId(33L)
+                .startTime(startMaint)
+                .endTime(endMaint)
+                .reason("Sửa sàn")
+                .build();
+        when(courtMaintenanceRepository.findByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(eq(33L), any(), any()))
+                .thenReturn(List.of(maint));
+
+        List<com.sporthub.backend.dto.CourtSlotResponse> slots = bookingService.getAvailableCourtSlots(4L);
+        boolean hasSlotInMaint = slots.stream().anyMatch(s ->
+                s.courtId().equals(33L) &&
+                s.startTime().isBefore(endMaint) &&
+                s.endTime().isAfter(startMaint));
+        org.junit.jupiter.api.Assertions.assertFalse(hasSlotInMaint, "Slots must exclude maintenance period");
     }
 
     private SportsCourt court() {

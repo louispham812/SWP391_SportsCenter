@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface PublicFacilityRepository extends JpaRepository<PublicFacility, Long> {
     List<PublicFacility> findByActiveTrueOrderByFacilityIdAsc();
+    List<PublicFacility> findAllByOrderByFacilityIdAsc();
 }

@@ -11,6 +11,7 @@ import {
   getBookingSports,
   getCoachPublicProfile,
 } from '../../services/bookingApi';
+import { apiRequest } from '../../services/apiClient';
 import PaymentMethodSelector from '../../components/common/PaymentMethodSelector';
 import { getSportMedia } from '../../utils/mediaMap';
 import Pagination from '../../components/common/Pagination';
@@ -86,35 +87,16 @@ export default function MemberClassesPage() {
     const fetchQuota = async () => {
       try {
         setQuotaLoading(true);
-        const response = await fetch('http://localhost:8080/api/v1/members/me/quota', {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('sports_center_token')}`,
-          },
+        const data = await apiRequest('/members/me/quota');
+        setMemberQuota({
+          packageName: data.packageName || 'Chưa có gói tập',
+          initialQuota: data.initialQuota || 0,
+          usedQuota: data.usedQuota || 0,
+          heldQuota: data.heldQuota || 0,
+          remainingQuota: data.remainingQuota || 0,
+          canUseForBooking: data.canUseForBooking || false,
         });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setMemberQuota({
-            packageName: data.packageName || 'Chưa có gói tập',
-            initialQuota: data.initialQuota || 0,
-            usedQuota: data.usedQuota || 0,
-            heldQuota: data.heldQuota || 0,
-            remainingQuota: data.remainingQuota || 0,
-            canUseForBooking: data.canUseForBooking || false,
-          });
-        } else {
-          // Nếu lỗi, set về mặc định (không có gói)
-          setMemberQuota({
-            packageName: 'Chưa có gói tập',
-            initialQuota: 0,
-            usedQuota: 0,
-            heldQuota: 0,
-            remainingQuota: 0,
-            canUseForBooking: false,
-          });
-        }
       } catch (err) {
-        console.error('Failed to fetch quota:', err);
         setMemberQuota({
           packageName: 'Chưa có gói tập',
           initialQuota: 0,
@@ -250,29 +232,19 @@ export default function MemberClassesPage() {
     if (!voucherCode.trim()) return;
 
     const code = voucherCode.trim().toUpperCase();
-    
-    // Try local vouchers first
-    let vouchers = [];
     try {
-      const saved = localStorage.getItem('sports_center_vouchers');
-      vouchers = saved ? JSON.parse(saved) : [];
-    } catch {
-      vouchers = [];
+      const res = await apiRequest('/vouchers/validate', {
+        method: 'POST',
+        body: JSON.stringify({ code, amount: selectedSession?.priceAmount || 0 }),
+      });
+      if (res && res.valid && res.voucher) {
+        setAppliedVoucher(res.voucher);
+      } else {
+        setVoucherError(res?.message || 'Mã ưu đãi không hợp lệ hoặc đã hết hạn.');
+      }
+    } catch (err) {
+      setVoucherError(err.message || 'Không thể xác thực mã ưu đãi từ hệ thống.');
     }
-
-    const fallbackVouchers = [
-      { code: 'WELCOME20', discountType: 'PERCENT', discountValue: 20, status: 'ACTIVE' },
-      { code: 'SUMMER50K', discountType: 'FIXED', discountValue: 50000, status: 'ACTIVE' },
-      { code: 'EXTEND30D', discountType: 'EXTEND_DURATION', discountValue: 30, status: 'ACTIVE' },
-    ];
-    const allVouchers = [...fallbackVouchers, ...vouchers];
-    const found = allVouchers.find((v) => v.code.toUpperCase() === code && (v.status === 'ACTIVE' || v.active));
-
-    if (!found) {
-      setVoucherError('Mã ưu đãi không hợp lệ hoặc đã hết hạn.');
-      return;
-    }
-    setAppliedVoucher(found);
   };
 
   const removeVoucher = () => {
@@ -595,13 +567,18 @@ export default function MemberClassesPage() {
               {paginatedClasses.map((cls) => {
               const remaining = Math.max(0, cls.maxSlots - cls.bookedSlots);
               const alreadyBooked = ['BOOKED', 'CONFIRMED'].includes(cls.memberBookingStatus);
+              const isUnderMaintenance = cls.status === 'MAINTENANCE';
               const sportObj = sports.find((s) => s.sportId === cls.sportId);
               const media = getSportMedia(sportObj?.slug || sportObj?.code || cls.className);
 
               return (
                 <article
                   key={cls.sessionId}
-                  className="group flex flex-col justify-between h-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-orange-400 hover:shadow-md"
+                  className={`group flex flex-col justify-between h-full overflow-hidden rounded-2xl border bg-white shadow-sm transition ${
+                    isUnderMaintenance
+                      ? 'border-amber-200 bg-amber-50/15 opacity-90'
+                      : 'border-slate-200 hover:-translate-y-1 hover:border-orange-400 hover:shadow-md'
+                  }`}
                 >
                   <div>
                     {/* Cover Image */}
@@ -620,14 +597,27 @@ export default function MemberClassesPage() {
                       <div className="absolute top-3 right-3">
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold backdrop-blur-sm ${
-                            alreadyBooked
+                            isUnderMaintenance
+                              ? 'bg-red-600 text-white flex items-center gap-1'
+                              : alreadyBooked
                               ? 'bg-emerald-500 text-white'
                               : remaining < 1
                               ? 'bg-red-500 text-white'
                               : 'bg-white/90 text-slate-800'
                           }`}
                         >
-                          {alreadyBooked ? 'Đã đăng ký' : remaining < 1 ? 'Hết chỗ' : `Còn ${remaining}/${cls.maxSlots} chỗ`}
+                          {isUnderMaintenance ? (
+                            <>
+                              <span className="material-symbols-outlined text-[12px]">construction</span>
+                              Đang bảo trì
+                            </>
+                          ) : alreadyBooked ? (
+                            'Đã đăng ký'
+                          ) : remaining < 1 ? (
+                            'Hết chỗ'
+                          ) : (
+                            `Còn ${remaining}/${cls.maxSlots} chỗ`
+                          )}
                         </span>
                       </div>
                       <div className="absolute bottom-2.5 left-4 right-4">
@@ -639,6 +629,13 @@ export default function MemberClassesPage() {
 
                     {/* Details */}
                     <div className="p-5 space-y-3">
+                      {isUnderMaintenance && (
+                        <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 font-semibold flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[15px] text-amber-700">info</span>
+                          <span>Cơ sở / Sân bãi của lớp học đang bảo dưỡng kỹ thuật, tạm ngưng nhận học viên.</span>
+                        </div>
+                      )}
+
                       {/* Coach Clickable Link */}
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-500">Huấn luyện viên:</span>
@@ -678,7 +675,16 @@ export default function MemberClassesPage() {
 
                   {/* Actions */}
                   <div className="p-5 pt-0 mt-auto">
-                    {alreadyBooked ? (
+                    {isUnderMaintenance ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full rounded-xl bg-slate-100 border border-slate-200 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 cursor-not-allowed flex items-center justify-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-[16px] text-amber-700">build</span>
+                        <span>Cơ sở đang bảo trì - Tạm khóa</span>
+                      </button>
+                    ) : alreadyBooked ? (
                       <div className="space-y-2">
                         <div className="text-center text-[11px] font-bold text-emerald-700 bg-emerald-50 py-1.5 rounded-xl border border-emerald-200">
                           ✓ Bạn đã đăng ký lớp học này

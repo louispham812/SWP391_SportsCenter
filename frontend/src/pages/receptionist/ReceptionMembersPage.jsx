@@ -7,6 +7,7 @@ import {
   searchReceptionistMembers,
   updateReceptionMemberAvatar,
   updateReceptionMemberRfid,
+  updateReceptionMemberEmergencyContact,
 } from '../../services/receptionistApi';
 
 export default function ReceptionMembersPage() {
@@ -25,6 +26,9 @@ export default function ReceptionMembersPage() {
 
   const [rfidMember, setRfidMember] = useState(null);
   const [rfidInput, setRfidInput] = useState('');
+
+  const [emergencyMember, setEmergencyMember] = useState(null);
+  const [emergencyForm, setEmergencyForm] = useState({ name: '', phone: '' });
 
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
@@ -53,7 +57,31 @@ export default function ReceptionMembersPage() {
           });
         }
       });
-    return () => {
+    const handleSaveEmergency = async (e) => {
+    e.preventDefault();
+    if (!emergencyMember) return;
+    setActionLoading(true);
+    setActionError('');
+    try {
+      await updateReceptionMemberEmergencyContact(emergencyMember.userId, {
+        emergencyContactName: emergencyForm.name.trim(),
+        emergencyContactPhone: emergencyForm.phone.trim(),
+      });
+      setActionSuccess('Cập nhật liên hệ khẩn cấp thành công!');
+      setTimeout(() => {
+        setEmergencyMember(null);
+        setEmergencyForm({ name: '', phone: '' });
+        setActionSuccess('');
+        setRefreshKey((k) => k + 1);
+      }, 1000);
+    } catch (err) {
+      setActionError(err.message || 'Không thể cập nhật liên hệ khẩn cấp.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  return () => {
       active = false;
     };
   }, [submittedQuery, page, requestKey]);
@@ -158,6 +186,30 @@ export default function ReceptionMembersPage() {
     }
   };
 
+  const handleSaveEmergency = async (e) => {
+    e.preventDefault();
+    if (!emergencyMember) return;
+    setActionLoading(true);
+    setActionError('');
+    try {
+      await updateReceptionMemberEmergencyContact(emergencyMember.userId, {
+        emergencyContactName: emergencyForm.name.trim(),
+        emergencyContactPhone: emergencyForm.phone.trim(),
+      });
+      setActionSuccess('Cập nhật liên hệ khẩn cấp thành công!');
+      setTimeout(() => {
+        setEmergencyMember(null);
+        setEmergencyForm({ name: '', phone: '' });
+        setActionSuccess('');
+        setRefreshKey((k) => k + 1);
+      }, 1000);
+    } catch (err) {
+      setActionError(err.message || 'Không thể cập nhật liên hệ khẩn cấp.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   return (
     <ReceptionistLayout>
       <div className="space-y-6">
@@ -237,6 +289,11 @@ export default function ReceptionMembersPage() {
                         <td className="px-5 py-4 text-slate-600">
                           <div className="font-medium">{member.phone || 'Chưa có SĐT'}</div>
                           <div className="text-xs text-slate-400">{member.email}</div>
+                          {member.emergencyContactName && (
+                            <div className="text-[11px] text-red-600 font-medium mt-0.5">
+                              SOS: {member.emergencyContactName} ({member.emergencyContactPhone || '—'})
+                            </div>
+                          )}
                         </td>
                         <td className="px-5 py-4">
                           {member.rfidCode ? (
@@ -284,6 +341,23 @@ export default function ReceptionMembersPage() {
                             >
                               <span className="material-symbols-outlined text-[16px]">badge</span>
                               <span>Cấp RFID/QR</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEmergencyMember(member);
+                                setEmergencyForm({
+                                  name: member.emergencyContactName || '',
+                                  phone: member.emergencyContactPhone || '',
+                                });
+                                setActionError('');
+                                setActionSuccess('');
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 border border-red-200 hover:bg-red-100 text-red-700 text-xs font-bold transition shadow-2xs cursor-pointer"
+                              title="Cập nhật liên hệ khẩn cấp"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">emergency</span>
+                              <span>Khẩn cấp</span>
                             </button>
                           </div>
                         </td>
@@ -493,6 +567,91 @@ export default function ReceptionMembersPage() {
                   onClick={() => {
                     setRfidMember(null);
                     setRfidInput('');
+                  }}
+                  className="py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
+                >
+                  Hủy
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 3: Cập nhật liên hệ khẩn cấp (REC-09) */}
+      {emergencyMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Liên Hệ Khẩn Cấp (Emergency Contact)</h3>
+                <p className="text-xs text-slate-500">Hội viên: <strong>{emergencyMember.fullName}</strong> (#{emergencyMember.userId})</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmergencyMember(null);
+                  setEmergencyForm({ name: '', phone: '' });
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+
+            {actionError && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800">{actionError}</div>
+            )}
+            {actionSuccess && (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">{actionSuccess}</div>
+            )}
+
+            <form onSubmit={handleSaveEmergency} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1" htmlFor="emergency-name">
+                  Tên người liên hệ khẩn cấp *
+                </label>
+                <input
+                  id="emergency-name"
+                  type="text"
+                  required
+                  value={emergencyForm.name}
+                  onChange={(e) => setEmergencyForm({ ...emergencyForm, name: e.target.value })}
+                  placeholder="VD: Người thân, Ba/Mẹ, Vợ/Chồng..."
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm font-bold outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1" htmlFor="emergency-phone">
+                  Số điện thoại khẩn cấp *
+                </label>
+                <input
+                  id="emergency-phone"
+                  type="tel"
+                  required
+                  value={emergencyForm.phone}
+                  onChange={(e) => setEmergencyForm({ ...emergencyForm, phone: e.target.value })}
+                  placeholder="VD: 0988 777 666"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm font-bold outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                />
+              </div>
+
+              <div className="border-t border-slate-100 pt-3 flex items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="flex-1 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-red-500/25"
+                >
+                  <span className="material-symbols-outlined text-[16px]">save</span>
+                  <span>{actionLoading ? 'Đang lưu...' : 'Lưu Thông Tin Khẩn Cấp'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmergencyMember(null);
+                    setEmergencyForm({ name: '', phone: '' });
                   }}
                   className="py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
                 >

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { apiRequest } from '../../services/apiClient';
 import { sendMemberAssistantMessages } from '../../services/aiAssistantApi';
+import { recordBodyProgress, getMyWorkoutProgress } from '../../services/workoutApi';
 import FormattedAiText from '../../components/common/FormattedAiText';
 import Pagination from '../../components/common/Pagination';
 
@@ -13,6 +14,18 @@ const formatDateTime = (value) => new Date(value).toLocaleString('vi-VN', {
 export default function MemberAIAssistantPage() {
   const [health, setHealth] = useState(null);
   const [schedule, setSchedule] = useState([]);
+  const [latest1Rm, setLatest1Rm] = useState(null);
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  const [logForm, setLogForm] = useState({
+    weightKg: '',
+    heightCm: '',
+    smmKg: '',
+    pbfPercent: '',
+    maxLiftKg: '',
+    note: '',
+  });
+  const [savingLog, setSavingLog] = useState(false);
+  const [logSuccess, setLogSuccess] = useState('');
   const [messages, setMessages] = useState([]);
   const [messageDraft, setMessageDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -20,27 +33,58 @@ export default function MemberAIAssistantPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const loadHealthData = async () => {
+    try {
+      const [healthData, scheduleData, workoutData] = await Promise.all([
+        apiRequest('/members/me/health'),
+        apiRequest('/booking-flow/schedule'),
+        getMyWorkoutProgress().catch(() => null),
+      ]);
+      setHealth(healthData);
+      setSchedule(Array.isArray(scheduleData) ? scheduleData.filter((s) => s.status !== 'CANCELLED' && s.status !== 'REFUNDED') : []);
+      if (workoutData?.bodyLogs?.length) {
+        const withLift = workoutData.bodyLogs.filter((l) => l.maxLiftKg != null);
+        if (withLift.length) {
+          setLatest1Rm(withLift[withLift.length - 1].maxLiftKg);
+        }
+      }
+    } catch (requestError) {
+      setError(requestError.message || 'Không thể tải dữ liệu hồ sơ và lịch tập.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let current = true;
-    Promise.all([
-      apiRequest('/members/me/health'),
-      apiRequest('/booking-flow/schedule'),
-    ])
-      .then(([healthData, scheduleData]) => {
-        if (!current) return;
-        setHealth(healthData);
-        setSchedule(Array.isArray(scheduleData) ? scheduleData.filter((s) => s.status !== 'CANCELLED' && s.status !== 'REFUNDED') : []);
-      })
-      .catch((requestError) => {
-        if (current) setError(requestError.message || 'Không thể tải dữ liệu hồ sơ và lịch tập.');
-      })
-      .finally(() => {
-        if (current) setLoading(false);
-      });
-    return () => {
-      current = false;
-    };
+    loadHealthData();
   }, []);
+
+  const handleSaveProgress = async (e) => {
+    e.preventDefault();
+    setSavingLog(true);
+    setLogSuccess('');
+    try {
+      await recordBodyProgress({
+        weightKg: logForm.weightKg ? Number(logForm.weightKg) : null,
+        heightCm: logForm.heightCm ? Number(logForm.heightCm) : null,
+        smmKg: logForm.smmKg ? Number(logForm.smmKg) : null,
+        pbfPercent: logForm.pbfPercent ? Number(logForm.pbfPercent) : null,
+        maxLiftKg: logForm.maxLiftKg ? Number(logForm.maxLiftKg) : null,
+        note: logForm.note.trim() || 'Hội viên tự ghi nhận qua AI Assistant',
+      });
+      setLogSuccess('Ghi nhận chỉ số thể trạng và 1RM thành công!');
+      await loadHealthData();
+      setTimeout(() => {
+        setIsLogModalOpen(false);
+        setLogSuccess('');
+        setLogForm({ weightKg: '', heightCm: '', smmKg: '', pbfPercent: '', maxLiftKg: '', note: '' });
+      }, 1000);
+    } catch (err) {
+      setError(err.message || 'Không thể lưu chỉ số.');
+    } finally {
+      setSavingLog(false);
+    }
+  };
 
   const SCHEDULE_PER_PAGE = 3;
   const [schedulePage, setSchedulePage] = useState(1);
@@ -64,6 +108,7 @@ export default function MemberAIAssistantPage() {
     { label: 'Cơ nạc (SMM)', value: health?.smmKg, unit: 'kg' },
     { label: 'Tỷ lệ mỡ (PBF)', value: health?.pbfPercent, unit: '%' },
     { label: 'BMI', value: computedBmi ?? health?.bmi, unit: '' },
+    { label: 'Kỷ lục 1RM', value: latest1Rm, unit: 'kg' },
   ];
 
   const handleSendMessage = async (event) => {
@@ -89,14 +134,24 @@ export default function MemberAIAssistantPage() {
   return (
     <MemberLayout>
       <div className="space-y-6">
-        <header>
-          <p className="mb-1 text-[11px] font-black uppercase tracking-wider text-orange-600">
-            Hồ sơ và lịch tập đã đồng bộ
-          </p>
-          <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900 sm:text-3xl">Tiến Độ Rèn Luyện &amp; AI Coach</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Chỉ số thể trạng InBody và thời khóa biểu của bạn được đồng bộ trực tiếp từ hệ thống.
-          </p>
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="mb-1 text-[11px] font-black uppercase tracking-wider text-orange-600">
+              Hồ sơ và lịch tập đã đồng bộ
+            </p>
+            <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900 sm:text-3xl">Tiến Độ Rèn Luyện &amp; AI Coach</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Chỉ số thể trạng InBody và thời khóa biểu của bạn được đồng bộ trực tiếp từ hệ thống.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsLogModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider transition shadow-sm cursor-pointer self-start sm:self-auto"
+          >
+            <span className="material-symbols-outlined text-[18px]">add_chart</span>
+            <span>Ghi nhận chỉ số &amp; 1RM</span>
+          </button>
         </header>
 
         {error && (
@@ -263,6 +318,137 @@ export default function MemberAIAssistantPage() {
             Không gửi tên hoặc số điện thoại. Gợi ý không thay thế tư vấn y tế.
           </p>
         </section>
+
+        {/* Modal ghi nhận chỉ số cơ thể & 1RM */}
+        {isLogModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in duration-150">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Ghi Nhận Chỉ Số Thể Trạng &amp; 1RM</h3>
+                  <p className="text-xs text-slate-500">Theo dõi tiến độ cơ thể (Body Progress) &amp; Kỷ lục tạ (1RM Max Lift)</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsLogModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              </div>
+
+              {logSuccess && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-bold">{logSuccess}</div>
+              )}
+
+              <form onSubmit={handleSaveProgress} className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      Cân nặng (kg) *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      required
+                      value={logForm.weightKg}
+                      onChange={(e) => setLogForm({ ...logForm, weightKg: e.target.value })}
+                      placeholder="VD: 68.5"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      Chiều cao (cm) *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      required
+                      value={logForm.heightCm}
+                      onChange={(e) => setLogForm({ ...logForm, heightCm: e.target.value })}
+                      placeholder="VD: 172"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      Cơ nạc SMM (kg)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={logForm.smmKg}
+                      onChange={(e) => setLogForm({ ...logForm, smmKg: e.target.value })}
+                      placeholder="VD: 32.5"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      Mỡ PBF (%)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={logForm.pbfPercent}
+                      onChange={(e) => setLogForm({ ...logForm, pbfPercent: e.target.value })}
+                      placeholder="VD: 18.0"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-blue-700 mb-1">
+                    Kỷ lục mức tạ 1RM tối đa (kg)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={logForm.maxLiftKg}
+                    onChange={(e) => setLogForm({ ...logForm, maxLiftKg: e.target.value })}
+                    placeholder="VD: 100"
+                    className="w-full px-3 py-2 rounded-xl border border-blue-300 text-xs font-black text-blue-700 outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Ghi chú
+                  </label>
+                  <input
+                    type="text"
+                    value={logForm.note}
+                    onChange={(e) => setLogForm({ ...logForm, note: e.target.value })}
+                    placeholder="VD: Đạt PR Deadlift mới"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs outline-none focus:border-orange-500"
+                  />
+                </div>
+
+                <div className="border-t border-slate-100 pt-3 flex items-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={savingLog}
+                    className="flex-1 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider transition disabled:opacity-50 cursor-pointer shadow-sm shadow-orange-500/25"
+                  >
+                    {savingLog ? 'Đang lưu...' : 'Lưu chỉ số & 1RM'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsLogModalOpen(false)}
+                    className="py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </MemberLayout>
   );

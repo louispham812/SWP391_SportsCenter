@@ -22,99 +22,6 @@ const EMPTY_FORM = {
   status: 'ACTIVE',
 };
 
-const VOUCHER_STORAGE_KEY = 'sports_center_vouchers';
-const PT_PRICING_STORAGE_KEY = 'sports_center_pt_pricing';
-
-const INITIAL_VOUCHERS = [
-  {
-    voucherId: 1,
-    code: 'TET2026',
-    discountType: 'PERCENT',
-    discountValue: 20,
-    extendDurationMonths: 0,
-    minPurchase: 1000000,
-    maxUses: 100,
-    currentUses: 24,
-    validFrom: '2026-01-20',
-    validUntil: '2026-02-28',
-    appliesTo: 'MEMBERSHIP_ONLY',
-    active: true,
-  },
-  {
-    voucherId: 2,
-    code: 'GIAM50K',
-    discountType: 'FIXED',
-    discountValue: 50000,
-    extendDurationMonths: 0,
-    minPurchase: 200000,
-    maxUses: 500,
-    currentUses: 112,
-    validFrom: '2026-01-01',
-    validUntil: '2026-12-31',
-    appliesTo: 'ALL',
-    active: true,
-  },
-  {
-    voucherId: 3,
-    code: 'TANG1THANG',
-    discountType: 'EXTEND_DURATION',
-    discountValue: 0,
-    extendDurationMonths: 1,
-    minPurchase: 3000000,
-    maxUses: 50,
-    currentUses: 18,
-    validFrom: '2026-01-01',
-    validUntil: '2026-06-30',
-    appliesTo: 'MEMBERSHIP_ONLY',
-    active: true,
-  },
-];
-
-const INITIAL_PT_PRICING = [
-  {
-    pricingId: 1,
-    coachId: 2,
-    coachName: 'Coach Nguyễn Văn A',
-    sportId: 1,
-    sportName: 'Tennis',
-    packageName: 'Gói PT Tennis Chuẩn Thi Đấu 10 Buổi',
-    totalSessions: 10,
-    price: 3800000,
-    pricePerSession: 380000,
-    durationMonths: 2,
-    description: 'Chuyên sâu cú quả forehand/backhand và di chuyển sân đấu',
-    active: true,
-  },
-  {
-    pricingId: 2,
-    coachId: 2,
-    coachName: 'Coach Nguyễn Văn A',
-    sportId: 2,
-    sportName: 'Pickleball',
-    packageName: 'Gói PT Pickleball Pro 20 Buổi',
-    totalSessions: 20,
-    price: 7000000,
-    pricePerSession: 350000,
-    durationMonths: 4,
-    description: 'Chiến thuật dink, volley lưới và tâm lý thi đấu chuyên nghiệp',
-    active: true,
-  },
-  {
-    pricingId: 3,
-    coachId: 3,
-    coachName: 'Coach Lê Minh',
-    sportId: 3,
-    sportName: 'Gym & Fitness',
-    packageName: 'Gói PT Gym Hypertrophy 12 Buổi',
-    totalSessions: 12,
-    price: 4200000,
-    pricePerSession: 350000,
-    durationMonths: 3,
-    description: 'Giáo án tăng cơ giảm mỡ chuẩn NASM, theo dõi InBody 2 tuần/lần',
-    active: true,
-  },
-];
-
 const formatPrice = (value) =>
   new Intl.NumberFormat('vi-VN', {
     style: 'currency',
@@ -155,14 +62,7 @@ export default function AdminPackagesPage() {
   const [form, setForm] = useState(EMPTY_FORM);
 
   // Vouchers state (MGR-18)
-  const [vouchers, setVouchers] = useState(() => {
-    try {
-      const stored = localStorage.getItem(VOUCHER_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : INITIAL_VOUCHERS;
-    } catch {
-      return INITIAL_VOUCHERS;
-    }
-  });
+  const [vouchers, setVouchers] = useState([]);
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
   const [editingVoucher, setEditingVoucher] = useState(null);
   const [voucherForm, setVoucherForm] = useState({
@@ -179,14 +79,7 @@ export default function AdminPackagesPage() {
   });
 
   // PT Pricing state (MGR-04)
-  const [ptPricings, setPtPricings] = useState(() => {
-    try {
-      const stored = localStorage.getItem(PT_PRICING_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : INITIAL_PT_PRICING;
-    } catch {
-      return INITIAL_PT_PRICING;
-    }
-  });
+  const [ptPricings, setPtPricings] = useState([]);
   const [isPtModalOpen, setIsPtModalOpen] = useState(false);
   const [ptForm, setPtForm] = useState({
     coachId: '',
@@ -206,12 +99,32 @@ export default function AdminPackagesPage() {
         getManagerPackages(),
         getManagerSports(),
         getManagerCoaches().catch(() => ({ content: [] })),
-        apiRequest('/manager/vouchers').catch(() => null),
+        apiRequest('/manager/vouchers').catch(() => []),
       ]);
-      setPackages(packageData);
-      setSports(sportData);
+      const pkgList = Array.isArray(packageData) ? packageData : [];
+      const sptList = Array.isArray(sportData) ? sportData : [];
+      setPackages(pkgList);
+      setSports(sptList);
       setCoaches(coachData.content || []);
-      if (Array.isArray(voucherData) && voucherData.length > 0) {
+
+      const ptList = pkgList
+        .filter((p) => p.accessType === 'PT')
+        .map((p) => ({
+          pricingId: p.packageId,
+          packageName: p.name,
+          sportId: p.sportId,
+          sportName: sptList.find((s) => s.sportId === p.sportId)?.name || 'Bộ môn',
+          coachName: 'HLV F Sport',
+          totalSessions: p.quotaSessions || 10,
+          price: p.price,
+          pricePerSession: p.quotaSessions ? Math.round(p.price / p.quotaSessions) : 0,
+          durationMonths: Math.round(p.durationDays / 30) || 1,
+          description: p.description,
+          active: p.status === 'ACTIVE',
+        }));
+      setPtPricings(ptList);
+
+      if (Array.isArray(voucherData)) {
         const mapped = voucherData.map((v) => ({
           voucherId: v.voucherId,
           code: v.code,
@@ -227,7 +140,6 @@ export default function AdminPackagesPage() {
           active: v.status === 'ACTIVE',
         }));
         setVouchers(mapped);
-        localStorage.setItem(VOUCHER_STORAGE_KEY, JSON.stringify(mapped));
       }
     } catch (requestError) {
       setError(requestError.message || 'Không thể tải danh sách gói tập.');
@@ -358,62 +270,33 @@ export default function AdminPackagesPage() {
       status: voucherForm.active ? 'ACTIVE' : 'INACTIVE',
     };
 
-    let savedId = editingVoucher?.voucherId || Date.now();
     try {
       if (editingVoucher && typeof editingVoucher.voucherId === 'number') {
-        const res = await apiRequest(`/manager/vouchers/${editingVoucher.voucherId}`, {
+        await apiRequest(`/manager/vouchers/${editingVoucher.voucherId}`, {
           method: 'PUT',
           body: JSON.stringify(payload),
         });
-        if (res?.voucherId) savedId = res.voucherId;
       } else {
-        const res = await apiRequest('/manager/vouchers', {
+        await apiRequest('/manager/vouchers', {
           method: 'POST',
           body: JSON.stringify(payload),
         });
-        if (res?.voucherId) savedId = res.voucherId;
       }
-    } catch {
-      // fallback to optimistic local update
+      showToast('Lưu voucher thành công', `Mã ${payload.code} đã được lưu vào hệ thống.`, 'success');
+      setIsVoucherModalOpen(false);
+      await loadData();
+    } catch (err) {
+      showToast('Lỗi lưu voucher', err.message || 'Không thể lưu voucher.', 'error');
     }
-
-    const newVoucher = {
-      voucherId: savedId,
-      code: voucherForm.code.trim().toUpperCase(),
-      discountType: voucherForm.discountType,
-      discountValue: Number(voucherForm.discountValue) || 0,
-      extendDurationMonths: Number(voucherForm.extendDurationMonths) || 0,
-      minPurchase: Number(voucherForm.minPurchase) || 0,
-      maxUses: Number(voucherForm.maxUses) || 100,
-      currentUses: editingVoucher?.currentUses || 0,
-      validFrom: voucherForm.validFrom,
-      validUntil: voucherForm.validUntil,
-      appliesTo: voucherForm.appliesTo,
-      active: voucherForm.active,
-    };
-
-    let updated = [];
-    if (editingVoucher) {
-      updated = vouchers.map((v) => (v.voucherId === editingVoucher.voucherId ? newVoucher : v));
-    } else {
-      updated = [newVoucher, ...vouchers];
-    }
-
-    setVouchers(updated);
-    localStorage.setItem(VOUCHER_STORAGE_KEY, JSON.stringify(updated));
-    showToast('Lưu voucher thành công', `Mã ${newVoucher.code} đã sẵn sàng áp dụng. (Ghi Audit Log)`, 'success');
-    setIsVoucherModalOpen(false);
   };
 
   const toggleVoucherStatus = async (vId) => {
     try {
       await apiRequest(`/manager/vouchers/${vId}/toggle-status`, { method: 'PATCH' });
-    } catch {
-      // optimistic update
+      await loadData();
+    } catch (err) {
+      showToast('Lỗi', err.message || 'Không thể thay đổi trạng thái voucher.', 'error');
     }
-    const updated = vouchers.map((v) => (v.voucherId === vId ? { ...v, active: !v.active } : v));
-    setVouchers(updated);
-    localStorage.setItem(VOUCHER_STORAGE_KEY, JSON.stringify(updated));
   };
 
   // PT Pricing Handlers (MGR-04)
@@ -430,34 +313,33 @@ export default function AdminPackagesPage() {
     setIsPtModalOpen(true);
   };
 
-  const handleSavePt = (e) => {
+  const handleSavePt = async (e) => {
     e.preventDefault();
     const coach = coaches.find((c) => String(c.userId) === String(ptForm.coachId));
     const sport = sports.find((s) => String(s.sportId) === String(ptForm.sportId));
     const totalSessions = Number(ptForm.totalSessions) || 10;
     const price = Number(ptForm.price) || 0;
-    const pricePerSession = totalSessions > 0 ? Math.round(price / totalSessions) : 0;
+    const durationDays = (Number(ptForm.durationMonths) || 2) * 30;
 
-    const newPt = {
-      pricingId: Date.now(),
-      coachId: Number(ptForm.coachId),
-      coachName: coach?.fullName || 'HLV F Sport',
+    const payload = {
+      name: ptForm.packageName.trim() || `Gói PT ${sport?.name || ''} ${totalSessions} Buổi - ${coach?.fullName || ''}`,
       sportId: Number(ptForm.sportId),
-      sportName: sport?.name || 'Thể thao',
-      packageName: ptForm.packageName.trim() || `Gói PT ${sport?.name || ''} ${totalSessions} Buổi - ${coach?.fullName || ''}`,
-      totalSessions,
       price,
-      pricePerSession,
-      durationMonths: Number(ptForm.durationMonths) || 2,
-      description: ptForm.description.trim() || 'Huấn luyện 1-1 chuyên nghiệp',
-      active: true,
+      durationDays,
+      accessType: 'PT',
+      quotaSessions: totalSessions,
+      description: ptForm.description.trim() || `Huấn luyện 1-1 chuyên nghiệp cùng HLV ${coach?.fullName || ''}`,
+      status: 'ACTIVE',
     };
 
-    const updated = [newPt, ...ptPricings];
-    setPtPricings(updated);
-    localStorage.setItem(PT_PRICING_STORAGE_KEY, JSON.stringify(updated));
-    showToast('Tạo gói PT thành công', `Gói "${newPt.packageName}" đã được niêm yết công khai.`, 'success');
-    setIsPtModalOpen(false);
+    try {
+      await createManagerPackage(payload);
+      showToast('Tạo gói PT thành công', `Gói "${payload.name}" đã được lưu vào cơ sở dữ liệu.`, 'success');
+      setIsPtModalOpen(false);
+      await loadData();
+    } catch (err) {
+      showToast('Lỗi tạo gói PT', err.message || 'Không thể tạo gói PT.', 'error');
+    }
   };
 
   const sportName = (sportId) => {

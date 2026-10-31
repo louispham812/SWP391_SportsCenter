@@ -125,7 +125,9 @@ public class ReceptionistController {
                         user.getEmail(),
                         user.getPhone(),
                         user.getStatus(),
-                        user.getCreatedAt()));
+                        user.getCreatedAt(),
+                        user.getEmergencyContactName(),
+                        user.getEmergencyContactPhone()));
     }
 
     @GetMapping("/check-ins")
@@ -150,7 +152,7 @@ public class ReceptionistController {
                 .toList();
     }
 
-    @PostMapping("/check-ins")
+    @PostMapping({"/check-ins", "/check-in"})
     @Transactional
     public ReceptionistCheckInResponse recordCheckIn(
             @RequestBody ReceptionistCheckInRequest request,
@@ -467,6 +469,36 @@ public class ReceptionistController {
                     "memberId=" + memberId + ", rfid=" + rfid + ", name=" + user.getFullName());
         }
         return Map.of("ok", true, "rfidCode", rfid);
+    }
+
+    public record EmergencyContactRequest(String emergencyContactName, String emergencyContactPhone) {}
+
+    /**
+     * REC-09: Cập nhật liên hệ khẩn cấp của hội viên tại quầy.
+     */
+    @org.springframework.web.bind.annotation.PutMapping("/members/{memberId}/emergency-contact")
+    @Transactional
+    public Map<String, Object> updateMemberEmergencyContact(
+            @org.springframework.web.bind.annotation.PathVariable Long memberId,
+            @RequestBody EmergencyContactRequest req,
+            Authentication auth) {
+        requireStaff(auth);
+        User user = userRepository.findById(memberId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy hội viên."));
+        if (req != null) {
+            user.setEmergencyContactName(req.emergencyContactName() != null ? req.emergencyContactName().trim() : null);
+            user.setEmergencyContactPhone(req.emergencyContactPhone() != null ? req.emergencyContactPhone().trim() : null);
+        }
+        userRepository.save(user);
+        if (engagementService != null) {
+            engagementService.audit(actorId(auth), "RECEPTIONIST", "UPDATE_MEMBER_EMERGENCY_CONTACT",
+                    "memberId=" + memberId + ", name=" + user.getFullName());
+        }
+        return Map.of(
+                "ok", true,
+                "emergencyContactName", user.getEmergencyContactName() != null ? user.getEmergencyContactName() : "",
+                "emergencyContactPhone", user.getEmergencyContactPhone() != null ? user.getEmergencyContactPhone() : ""
+        );
     }
 
     /**

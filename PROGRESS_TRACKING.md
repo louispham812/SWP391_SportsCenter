@@ -1,9 +1,10 @@
 # 📊 SportHub - Bảng Theo Dõi Tiến Độ Dự Án (Progress Tracking)
 ## Đồ án Tốt nghiệp SWP391 - Hệ Thống Quản Lý Trung Tâm Thể Thao Đa Năng
 
-> **Cập nhật lần cuối:** 24/10/2026  
+> **Cập nhật lần cuối:** 31/10/2026  
 > **Trạng thái tổng thể:** `100% COMPLETED` (Sẵn sàng bảo vệ trước Hội đồng chấm đồ án)  
-> **Chất lượng kiểm thử:** `40/40 Backend Tests PASS` (0 Failure, 0 Error) | `Frontend Build 100% PASS` | `Port 8000 CLEAN`
+> **Chất lượng kiểm thử:** `84/84 Backend Tests PASS` (0 Failure, 0 Error) | `25/25 Playwright E2E Tests PASS` (Bao phủ 7 Luồng Nghiệp Vụ) | `Frontend Build 100% PASS` | `Port 8000 CLEAN`  
+> 📘 **Kịch bản kiểm thử & Demo bảo vệ Final:** [`KICH_BAN_CHAM_FINAL.md`](./KICH_BAN_CHAM_FINAL.md)
 
 ---
 
@@ -165,20 +166,32 @@ Cơ sở dữ liệu **`SportsCenterDB`** trên Microsoft SQL Server đã đư�
 ## 🧪 4. Kết Quả Kiểm Thử Nghiệm Thu (Quality Assurance)
 
 ### 1. Kiểm thử Backend (`mvn clean test`):
-- **Tổng số kịch bản:** 40 Tests
-- **Kết quả:** **`40/40 PASS`** (0 Failures, 0 Errors, 0 Skipped).
-- **Thời gian chạy:** ~24 giây.
+- **Tổng số kịch bản:** 84 Tests
+- **Kết quả:** **`84/84 PASS`** (0 Failures, 0 Errors, 0 Skipped).
 - **Phạm vi kiểm thử:**
   - `DatabaseConnectionTest`: Xác thực kết nối CSDL, tính toàn vẹn 21 bảng và dữ liệu tài khoản demo.
   - `AiAssistantServiceTest`: Kiểm tra tích hợp mô hình OpenAI GPT-4o-mini, xử lý fallback an toàn khi mất kết nối mạng.
   - `BookingServiceTest`: Kiểm tra thuật toán chống trùng lịch đặt sân, thuật toán tính giá chiết khấu thẻ hội viên, quy trình hủy và hoàn tiền vé.
+  - 11 Test Suites mở rộng (Service, Security, Financial, Maintenance, POS, Audit): 64/64 PASS.
 
-### 2. Kiểm thử Frontend (`npm run build`):
+### 2. Kiểm thử Tự động E2E Playwright (`npx playwright test`):
+- **Tổng số kịch bản E2E:** 25 Tests
+- **Kết quả:** **`25/25 PASS`** (100% Green).
+- **Bao phủ 7 luồng nghiệp vụ trọng tâm (Xem chi tiết tại [`KICH_BAN_CHAM_FINAL.md`](./KICH_BAN_CHAM_FINAL.md)):**
+  - **Luồng 1:** Quản trị Gói tập & Voucher $\rightarrow$ Hội viên mua/nâng cấp gói $\rightarrow$ Admin duyệt kích hoạt (`flow1-packages-vouchers.spec.js`).
+  - **Luồng 2:** Đặt sân trực tuyến, áp chiết khấu thẻ VIP + Voucher, Hủy lịch hoàn tiền 100% (`flow2-booking-voucher-cancel.spec.js`, `court-booking.spec.js`, `class-options.spec.js`).
+  - **Luồng 3:** Lập lịch bảo trì sân thi đấu $\rightarrow$ Khóa slot thời gian thực $\rightarrow$ Ngăn chặn xung đột đặt chỗ (`maintenance-lock.spec.js`, `swimming-lane-maintenance.spec.js`).
+  - **Luồng 4:** Lễ tân POS bán gói tập $\rightarrow$ In hóa đơn nhiệt K80 $\rightarrow$ Mượn/Trả dụng cụ thể thao & Báo cáo kết ca (`flow3-receptionist-desk.spec.js`).
+  - **Luồng 5:** Lễ tân check-in đa phương thức QR / RFID $\rightarrow$ Xác thực thẻ số tức thì tại quầy (`comprehensive-roles.spec.js`).
+  - **Luồng 6:** HLV xem ca dạy $\rightarrow$ Điểm danh học viên + Nhận xét $\rightarrow$ Soạn giáo án PT $\rightarrow$ Nhập Body Progress & 1RM $\rightarrow$ Thống kê hoa hồng (`flow4-coach-class-attendance.spec.js`).
+  - **Luồng 7:** Quản lý duyệt hoàn tiền $\rightarrow$ Trợ lý AI tư vấn $\rightarrow$ Admin rà soát Audit Logs toàn hệ thống (`flow5-admin-ops-broadcast.spec.js`, `flow6-profiles-ai.spec.js`, `flow7-advanced-defense-flows.spec.js`).
+
+### 3. Kiểm thử Frontend (`npm run build`):
 - **Trình biên dịch:** Vite v8.3.0 + React 19 + Tailwind CSS.
 - **Kết quả:** **`BUILD SUCCESS`** trong **2.64s** (0 lỗi cú pháp, 0 lỗi kiểu).
 - **Bundles:** Chuyển đổi và nén tối ưu toàn bộ 91 modules.
 
-### 3. Kiểm thử Tích hợp Thực tế (Integration & End-to-End Defense Audit):
+### 4. Kiểm thử Tích hợp Thực tế (Integration & End-to-End Defense Audit):
 - [x] Đặt sân thành công -> Doanh thu tăng chuẩn xác -> Hủy đặt sân -> Hoàn tiền 100% -> Doanh thu giảm đúng số tiền ban đầu (không lệch 1 đồng).
 - [x] Hiển thị báo cáo thu ngân duy nhất 1 dòng `REFUNDED` (đã triệt tiêu 100% tình trạng 2 dòng trùng lặp).
 - [x] Chặn đặt sân trong khung giờ bảo trì (`court_maintenance`).

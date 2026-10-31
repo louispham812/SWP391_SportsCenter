@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import Footer from '../components/Footer';
 import Navbar from '../components/Navbar';
 import { getPublicFacilities, getPublicSports } from '../services/publicContentApi';
-import { getSportMedia, getFacilityMedia } from '../utils/mediaMap';
+import { getSportMedia, getFacilityMedia, DEFAULT_SPORT_IMG, DEFAULT_FACILITY_IMG } from '../utils/mediaMap';
 
 export default function PublicContentPage({ contentType }) {
   const { slug } = useParams();
@@ -90,11 +90,17 @@ export default function PublicContentPage({ contentType }) {
               <div className="relative rounded-3xl overflow-hidden shadow-xl border border-slate-200 bg-slate-950 text-white min-h-[380px] lg:min-h-[440px] flex items-end">
                 <img
                   src={
-                    isSports
+                    selectedItem.imageUrl ||
+                    selectedItem.image ||
+                    (isSports
                       ? getSportMedia(selectedItem.slug).banner || getSportMedia(selectedItem.slug).image
-                      : getFacilityMedia(selectedItem.slug).image
+                      : getFacilityMedia(selectedItem.slug).image)
                   }
                   alt={selectedItem.name}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = isSports ? DEFAULT_SPORT_IMG : DEFAULT_FACILITY_IMG;
+                  }}
                   className="absolute inset-0 w-full h-full object-cover object-center opacity-40 transform hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent"></div>
@@ -126,13 +132,30 @@ export default function PublicContentPage({ contentType }) {
                   </p>
 
                   <div className="pt-4 flex flex-wrap items-center gap-4">
-                    <Link
-                      to="/member/book"
-                      className="px-8 py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-orange-500/30 transition-all flex items-center gap-2 cursor-pointer"
-                    >
-                      <span>Đặt Sân / Lịch Tập Ngay</span>
-                      <span className="material-symbols-outlined text-[18px]">calendar_today</span>
-                    </Link>
+                    {!isSports && selectedItem.active === false ? (
+                      <>
+                        <div className="w-full p-4 rounded-2xl bg-amber-500/20 border border-amber-400/40 backdrop-blur-md text-amber-200 text-xs font-bold flex items-center gap-2.5 max-w-2xl">
+                          <span className="material-symbols-outlined text-amber-400 text-[22px]">construction</span>
+                          <span>Cơ sở vật chất này hiện đang trong thời gian bảo trì kỹ thuật. Trung tâm tạm ngưng nhận đặt chỗ cho đến khi hoàn tất.</span>
+                        </div>
+                        <button
+                          type="button"
+                          disabled
+                          className="px-8 py-3.5 rounded-xl bg-slate-700 text-slate-400 text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-not-allowed"
+                        >
+                          <span>Tạm Ngưng Nhận Đặt (Đang Bảo Trì)</span>
+                          <span className="material-symbols-outlined text-[18px]">lock</span>
+                        </button>
+                      </>
+                    ) : (
+                      <Link
+                        to="/member/book"
+                        className="px-8 py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-orange-500/30 transition-all flex items-center gap-2 cursor-pointer"
+                      >
+                        <span>Đặt Sân / Lịch Tập Ngay</span>
+                        <span className="material-symbols-outlined text-[18px]">calendar_today</span>
+                      </Link>
+                    )}
                     <Link
                       to="/pricing"
                       className="px-8 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-black uppercase tracking-wider transition-all backdrop-blur-md flex items-center gap-2 cursor-pointer"
@@ -313,16 +336,25 @@ export default function PublicContentPage({ contentType }) {
                           {/* Hình ảnh minh họa nổi bật */}
                           <div className="relative w-full h-52 overflow-hidden bg-slate-100">
                             <img
-                              src={media.image}
+                              src={item.imageUrl || item.image || media.image}
                               alt={item.name}
                               loading="lazy"
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = isSports ? DEFAULT_SPORT_IMG : DEFAULT_FACILITY_IMG;
+                              }}
                               className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent"></div>
 
                             {/* Tag huy hiệu nổi góc trên */}
                             <div className="absolute top-4 left-4 flex items-center gap-2">
-                              {(isSports ? item.tag : item.highlight) && (
+                              {!isSports && item.active === false ? (
+                                <span className="px-3 py-1 rounded-full bg-red-600/90 text-white text-[10px] font-black uppercase tracking-wider border border-white/20 flex items-center gap-1 shadow-sm">
+                                  <span className="material-symbols-outlined text-[13px]">construction</span>
+                                  ĐANG BẢO TRÌ
+                                </span>
+                              ) : (isSports ? item.tag : item.highlight) && (
                                 <span className="px-3 py-1 rounded-full bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-wider border border-white/20">
                                   {isSports ? item.tag : item.highlight}
                                 </span>
@@ -371,12 +403,19 @@ export default function PublicContentPage({ contentType }) {
                             <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                           </Link>
 
-                          <Link
-                            to="/member/book"
-                            className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-orange-500 hover:text-white text-slate-800 text-[11px] font-black uppercase tracking-wider transition-colors"
-                          >
-                            Đặt Sân
-                          </Link>
+                          {!isSports && item.active === false ? (
+                            <span className="px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-black uppercase tracking-wider cursor-not-allowed flex items-center gap-1 select-none">
+                              <span className="material-symbols-outlined text-[14px]">construction</span>
+                              Đang bảo trì
+                            </span>
+                          ) : (
+                            <Link
+                              to="/member/book"
+                              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-orange-500 hover:text-white text-slate-800 text-[11px] font-black uppercase tracking-wider transition-colors"
+                            >
+                              Đặt Sân
+                            </Link>
+                          )}
                         </div>
                       </article>
                     );

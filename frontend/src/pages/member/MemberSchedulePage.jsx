@@ -60,6 +60,7 @@ export default function MemberSchedulePage() {
   const [coachLoading, setCoachLoading] = useState(false);
   const [cancelingBooking, setCancelingBooking] = useState(null);
   const [submittingCancel, setSubmittingCancel] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
 
   const weekEnd = useMemo(() => {
     const end = new Date(currentWeekStart.getFullYear(), currentWeekStart.getMonth(), currentWeekStart.getDate() + 6);
@@ -127,6 +128,9 @@ export default function MemberSchedulePage() {
     setSubmittingCancel(true);
     try {
       await cancelMemberBooking(target.bookingType, target.bookingId);
+      const isClass = target.bookingType === 'CLASS';
+      const successText = `Đã hủy ${isClass ? 'lớp học' : 'sân'} thành công`;
+      setStatusMessage(successText);
       showToast(
         'Hủy đặt chỗ thành công',
         `Đã hủy thành công ${target.title}. Hệ thống đã hoàn tiền 100% vào sổ giao dịch.`,
@@ -268,6 +272,12 @@ export default function MemberSchedulePage() {
           </div>
         </div>
 
+        {statusMessage && (
+          <div role="status" className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold animate-in fade-in">
+            {statusMessage}
+          </div>
+        )}
+
         {/* =========================================
             2. WEEK NAVIGATOR & FILTER CONTROLS (COACH STYLE)
            ========================================= */}
@@ -316,13 +326,14 @@ export default function MemberSchedulePage() {
             <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-thin">
               {[
                 { id: 'ALL', label: `Tất cả (${stats.total})`, icon: 'calendar_month' },
-                { id: 'CLASS', label: `Lớp học (${stats.classes})`, icon: 'school' },
-                { id: 'COURT', label: `Đặt sân (${stats.courts})`, icon: 'sports_tennis' },
+                { id: 'CLASS', label: `Lịch lớp học (${stats.classes})`, icon: 'school' },
+                { id: 'COURT', label: `Lịch đặt sân (${stats.courts})`, icon: 'sports_tennis' },
                 { id: 'UPCOMING', label: `Sắp tới (${stats.upcoming})`, icon: 'schedule' },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setFilterType(tab.id)}
+                  aria-pressed={filterType === tab.id ? 'true' : 'false'}
                   type="button"
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
                     filterType === tab.id
@@ -462,6 +473,7 @@ export default function MemberSchedulePage() {
                         return (
                           <article
                             key={`${entry.bookingType}-${entry.bookingId}`}
+                            data-booking-id={entry.bookingId}
                             className={`rounded-xl border p-3.5 transition-all ${
                               isNext
                                 ? 'border-orange-500 bg-slate-900 text-white shadow-md'
@@ -688,6 +700,7 @@ export default function MemberSchedulePage() {
                         return (
                           <div
                             key={`${entry.bookingType}-${entry.bookingId}`}
+                            data-booking-id={entry.bookingId}
                             className="bg-white rounded-2xl border border-slate-200 hover:border-orange-300 p-4 sm:p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 relative group"
                           >
                             <div className="space-y-3">
@@ -808,7 +821,7 @@ export default function MemberSchedulePage() {
                                   className="px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 border border-red-200"
                                 >
                                   <span className="material-symbols-outlined text-[16px]">cancel</span>
-                                  <span>Hủy lịch (Hoàn 100%)</span>
+                                  <span>Hủy (Hoàn 100%)</span>
                                 </button>
                               ) : (
                                 !isPast && (

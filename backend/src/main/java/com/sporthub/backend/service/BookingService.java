@@ -9,6 +9,7 @@ import com.sporthub.backend.dto.CheckoutRequest;
 import com.sporthub.backend.entity.Booking;
 import com.sporthub.backend.entity.ClassSession;
 import com.sporthub.backend.entity.CourtBooking;
+import com.sporthub.backend.entity.CourtMaintenance;
 import com.sporthub.backend.entity.PaymentTransaction;
 import com.sporthub.backend.entity.PublicFacility;
 import com.sporthub.backend.entity.PublicSport;
@@ -22,6 +23,7 @@ import com.sporthub.backend.dto.ReceptionistClassResponse;
 import com.sporthub.backend.repository.BookingRepository;
 import com.sporthub.backend.repository.ClassSessionRepository;
 import com.sporthub.backend.repository.CourtBookingRepository;
+import com.sporthub.backend.repository.CourtMaintenanceRepository;
 import com.sporthub.backend.repository.PaymentTransactionRepository;
 import com.sporthub.backend.repository.PublicFacilityRepository;
 import com.sporthub.backend.repository.PublicSportRepository;
@@ -66,12 +68,14 @@ public class BookingService {
     private final PublicFacilityRepository publicFacilityRepository;
     private final SportsCourtRepository sportsCourtRepository;
     private final CourtBookingRepository courtBookingRepository;
+    private final CourtMaintenanceRepository courtMaintenanceRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final UserMembershipRepository userMembershipRepository;
     private final MembershipPackageRepository membershipPackageRepository;
     private final MembershipService membershipService;
     private final AuditLogService auditLogService;
     private final PaymentService paymentService;
+    private final com.sporthub.backend.repository.FacilityRepository facilityRepository;
 
     public BookingService(
             BookingRepository bookingRepository,
@@ -81,12 +85,77 @@ public class BookingService {
             PublicFacilityRepository publicFacilityRepository,
             SportsCourtRepository sportsCourtRepository,
             CourtBookingRepository courtBookingRepository,
+            CourtMaintenanceRepository courtMaintenanceRepository,
+            PaymentTransactionRepository paymentTransactionRepository,
+            UserMembershipRepository userMembershipRepository,
+            MembershipPackageRepository membershipPackageRepository,
+            @Lazy MembershipService membershipService,
+            AuditLogService auditLogService) {
+        this(bookingRepository, classSessionRepository, userRepository, publicSportRepository,
+                publicFacilityRepository, sportsCourtRepository, courtBookingRepository,
+                courtMaintenanceRepository, paymentTransactionRepository, userMembershipRepository,
+                membershipPackageRepository, membershipService, auditLogService, null, null);
+    }
+
+    public BookingService(
+            BookingRepository bookingRepository,
+            ClassSessionRepository classSessionRepository,
+            UserRepository userRepository,
+            PublicSportRepository publicSportRepository,
+            PublicFacilityRepository publicFacilityRepository,
+            SportsCourtRepository sportsCourtRepository,
+            CourtBookingRepository courtBookingRepository,
+            CourtMaintenanceRepository courtMaintenanceRepository,
             PaymentTransactionRepository paymentTransactionRepository,
             UserMembershipRepository userMembershipRepository,
             MembershipPackageRepository membershipPackageRepository,
             @Lazy MembershipService membershipService,
             AuditLogService auditLogService,
             PaymentService paymentService) {
+        this(bookingRepository, classSessionRepository, userRepository, publicSportRepository,
+                publicFacilityRepository, sportsCourtRepository, courtBookingRepository,
+                courtMaintenanceRepository, paymentTransactionRepository, userMembershipRepository,
+                membershipPackageRepository, membershipService, auditLogService, paymentService, null);
+    }
+
+    public BookingService(
+            BookingRepository bookingRepository,
+            ClassSessionRepository classSessionRepository,
+            UserRepository userRepository,
+            PublicSportRepository publicSportRepository,
+            PublicFacilityRepository publicFacilityRepository,
+            SportsCourtRepository sportsCourtRepository,
+            CourtBookingRepository courtBookingRepository,
+            CourtMaintenanceRepository courtMaintenanceRepository,
+            PaymentTransactionRepository paymentTransactionRepository,
+            UserMembershipRepository userMembershipRepository,
+            MembershipPackageRepository membershipPackageRepository,
+            @Lazy MembershipService membershipService,
+            AuditLogService auditLogService,
+            com.sporthub.backend.repository.FacilityRepository facilityRepository) {
+        this(bookingRepository, classSessionRepository, userRepository, publicSportRepository,
+                publicFacilityRepository, sportsCourtRepository, courtBookingRepository,
+                courtMaintenanceRepository, paymentTransactionRepository, userMembershipRepository,
+                membershipPackageRepository, membershipService, auditLogService, null, facilityRepository);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public BookingService(
+            BookingRepository bookingRepository,
+            ClassSessionRepository classSessionRepository,
+            UserRepository userRepository,
+            PublicSportRepository publicSportRepository,
+            PublicFacilityRepository publicFacilityRepository,
+            SportsCourtRepository sportsCourtRepository,
+            CourtBookingRepository courtBookingRepository,
+            CourtMaintenanceRepository courtMaintenanceRepository,
+            PaymentTransactionRepository paymentTransactionRepository,
+            UserMembershipRepository userMembershipRepository,
+            MembershipPackageRepository membershipPackageRepository,
+            @Lazy MembershipService membershipService,
+            AuditLogService auditLogService,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) PaymentService paymentService,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) com.sporthub.backend.repository.FacilityRepository facilityRepository) {
         this.bookingRepository = bookingRepository;
         this.classSessionRepository = classSessionRepository;
         this.userRepository = userRepository;
@@ -94,12 +163,14 @@ public class BookingService {
         this.publicFacilityRepository = publicFacilityRepository;
         this.sportsCourtRepository = sportsCourtRepository;
         this.courtBookingRepository = courtBookingRepository;
+        this.courtMaintenanceRepository = courtMaintenanceRepository;
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.userMembershipRepository = userMembershipRepository;
         this.membershipPackageRepository = membershipPackageRepository;
         this.membershipService = membershipService;
         this.auditLogService = auditLogService;
         this.paymentService = paymentService;
+        this.facilityRepository = facilityRepository;
     }
 
     @Transactional(readOnly = true)
@@ -121,8 +192,15 @@ public class BookingService {
                 : bookingRepository.findBySessionIdInAndStatusIn(sessionIds, ACTIVE_STATUSES).stream()
                         .collect(Collectors.groupingBy(Booking::getSessionId, Collectors.counting()));
 
+        Map<Long, String> facilityStatuses = (facilityRepository != null)
+                ? facilityRepository.findAll().stream()
+                        .collect(Collectors.toMap(com.sporthub.backend.entity.Facility::getFacilityId, com.sporthub.backend.entity.Facility::getStatus, (a, b) -> a))
+                : Map.of();
+
         return sessions.stream().map(session -> {
             Booking booking = bookingsBySession.get(session.getSessionId());
+            String facStatus = facilityStatuses.get(session.getFacilityId());
+            String effectiveStatus = ("MAINTENANCE".equalsIgnoreCase(facStatus)) ? "MAINTENANCE" : session.getStatus();
             return new ClassSessionResponse(
                     session.getSessionId(),
                     session.getClassName(),
@@ -134,7 +212,7 @@ public class BookingService {
                     session.getEndTime(),
                     session.getMaxSlots(),
                     bookedCounts.getOrDefault(session.getSessionId(), 0L).intValue(),
-                    session.getStatus(),
+                    effectiveStatus,
                     booking == null ? null : booking.getBookingId(),
                     booking == null ? null : booking.getStatus(),
                     session.getPriceAmount());
@@ -281,14 +359,16 @@ public class BookingService {
         PublicSport sport = getActiveSport(sportId);
         LocalDate today = LocalDate.now();
         LocalDateTime horizon = today.plusDays(14).atStartOfDay();
-        return sportsCourtRepository.findBySportIdAndActiveTrueOrderByCourtIdAsc(sportId).stream()
+        return sportsCourtRepository.findBySportIdOrderByCourtIdAsc(sportId).stream()
                 .flatMap(court -> {
                     LocalDateTime from = today.atStartOfDay();
                     List<CourtBooking> existingBookings = courtBookingRepository
                             .findByCourtIdAndStatusAndStartTimeBetween(court.getCourtId(), "CONFIRMED", from, horizon);
+                    List<CourtMaintenance> maintenanceWindows = courtMaintenanceRepository
+                            .findByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(court.getCourtId(), horizon, from);
                     return java.util.stream.Stream.iterate(today, date -> date.plusDays(1))
                             .limit(14)
-                            .flatMap(date -> slotsForDay(court, sport, date, existingBookings).stream());
+                            .flatMap(date -> slotsForDay(court, sport, date, existingBookings, maintenanceWindows).stream());
                 })
                 .toList();
     }
@@ -297,25 +377,42 @@ public class BookingService {
             SportsCourt court,
             PublicSport sport,
             LocalDate date,
-            List<CourtBooking> existingBookings) {
+            List<CourtBooking> existingBookings,
+            List<CourtMaintenance> maintenanceWindows) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime slot = date.atTime(court.getOpensAt());
         LocalDateTime close = date.atTime(court.getClosesAt());
         List<CourtSlotResponse> slots = new java.util.ArrayList<>();
+        boolean courtInactive = !court.isActive();
         while (!slot.plusHours(1).isAfter(close)) {
             LocalDateTime end = slot.plusHours(1);
             LocalDateTime candidate = slot;
             boolean occupied = existingBookings.stream().anyMatch(booking ->
                     booking.getStartTime().isBefore(end) && booking.getEndTime().isAfter(candidate));
-            if (slot.isAfter(now) && !occupied) {
-                slots.add(new CourtSlotResponse(
-                        court.getCourtId(),
-                        court.getCourtName(),
-                        court.getDescription(),
-                        sport.getName(),
-                        court.getHourlyRate(),
-                        slot,
-                        end));
+            boolean underMaintenance = courtInactive || (maintenanceWindows != null && maintenanceWindows.stream().anyMatch(m ->
+                    m.getStartTime().isBefore(end) && m.getEndTime().isAfter(candidate)));
+            if (slot.isAfter(now)) {
+                if (underMaintenance) {
+                    slots.add(new CourtSlotResponse(
+                            court.getCourtId(),
+                            court.getCourtName(),
+                            court.getDescription(),
+                            sport.getName(),
+                            court.getHourlyRate(),
+                            slot,
+                            end,
+                            "MAINTENANCE"));
+                } else if (!occupied) {
+                    slots.add(new CourtSlotResponse(
+                            court.getCourtId(),
+                            court.getCourtName(),
+                            court.getDescription(),
+                            sport.getName(),
+                            court.getHourlyRate(),
+                            slot,
+                            end,
+                            "AVAILABLE"));
+                }
             }
             slot = end;
         }
@@ -370,6 +467,9 @@ public class BookingService {
         if ("COURT".equals(normalizedType)) {
             SportsCourt court = getActiveCourt(itemId);
             long hours = validateCourtSlot(court, startTime, endTime);
+            if (courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(itemId, endTime, startTime)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Sân này đang trong lịch bảo trì, không thể đặt chỗ.");
+            }
             if (courtBookingRepository.existsConfirmedOverlap(itemId, startTime, endTime)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Một hoặc nhiều khung giờ sân đã chọn vừa được người khác đặt.");
             }
@@ -418,6 +518,9 @@ public class BookingService {
         PublicSport sport = getActiveSport(session.getSportId());
         PublicFacility facility = publicFacilityRepository.findById(session.getFacilityId())
                 .orElseThrow(() -> notFound("Không tìm thấy địa điểm lớp học."));
+        if (!facility.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Địa điểm diễn ra lớp học hiện đang bảo trì, không thể đặt chỗ.");
+        }
         User coach = userRepository.findById(session.getCoachId())
                 .orElseThrow(() -> notFound("Không tìm thấy huấn luyện viên của lớp."));
 
@@ -566,9 +669,14 @@ public class BookingService {
 
     private BookingConfirmationResponse checkoutCourt(Long memberId, CheckoutRequest request) {
         SportsCourt court = sportsCourtRepository.findByIdForUpdate(request.itemId())
-                .filter(SportsCourt::isActive)
-                .orElseThrow(() -> notFound("Không tìm thấy sân đang hoạt động."));
+                .orElseThrow(() -> notFound("Không tìm thấy sân thể thao."));
+        if (!court.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Sân này đang trong lịch bảo trì, tạm thời không nhận đặt chỗ.");
+        }
         long hours = validateCourtSlot(court, request.startTime(), request.endTime());
+        if (courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(court.getCourtId(), request.endTime(), request.startTime())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Sân này đang trong lịch bảo trì, không thể đặt chỗ.");
+        }
         if (courtBookingRepository.existsConfirmedOverlap(court.getCourtId(), request.startTime(), request.endTime())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Một hoặc nhiều khung giờ sân đã chọn vừa được người khác đặt.");
         }
@@ -623,6 +731,9 @@ public class BookingService {
         PublicSport sport = getActiveSport(session.getSportId());
         PublicFacility facility = publicFacilityRepository.findById(session.getFacilityId())
                 .orElseThrow(() -> notFound("Không tìm thấy địa điểm lớp học."));
+        if (!facility.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Địa điểm diễn ra lớp học hiện đang bảo trì, không thể đặt chỗ.");
+        }
         User coach = userRepository.findById(session.getCoachId())
                 .orElseThrow(() -> notFound("Không tìm thấy huấn luyện viên của lớp."));
         PaymentTransaction payment = createPaymentTransaction(memberId, "CLASS", discount.finalAmount(), request.paymentMethod());
@@ -710,6 +821,9 @@ public class BookingService {
         PublicSport sport = getActiveSport(session.getSportId());
         PublicFacility facility = publicFacilityRepository.findById(session.getFacilityId())
                 .orElseThrow(() -> notFound("Không tìm thấy địa điểm lớp học."));
+        if (!facility.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Địa điểm diễn ra lớp học hiện đang bảo trì, không thể đặt chỗ.");
+        }
         User coach = userRepository.findById(session.getCoachId())
                 .orElseThrow(() -> notFound("Không tìm thấy huấn luyện viên."));
         
@@ -936,6 +1050,13 @@ public class BookingService {
                 || !session.getStartTime().isAfter(LocalDateTime.now())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Lớp học không còn mở đăng ký.");
         }
+        if (session.getFacilityId() != null && facilityRepository != null) {
+            facilityRepository.findById(session.getFacilityId()).ifPresent(f -> {
+                if ("MAINTENANCE".equalsIgnoreCase(f.getStatus())) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Cơ sở vật chất của lớp học này đang trong thời gian bảo trì, tạm thời không nhận đăng ký.");
+                }
+            });
+        }
         requirePrice(session.getPriceAmount());
     }
 
@@ -987,9 +1108,12 @@ public class BookingService {
     }
 
     private SportsCourt getActiveCourt(Long courtId) {
-        return sportsCourtRepository.findById(courtId)
-                .filter(SportsCourt::isActive)
-                .orElseThrow(() -> notFound("Không tìm thấy sân đang hoạt động."));
+        SportsCourt court = sportsCourtRepository.findById(courtId)
+                .orElseThrow(() -> notFound("Không tìm thấy sân thể thao."));
+        if (!court.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Sân/Làn bơi này đang trong lịch bảo trì, tạm thời không nhận đặt chỗ.");
+        }
+        return court;
     }
 
     @Transactional(readOnly = true)

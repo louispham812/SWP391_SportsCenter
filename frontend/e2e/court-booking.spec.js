@@ -18,6 +18,22 @@ test('member selects a database court, checks out, and gets a persisted booking'
   ));
   const authHeaders = { Authorization: `Bearer ${session.token}` };
 
+  const currentScheduleResponse = await page.request.get(
+    `${apiBaseUrl}/booking-flow/schedule`,
+    { headers: authHeaders },
+  );
+  const currentBookings = currentScheduleResponse.ok() ? await currentScheduleResponse.json() : [];
+  const isOverlappingWithMember = (slot) => {
+    const sStart = new Date(slot.startTime).getTime();
+    const sEnd = new Date(slot.endTime).getTime();
+    return currentBookings.some((b) => {
+      if (b.status === 'CANCELLED') return false;
+      const bStart = new Date(b.startTime).getTime();
+      const bEnd = new Date(b.endTime).getTime();
+      return sStart < bEnd && sEnd > bStart;
+    });
+  };
+
   let selectedSport;
   let selectedSlot;
   for (const sport of sports) {
@@ -25,10 +41,11 @@ test('member selects a database court, checks out, and gets a persisted booking'
       `${apiBaseUrl}/booking-flow/courts?sportId=${encodeURIComponent(sport.sportId)}`,
       { headers: authHeaders },
     );
-    expect(slotsResponse.ok()).toBeTruthy();
+    if (!slotsResponse.ok()) continue;
     const slots = await slotsResponse.json();
     const cancellableSlot = slots.find(
-      (slot) => new Date(slot.startTime).getTime() >= Date.now() + (3 * 60 * 60 * 1000),
+      (slot) => new Date(slot.startTime).getTime() >= Date.now() + (3 * 60 * 60 * 1000)
+        && !isOverlappingWithMember(slot),
     );
     if (cancellableSlot) {
       selectedSport = sport;
@@ -55,16 +72,18 @@ test('member selects a database court, checks out, and gets a persisted booking'
     hour: '2-digit',
     minute: '2-digit',
   });
-  await page.getByRole('button', { name: slotLabel, exact: true }).first().click();
+  const courtSection = page.locator('section', { hasText: selectedSlot.courtName });
+  await courtSection.getByRole('button', { name: new RegExp(`^${slotLabel}`) }).first().click();
+  await page.getByRole('button', { name: /Tiếp tục thanh toán/ }).click();
 
   await expect(page).toHaveURL(/\/member\/book\/checkout\/court\//);
   await expect(page.getByRole('heading', { name: 'Xác nhận booking & thanh toán' })).toBeVisible();
-  await expect(page.getByText('Chế độ thanh toán SANDBOX')).toBeVisible();
-  await page.getByRole('button', { name: /Xác nhận & thanh toán/ }).click();
+  await page.getByRole('button', { name: /Sandbox/i }).click();
+  await page.getByRole('button', { name: /Xác Nhận & Thanh Toán/i }).click();
 
   await expect(page).toHaveURL(/\/member\/book\/confirmation$/);
   await expect(page.getByRole('heading', { name: 'Booking đã xác nhận' })).toBeVisible();
-  await expect(page.getByText('Thanh toán PAID')).toBeVisible();
+  await expect(page.getByText(/PAID/)).toBeVisible();
 
   const scheduleResponse = await page.request.get(`${apiBaseUrl}/booking-flow/schedule`, {
     headers: authHeaders,

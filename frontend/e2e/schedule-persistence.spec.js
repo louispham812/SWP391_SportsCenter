@@ -40,7 +40,11 @@ test('member views and cancels a confirmed booking from the separate schedule', 
   if (bookingData.bookingType === 'COURT') {
     const bookingCard = page.locator(`[data-booking-id="${bookingData.bookingId}"]`);
     page.once('dialog', (dialog) => dialog.accept());
-    await bookingCard.getByRole('button', { name: 'Hủy sân' }).click();
+    await bookingCard.getByRole('button', { name: /Hủy/i }).click();
+    const confirmModalBtn = page.getByRole('button', { name: /Xác Nhận Hủy/i });
+    if (await confirmModalBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await confirmModalBtn.click();
+    }
     await expect(page.getByRole('status')).toContainText('Đã hủy sân');
     await expect(bookingCard).toHaveCount(0);
 

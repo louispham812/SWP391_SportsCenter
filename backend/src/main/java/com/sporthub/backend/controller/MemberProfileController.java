@@ -277,6 +277,85 @@ public class MemberProfileController {
                 message);
     }
 
+    @GetMapping("/digital-card")
+    @Transactional(readOnly = true)
+    public Map<String, Object> getDigitalCard(Authentication authentication) {
+        Long userId = memberId(authentication);
+        User user = findMember(userId);
+
+        List<UserMembership> activeMemberships = membershipRepository.findByUserIdOrderByEndDateDesc(userId).stream()
+                .filter(m -> "ACTIVE".equalsIgnoreCase(m.getStatus()) && (m.getEndDate() == null || !m.getEndDate().isBefore(LocalDate.now())))
+                .toList();
+
+        List<Map<String, Object>> activePackageList = new ArrayList<>();
+        boolean isVip = false;
+
+        for (UserMembership m : activeMemberships) {
+            MembershipPackage pkg = packageRepository.findById(m.getPackageId()).orElse(null);
+            String pkgName = pkg != null ? pkg.getName() : "Gói tập";
+            if (pkgName.toUpperCase().contains("VIP")) {
+                isVip = true;
+            }
+            long remainingDays = m.getEndDate() != null ? Math.max(0, ChronoUnit.DAYS.between(LocalDate.now(), m.getEndDate())) : 30;
+
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("membershipId", m.getMembershipId());
+            item.put("packageName", pkgName);
+            item.put("startDate", m.getStartDate() != null ? m.getStartDate().toString() : "");
+            item.put("endDate", m.getEndDate() != null ? m.getEndDate().toString() : "");
+            item.put("remainingDays", remainingDays);
+            activePackageList.add(item);
+        }
+
+        String tier;
+        String tierBadge;
+        if (isVip) {
+            tier = "VIP";
+            tierBadge = "HỘI VIÊN VIP";
+        } else if (!activePackageList.isEmpty()) {
+            tier = "STANDARD";
+            tierBadge = "HỘI VIÊN STANDARD";
+        } else {
+            tier = "BASIC";
+            tierBadge = "HỘI VIÊN CHÍNH THỨC";
+        }
+
+        LocalDate today = LocalDate.now();
+        List<Booking> memberBookings = bookingRepository.findByMemberId(userId);
+        List<Map<String, Object>> todayBookings = new ArrayList<>();
+
+        for (Booking b : memberBookings) {
+            if ("CANCELLED".equalsIgnoreCase(b.getStatus())) {
+                continue;
+            }
+            ClassSession session = classSessionRepository.findById(b.getSessionId()).orElse(null);
+            if (session != null && session.getStartTime() != null && session.getStartTime().toLocalDate().isEqual(today)) {
+                Map<String, Object> tb = new LinkedHashMap<>();
+                tb.put("bookingId", b.getBookingId());
+                tb.put("courtName", session.getClassName());
+                tb.put("activity", session.getClassName());
+                tb.put("startTime", String.format("%02d:%02d", session.getStartTime().getHour(), session.getStartTime().getMinute()));
+                tb.put("endTime", session.getEndTime() != null 
+                        ? String.format("%02d:%02d", session.getEndTime().getHour(), session.getEndTime().getMinute()) 
+                        : "");
+                tb.put("status", b.getAttendanceStatus() != null ? b.getAttendanceStatus().name() : b.getStatus());
+                todayBookings.add(tb);
+            }
+        }
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("memberId", userId);
+        response.put("fullName", user.getFullName());
+        response.put("rfidCode", user.getRfidCode());
+        response.put("qrToken", "SPORTHUB-MEMBER-" + userId);
+        response.put("tier", tier);
+        response.put("tierBadge", tierBadge);
+        response.put("activePackages", activePackageList);
+        response.put("todayBookings", todayBookings);
+
+        return response;
+    }
+
     @PostMapping("/memberships")
     @Transactional
     public MemberPackagePurchaseResponse purchaseMembership(
@@ -414,9 +493,9 @@ public class MemberProfileController {
             String sportName = sportMap.getOrDefault(session.getSportId(), "Thể thao");
 
             String status = booking.getAttendanceStatus() == null ? "PENDING" : booking.getAttendanceStatus().name();
-            if ("PRESENT".equals(status)) {
+            if ("PRESENT".equals(status) || "ATTENDED".equals(status)) {
                 attended++;
-            } else if ("ABSENT".equals(status)) {
+            } else if ("EXCUSED_ABSENCE".equals(status) || "UNEXCUSED_ABSENCE".equals(status) || "ABSENT".equals(status)) {
                 absent++;
             } else {
                 pending++;

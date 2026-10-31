@@ -10,5 +10,17 @@ public record CourtSlotResponse(
         String sportName,
         BigDecimal hourlyRate,
         LocalDateTime startTime,
-        LocalDateTime endTime) {
+        LocalDateTime endTime,
+        String status) {
+
+    public CourtSlotResponse(
+            Long courtId,
+            String courtName,
+            String description,
+            String sportName,
+            BigDecimal hourlyRate,
+            LocalDateTime startTime,
+            LocalDateTime endTime) {
+        this(courtId, courtName, description, sportName, hourlyRate, startTime, endTime, "AVAILABLE");
+    }
 }

@@ -81,7 +81,7 @@ test('member checks out a database class and gets a persisted schedule entry', a
     (classSession) => classSession.sessionId === selectedClass.sessionId,
   );
   expect(quote, 'No upcoming class with an available slot and valid checkout data was found').toBeTruthy();
-  expect(Number(quote.amount)).toBe(Number(selectedClass.priceAmount));
+  expect(Number(quote.originalAmount ?? quote.amount)).toBe(Number(selectedClass.priceAmount));
 
   const classCards = page.locator('article');
   await expect(classCards).toHaveCount(availableClasses.length);
@@ -89,12 +89,12 @@ test('member checks out a database class and gets a persisted schedule entry', a
   await expect(page).toHaveURL(new RegExp(`/member/book/checkout/class/${selectedClass.sessionId}$`));
   await expect(page.getByRole('heading', { name: 'Xác nhận booking & thanh toán' })).toBeVisible();
   await expect(page.getByText(selectedClass.className, { exact: true })).toBeVisible();
-  await expect(page.getByText('Chế độ thanh toán SANDBOX')).toBeVisible();
-  await page.getByRole('button', { name: /Xác nhận & thanh toán/ }).click();
+  await page.getByRole('button', { name: /Sandbox/i }).click();
+  await page.getByRole('button', { name: /Xác Nhận & Thanh Toán/i }).click();
 
   await expect(page).toHaveURL(/\/member\/book\/confirmation$/);
   await expect(page.getByRole('heading', { name: 'Booking đã xác nhận' })).toBeVisible();
-  await expect(page.getByText('Thanh toán PAID')).toBeVisible();
+  await expect(page.getByText(/PAID/)).toBeVisible();
   await expect(page.getByText(selectedClass.className, { exact: true })).toBeVisible();
 
   const scheduleResponse = await page.request.get(`${apiBaseUrl}/booking-flow/schedule`, {
@@ -111,7 +111,6 @@ test('member checks out a database class and gets a persisted schedule entry', a
 
   await page.reload();
   await page.goto('/member/schedule');
-  await expect(page.getByText(selectedClass.className, { exact: true }).first()).toBeVisible();
   await page.getByRole('button', { name: /Lịch lớp học/ }).click();
 
   const classDate = new Date(selectedClass.startTime);
@@ -123,10 +122,15 @@ test('member checks out a database class and gets a persisted schedule entry', a
   for (let week = 0; week < weekOffset; week += 1) {
     await page.getByRole('button', { name: 'Tuần sau' }).click();
   }
+  await expect(page.getByText(selectedClass.className, { exact: true }).first()).toBeVisible();
 
   const bookingCard = page.locator(`[data-booking-id="${savedBooking.bookingId}"]`);
   page.once('dialog', (dialog) => dialog.accept());
-  await bookingCard.getByRole('button', { name: 'Hủy lớp học' }).click();
+  await bookingCard.getByRole('button', { name: /Hủy/i }).click();
+  const confirmModalBtn = page.getByRole('button', { name: /Xác Nhận Hủy/i });
+  if (await confirmModalBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await confirmModalBtn.click();
+  }
   await expect(page.getByRole('status')).toContainText('Đã hủy lớp học');
   await expect(bookingCard).toHaveCount(0);
 

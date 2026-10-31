@@ -65,6 +65,7 @@ public class EngagementController {
     private final MemberCheckInRepository memberCheckInRepository;
     private final ReceptionPaymentRepository paymentRepository;
     private final SystemSettingRepository systemSettingRepository;
+    private final com.sporthub.backend.service.FacilityCourtSyncService syncService;
 
     @Autowired
     public EngagementController(
@@ -79,7 +80,8 @@ public class EngagementController {
             EngagementService engagementService,
             MemberCheckInRepository memberCheckInRepository,
             ReceptionPaymentRepository paymentRepository,
-            SystemSettingRepository systemSettingRepository) {
+            SystemSettingRepository systemSettingRepository,
+            com.sporthub.backend.service.FacilityCourtSyncService syncService) {
         this.feedbackRepository = feedbackRepository;
         this.bookingRepository = bookingRepository;
         this.classSessionRepository = classSessionRepository;
@@ -92,6 +94,7 @@ public class EngagementController {
         this.memberCheckInRepository = memberCheckInRepository;
         this.paymentRepository = paymentRepository;
         this.systemSettingRepository = systemSettingRepository;
+        this.syncService = syncService;
     }
 
     public EngagementController(
@@ -106,7 +109,7 @@ public class EngagementController {
             EngagementService engagementService) {
         this(feedbackRepository, bookingRepository, classSessionRepository, userRepository,
              notificationRepository, auditLogRepository, maintenanceRepository, courtRepository,
-             engagementService, null, null, null);
+             engagementService, null, null, null, null);
     }
 
     // ------------------------------------------------------------------ Feedback
@@ -201,7 +204,7 @@ public class EngagementController {
 
     // ------------------------------------------------------------- Notifications
 
-    @GetMapping("/notifications")
+    @GetMapping({"/notifications", "/members/me/notifications"})
     public Map<String, Object> myNotifications(Authentication auth) {
         List<Notification> list = notificationRepository.findByUserIdOrderByCreatedAtDesc(actorId(auth));
         Map<String, Object> result = new LinkedHashMap<>();
@@ -267,9 +270,47 @@ public class EngagementController {
     }
 
     @GetMapping("/manager/maintenance")
-    public List<CourtMaintenance> listMaintenance(Authentication auth) {
+    public List<Map<String, Object>> listMaintenance(Authentication auth) {
         requireRole(auth, "MANAGER", "ADMIN", "RECEPTIONIST");
-        return maintenanceRepository.findAllByOrderByStartTimeDesc();
+        var courts = courtRepository.findAll().stream()
+                .collect(Collectors.toMap(c -> c.getCourtId(), c -> c.getCourtName(), (a, b) -> a));
+        LocalDateTime now = LocalDateTime.now();
+        return maintenanceRepository.findAllByOrderByStartTimeDesc().stream().map(m -> {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("maintenanceId", m.getMaintenanceId());
+            map.put("courtId", m.getCourtId());
+            map.put("courtName", courts.getOrDefault(m.getCourtId(), "Sân #" + m.getCourtId()));
+            map.put("startTime", m.getStartTime());
+            map.put("endTime", m.getEndTime());
+            map.put("reason", m.getReason());
+            map.put("createdBy", m.getCreatedBy());
+            map.put("createdAt", m.getCreatedAt());
+            String status = m.getEndTime().isBefore(now) ? "COMPLETED" : (m.getStartTime().isAfter(now) ? "SCHEDULED" : "IN_PROGRESS");
+            map.put("status", status);
+            return map;
+        }).toList();
+    }
+
+    @PatchMapping("/manager/courts/{id}/status")
+    @Transactional
+    public Map<String, Object> updateCourtStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body,
+            Authentication auth) {
+        requireRole(auth, "MANAGER", "ADMIN");
+        var court = courtRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sân."));
+        boolean active = body != null && body.containsKey("active") ? Boolean.TRUE.equals(body.get("active")) : court.isActive();
+        if (syncService != null) {
+            syncService.syncFromCourt(id, active);
+            court = courtRepository.findById(id).orElse(court);
+        } else {
+            court.setActive(active);
+            court = courtRepository.save(court);
+        }
+        engagementService.audit(actorId(auth), actorRole(auth), "COURT_STATUS_UPDATED",
+                "court=" + id + ", active=" + court.isActive());
+        return Map.of("courtId", court.getCourtId(), "active", court.isActive(), "courtName", court.getCourtName());
     }
 
     @PostMapping("/manager/maintenance")
@@ -293,6 +334,9 @@ public class EngagementController {
                 .createdBy(actorId(auth))
                 .createdAt(LocalDateTime.now())
                 .build());
+        if (syncService != null) {
+            syncService.syncFromMaintenanceCreate(request.courtId(), request.startTime(), request.endTime(), request.reason());
+        }
         engagementService.audit(actorId(auth), actorRole(auth), "MAINTENANCE_CREATED",
                 "court=" + request.courtId() + ", " + request.startTime() + " -> " + request.endTime());
         Map<String, Object> result = new LinkedHashMap<>();
@@ -304,10 +348,15 @@ public class EngagementController {
     @Transactional
     public Map<String, Object> deleteMaintenance(@PathVariable Long id, Authentication auth) {
         requireRole(auth, "MANAGER", "ADMIN");
-        if (!maintenanceRepository.existsById(id)) {
+        CourtMaintenance existing = maintenanceRepository.findById(id).orElse(null);
+        if (existing == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy lịch bảo trì.");
         }
+        Long courtId = existing.getCourtId();
         maintenanceRepository.deleteById(id);
+        if (syncService != null) {
+            syncService.syncFromMaintenanceDelete(courtId);
+        }
         engagementService.audit(actorId(auth), actorRole(auth), "MAINTENANCE_DELETED", "id=" + id);
         return Map.of("deleted", true);
     }
@@ -469,6 +518,58 @@ public class EngagementController {
         res.put("updated", true);
         res.put("config", getAiConfig(auth));
         return res;
+    }
+
+    @GetMapping("/manager/settings")
+    public Map<String, Object> getSystemSettings(Authentication auth) {
+        requireRole(auth, "MANAGER", "ADMIN");
+        Map<String, Object> result = new LinkedHashMap<>();
+        String policiesJson = systemSettingRepository != null ? systemSettingRepository.findById("SYSTEM_POLICIES")
+                .map(SystemSetting::getSettingValue)
+                .orElse(null) : null;
+        String permissionsJson = systemSettingRepository != null ? systemSettingRepository.findById("ROLE_PERMISSIONS")
+                .map(SystemSetting::getSettingValue)
+                .orElse(null) : null;
+        result.put("policies", policiesJson);
+        result.put("permissions", permissionsJson);
+        return result;
+    }
+
+    @PutMapping("/manager/settings")
+    @Transactional
+    public Map<String, Object> updateSystemSettings(
+            @RequestBody Map<String, Object> request,
+            Authentication auth) {
+        requireRole(auth, "MANAGER", "ADMIN");
+        if (systemSettingRepository != null && request != null) {
+            tools.jackson.databind.ObjectMapper mapper = new tools.jackson.databind.ObjectMapper();
+            if (request.containsKey("policies") && request.get("policies") != null) {
+                try {
+                    Object p = request.get("policies");
+                    String pStr = p instanceof String ? (String) p : mapper.writeValueAsString(p);
+                    SystemSetting setting = systemSettingRepository.findById("SYSTEM_POLICIES")
+                            .orElse(new SystemSetting("SYSTEM_POLICIES", pStr, LocalDateTime.now()));
+                    setting.setSettingValue(pStr);
+                    setting.setUpdatedAt(LocalDateTime.now());
+                    systemSettingRepository.save(setting);
+                } catch (Exception ignored) {}
+            }
+            if (request.containsKey("permissions") && request.get("permissions") != null) {
+                try {
+                    Object p = request.get("permissions");
+                    String pStr = p instanceof String ? (String) p : mapper.writeValueAsString(p);
+                    SystemSetting setting = systemSettingRepository.findById("ROLE_PERMISSIONS")
+                            .orElse(new SystemSetting("ROLE_PERMISSIONS", pStr, LocalDateTime.now()));
+                    setting.setSettingValue(pStr);
+                    setting.setUpdatedAt(LocalDateTime.now());
+                    systemSettingRepository.save(setting);
+                } catch (Exception ignored) {}
+            }
+        }
+        if (engagementService != null) {
+            engagementService.audit(actorId(auth), actorRole(auth), "UPDATE_SETTINGS", "Cập nhật chính sách & phân quyền hệ thống");
+        }
+        return getSystemSettings(auth);
     }
 
     // ------------------------------------------------------------------- helpers

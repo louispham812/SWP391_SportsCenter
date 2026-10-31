@@ -1,70 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
 import { apiRequest } from '../../services/apiClient';
 import { useApp } from '../../context/AppContext';
 
-const EQUIPMENT_ITEMS_KEY = 'sports_center_equipment_items';
-const EQUIPMENT_LOANS_KEY = 'sports_center_equipment_loans';
-
-const INITIAL_ITEMS = [
-  { itemId: 1, itemName: 'Vợt Tennis Wilson Pro Staff', category: 'Vợt', rentalPricePerHour: 30000, totalQuantity: 20, availableQuantity: 14, status: 'ACTIVE' },
-  { itemId: 2, itemName: 'Vợt Pickleball Franklin Ben Johns', category: 'Vợt', rentalPricePerHour: 20000, totalQuantity: 30, availableQuantity: 22, status: 'ACTIVE' },
-  { itemId: 3, itemName: 'Giày Thi Đấu Asics Court FF (Size 40-43)', category: 'Giày', rentalPricePerHour: 40000, totalQuantity: 15, availableQuantity: 10, status: 'ACTIVE' },
-  { itemId: 4, itemName: 'Khăn Thể Thao Cao Cấp F Sport', category: 'Khăn', rentalPricePerHour: 0, totalQuantity: 50, availableQuantity: 38, status: 'ACTIVE' }, // Miễn phí
-  { itemId: 5, itemName: 'Rổ Bóng Tennis 50 Quả (Tập phát bóng)', category: 'Bóng', rentalPricePerHour: 50000, totalQuantity: 10, availableQuantity: 7, status: 'ACTIVE' },
-];
-
-const INITIAL_LOANS = [
-  {
-    loanId: 501,
-    memberId: 1,
-    memberName: 'Nguyễn Văn Member',
-    phone: '0901 234 567',
-    itemId: 1,
-    itemName: 'Vợt Tennis Wilson Pro Staff',
-    quantity: 1,
-    rentalPricePerHour: 30000,
-    loanedAt: new Date(Date.now() - 90 * 60 * 1000).toISOString(), // 1.5 hours ago
-    returnedAt: null,
-    status: 'BORROWED',
-  },
-  {
-    loanId: 500,
-    memberId: 2,
-    memberName: 'Trần Thị Thu Trang',
-    phone: '0912 888 999',
-    itemId: 4,
-    itemName: 'Khăn Thể Thao Cao Cấp F Sport',
-    quantity: 2,
-    rentalPricePerHour: 0,
-    loanedAt: new Date(Date.now() - 180 * 60 * 1000).toISOString(),
-    returnedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    rentalFee: 0,
-    status: 'RETURNED',
-  },
-];
-
 export default function ReceptionEquipmentPage() {
   const { showToast } = useApp();
 
-  const [items, setItems] = useState(() => {
-    try {
-      const stored = localStorage.getItem(EQUIPMENT_ITEMS_KEY);
-      return stored ? JSON.parse(stored) : INITIAL_ITEMS;
-    } catch {
-      return INITIAL_ITEMS;
-    }
-  });
-
-  const [loans, setLoans] = useState(() => {
-    try {
-      const stored = localStorage.getItem(EQUIPMENT_LOANS_KEY);
-      return stored ? JSON.parse(stored) : INITIAL_LOANS;
-    } catch {
-      return INITIAL_LOANS;
-    }
-  });
-
+  const [items, setItems] = useState([]);
+  const [loans, setLoans] = useState([]);
   const [activeTab, setActiveTab] = useState('loans'); // 'loans' | 'items'
 
   // New loan state
@@ -79,27 +22,22 @@ export default function ReceptionEquipmentPage() {
   const [returningLoan, setReturningLoan] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('CASH');
 
-  useEffect(() => {
-    let current = true;
-    apiRequest('/receptionist/equipments')
-      .then((data) => {
-        if (current && Array.isArray(data) && data.length > 0) {
-          setItems(data);
-          localStorage.setItem(EQUIPMENT_ITEMS_KEY, JSON.stringify(data));
-        }
-      })
-      .catch(() => {});
-
-    apiRequest('/receptionist/equipment-loans')
-      .then((data) => {
-        if (current && Array.isArray(data) && data.length > 0) {
-          setLoans(data);
-          localStorage.setItem(EQUIPMENT_LOANS_KEY, JSON.stringify(data));
-        }
-      })
-      .catch(() => {});
-    return () => { current = false; };
+  const loadEquipments = useCallback(async () => {
+    try {
+      const [eqs, lns] = await Promise.all([
+        apiRequest('/receptionist/equipments').catch(() => []),
+        apiRequest('/receptionist/equipment-loans').catch(() => []),
+      ]);
+      setItems(Array.isArray(eqs) ? eqs : []);
+      setLoans(Array.isArray(lns) ? lns : []);
+    } catch (err) {
+      console.warn('Lỗi tải dữ liệu thiết bị:', err);
+    }
   }, []);
+
+  useEffect(() => {
+    loadEquipments();
+  }, [loadEquipments]);
 
   // Search members debounce
   useEffect(() => {
@@ -123,16 +61,6 @@ export default function ReceptionEquipmentPage() {
     };
   }, [memberSearch]);
 
-  const saveItems = (updated) => {
-    setItems(updated);
-    localStorage.setItem(EQUIPMENT_ITEMS_KEY, JSON.stringify(updated));
-  };
-
-  const saveLoans = (updated) => {
-    setLoans(updated);
-    localStorage.setItem(EQUIPMENT_LOANS_KEY, JSON.stringify(updated));
-  };
-
   // Handle Borrow
   const handleBorrow = async (e) => {
     e.preventDefault();
@@ -155,9 +83,8 @@ export default function ReceptionEquipmentPage() {
     }
 
     setIsSubmitting(true);
-    let createdLoan = null;
     try {
-      createdLoan = await apiRequest('/receptionist/equipment-loans', {
+      await apiRequest('/receptionist/equipment-loans', {
         method: 'POST',
         body: JSON.stringify({
           memberId: selectedMember.userId,
@@ -165,45 +92,23 @@ export default function ReceptionEquipmentPage() {
           quantity: qty,
         }),
       });
-    } catch {
-      // optimistic fallback
+
+      showToast(
+        'Mượn dụng cụ thành công',
+        `Đã ghi nhận mượn ${qty} x "${item.itemName}" cho hội viên ${selectedMember.fullName}.`,
+        'success'
+      );
+
+      setSelectedMember(null);
+      setMemberSearch('');
+      setSelectedItemId('');
+      setQuantity(1);
+      await loadEquipments();
+    } catch (err) {
+      showToast('Lỗi mượn đồ', err.message || 'Không thể ghi nhận mượn đồ.', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    // Create loan object
-    const newLoan = createdLoan || {
-      loanId: Date.now(),
-      memberId: selectedMember.userId,
-      memberName: selectedMember.fullName,
-      phone: selectedMember.phone || selectedMember.email,
-      itemId: item.itemId,
-      itemName: item.itemName,
-      quantity: qty,
-      rentalPricePerHour: item.rentalPricePerHour,
-      loanedAt: new Date().toISOString(),
-      returnedAt: null,
-      status: 'BORROWED',
-    };
-
-    // Deduct stock
-    const updatedItems = items.map((i) =>
-      i.itemId === item.itemId ? { ...i, availableQuantity: i.availableQuantity - qty } : i
-    );
-
-    const updatedLoans = [newLoan, ...loans];
-    saveItems(updatedItems);
-    saveLoans(updatedLoans);
-
-    showToast(
-      'Mượn dụng cụ thành công',
-      `Đã ghi nhận mượn ${qty} x "${item.itemName}" cho hội viên ${selectedMember.fullName}.`,
-      'success'
-    );
-
-    setSelectedMember(null);
-    setMemberSearch('');
-    setSelectedItemId('');
-    setQuantity(1);
-    setIsSubmitting(false);
   };
 
   // Calculate rental fee upon return (hours = CEILING(diff in seconds / 3600))
@@ -228,39 +133,17 @@ export default function ReceptionEquipmentPage() {
         method: 'POST',
         body: JSON.stringify({ paymentMethod }),
       });
-    } catch {
-      // optimistic fallback
+
+      showToast(
+        'Trả đồ hoàn tất',
+        `Đã nhận lại ${returningLoan.quantity} x "${returningLoan.itemName}". Phí thu: ${fee.toLocaleString()}đ (${paymentMethod}).`,
+        'success'
+      );
+      setReturningLoan(null);
+      await loadEquipments();
+    } catch (err) {
+      showToast('Lỗi trả đồ', err.message || 'Không thể xác nhận trả đồ.', 'error');
     }
-
-    // Update loan
-    const updatedLoans = loans.map((l) =>
-      l.loanId === returningLoan.loanId
-        ? {
-            ...l,
-            returnedAt: new Date().toISOString(),
-            rentalFee: fee,
-            status: 'RETURNED',
-            paymentMethod: fee > 0 ? paymentMethod : null,
-          }
-        : l
-    );
-
-    // Increase stock
-    const updatedItems = items.map((i) =>
-      i.itemId === returningLoan.itemId
-        ? { ...i, availableQuantity: i.availableQuantity + (returningLoan.quantity || 1) }
-        : i
-    );
-
-    saveLoans(updatedLoans);
-    saveItems(updatedItems);
-
-    showToast(
-      'Trả đồ hoàn tất',
-      `Đã nhận lại ${returningLoan.quantity} x "${returningLoan.itemName}". Phí thu: ${fee.toLocaleString()}đ (${paymentMethod}).`,
-      'success'
-    );
-    setReturningLoan(null);
   };
 
   const activeLoans = loans.filter((l) => l.status === 'BORROWED');
