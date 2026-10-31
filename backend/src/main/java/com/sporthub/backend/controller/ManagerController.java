@@ -9,8 +9,10 @@ import com.sporthub.backend.dto.PendingStaffRegistrationResponse;
 import com.sporthub.backend.entity.MembershipPackage;
 import com.sporthub.backend.entity.PublicSport;
 import com.sporthub.backend.entity.User;
+import com.sporthub.backend.entity.UserMembership;
 import com.sporthub.backend.repository.MembershipPackageRepository;
 import com.sporthub.backend.repository.PublicSportRepository;
+import com.sporthub.backend.repository.UserMembershipRepository;
 import com.sporthub.backend.repository.UserRepository;
 import com.sporthub.backend.service.AuditLogService;
 import com.sporthub.backend.service.AuthService;
@@ -26,8 +28,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -45,6 +49,9 @@ public class ManagerController {
     private final AuditLogService auditLogService;
     private final AuthService authService;
     private final MembershipService membershipService;
+
+    @Autowired(required = false)
+    private UserMembershipRepository userMembershipRepository;
 
     @Autowired
     public ManagerController(
@@ -253,22 +260,58 @@ public class ManagerController {
         return decide(userId, "INACTIVE");
     }
 
+    @GetMapping("/memberships/pending")
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getPendingMemberships(Authentication authentication) {
+        requireManager(authentication);
+        if (userMembershipRepository == null) {
+            return List.of();
+        }
+        List<UserMembership> list = userMembershipRepository.findAll().stream()
+                .filter(m -> "PENDING".equalsIgnoreCase(m.getStatus()) || "PENDING_APPROVAL".equalsIgnoreCase(m.getStatus()))
+                .toList();
+
+        return list.stream().map(um -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("membershipId", um.getMembershipId());
+            row.put("memberId", um.getUserId());
+
+            User user = userRepository.findById(um.getUserId()).orElse(null);
+            row.put("memberName", user != null ? user.getFullName() : "Hội viên #" + um.getUserId());
+            row.put("memberPhone", user != null && user.getPhone() != null ? user.getPhone() : (user != null ? user.getEmail() : "—"));
+            row.put("memberEmail", user != null ? user.getEmail() : "");
+
+            MembershipPackage pkg = packageRepository.findById(um.getPackageId()).orElse(null);
+            row.put("packageName", pkg != null ? pkg.getName() : "Gói tập #" + um.getPackageId());
+            row.put("packageType", pkg != null ? pkg.getAccessType() : "VIP");
+            row.put("price", pkg != null ? pkg.getPrice() : 0);
+            row.put("paymentMethod", "VIETQR");
+            row.put("referenceCode", "VQR-MBR-" + um.getMembershipId());
+            row.put("quotaCourtHours", pkg != null && pkg.getQuotaSessions() != null ? pkg.getQuotaSessions() : 0);
+            row.put("quotaClassSessions", pkg != null && pkg.getQuotaSessions() != null ? pkg.getQuotaSessions() : 0);
+            row.put("quotaPtSessions", 0);
+            row.put("status", um.getStatus());
+            row.put("createdAt", um.getStartDate() != null ? um.getStartDate().atStartOfDay().toString() : java.time.LocalDateTime.now().toString());
+            row.put("startDate", um.getStartDate());
+            row.put("endDate", um.getEndDate());
+            return row;
+        }).toList();
+    }
+
     /**
      * MGR-08: Manager approve membership
      * PENDING_APPROVAL -> ACTIVE
      */
-    @PatchMapping("/memberships/{membershipId}/approve")
+    @RequestMapping(value = "/memberships/{membershipId}/approve", method = {RequestMethod.PATCH, RequestMethod.POST})
     @Transactional
     public MembershipQuotaResponse approveMembership(
             @PathVariable Long membershipId,
             Authentication authentication) {
         requireManager(authentication);
         
-        User manager = userRepository.findByEmailIgnoreCase(authentication.getName())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Manager không tồn tại"));
+        Long managerId = resolveManagerId(authentication);
 
-        membershipService.approveMembership(membershipId, manager.getUserId());
+        membershipService.approveMembership(membershipId, managerId);
 
         return new MembershipQuotaResponse(
                 membershipId,
@@ -290,17 +333,41 @@ public class ManagerController {
             Authentication authentication) {
         requireManager(authentication);
         
-        User manager = userRepository.findByEmailIgnoreCase(authentication.getName())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Manager không tồn tại"));
+        Long managerId = resolveManagerId(authentication);
 
         String rejectReason = reason == null || reason.isBlank() 
                 ? "Không đạt yêu cầu duyệt" 
                 : reason.trim();
         
-        membershipService.rejectMembership(membershipId, rejectReason, manager.getUserId());
+        membershipService.rejectMembership(membershipId, rejectReason, managerId);
 
         return "Membership đã bị từ chối thành công";
+    }
+
+    private Long resolveManagerId(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Manager không tồn tại");
+        }
+        Optional<User> byEmail = userRepository.findByEmailIgnoreCase(authentication.getName());
+        if (byEmail.isPresent()) {
+            return byEmail.get().getUserId();
+        }
+        try {
+            Long id = Long.valueOf(authentication.getName());
+            return userRepository.findById(id).map(User::getUserId).orElse(id);
+        } catch (NumberFormatException ignored) {
+        }
+        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Manager không tồn tại");
+    }
+
+    @PostMapping("/memberships/{membershipId}/reject")
+    @Transactional
+    public String rejectMembershipPost(
+            @PathVariable Long membershipId,
+            @RequestBody(required = false) Map<String, Object> body,
+            Authentication authentication) {
+        String reason = body != null && body.get("reason") != null ? body.get("reason").toString() : null;
+        return rejectMembership(membershipId, reason, authentication);
     }
 
     @PostMapping("/users")

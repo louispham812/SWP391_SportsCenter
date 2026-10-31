@@ -201,7 +201,7 @@ public class EngagementController {
 
     // ------------------------------------------------------------- Notifications
 
-    @GetMapping("/notifications")
+    @GetMapping({"/notifications", "/members/me/notifications"})
     public Map<String, Object> myNotifications(Authentication auth) {
         List<Notification> list = notificationRepository.findByUserIdOrderByCreatedAtDesc(actorId(auth));
         Map<String, Object> result = new LinkedHashMap<>();
@@ -503,6 +503,58 @@ public class EngagementController {
         res.put("updated", true);
         res.put("config", getAiConfig(auth));
         return res;
+    }
+
+    @GetMapping("/manager/settings")
+    public Map<String, Object> getSystemSettings(Authentication auth) {
+        requireRole(auth, "MANAGER", "ADMIN");
+        Map<String, Object> result = new LinkedHashMap<>();
+        String policiesJson = systemSettingRepository != null ? systemSettingRepository.findById("SYSTEM_POLICIES")
+                .map(SystemSetting::getSettingValue)
+                .orElse(null) : null;
+        String permissionsJson = systemSettingRepository != null ? systemSettingRepository.findById("ROLE_PERMISSIONS")
+                .map(SystemSetting::getSettingValue)
+                .orElse(null) : null;
+        result.put("policies", policiesJson);
+        result.put("permissions", permissionsJson);
+        return result;
+    }
+
+    @PutMapping("/manager/settings")
+    @Transactional
+    public Map<String, Object> updateSystemSettings(
+            @RequestBody Map<String, Object> request,
+            Authentication auth) {
+        requireRole(auth, "MANAGER", "ADMIN");
+        if (systemSettingRepository != null && request != null) {
+            tools.jackson.databind.ObjectMapper mapper = new tools.jackson.databind.ObjectMapper();
+            if (request.containsKey("policies") && request.get("policies") != null) {
+                try {
+                    Object p = request.get("policies");
+                    String pStr = p instanceof String ? (String) p : mapper.writeValueAsString(p);
+                    SystemSetting setting = systemSettingRepository.findById("SYSTEM_POLICIES")
+                            .orElse(new SystemSetting("SYSTEM_POLICIES", pStr, LocalDateTime.now()));
+                    setting.setSettingValue(pStr);
+                    setting.setUpdatedAt(LocalDateTime.now());
+                    systemSettingRepository.save(setting);
+                } catch (Exception ignored) {}
+            }
+            if (request.containsKey("permissions") && request.get("permissions") != null) {
+                try {
+                    Object p = request.get("permissions");
+                    String pStr = p instanceof String ? (String) p : mapper.writeValueAsString(p);
+                    SystemSetting setting = systemSettingRepository.findById("ROLE_PERMISSIONS")
+                            .orElse(new SystemSetting("ROLE_PERMISSIONS", pStr, LocalDateTime.now()));
+                    setting.setSettingValue(pStr);
+                    setting.setUpdatedAt(LocalDateTime.now());
+                    systemSettingRepository.save(setting);
+                } catch (Exception ignored) {}
+            }
+        }
+        if (engagementService != null) {
+            engagementService.audit(actorId(auth), actorRole(auth), "UPDATE_SETTINGS", "Cập nhật chính sách & phân quyền hệ thống");
+        }
+        return getSystemSettings(auth);
     }
 
     // ------------------------------------------------------------------- helpers

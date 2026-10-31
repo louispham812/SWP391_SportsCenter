@@ -962,3 +962,9 @@ IF OBJECT_ID(N'dbo.user_memberships', N'U') IS NOT NULL
    AND COL_LENGTH(N'dbo.user_memberships', N'initial_quota_sessions') IS NULL
     ALTER TABLE dbo.user_memberships ADD initial_quota_sessions INT NULL CONSTRAINT DF_user_memberships_initial_quota DEFAULT 0;
 
+-- ===== Bo sung: cap nhat CHECK constraint cho user_memberships.status ho tro PENDING_APPROVAL va REJECTED =====
+IF OBJECT_ID(N'dbo.CK_user_memberships_status', N'C') IS NULL AND OBJECT_ID(N'dbo.user_memberships', N'U') IS NOT NULL
+    ALTER TABLE dbo.user_memberships ADD CONSTRAINT CK_user_memberships_status CHECK (status IN ('PENDING', 'PENDING_APPROVAL', 'ACTIVE', 'EXPIRED', 'FROZEN', 'REJECTED'));
+
+
+

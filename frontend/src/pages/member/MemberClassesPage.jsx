@@ -226,29 +226,19 @@ export default function MemberClassesPage() {
     if (!voucherCode.trim()) return;
 
     const code = voucherCode.trim().toUpperCase();
-    
-    // Try local vouchers first
-    let vouchers = [];
     try {
-      const saved = localStorage.getItem('sports_center_vouchers');
-      vouchers = saved ? JSON.parse(saved) : [];
-    } catch {
-      vouchers = [];
+      const res = await apiRequest('/vouchers/validate', {
+        method: 'POST',
+        body: JSON.stringify({ code, amount: selectedSession?.priceAmount || 0 }),
+      });
+      if (res && res.valid && res.voucher) {
+        setAppliedVoucher(res.voucher);
+      } else {
+        setVoucherError(res?.message || 'Mã ưu đãi không hợp lệ hoặc đã hết hạn.');
+      }
+    } catch (err) {
+      setVoucherError(err.message || 'Không thể xác thực mã ưu đãi từ hệ thống.');
     }
-
-    const fallbackVouchers = [
-      { code: 'WELCOME20', discountType: 'PERCENT', discountValue: 20, status: 'ACTIVE' },
-      { code: 'SUMMER50K', discountType: 'FIXED', discountValue: 50000, status: 'ACTIVE' },
-      { code: 'EXTEND30D', discountType: 'EXTEND_DURATION', discountValue: 30, status: 'ACTIVE' },
-    ];
-    const allVouchers = [...fallbackVouchers, ...vouchers];
-    const found = allVouchers.find((v) => v.code.toUpperCase() === code && (v.status === 'ACTIVE' || v.active));
-
-    if (!found) {
-      setVoucherError('Mã ưu đãi không hợp lệ hoặc đã hết hạn.');
-      return;
-    }
-    setAppliedVoucher(found);
   };
 
   const removeVoucher = () => {

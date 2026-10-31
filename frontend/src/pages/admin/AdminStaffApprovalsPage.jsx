@@ -25,70 +25,6 @@ const formatPrice = (val) =>
     maximumFractionDigits: 0,
   }).format(val || 0);
 
-const PENDING_MEMBERSHIPS_KEY = 'sports_center_pending_memberships';
-const COACH_LEAVE_KEY = 'sports_center_coach_leave_requests';
-const REFUND_REQUESTS_KEY = 'sports_center_refund_requests';
-
-const INITIAL_PENDING_MEMBERSHIPS = [
-  {
-    membershipId: 401,
-    memberId: 10,
-    memberName: 'Lê Hoàng Long',
-    memberPhone: '0988 123 456',
-    packageName: 'Gói VIP 3 Tháng Toàn Diện',
-    packageType: 'VIP',
-    price: 4500000,
-    paymentMethod: 'VIETQR',
-    referenceCode: 'VQR-MBR-401',
-    quotaCourtHours: 30,
-    quotaClassSessions: 12,
-    quotaPtSessions: 4,
-    status: 'PENDING_APPROVAL',
-    createdAt: '2026-10-20T10:15:00',
-  },
-  {
-    membershipId: 402,
-    memberId: 12,
-    memberName: 'Phạm Thu Thảo',
-    memberPhone: '0977 654 321',
-    packageName: 'Khóa Học Bơi Căn Bản (12 Buổi)',
-    packageType: 'CLASS',
-    price: 2400000,
-    paymentMethod: 'VIETQR',
-    referenceCode: 'VQR-MBR-402',
-    totalSessions: 12,
-    status: 'PENDING_APPROVAL',
-    createdAt: '2026-10-20T14:20:00',
-  },
-];
-
-const INITIAL_REFUND_REQUESTS = [
-  {
-    refundId: 801,
-    memberId: 5,
-    memberName: 'Vũ Đức Minh',
-    phone: '0933 111 222',
-    bookingId: 105,
-    bookingDescription: 'Đặt sân Tennis 02 (20/10 18:00 - 20:00)',
-    refundAmount: 300000,
-    reason: 'Hủy booking đúng hạn trước 2 giờ theo chính sách hoàn tiền',
-    status: 'PENDING',
-    createdAt: '2026-10-20T15:00:00',
-  },
-  {
-    refundId: 802,
-    memberId: 7,
-    memberName: 'Đỗ Hải Yến',
-    phone: '0912 333 444',
-    bookingId: 108,
-    bookingDescription: 'Lớp Yoga Trị Liệu Cột Sống',
-    refundAmount: 180000,
-    reason: 'Vắng có phép được Coach xác nhận EXCUSED_ABSENCE',
-    status: 'PENDING',
-    createdAt: '2026-10-19T17:30:00',
-  },
-];
-
 export default function AdminStaffApprovalsPage() {
   const { showToast } = useApp();
 
@@ -102,79 +38,36 @@ export default function AdminStaffApprovalsPage() {
   const [processingId, setProcessingId] = useState(null);
 
   // Tab 2: Membership approvals (Section 5.2)
-  const [pendingMemberships, setPendingMemberships] = useState(() => {
-    try {
-      const stored = localStorage.getItem(PENDING_MEMBERSHIPS_KEY);
-      return stored ? JSON.parse(stored) : INITIAL_PENDING_MEMBERSHIPS;
-    } catch {
-      return INITIAL_PENDING_MEMBERSHIPS;
-    }
-  });
+  const [pendingMemberships, setPendingMemberships] = useState([]);
   const [rejectMembershipModal, setRejectMembershipModal] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
 
   // Tab 3: Coach Leave Requests (MGR-24)
-  const [coachLeaveRequests, setCoachLeaveRequests] = useState(() => {
-    try {
-      const stored = localStorage.getItem(COACH_LEAVE_KEY);
-      if (stored) return JSON.parse(stored);
-      return [
-        {
-          requestId: 101,
-          coachId: 2,
-          coachName: 'Coach Nguyễn Văn A',
-          leaveType: 'SICK_LEAVE',
-          startDate: '2026-10-25',
-          endDate: '2026-10-26',
-          reason: 'Sốt xuất huyết cần theo dõi tại cơ sở y tế',
-          status: 'PENDING',
-          affectedBookingsCount: 2,
-          affectedBookings: [
-            { id: 201, time: '25/10/2026 08:00 - 09:30', name: 'Lớp Pickleball Cơ Bản', member: 'Lớp Nhóm (6 học viên)' },
-            { id: 202, time: '25/10/2026 15:00 - 16:00', name: 'Tập PT 1-1 Tennis', member: 'Trần Văn Nam (Thẻ VIP)' },
-          ],
-          createdAt: '2026-10-20T08:30:00',
-        },
-      ];
-    } catch {
-      return [];
-    }
-  });
+  const [coachLeaveRequests, setCoachLeaveRequests] = useState([]);
   const [availableCoaches, setAvailableCoaches] = useState([]);
   const [approveLeaveModal, setApproveLeaveModal] = useState(null);
   const [reassignForm, setReassignForm] = useState({});
   const [confirmReassignNotice, setConfirmReassignNotice] = useState(false);
 
   // Tab 4: Refund Requests (MGR-16)
-  const [refundRequests, setRefundRequests] = useState(() => {
-    try {
-      const stored = localStorage.getItem(REFUND_REQUESTS_KEY);
-      return stored ? JSON.parse(stored) : INITIAL_REFUND_REQUESTS;
-    } catch {
-      return INITIAL_REFUND_REQUESTS;
-    }
-  });
+  const [refundRequests, setRefundRequests] = useState([]);
 
   const loadRegistrations = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const [data, coachesRes, leaveRes, refundRes] = await Promise.all([
-        getPendingStaffRegistrations(),
+      const [data, coachesRes, leaveRes, refundRes, pendingMemRes] = await Promise.all([
+        getPendingStaffRegistrations().catch(() => []),
         getManagerCoaches().catch(() => ({ content: [] })),
-        apiRequest('/manager/coach-leave-requests').catch(() => null),
-        apiRequest('/manager/refunds').catch(() => null),
+        apiRequest('/manager/coach-leave-requests').catch(() => []),
+        apiRequest('/manager/refunds').catch(() => []),
+        apiRequest('/manager/memberships/pending').catch(() => []),
       ]);
-      setRegistrations(data);
+      setRegistrations(Array.isArray(data) ? data : []);
       setAvailableCoaches(coachesRes.content || []);
-      if (Array.isArray(leaveRes) && leaveRes.length > 0) {
-        setCoachLeaveRequests(leaveRes);
-        localStorage.setItem(COACH_LEAVE_KEY, JSON.stringify(leaveRes));
-      }
-      if (Array.isArray(refundRes) && refundRes.length > 0) {
-        setRefundRequests(refundRes);
-        localStorage.setItem(REFUND_REQUESTS_KEY, JSON.stringify(refundRes));
-      }
+      setCoachLeaveRequests(Array.isArray(leaveRes) ? leaveRes : []);
+      setRefundRequests(Array.isArray(refundRes) ? refundRes : []);
+      setPendingMemberships(Array.isArray(pendingMemRes) ? pendingMemRes : []);
     } catch (requestError) {
       setError(requestError.message || 'Không thể tải danh sách đăng ký.');
     } finally {
@@ -207,55 +100,43 @@ export default function AdminStaffApprovalsPage() {
   };
 
   // Tab 2: Approve Membership (Section 5.2 - APPROVE -> ACTIVE, Grant Quota & Tier)
-  const handleApproveMembership = (mem) => {
-    const updated = pendingMemberships.map((m) =>
-      m.membershipId === mem.membershipId ? { ...m, status: 'ACTIVE', approvedAt: new Date().toISOString() } : m
-    );
-    setPendingMemberships(updated);
-    localStorage.setItem(PENDING_MEMBERSHIPS_KEY, JSON.stringify(updated));
-
-    showToast(
-      'Kích hoạt gói thành công',
-      `Đã duyệt gói "${mem.packageName}" cho hội viên ${mem.memberName}. Quyền lợi quota & hạng thẻ VIP đã được cấp phát. (Ghi Audit Log)`,
-      'success'
-    );
+  const handleApproveMembership = async (mem) => {
+    try {
+      await apiRequest(`/manager/memberships/${mem.membershipId}/approve`, {
+        method: 'POST',
+      });
+      showToast(
+        'Kích hoạt gói thành công',
+        `Đã duyệt gói "${mem.packageName}" cho hội viên ${mem.memberName}. Quyền lợi quota & thời hạn thẻ đã được kích hoạt trên hệ thống.`,
+        'success'
+      );
+      await loadRegistrations();
+    } catch (err) {
+      showToast('Lỗi phê duyệt', err.message || 'Không thể duyệt gói hội viên.', 'error');
+    }
   };
 
   // Tab 2: Reject Membership (Section 5.2 - REJECT -> 100% Refund Request)
-  const handleConfirmRejectMembership = () => {
+  const handleConfirmRejectMembership = async () => {
     if (!rejectMembershipModal) return;
     const mem = rejectMembershipModal;
 
-    const updated = pendingMemberships.map((m) =>
-      m.membershipId === mem.membershipId
-        ? { ...m, status: 'REJECTED', rejectionReason: rejectionReason || 'Lý do từ Quản lý' }
-        : m
-    );
-    setPendingMemberships(updated);
-    localStorage.setItem(PENDING_MEMBERSHIPS_KEY, JSON.stringify(updated));
-
-    // Auto-create 100% refund request
-    const newRefund = {
-      refundId: Date.now(),
-      memberId: mem.memberId,
-      memberName: mem.memberName,
-      phone: mem.memberPhone,
-      refundAmount: mem.price,
-      reason: `Hoàn tiền 100% do từ chối gói #${mem.membershipId} (${rejectionReason || 'Thông tin thanh toán không khớp'})`,
-      status: 'APPROVED',
-      createdAt: new Date().toISOString(),
-    };
-    const updatedRefunds = [newRefund, ...refundRequests];
-    setRefundRequests(updatedRefunds);
-    localStorage.setItem(REFUND_REQUESTS_KEY, JSON.stringify(updatedRefunds));
-
-    showToast(
-      'Đã từ chối gói',
-      `Đã từ chối gói #${mem.membershipId} và tự động tạo lệnh hoàn tiền 100% (${formatPrice(mem.price)}) cho hội viên.`,
-      'info'
-    );
-    setRejectMembershipModal(null);
-    setRejectionReason('');
+    try {
+      await apiRequest(`/manager/memberships/${mem.membershipId}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: rejectionReason || 'Lý do từ Quản lý' }),
+      });
+      showToast(
+        'Đã từ chối gói',
+        `Đã từ chối gói #${mem.membershipId} của hội viên ${mem.memberName}.`,
+        'info'
+      );
+      setRejectMembershipModal(null);
+      setRejectionReason('');
+      await loadRegistrations();
+    } catch (err) {
+      showToast('Lỗi từ chối gói', err.message || 'Không thể từ chối gói hội viên.', 'error');
+    }
   };
 
   // Tab 3: Coach Leave Request Approval (MGR-24)
@@ -277,50 +158,32 @@ export default function AdminStaffApprovalsPage() {
           reassignedCoachId: Object.values(reassignForm)[0] || null,
         }),
       });
-    } catch {
-      // optimistic fallback
+      showToast(
+        'Duyệt đơn nghỉ thành công',
+        `Đã duyệt nghỉ cho ${req.coachName}. Các ca học đã chuyển sang Coach thay thế và tự động thông báo học viên.`,
+        'success'
+      );
+      setApproveLeaveModal(null);
+      await loadRegistrations();
+    } catch (err) {
+      showToast('Lỗi duyệt đơn nghỉ', err.message || 'Không thể duyệt đơn nghỉ.', 'error');
     }
-
-    const updated = coachLeaveRequests.map((r) =>
-      r.requestId === req.requestId
-        ? {
-            ...r,
-            status: 'APPROVED',
-            approvedBy: 'Giám đốc Trung tâm',
-            affectedBookingsReassigned: true,
-            reassignedDetails: reassignForm,
-          }
-        : r
-    );
-    setCoachLeaveRequests(updated);
-    localStorage.setItem(COACH_LEAVE_KEY, JSON.stringify(updated));
-
-    showToast(
-      'Duyệt đơn nghỉ thành công',
-      `Đã duyệt nghỉ cho ${req.coachName}. Các ca học đã chuyển sang Coach thay thế và tự động thông báo học viên không phụ phí. (Ghi Audit Log)`,
-      'success'
-    );
-    setApproveLeaveModal(null);
   };
 
   const handleRejectLeave = async (req) => {
     try {
       await apiRequest(`/manager/coach-leave-requests/${req.requestId}/decision`, {
         method: 'POST',
-        body: JSON.stringify({ approved: false }),
+        body: JSON.stringify({
+          approved: false,
+          decisionNote: 'Lịch giảng dạy quá kín, không đủ Coach thay thế (BR-16)',
+        }),
       });
-    } catch {
-      // optimistic fallback
+      showToast('Đã từ chối đơn nghỉ', `Đã gửi thông báo từ chối tới ${req.coachName}.`, 'warning');
+      await loadRegistrations();
+    } catch (err) {
+      showToast('Lỗi từ chối đơn nghỉ', err.message || 'Không thể từ chối đơn nghỉ.', 'error');
     }
-
-    const updated = coachLeaveRequests.map((r) =>
-      r.requestId === req.requestId
-        ? { ...r, status: 'REJECTED', rejectionReason: 'Lịch giảng dạy quá kín, không đủ Coach thay thế' }
-        : r
-    );
-    setCoachLeaveRequests(updated);
-    localStorage.setItem(COACH_LEAVE_KEY, JSON.stringify(updated));
-    showToast('Đã từ chối đơn nghỉ', `Đã gửi thông báo từ chối tới ${req.coachName}.`, 'warning');
   };
 
   // Tab 4: Refund Approval (MGR-16)
@@ -328,24 +191,20 @@ export default function AdminStaffApprovalsPage() {
     try {
       await apiRequest(`/manager/refunds/${refund.refundId}/decision`, {
         method: 'POST',
-        body: JSON.stringify({ approved: isApprove }),
+        body: JSON.stringify({
+          approved: isApprove,
+          decisionNote: isApprove ? 'Đã duyệt hoàn tiền' : 'Từ chối hoàn tiền',
+        }),
       });
-    } catch {
-      // optimistic fallback
+      showToast(
+        isApprove ? 'Đã duyệt hoàn tiền' : 'Đã từ chối hoàn tiền',
+        `Lệnh hoàn ${formatPrice(refund.refundAmount)} cho ${refund.memberName} đã được cập nhật.`,
+        isApprove ? 'success' : 'info'
+      );
+      await loadRegistrations();
+    } catch (err) {
+      showToast('Lỗi xử lý hoàn tiền', err.message || 'Không thể xử lý yêu cầu hoàn tiền.', 'error');
     }
-
-    const updated = refundRequests.map((r) =>
-      r.refundId === refund.refundId
-        ? { ...r, status: isApprove ? 'COMPLETED' : 'REJECTED', approvedAt: new Date().toISOString() }
-        : r
-    );
-    setRefundRequests(updated);
-    localStorage.setItem(REFUND_REQUESTS_KEY, JSON.stringify(updated));
-    showToast(
-      isApprove ? 'Đã duyệt hoàn tiền' : 'Đã từ chối hoàn tiền',
-      `Lệnh hoàn ${formatPrice(refund.refundAmount)} cho ${refund.memberName} đã được cập nhật. (Ghi Audit Log)`,
-      isApprove ? 'success' : 'info'
-    );
   };
 
   const pendingStaffCount = registrations.length;

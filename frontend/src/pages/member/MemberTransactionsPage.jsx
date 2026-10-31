@@ -213,46 +213,20 @@ export default function MemberTransactionsPage() {
           accountHolder,
         }),
       });
-    } catch {
-      // optimistic fallback
+      setShowRefundModal(false);
+      setSelectedTxForRefund('');
+      setRefundReason('');
+      setBankAccount('');
+      setAccountHolder('');
+      showToast(
+        'Yêu cầu hoàn tiền đã gửi',
+        'Đã chuyển đến Quản lý xét duyệt theo quy chế hoàn tiền 2 tiếng.',
+        'success'
+      );
+      await loadData();
+    } catch (err) {
+      showToast('Lỗi yêu cầu hoàn tiền', err.message || 'Không thể gửi yêu cầu hoàn tiền.', 'error');
     }
-
-    let existingRequests = [];
-    try {
-      const saved = localStorage.getItem('sports_center_refund_requests');
-      existingRequests = saved ? JSON.parse(saved) : [];
-    } catch {
-      existingRequests = [];
-    }
-
-    const newRequest = {
-      id: `RF-${Date.now().toString().slice(-5)}`,
-      memberId: profile?.userId || 'MEM-2026-089',
-      memberName: profile?.fullName || 'Hội viên F Sport',
-      memberPhone: profile?.phone || '0901234567',
-      referenceCode: targetTx.referenceCode || `TX-${targetTx.id}`,
-      itemName: targetTx.itemName,
-      itemType: targetTx.itemType,
-      amount: targetTx.amount,
-      reason: refundReason,
-      bankName,
-      bankAccount,
-      accountHolder,
-      status: 'PENDING',
-      createdAt: new Date().toISOString(),
-    };
-
-    localStorage.setItem('sports_center_refund_requests', JSON.stringify([newRequest, ...existingRequests]));
-    setShowRefundModal(false);
-    setSelectedTxForRefund('');
-    setRefundReason('');
-    setBankAccount('');
-    setAccountHolder('');
-    showToast(
-      'Yêu cầu hoàn tiền đã gửi',
-      'Đã chuyển đến Quản lý xét duyệt theo quy chế hoàn tiền 2 tiếng.',
-      'success'
-    );
   };
 
   // Submit Complaint (MEM-26)
@@ -273,39 +247,17 @@ export default function MemberTransactionsPage() {
           severity: complaintSeverity,
         }),
       });
-    } catch {
-      // optimistic fallback
+      setShowComplaintModal(false);
+      setComplaintTitle('');
+      setComplaintDescription('');
+      showToast(
+        'Khiếu nại đã gửi thành công',
+        'Bộ phận CSKH và Quản lý F Sport sẽ phản hồi trong vòng 24h.',
+        'success'
+      );
+    } catch (err) {
+      showToast('Lỗi gửi khiếu nại', err.message || 'Không thể gửi khiếu nại.', 'error');
     }
-
-    let existingComplaints = [];
-    try {
-      const saved = localStorage.getItem('sports_center_complaints');
-      existingComplaints = saved ? JSON.parse(saved) : [];
-    } catch {
-      existingComplaints = [];
-    }
-
-    const newComplaint = {
-      id: `CMP-${Date.now().toString().slice(-5)}`,
-      memberId: profile?.userId || 'MEM-2026-089',
-      memberName: profile?.fullName || 'Hội viên F Sport',
-      category: complaintCategory,
-      title: complaintTitle.trim(),
-      description: complaintDescription.trim(),
-      severity: complaintSeverity,
-      status: 'SUBMITTED',
-      createdAt: new Date().toISOString(),
-    };
-
-    localStorage.setItem('sports_center_complaints', JSON.stringify([newComplaint, ...existingComplaints]));
-    setShowComplaintModal(false);
-    setComplaintTitle('');
-    setComplaintDescription('');
-    showToast(
-      'Khiếu nại đã gửi thành công',
-      'Bộ phận Chăm sóc khách hàng & Quản lý sẽ kiểm tra nhật ký và xử lý trong 4 giờ.',
-      'success'
-    );
   };
 
   const paidTransactions = transactions.filter(

@@ -3,6 +3,7 @@ import AdminLayout from '../../components/layouts/AdminLayout';
 import { useApp } from '../../context/AppContext';
 import { getAuditLogs } from '../../services/engagementApi';
 import { getAiConfig, updateAiConfig } from '../../services/managerApi';
+import { apiRequest } from '../../services/apiClient';
 
 // Initial Mock System Policies
 const INITIAL_POLICIES = {
@@ -177,38 +178,40 @@ export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState('policies'); // 'policies' | 'audit' | 'permissions'
 
   // System Policies State
-  const [policies, setPolicies] = useState(() => {
-    try {
-      const saved = localStorage.getItem('sports_center_system_policies');
-      return saved ? JSON.parse(saved) : INITIAL_POLICIES;
-    } catch {
-      return INITIAL_POLICIES;
-    }
-  });
+  const [policies, setPolicies] = useState(INITIAL_POLICIES);
 
   // Audit Logs State
-  const [auditLogs, setAuditLogs] = useState(() => {
-    try {
-      const saved = localStorage.getItem('sports_center_audit_logs');
-      return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
-    } catch {
-      return INITIAL_AUDIT_LOGS;
-    }
-  });
+  const [auditLogs, setAuditLogs] = useState([]);
 
   // Permissions Matrix State
-  const [permissions, setPermissions] = useState(() => {
-    try {
-      const saved = localStorage.getItem('sports_center_role_permissions');
-      return saved ? JSON.parse(saved) : INITIAL_PERMISSIONS;
-    } catch {
-      return INITIAL_PERMISSIONS;
-    }
-  });
+  const [permissions, setPermissions] = useState(INITIAL_PERMISSIONS);
 
   const [auditFilter, setAuditFilter] = useState('ALL');
   const [auditSearch, setAuditSearch] = useState('');
   const [loadingAudit, setLoadingAudit] = useState(false);
+
+  // Load Policies & Permissions from Database (MGR-14 / MGR-02)
+  useEffect(() => {
+    let active = true;
+    apiRequest('/manager/settings')
+      .then((data) => {
+        if (!active || !data) return;
+        if (data.policies) {
+          try {
+            const parsed = typeof data.policies === 'string' ? JSON.parse(data.policies) : data.policies;
+            if (parsed && typeof parsed === 'object') setPolicies(parsed);
+          } catch {}
+        }
+        if (data.permissions) {
+          try {
+            const parsed = typeof data.permissions === 'string' ? JSON.parse(data.permissions) : data.permissions;
+            if (Array.isArray(parsed) && parsed.length > 0) setPermissions(parsed);
+          } catch {}
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   // AI Config State (MGR-15)
   const [aiConfig, setAiConfig] = useState({
@@ -301,15 +304,29 @@ export default function AdminSettingsPage() {
     };
   }, []);
 
-  const savePolicies = (e) => {
+  const savePolicies = async (e) => {
     e.preventDefault();
-    localStorage.setItem('sports_center_system_policies', JSON.stringify(policies));
-    showToast('Thành công', 'Đã lưu cấu hình chính sách vận hành toàn hệ thống.', 'success');
+    try {
+      await apiRequest('/manager/settings', {
+        method: 'PUT',
+        body: JSON.stringify({ policies }),
+      });
+      showToast('Thành công', 'Đã lưu cấu hình chính sách vận hành vào database.', 'success');
+    } catch (err) {
+      showToast('Lỗi', err.message || 'Không thể lưu chính sách.', 'error');
+    }
   };
 
-  const savePermissions = () => {
-    localStorage.setItem('sports_center_role_permissions', JSON.stringify(permissions));
-    showToast('Thành công', 'Đã cập nhật Ma trận Phân quyền các phân hệ.', 'success');
+  const savePermissions = async () => {
+    try {
+      await apiRequest('/manager/settings', {
+        method: 'PUT',
+        body: JSON.stringify({ permissions }),
+      });
+      showToast('Thành công', 'Đã cập nhật Ma trận Phân quyền vào database.', 'success');
+    } catch (err) {
+      showToast('Lỗi', err.message || 'Không thể lưu phân quyền.', 'error');
+    }
   };
 
   const togglePermission = (screenIndex, roleKey, permKey) => {
