@@ -17,70 +17,6 @@ const INITIAL_POLICIES = {
   allowSplitPayment: false, // Rule: never split quota and cash
 };
 
-// Initial Mock Audit Logs
-const INITIAL_AUDIT_LOGS = [
-  {
-    id: 1,
-    timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-    userName: 'Trần Quản Lý (Admin)',
-    userRole: 'MANAGER',
-    action: 'APPROVE',
-    entity: 'MEMBER_MEMBERSHIP',
-    entityId: 'MBR-2026-089',
-    description: 'Duyệt kích hoạt gói VIP All-Access 6 Tháng cho Hội viên Lê Văn Long',
-    ipAddress: '118.69.182.44',
-    status: 'SUCCESS',
-  },
-  {
-    id: 2,
-    timestamp: new Date(Date.now() - 1000 * 60 * 65).toISOString(),
-    userName: 'Trần Quản Lý (Admin)',
-    userRole: 'MANAGER',
-    action: 'REASSIGN_COACH',
-    entity: 'COACH_LEAVE',
-    entityId: 'LV-102',
-    description: 'Chấp thuận đơn nghỉ của HLV Nguyễn Văn Hùng và gán thay thế sang HLV Phạm Thị Lan (không phụ thu)',
-    ipAddress: '118.69.182.44',
-    status: 'SUCCESS',
-  },
-  {
-    id: 3,
-    timestamp: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
-    userName: 'Nguyễn Lễ Tân (Ca 1)',
-    userRole: 'RECEPTIONIST',
-    action: 'RENT_EQUIPMENT',
-    entity: 'EQUIPMENT_LOAN',
-    entityId: 'LN-501',
-    description: 'Cho mượn 2 Vợt Yonex Astrox và 1 Hộp Cầu Lông - Đặt cọc CCCD',
-    ipAddress: '192.168.1.105',
-    status: 'SUCCESS',
-  },
-  {
-    id: 4,
-    timestamp: new Date(Date.now() - 1000 * 60 * 360).toISOString(),
-    userName: 'Trần Quản Lý (Admin)',
-    userRole: 'MANAGER',
-    action: 'CREATE',
-    entity: 'VOUCHER',
-    entityId: 'SUMMER2026',
-    description: 'Tạo mã voucher giảm 15% cho học viên mới đăng ký bơi lội',
-    ipAddress: '118.69.182.44',
-    status: 'SUCCESS',
-  },
-  {
-    id: 5,
-    timestamp: new Date(Date.now() - 1000 * 60 * 720).toISOString(),
-    userName: 'Hệ thống tự động (Cron)',
-    userRole: 'SYSTEM',
-    action: 'EXPIRE_BOOKING',
-    entity: 'COURT_BOOKING',
-    entityId: 'BK-9912',
-    description: 'Tự động hủy và giải phóng Sân Pickleball 02 do quá hạn 10 phút chưa thanh toán',
-    ipAddress: '127.0.0.1',
-    status: 'SUCCESS',
-  },
-];
-
 // Initial Role Permissions Matrix (MGR-02)
 const INITIAL_PERMISSIONS = [
   {
@@ -286,10 +222,7 @@ export default function AdminSettingsPage() {
             status: 'SUCCESS',
             isDbRecord: true,
           }));
-          setAuditLogs((prev) => {
-            const nonDb = prev.filter((p) => typeof p.id === 'number' || !String(p.id).startsWith('db-'));
-            return [...dbLogs, ...nonDb];
-          });
+          setAuditLogs(dbLogs);
         }
       })
       .catch((err) => {
