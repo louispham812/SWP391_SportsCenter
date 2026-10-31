@@ -50,6 +50,11 @@ export default defineConfig({
       testMatch: /demo-audit\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      name: 'maintenance-lock',
+      testMatch: /maintenance-lock\.spec\.js/,
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
   webServer: [
     {

@@ -106,6 +106,7 @@ class BusinessRulesValidationTest {
                 publicFacilityRepository,
                 sportsCourtRepository,
                 courtBookingRepository,
+                courtMaintenanceRepository,
                 paymentTransactionRepository,
                 userMembershipRepository,
                 packageRepository,

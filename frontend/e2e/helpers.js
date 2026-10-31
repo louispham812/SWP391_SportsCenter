@@ -19,15 +19,25 @@ export async function loginMember(page) {
   await expect(page.getByRole('heading', { name: new RegExp(name, 'i') })).toBeVisible();
 }
 
+export async function loginManager(page) {
+  await page.goto('/login');
+  await page.getByPlaceholder('name@example.com / 0912...').fill('manager@sporthub.com');
+  await page.getByPlaceholder('••••••••').fill('SportHub@123');
+  await page.getByRole('button', { name: 'ĐĂNG NHẬP NGAY' }).click();
+  await expect(page).toHaveURL(/\/admin/);
+}
+
 export async function logoutMember(page) {
   const token = await page.evaluate(() => {
     const session = JSON.parse(sessionStorage.getItem('sports-center-auth-session') || 'null');
+    sessionStorage.clear();
+    localStorage.clear();
     return session?.token;
   });
   if (token) {
     await page.request.delete(`${apiBaseUrl}/auth/session`, {
       headers: { Authorization: `Bearer ${token}` },
-    });
+    }).catch(() => {});
   }
 }
 

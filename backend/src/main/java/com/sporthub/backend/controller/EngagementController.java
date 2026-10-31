@@ -267,9 +267,43 @@ public class EngagementController {
     }
 
     @GetMapping("/manager/maintenance")
-    public List<CourtMaintenance> listMaintenance(Authentication auth) {
+    public List<Map<String, Object>> listMaintenance(Authentication auth) {
         requireRole(auth, "MANAGER", "ADMIN", "RECEPTIONIST");
-        return maintenanceRepository.findAllByOrderByStartTimeDesc();
+        var courts = courtRepository.findAll().stream()
+                .collect(Collectors.toMap(c -> c.getCourtId(), c -> c.getCourtName(), (a, b) -> a));
+        LocalDateTime now = LocalDateTime.now();
+        return maintenanceRepository.findAllByOrderByStartTimeDesc().stream().map(m -> {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("maintenanceId", m.getMaintenanceId());
+            map.put("courtId", m.getCourtId());
+            map.put("courtName", courts.getOrDefault(m.getCourtId(), "Sân #" + m.getCourtId()));
+            map.put("startTime", m.getStartTime());
+            map.put("endTime", m.getEndTime());
+            map.put("reason", m.getReason());
+            map.put("createdBy", m.getCreatedBy());
+            map.put("createdAt", m.getCreatedAt());
+            String status = m.getEndTime().isBefore(now) ? "COMPLETED" : (m.getStartTime().isAfter(now) ? "SCHEDULED" : "IN_PROGRESS");
+            map.put("status", status);
+            return map;
+        }).toList();
+    }
+
+    @PatchMapping("/manager/courts/{id}/status")
+    @Transactional
+    public Map<String, Object> updateCourtStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body,
+            Authentication auth) {
+        requireRole(auth, "MANAGER", "ADMIN");
+        var court = courtRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sân."));
+        if (body != null && body.containsKey("active")) {
+            court.setActive(Boolean.TRUE.equals(body.get("active")));
+        }
+        var saved = courtRepository.save(court);
+        engagementService.audit(actorId(auth), actorRole(auth), "COURT_STATUS_UPDATED",
+                "court=" + id + ", active=" + saved.isActive());
+        return Map.of("courtId", saved.getCourtId(), "active", saved.isActive(), "courtName", saved.getCourtName());
     }
 
     @PostMapping("/manager/maintenance")

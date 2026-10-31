@@ -23,6 +23,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.sporthub.backend.repository.PaymentTransactionRepository;
+import com.sporthub.backend.repository.PublicFacilityRepository;
+import com.sporthub.backend.repository.SportsCourtRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -41,6 +43,8 @@ public class FacilityManagementController {
     private final BookingRepository bookingRepository;
     private final EngagementService engagementService;
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final PublicFacilityRepository publicFacilityRepository;
+    private final SportsCourtRepository sportsCourtRepository;
 
     @Autowired
     public FacilityManagementController(
@@ -50,7 +54,9 @@ public class FacilityManagementController {
             ClassSessionRepository classSessionRepository,
             BookingRepository bookingRepository,
             EngagementService engagementService,
-            PaymentTransactionRepository paymentTransactionRepository) {
+            PaymentTransactionRepository paymentTransactionRepository,
+            PublicFacilityRepository publicFacilityRepository,
+            SportsCourtRepository sportsCourtRepository) {
         this.facilityRepository = facilityRepository;
         this.sportRepository = sportRepository;
         this.userRepository = userRepository;
@@ -58,6 +64,8 @@ public class FacilityManagementController {
         this.bookingRepository = bookingRepository;
         this.engagementService = engagementService;
         this.paymentTransactionRepository = paymentTransactionRepository;
+        this.publicFacilityRepository = publicFacilityRepository;
+        this.sportsCourtRepository = sportsCourtRepository;
     }
 
     public FacilityManagementController(
@@ -65,7 +73,7 @@ public class FacilityManagementController {
             SportRepository sportRepository,
             UserRepository userRepository,
             ClassSessionRepository classSessionRepository) {
-        this(facilityRepository, sportRepository, userRepository, classSessionRepository, null, null, null);
+        this(facilityRepository, sportRepository, userRepository, classSessionRepository, null, null, null, null, null);
     }
 
     @GetMapping("/facilities")
@@ -106,6 +114,21 @@ public class FacilityManagementController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy cơ sở."));
         facility.setStatus(request.status());
         facilityRepository.save(facility);
+
+        boolean isAvailable = "AVAILABLE".equalsIgnoreCase(request.status());
+        if (publicFacilityRepository != null) {
+            publicFacilityRepository.findById(facilityId).ifPresent(pf -> {
+                pf.setActive(isAvailable);
+                publicFacilityRepository.save(pf);
+            });
+        }
+        if (sportsCourtRepository != null) {
+            sportsCourtRepository.findById(facilityId).ifPresent(sc -> {
+                sc.setActive(isAvailable);
+                sportsCourtRepository.save(sc);
+            });
+        }
+
         String sportName = sportRepository.findById(facility.getSportId())
                 .map(Sport::getSportName)
                 .orElse(null);
@@ -127,6 +150,9 @@ public class FacilityManagementController {
         validateSession(request);
         Facility facility = facilityRepository.findById(request.facilityId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cơ sở không tồn tại."));
+        if ("MAINTENANCE".equalsIgnoreCase(facility.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cơ sở vật chất đang trong thời gian bảo trì, không thể tạo lịch học mới.");
+        }
         if (!facility.getSportId().equals(request.sportId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Môn thể thao không phù hợp với cơ sở.");
         }

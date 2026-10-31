@@ -9,4 +9,6 @@ public interface CourtMaintenanceRepository extends JpaRepository<CourtMaintenan
     List<CourtMaintenance> findAllByOrderByStartTimeDesc();
     List<CourtMaintenance> findByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(
             Long courtId, LocalDateTime end, LocalDateTime start);
+    boolean existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(
+            Long courtId, LocalDateTime end, LocalDateTime start);
 }

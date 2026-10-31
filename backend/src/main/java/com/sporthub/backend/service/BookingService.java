@@ -9,6 +9,7 @@ import com.sporthub.backend.dto.CheckoutRequest;
 import com.sporthub.backend.entity.Booking;
 import com.sporthub.backend.entity.ClassSession;
 import com.sporthub.backend.entity.CourtBooking;
+import com.sporthub.backend.entity.CourtMaintenance;
 import com.sporthub.backend.entity.PaymentTransaction;
 import com.sporthub.backend.entity.PublicFacility;
 import com.sporthub.backend.entity.PublicSport;
@@ -22,6 +23,7 @@ import com.sporthub.backend.dto.ReceptionistClassResponse;
 import com.sporthub.backend.repository.BookingRepository;
 import com.sporthub.backend.repository.ClassSessionRepository;
 import com.sporthub.backend.repository.CourtBookingRepository;
+import com.sporthub.backend.repository.CourtMaintenanceRepository;
 import com.sporthub.backend.repository.PaymentTransactionRepository;
 import com.sporthub.backend.repository.PublicFacilityRepository;
 import com.sporthub.backend.repository.PublicSportRepository;
@@ -65,6 +67,7 @@ public class BookingService {
     private final PublicFacilityRepository publicFacilityRepository;
     private final SportsCourtRepository sportsCourtRepository;
     private final CourtBookingRepository courtBookingRepository;
+    private final CourtMaintenanceRepository courtMaintenanceRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final UserMembershipRepository userMembershipRepository;
     private final MembershipPackageRepository membershipPackageRepository;
@@ -79,6 +82,7 @@ public class BookingService {
             PublicFacilityRepository publicFacilityRepository,
             SportsCourtRepository sportsCourtRepository,
             CourtBookingRepository courtBookingRepository,
+            CourtMaintenanceRepository courtMaintenanceRepository,
             PaymentTransactionRepository paymentTransactionRepository,
             UserMembershipRepository userMembershipRepository,
             MembershipPackageRepository membershipPackageRepository,
@@ -91,6 +95,7 @@ public class BookingService {
         this.publicFacilityRepository = publicFacilityRepository;
         this.sportsCourtRepository = sportsCourtRepository;
         this.courtBookingRepository = courtBookingRepository;
+        this.courtMaintenanceRepository = courtMaintenanceRepository;
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.userMembershipRepository = userMembershipRepository;
         this.membershipPackageRepository = membershipPackageRepository;
@@ -282,9 +287,11 @@ public class BookingService {
                     LocalDateTime from = today.atStartOfDay();
                     List<CourtBooking> existingBookings = courtBookingRepository
                             .findByCourtIdAndStatusAndStartTimeBetween(court.getCourtId(), "CONFIRMED", from, horizon);
+                    List<CourtMaintenance> maintenanceWindows = courtMaintenanceRepository
+                            .findByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(court.getCourtId(), horizon, from);
                     return java.util.stream.Stream.iterate(today, date -> date.plusDays(1))
                             .limit(14)
-                            .flatMap(date -> slotsForDay(court, sport, date, existingBookings).stream());
+                            .flatMap(date -> slotsForDay(court, sport, date, existingBookings, maintenanceWindows).stream());
                 })
                 .toList();
     }
@@ -293,7 +300,8 @@ public class BookingService {
             SportsCourt court,
             PublicSport sport,
             LocalDate date,
-            List<CourtBooking> existingBookings) {
+            List<CourtBooking> existingBookings,
+            List<CourtMaintenance> maintenanceWindows) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime slot = date.atTime(court.getOpensAt());
         LocalDateTime close = date.atTime(court.getClosesAt());
@@ -303,7 +311,9 @@ public class BookingService {
             LocalDateTime candidate = slot;
             boolean occupied = existingBookings.stream().anyMatch(booking ->
                     booking.getStartTime().isBefore(end) && booking.getEndTime().isAfter(candidate));
-            if (slot.isAfter(now) && !occupied) {
+            boolean underMaintenance = maintenanceWindows != null && maintenanceWindows.stream().anyMatch(m ->
+                    m.getStartTime().isBefore(end) && m.getEndTime().isAfter(candidate));
+            if (slot.isAfter(now) && !occupied && !underMaintenance) {
                 slots.add(new CourtSlotResponse(
                         court.getCourtId(),
                         court.getCourtName(),
@@ -366,6 +376,9 @@ public class BookingService {
         if ("COURT".equals(normalizedType)) {
             SportsCourt court = getActiveCourt(itemId);
             long hours = validateCourtSlot(court, startTime, endTime);
+            if (courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(itemId, endTime, startTime)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Sân này đang trong lịch bảo trì, không thể đặt chỗ.");
+            }
             if (courtBookingRepository.existsConfirmedOverlap(itemId, startTime, endTime)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Một hoặc nhiều khung giờ sân đã chọn vừa được người khác đặt.");
             }
@@ -414,6 +427,9 @@ public class BookingService {
         PublicSport sport = getActiveSport(session.getSportId());
         PublicFacility facility = publicFacilityRepository.findById(session.getFacilityId())
                 .orElseThrow(() -> notFound("Không tìm thấy địa điểm lớp học."));
+        if (!facility.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Địa điểm diễn ra lớp học hiện đang bảo trì, không thể đặt chỗ.");
+        }
         User coach = userRepository.findById(session.getCoachId())
                 .orElseThrow(() -> notFound("Không tìm thấy huấn luyện viên của lớp."));
 
@@ -565,6 +581,9 @@ public class BookingService {
                 .filter(SportsCourt::isActive)
                 .orElseThrow(() -> notFound("Không tìm thấy sân đang hoạt động."));
         long hours = validateCourtSlot(court, request.startTime(), request.endTime());
+        if (courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(court.getCourtId(), request.endTime(), request.startTime())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Sân này đang trong lịch bảo trì, không thể đặt chỗ.");
+        }
         if (courtBookingRepository.existsConfirmedOverlap(court.getCourtId(), request.startTime(), request.endTime())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Một hoặc nhiều khung giờ sân đã chọn vừa được người khác đặt.");
         }
@@ -618,6 +637,9 @@ public class BookingService {
         PublicSport sport = getActiveSport(session.getSportId());
         PublicFacility facility = publicFacilityRepository.findById(session.getFacilityId())
                 .orElseThrow(() -> notFound("Không tìm thấy địa điểm lớp học."));
+        if (!facility.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Địa điểm diễn ra lớp học hiện đang bảo trì, không thể đặt chỗ.");
+        }
         User coach = userRepository.findById(session.getCoachId())
                 .orElseThrow(() -> notFound("Không tìm thấy huấn luyện viên của lớp."));
         PaymentTransaction payment = createPaymentTransaction(memberId, "CLASS", discount.finalAmount(), request.paymentMethod());
@@ -703,6 +725,9 @@ public class BookingService {
         PublicSport sport = getActiveSport(session.getSportId());
         PublicFacility facility = publicFacilityRepository.findById(session.getFacilityId())
                 .orElseThrow(() -> notFound("Không tìm thấy địa điểm lớp học."));
+        if (!facility.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Địa điểm diễn ra lớp học hiện đang bảo trì, không thể đặt chỗ.");
+        }
         User coach = userRepository.findById(session.getCoachId())
                 .orElseThrow(() -> notFound("Không tìm thấy huấn luyện viên."));
         

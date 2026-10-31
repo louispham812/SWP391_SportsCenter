@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import Footer from '../components/Footer';
 import Navbar from '../components/Navbar';
 import { getPublicFacilities, getPublicSports } from '../services/publicContentApi';
-import { getSportMedia, getFacilityMedia } from '../utils/mediaMap';
+import { getSportMedia, getFacilityMedia, DEFAULT_SPORT_IMG, DEFAULT_FACILITY_IMG } from '../utils/mediaMap';
 
 export default function PublicContentPage({ contentType }) {
   const { slug } = useParams();
@@ -90,11 +90,17 @@ export default function PublicContentPage({ contentType }) {
               <div className="relative rounded-3xl overflow-hidden shadow-xl border border-slate-200 bg-slate-950 text-white min-h-[380px] lg:min-h-[440px] flex items-end">
                 <img
                   src={
-                    isSports
+                    selectedItem.imageUrl ||
+                    selectedItem.image ||
+                    (isSports
                       ? getSportMedia(selectedItem.slug).banner || getSportMedia(selectedItem.slug).image
-                      : getFacilityMedia(selectedItem.slug).image
+                      : getFacilityMedia(selectedItem.slug).image)
                   }
                   alt={selectedItem.name}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = isSports ? DEFAULT_SPORT_IMG : DEFAULT_FACILITY_IMG;
+                  }}
                   className="absolute inset-0 w-full h-full object-cover object-center opacity-40 transform hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent"></div>
@@ -313,9 +319,13 @@ export default function PublicContentPage({ contentType }) {
                           {/* Hình ảnh minh họa nổi bật */}
                           <div className="relative w-full h-52 overflow-hidden bg-slate-100">
                             <img
-                              src={media.image}
+                              src={item.imageUrl || item.image || media.image}
                               alt={item.name}
                               loading="lazy"
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = isSports ? DEFAULT_SPORT_IMG : DEFAULT_FACILITY_IMG;
+                              }}
                               className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent"></div>
