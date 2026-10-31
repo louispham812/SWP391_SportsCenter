@@ -32,6 +32,7 @@ import com.sporthub.backend.repository.PublicSportRepository;
 import com.sporthub.backend.repository.ReceptionPaymentRepository;
 import com.sporthub.backend.repository.UserMembershipRepository;
 import com.sporthub.backend.repository.UserRepository;
+import com.sporthub.backend.service.PaymentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,6 +63,7 @@ public class MemberProfileController {
     private final ClassSessionRepository classSessionRepository;
     private final MemberCheckInRepository memberCheckInRepository;
     private final PublicSportRepository publicSportRepository;
+    private final PaymentService paymentService;
 
     public MemberProfileController(
             UserRepository userRepository,
@@ -73,7 +75,8 @@ public class MemberProfileController {
             BookingRepository bookingRepository,
             ClassSessionRepository classSessionRepository,
             MemberCheckInRepository memberCheckInRepository,
-            PublicSportRepository publicSportRepository) {
+            PublicSportRepository publicSportRepository,
+            PaymentService paymentService) {
         this.userRepository = userRepository;
         this.healthRepository = healthRepository;
         this.membershipRepository = membershipRepository;
@@ -84,6 +87,7 @@ public class MemberProfileController {
         this.classSessionRepository = classSessionRepository;
         this.memberCheckInRepository = memberCheckInRepository;
         this.publicSportRepository = publicSportRepository;
+        this.paymentService = paymentService;
     }
 
     @GetMapping
@@ -345,13 +349,6 @@ public class MemberProfileController {
         String method = (request.paymentMethod() == null || request.paymentMethod().isBlank())
                 ? "SANDBOX"
                 : request.paymentMethod().toUpperCase(Locale.ROOT);
-        String prefix = switch (method) {
-            case "VIETQR", "QR" -> "VQR";
-            case "VNPAY" -> "VNP";
-            case "MOMO" -> "MOM";
-            case "CASH_COUNTER", "CASH" -> "CSH";
-            default -> "SBX";
-        };
 
         String receptionPaymentMethod = switch (method) {
             case "VIETQR", "QR", "TRANSFER" -> "TRANSFER";
@@ -360,6 +357,7 @@ public class MemberProfileController {
             default -> "ONLINE";
         };
 
+        // ✅ Giữ nguyên ReceptionPayment (old system - legacy compatibility)
         ReceptionPayment payment = new ReceptionPayment();
         payment.setMemberId(Math.toIntExact(userId));
         payment.setMembershipId(Math.toIntExact(targetMembership.getMembershipId()));
@@ -369,24 +367,21 @@ public class MemberProfileController {
         payment.setCreatedAt(LocalDateTime.now());
         ReceptionPayment savedPayment = paymentRepository.save(payment);
 
-        PaymentTransaction transaction = new PaymentTransaction();
-        transaction.setMemberId(userId);
-        transaction.setBookingType("MEMBERSHIP_PACKAGE");
-        transaction.setAmount(membershipPackage.getPrice());
-        transaction.setPaymentMethod(method);
-        transaction.setPaymentStatus("PAID");
-        transaction.setReferenceCode(prefix + "-PKG-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
-        transaction.setCreatedAt(LocalDateTime.now());
-        paymentTransactionRepository.save(transaction);
+        // ✅ Use PaymentService instead of manual creation
+        PaymentTransaction savedTransaction = paymentService.createPayment(
+                userId, 
+                "MEMBERSHIP_PACKAGE", 
+                membershipPackage.getPrice(), 
+                method);
 
         return new MemberPackagePurchaseResponse(
-                savedPayment.getPaymentId().longValue(),
+                savedTransaction.getPaymentId(), // ← Trả về PaymentTransaction.paymentId để frontend dùng cho QR polling
                 targetMembership.getMembershipId(),
                 membershipPackage.getName(),
                 savedPayment.getAmount(),
-                savedPayment.getPaymentStatus(),
+                savedTransaction.getPaymentStatus(), // ← Trả về PaymentTransaction.paymentStatus (PENDING cho VietQR, PAID cho còn lại)
                 savedPayment.getCreatedAt(),
-                transaction.getReferenceCode());
+                savedTransaction.getReferenceCode());
     }
 
     @GetMapping("/attendance")

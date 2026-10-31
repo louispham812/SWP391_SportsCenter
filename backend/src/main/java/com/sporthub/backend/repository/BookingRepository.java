@@ -16,6 +16,9 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     boolean existsByMemberIdAndSessionIdAndStatusIn(Long memberId, Long sessionId, List<String> statuses);
     long countBySessionIdAndStatusIn(Long sessionId, List<String> statuses);
     List<Booking> findByStatusIgnoreCaseAndBookingTimeBefore(String status, LocalDateTime before);
+    
+    // Find booking by payment_id (for webhook lookup)
+    Booking findByPaymentId(Long paymentId);
 
     @Query("""
             SELECT COUNT(b) > 0

@@ -57,6 +57,7 @@ class BookingServiceTest {
     private final UserMembershipRepository userMembershipRepository = mock(UserMembershipRepository.class);
     private final MembershipPackageRepository membershipPackageRepository = mock(MembershipPackageRepository.class);
     private final MembershipService membershipService = mock(MembershipService.class);
+    private final PaymentService paymentService = mock(PaymentService.class);
     private BookingService bookingService;
 
     @BeforeEach
@@ -73,7 +74,8 @@ class BookingServiceTest {
                 userMembershipRepository,
                 membershipPackageRepository,
                 membershipService,
-                mock(AuditLogService.class)); // Mock AuditLogService
+                mock(AuditLogService.class),
+                paymentService);
     }
 
     @Test

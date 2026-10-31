@@ -789,6 +789,12 @@ function CheckoutPage({ bookingType, itemId }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // QR Payment State
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrData, setQrData] = useState(null);
+  const [pollingPayment, setPollingPayment] = useState(false);
+  const [pollingInterval, setPollingInterval] = useState(null);
+
   // Member Quota State - fetch from API
   const [memberQuota, setMemberQuota] = useState({
     packageName: 'Đang tải...',
@@ -1002,6 +1008,7 @@ function CheckoutPage({ bookingType, itemId }) {
       return;
     }
 
+    // Xử lý thanh toán retail (có phí)
     try {
       const confirmation = await checkoutBooking(
         bookingType.toUpperCase(),
@@ -1010,7 +1017,48 @@ function CheckoutPage({ bookingType, itemId }) {
         endTime,
         paymentMethod
       );
+
+      // Nếu chọn VIETQR → Generate QR Code và polling
+      if (paymentMethod === 'VIETQR') {
+        setSubmitting(false); // Cho phép user cancel trong khi chờ
+        
+        try {
+          // Gọi API generate QR với paymentId
+          const token = localStorage.getItem('authToken');
+          
+          const qrResponse = await fetch(
+            `/api/v1/payment/generate-qr?paymentId=${confirmation.paymentId}&amount=${confirmation.amountPaid}`,
+            {
+              headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            }
+          );
+          
+          if (!qrResponse.ok) {
+            const errorText = await qrResponse.text();
+            console.error('[QR] generate-qr API error:', errorText);
+            setError(`Không thể tạo mã QR: ${errorText}`);
+            return;
+          }
+          
+          const qrResult = await qrResponse.json();
+          
+          // Hiển thị QR Modal
+          setQrData(qrResult);
+          setShowQrModal(true);
+          
+          // Start polling payment status
+          startPollingPayment(confirmation.paymentId, confirmation);
+          return;
+        } catch (qrError) {
+          console.error('[QR] Exception:', qrError);
+          setError('Không thể hiển thị mã QR. Vui lòng thử lại.');
+          return;
+        }
+      }
+
+      // Các phương thức khác (CASH_COUNTER, VNPAY) → Navigate trực tiếp
       navigate('/member/book/confirmation', { replace: true, state: { confirmation } });
+      
     } catch (requestError) {
       if (bookingType.toLowerCase() === 'pt') {
         const confirmation = {
@@ -1031,6 +1079,62 @@ function CheckoutPage({ bookingType, itemId }) {
       setSubmitting(false);
     }
   };
+
+  // Polling payment status từ backend
+  const startPollingPayment = (paymentId, confirmation) => {
+    setPollingPayment(true);
+    
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/v1/payments/${paymentId}`);
+        const payment = await response.json();
+        
+        if (payment.paymentStatus === 'PAID') {
+          // Thanh toán thành công
+          clearInterval(interval);
+          setPollingInterval(null);
+          setPollingPayment(false);
+          setShowQrModal(false);
+          
+          // Show success popup (giả sử có toast component)
+          if (window.showToast) {
+            window.showToast('Thanh toán thành công', 'Đã nhận thanh toán từ ngân hàng', 'success');
+          }
+          
+          // Navigate to confirmation page
+          navigate('/member/book/confirmation', { 
+            replace: true, 
+            state: { 
+              confirmation: {
+                ...confirmation,
+                paymentStatus: 'PAID'
+              } 
+            } 
+          });
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+    }, 3000); // Poll mỗi 3 giây
+    
+    setPollingInterval(interval);
+    
+    // Timeout sau 5 phút (300s)
+    setTimeout(() => {
+      clearInterval(interval);
+      setPollingInterval(null);
+      setPollingPayment(false);
+    }, 300000);
+  };
+
+  // Cleanup polling khi unmount
+  React.useEffect(() => {
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [pollingInterval]);
 
   const actionBtnLabel = submitting
     ? 'Đang xử lý...'
@@ -1291,6 +1395,96 @@ function CheckoutPage({ bookingType, itemId }) {
           </button>
         </div>
       ) : null}
+
+      {/* QR Payment Modal */}
+      {showQrModal && (
+        qrData ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl transform animate-in slide-in-from-bottom-4 duration-300">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-orange-100 mb-4">
+              <span className="material-symbols-outlined text-3xl text-orange-600">qr_code_scanner</span>
+            </div>
+            
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">
+              Quét Mã QR Để Thanh Toán
+            </h2>
+            <p className="text-sm text-slate-500 mb-6">
+              Sử dụng app ngân hàng của bạn để scan mã QR bên dưới
+            </p>
+            
+            <div className="relative">
+              <img 
+                src={qrData.qrUrl} 
+                alt="QR Code Thanh Toán" 
+                className="w-full max-w-xs mx-auto rounded-2xl border-4 border-orange-500 shadow-lg"
+              />
+            </div>
+            
+            <div className="mt-6 space-y-2 text-sm bg-slate-50 rounded-xl p-4 border border-slate-200">
+              <div className="flex justify-between">
+                <span className="text-slate-600">Số tiền:</span>
+                <span className="font-bold text-slate-900">{formatMoney(qrData.amount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Nội dung CK:</span>
+                <code className="font-mono font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded">
+                  {qrData.addInfo}
+                </code>
+              </div>
+              <div className="flex justify-between text-xs pt-2 border-t border-slate-200">
+                <span className="text-slate-500">Ngân hàng:</span>
+                <span className="font-semibold text-slate-700">BIDV</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-500">STK:</span>
+                <span className="font-semibold text-slate-700">{qrData.accountNo}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-500">Chủ TK:</span>
+                <span className="font-semibold text-slate-700">{qrData.accountName}</span>
+              </div>
+            </div>
+            
+            {pollingPayment && (
+              <div className="mt-6 flex items-center justify-center gap-2 text-orange-600 bg-orange-50 rounded-xl py-3 px-4 border border-orange-200">
+                <div className="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm font-semibold">Đang chờ xác nhận từ ngân hàng...</span>
+              </div>
+            )}
+            
+            <button 
+              onClick={() => {
+                setShowQrModal(false);
+                setPollingPayment(false);
+                if (pollingInterval) {
+                  clearInterval(pollingInterval);
+                  setPollingInterval(null);
+                }
+              }}
+              className="mt-6 text-sm text-slate-500 hover:text-slate-700 font-semibold underline"
+            >
+              Hủy / Quay lại chọn phương thức khác
+            </button>
+          </div>
+        </div>
+        ) : (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
+                <span className="material-symbols-outlined text-3xl text-red-600">error</span>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 mb-2">Lỗi dữ liệu QR</h2>
+              <p className="text-sm text-slate-600 mb-4">Không nhận được thông tin mã QR từ server</p>
+              <button 
+                onClick={() => setShowQrModal(false)}
+                className="px-6 py-2 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        )
+      )}
     </PageFrame>
   );
 }

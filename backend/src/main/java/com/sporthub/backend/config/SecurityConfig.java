@@ -60,6 +60,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/vouchers", "/api/v1/vouchers/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/vouchers/validate").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/booking-flow/courts", "/api/v1/booking-flow/coaches", "/api/v1/booking-flow/coaches/**", "/api/v1/booking-flow/quote").permitAll()
+                // Payment endpoints - PUBLIC access (no auth required)
+                .requestMatchers("/api/v1/payment/**").permitAll()
+                .requestMatchers("/api/v1/payments/**").permitAll()
+                .requestMatchers("/api/webhook/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(bearerTokenFilter, UsernamePasswordAuthenticationFilter.class);

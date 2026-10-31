@@ -22,12 +22,21 @@ public class MembershipService {
 
     private final UserMembershipRepository userMembershipRepository;
     private final MembershipPackageRepository membershipPackageRepository;
+    private final RefundService refundService;
+    private final EngagementService engagementService;
+    private final AuditLogService auditLogService;
 
     public MembershipService(
             UserMembershipRepository userMembershipRepository,
-            MembershipPackageRepository membershipPackageRepository) {
+            MembershipPackageRepository membershipPackageRepository,
+            RefundService refundService,
+            EngagementService engagementService,
+            AuditLogService auditLogService) {
         this.userMembershipRepository = userMembershipRepository;
         this.membershipPackageRepository = membershipPackageRepository;
+        this.refundService = refundService;
+        this.engagementService = engagementService;
+        this.auditLogService = auditLogService;
     }
 
     /**
@@ -68,8 +77,33 @@ public class MembershipService {
 
         userMembershipRepository.save(membership);
 
-        // TODO: Gửi notification cho member: "Gói của bạn đã được kích hoạt"
-        // TODO: Ghi audit log
+        // Send notification
+        if (engagementService != null) {
+            engagementService.notifyUser(
+                membership.getUserId(),
+                "Gói tập đã được kích hoạt",
+                String.format("Gói tập '%s' của bạn đã được kích hoạt thành công! " +
+                        "Hạn sử dụng: %s. Quota: %d buổi tập.",
+                        pkg.getName(), 
+                        membership.getEndDate(),
+                        quotaSessions),
+                "MEMBERSHIP"
+            );
+        }
+
+        // Audit log
+        if (auditLogService != null) {
+            auditLogService.logSuccess(
+                "MEMBERSHIP_APPROVED",
+                String.format("Manager #%d", managerId),
+                membership.getMembershipId(),
+                String.format("Approved membership #%d (Package: %s) for user #%d. Quota granted: %d sessions",
+                        membership.getMembershipId(),
+                        pkg.getName(),
+                        membership.getUserId(),
+                        quotaSessions)
+            );
+        }
     }
 
     /**
@@ -87,12 +121,45 @@ public class MembershipService {
                 "Chỉ có thể từ chối gói ở trạng thái PENDING hoặc PENDING_APPROVAL");
         }
 
+        // Get package info for notification
+        MembershipPackage pkg = membershipPackageRepository.findById(membership.getPackageId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                    "Package không tồn tại"));
+
         membership.setStatus("REJECTED");
         userMembershipRepository.save(membership);
 
-        // TODO: Tạo refund_request với approved = true, refund 100%
-        // TODO: Gửi notification cho member: "Gói của bạn đã bị từ chối. Lý do: {reason}"
-        // TODO: Ghi audit log
+        // Auto-create 100% refund request (approved immediately)
+        if (refundService != null) {
+            refundService.createRefundForRejectedMembership(membership, reason, managerId);
+        }
+
+        // Send notification
+        if (engagementService != null) {
+            engagementService.notifyUser(
+                membership.getUserId(),
+                "Gói tập đã bị từ chối",
+                String.format("Gói tập '%s' của bạn đã bị từ chối bởi Quản lý. Lý do: %s. " +
+                        "Yêu cầu hoàn tiền 100%% đã được tạo tự động và đang được xử lý.",
+                        pkg.getName(),
+                        reason),
+                "MEMBERSHIP"
+            );
+        }
+
+        // Audit log
+        if (auditLogService != null) {
+            auditLogService.logSuccess(
+                "MEMBERSHIP_REJECTED",
+                String.format("Manager #%d", managerId),
+                membership.getMembershipId(),
+                String.format("Rejected membership #%d (Package: %s) for user #%d. Reason: %s. 100%% refund auto-created.",
+                        membership.getMembershipId(),
+                        pkg.getName(),
+                        membership.getUserId(),
+                        reason)
+            );
+        }
     }
 
     /**

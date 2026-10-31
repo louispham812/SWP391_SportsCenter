@@ -23,9 +23,11 @@ import java.util.List;
 
 /**
  * Tác vụ nền tự động hóa hệ thống SportHub:
- * - BR-07: Tự động hủy đơn giữ chỗ quá 10 phút chưa thanh toán và nhả slot.
- * - BR-05: Tự động quét chuyển trạng thái gói tập hết hạn lúc 00:00 và gửi nhắc nhở gia hạn.
- * - BR-14: Tự động gắn nhãn quá hạn cho dụng cụ mượn quá 7 ngày chưa trả và gửi cảnh báo.
+ * - BR-07: Tự động hủy đơn giữ chỗ court PENDING quá 10 phút
+ * - BR-05: Tự động quét chuyển trạng thái gói tập hết hạn lúc 00:00
+ * - BR-14: Tự động gắn nhãn quá hạn cho dụng cụ mượn quá 7 ngày
+ * 
+ * Chi tiết: PAYMENT_FLOW_DOCUMENTATION.md - Rule 3
  */
 @Service
 public class SystemAutomationScheduler {
@@ -66,31 +68,16 @@ public class SystemAutomationScheduler {
     }
 
     /**
-     * BR-07: Chạy mỗi 60 giây để quét các đơn giữ chỗ tạm thời (PENDING) đã quá 10 phút.
+     * BR-07: Chạy mỗi 60 giây để quét các đơn đặt sân PENDING đã quá 10 phút
+     * CHỈ áp dụng cho court bookings, CLASS bookings không timeout tự động
      */
     @Scheduled(fixedDelay = 60000)
     @Transactional
     public void autoCancelExpiredPendingHolds() {
         LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(10);
 
-        // 1. Quét lớp học (Class Bookings)
-        List<Booking> expiredClassHolds = bookingRepository
-                .findByStatusIgnoreCaseAndBookingTimeBefore("PENDING", tenMinutesAgo);
+        // Chỉ quét đặt sân (Court Bookings) - Class bookings track via payment_status only
 
-        for (Booking b : expiredClassHolds) {
-            b.setStatus("CANCELLED");
-            bookingRepository.save(b);
-            log.info("BR-07: Auto-cancelled expired pending class booking #{} (memberId={})", b.getBookingId(), b.getMemberId());
-
-            // Nhả lại slot cho lớp học
-            classSessionRepository.findById(b.getSessionId()).ifPresent(session -> {
-                long currentBooked = bookingRepository.countBySessionIdAndStatusIn(session.getSessionId(), ACTIVE_STATUSES);
-                session.setBookedSlots((int) currentBooked);
-                classSessionRepository.save(session);
-            });
-        }
-
-        // 2. Quét đặt sân (Court Bookings)
         List<CourtBooking> expiredCourtHolds = courtBookingRepository
                 .findByStatusIgnoreCaseAndCreatedAtBefore("PENDING", tenMinutesAgo);
 

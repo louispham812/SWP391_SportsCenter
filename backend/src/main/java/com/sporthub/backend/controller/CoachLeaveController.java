@@ -106,7 +106,27 @@ public class CoachLeaveController {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(toDTO(leaveRepository.save(request)));
+        CoachLeaveRequest saved = leaveRepository.save(request);
+
+        // Audit log: Coach tạo đơn xin nghỉ
+        if (engagementService != null) {
+            engagementService.audit(
+                    coachId,
+                    "COACH",
+                    "COACH_LEAVE_REQUEST_CREATED",
+                    "requestId=" + saved.getRequestId() +
+                            ", leaveType=" + saved.getLeaveType() +
+                            ", startDate=" + saved.getStartDate() +
+                            ", endDate=" + saved.getEndDate() +
+                            ", reason=" + saved.getReason() +
+                            ", affectedBookingsCount=" + saved.getAffectedBookingsCount()
+            );
+
+            // Thông báo tất cả Manager có đơn mới cần duyệt
+            notifyManagersAboutNewLeaveRequest(coach, saved);
+        }
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(toDTO(saved));
     }
 
     @GetMapping("/api/v1/manager/coach-leave-requests")
@@ -173,7 +193,27 @@ public class CoachLeaveController {
             req.setReassignedCoachId(decision.reassignedCoachId());
         }
 
-        return ResponseEntity.ok(toDTO(leaveRepository.save(req)));
+        CoachLeaveRequest savedRequest = leaveRepository.save(req);
+
+        // Thông báo Coach về kết quả duyệt đơn
+        if (engagementService != null) {
+            notifyCoachAboutDecision(savedRequest, decision);
+        }
+
+        // Audit log khi từ chối đơn
+        if (!decision.approved() && engagementService != null) {
+            engagementService.audit(
+                    managerId,
+                    "MANAGER",
+                    "COACH_LEAVE_REJECTED",
+                    "requestId=" + id +
+                            ", coachId=" + req.getCoachId() +
+                            ", coachName=" + req.getCoachName() +
+                            ", rejectReason=" + (decision.decisionNote() != null ? decision.decisionNote() : "N/A")
+            );
+        }
+
+        return ResponseEntity.ok(toDTO(savedRequest));
     }
 
     private CoachLeaveRequestDTO toDTO(CoachLeaveRequest r) {
@@ -200,6 +240,62 @@ public class CoachLeaveController {
             return Long.valueOf(auth.getName());
         } catch (NumberFormatException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token không hợp lệ.");
+        }
+    }
+
+    /**
+     * Thông báo tất cả Manager khi có đơn xin nghỉ mới (Issue #3)
+     */
+    private void notifyManagersAboutNewLeaveRequest(User coach, CoachLeaveRequest request) {
+        try {
+            List<User> managers = userRepository.findAll().stream()
+                    .filter(u -> "MANAGER".equalsIgnoreCase(u.getRole()))
+                    .filter(u -> "ACTIVE".equalsIgnoreCase(u.getStatus()))
+                    .toList();
+
+            for (User manager : managers) {
+                engagementService.notifyUser(
+                        manager.getUserId(),
+                        "Đơn xin nghỉ mới cần duyệt",
+                        "HLV " + coach.getFullName() + " xin nghỉ từ " +
+                                request.getStartDate() + " đến " + request.getEndDate() +
+                                ". Có " + request.getAffectedBookingsCount() + " ca học bị ảnh hưởng. Vui lòng duyệt và chọn HLV thay thế.",
+                        "APPROVAL_NEEDED"
+                );
+            }
+        } catch (Exception e) {
+            // Không làm hỏng nghiệp vụ chính
+        }
+    }
+
+    /**
+     * Thông báo Coach về kết quả duyệt đơn (Issue #4)
+     */
+    private void notifyCoachAboutDecision(CoachLeaveRequest request, LeaveDecisionRequest decision) {
+        try {
+            if (decision.approved()) {
+                engagementService.notifyUser(
+                        request.getCoachId(),
+                        "Đơn nghỉ được chấp thuận",
+                        "Đơn xin nghỉ từ " + request.getStartDate() + " đến " + request.getEndDate() +
+                                " đã được duyệt. Các lớp học của bạn đã được chuyển cho HLV thay thế. Cảm ơn bạn đã thông báo trước.",
+                        "APPROVAL_RESULT"
+                );
+            } else {
+                String rejectReason = decision.decisionNote() != null && !decision.decisionNote().isBlank()
+                        ? decision.decisionNote()
+                        : "Lịch giảng dạy quá kín, không đủ HLV thay thế";
+
+                engagementService.notifyUser(
+                        request.getCoachId(),
+                        "Đơn nghỉ bị từ chối",
+                        "Đơn xin nghỉ từ " + request.getStartDate() + " đến " + request.getEndDate() +
+                                " không được chấp thuận. Lý do: " + rejectReason + ". Vui lòng liên hệ Ban Quản lý nếu cần hỗ trợ.",
+                        "APPROVAL_RESULT"
+                );
+            }
+        } catch (Exception e) {
+            // Không làm hỏng nghiệp vụ chính
         }
     }
 }
