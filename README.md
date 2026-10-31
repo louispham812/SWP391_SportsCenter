@@ -3,7 +3,8 @@
 > **SportHub (SWP391_SportsCenter)** là nền tảng quản trị và vận hành toàn diện cho trung tâm thể thao đa năng chuẩn quốc tế, hỗ trợ tối ưu quy trình quản lý sân bãi, lịch học thể thao, hội viên, bán hàng tại quầy (POS), in hóa đơn nhiệt K80, thẻ hội viên số QR/RFID, theo dõi tiến độ thể lực & 1RM, quản lý bảo trì sân, nhật ký kiểm toán (Audit Logs), và phân tích báo cáo doanh thu theo thời gian thực kết hợp Trợ lý Trí tuệ Nhân tạo (AI Assistant).
 
 [![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)]()
-[![Tests](https://img.shields.io/badge/JUnit%205-40%2F40%20Pass-success.svg)]()
+[![Backend Tests](https://img.shields.io/badge/JUnit%205-84%2F84%20Pass-success.svg)]()
+[![E2E Tests](https://img.shields.io/badge/Playwright%20E2E-25%2F25%20Pass-success.svg)]()
 [![Frontend](https://img.shields.io/badge/Frontend-Vite%20React%2019-blue.svg)]()
 [![Database](https://img.shields.io/badge/Database-SQL%20Server%202019%2F2022-red.svg)]()
 [![Project Status](https://img.shields.io/badge/Status-100%25%20Defense%20Ready-gold.svg)]()
@@ -33,6 +34,7 @@ Trung tâm thể thao đa năng **SportHub** phục vụ các bộ môn đa dạ
 - **Quản trị viên (Admin):** Phê duyệt tài khoản nhân viên mới, giám sát nhật ký kiểm toán hệ thống (Audit Logs), quản lý danh mục môn thể thao và thông số kỹ thuật toàn hệ thống.
 
 📄 Chi tiết tài liệu kiến trúc:
+- Kịch bản kiểm thử & Demo bảo vệ Final (25/25 E2E Tests, 7 Luồng): [`KICH_BAN_CHAM_FINAL.md`](./KICH_BAN_CHAM_FINAL.md)
 - Bảng theo dõi tiến độ 100%: [`PROGRESS_TRACKING.md`](./PROGRESS_TRACKING.md)
 - Sơ đồ thực thể kết nối: [`ERD.drawio.png`](./ERD.drawio.png) / [`update_ERD.drawio`](./update_ERD.drawio)
 - Sơ đồ Use Case: [`Usecase diagram.jpg`](./Usecase%20diagram.jpg)
@@ -52,7 +54,7 @@ Trung tâm thể thao đa năng **SportHub** phục vụ các bộ môn đa dạ
 | **Giao diện & Styling** | **Tailwind CSS v3**, Lucide React | Giao diện hiện đại, responsive, hỗ trợ In hóa đơn nhiệt K80 |
 | **Routing** | **React Router DOM v7** | Quản lý điều hướng và Route Guards bảo vệ theo vai trò |
 | **Trí tuệ Nhân tạo** | **OpenAI API** (`gpt-4o-mini`) | Trợ lý tư vấn thể thao, gợi ý bài tập và giải đáp nghiệp vụ |
-| **Testing & Linter** | **JUnit 5**, **Playwright E2E**, **Oxlint** | 40/40 Unit Tests Backend PASS, kiểm thử giao diện tự động |
+| **Testing & Linter** | **JUnit 5**, **Playwright E2E**, **Oxlint** | 84/84 Unit & Integration Tests Backend PASS, 25/25 Playwright E2E Tests PASS bao phủ 7 luồng nghiệp vụ |
 
 ---
 
@@ -75,11 +77,11 @@ SWP391_SportsCenter/
 │   │   │   └── resources/
 │   │   │       ├── application.properties # Cấu hình database, port 8080, hibernate
 │   │   │       └── schema.sql             # Tạo bảng & nạp dữ liệu mẫu tự động
-│   │   └── test/                          # 40 Unit & Integration Tests (JUnit 5)
+│   │   └── test/                          # 84 Unit & Integration Tests (JUnit 5)
 │   └── pom.xml                            # Quản lý dependencies Maven
 │
 ├── frontend/                              # Mã nguồn Frontend (React + Vite)
-│   ├── e2e/                               # Kịch bản kiểm thử tự động Playwright E2E
+│   ├── e2e/                               # 25 Kịch bản kiểm thử tự động Playwright E2E
 │   ├── public/                            # Tài nguyên tĩnh
 │   ├── src/
 │   │   ├── components/                    # Navbar, Footer, Modal, Toast, In hóa đơn K80...
@@ -99,6 +101,7 @@ SWP391_SportsCenter/
 │   └── vite.config.js                     # Cấu hình Vite
 │
 ├── SportsCenterDB_Database.sql            # Script SQL Server 21 bảng (chuẩn UTF-8 BOM)
+├── KICH_BAN_CHAM_FINAL.md                 # Kịch bản kiểm thử & demo bảo vệ Final (25/25 E2E, 7 luồng)
 ├── PROGRESS_TRACKING.md                   # Bảng theo dõi tiến độ chi tiết 100%
 └── README.md                              # Tài liệu hướng dẫn dự án
 ```
@@ -307,13 +310,22 @@ npm run dev
 
 Hệ thống đã trải qua đợt **Tổng kiểm tra Logic Nghiệp vụ Toàn diện (End-to-End Defense Audit)** đạt tỷ lệ hoàn hảo:
 
-1. **Backend Tests:** Đạt **`40/40 Tests PASS` (100%)**:
+1. **Backend Tests:** Đạt **`84/84 Tests PASS` (100%)**:
    - `DatabaseConnectionTest`: 5/5 PASS (Kiểm tra kết nối MSSQL, xác thực 21 bảng dữ liệu, kiểm tra tài khoản demo).
    - `AiAssistantServiceTest`: 4/4 PASS (Kiểm tra AI xử lý hội thoại, kiểm tra fallback thông minh).
    - `BookingServiceTest`: 11/11 PASS (Kiểm tra đặt sân chống trùng lịch, tính chiết khấu VIP, hoàn tiền vé).
-   - Các Integration Controller Tests: 20/20 PASS.
-2. **Frontend Build:** `npm run build` hoàn tất trong **2.64 giây** với **0 lỗi cú pháp / 0 lỗi kiểu**.
-3. **Kiểm tra tính nhất quán tài chính:**
+   - 11 Test Suites mở rộng (Service, Security, Financial, Maintenance, POS, Audit): 64/64 PASS.
+2. **Frontend Playwright E2E Tests:** Đạt **`25/25 Tests PASS` (100%)** bao phủ trọn vẹn **7 luồng nghiệp vụ liên thông**:
+   - **Luồng 1:** Quản trị Gói tập & Voucher $\rightarrow$ Hội viên mua/nâng cấp gói $\rightarrow$ Admin duyệt kích hoạt.
+   - **Luồng 2:** Đặt sân trực tuyến, áp chiết khấu thẻ VIP + Voucher, Hủy lịch hoàn tiền 100%.
+   - **Luồng 3:** Khóa bảo trì sân thi đấu $\rightarrow$ Ngăn chặn xung đột đặt sân thời gian thực.
+   - **Luồng 4:** Lễ tân POS bán gói tập $\rightarrow$ In hóa đơn nhiệt K80 $\rightarrow$ Mượn/Trả dụng cụ thể thao & Báo cáo kết ca.
+   - **Luồng 5:** Lễ tân check-in QR / RFID $\rightarrow$ Xác thực thẻ số tức thì tại quầy.
+   - **Luồng 6:** HLV điểm danh học viên $\rightarrow$ Soạn giáo án PT $\rightarrow$ Nhập Body Progress & 1RM $\rightarrow$ Xem hoa hồng.
+   - **Luồng 7:** Quản lý duyệt hoàn tiền $\rightarrow$ Trợ lý AI tư vấn $\rightarrow$ Admin rà soát Audit Logs toàn hệ thống.
+   - 📘 *Chi tiết kịch bản từng bước và hướng dẫn demo trước Hội đồng:* [`KICH_BAN_CHAM_FINAL.md`](./KICH_BAN_CHAM_FINAL.md)
+3. **Frontend Build:** `npm run build` hoàn tất trong **2.64 giây** với **0 lỗi cú pháp / 0 lỗi kiểu**.
+4. **Kiểm tra tính nhất quán tài chính:**
    - Triệt tiêu 100% hiện tượng 2 dòng hoàn tiền trùng lặp trên bảng báo cáo thu ngân.
    - Doanh thu quầy lễ tân được phân tách chính xác theo `approvedBy` của từng nhân viên.
    - Chặn tuyệt đối hành vi gian lận gửi đơn hoàn tiền trùng lặp (`PENDING`).
