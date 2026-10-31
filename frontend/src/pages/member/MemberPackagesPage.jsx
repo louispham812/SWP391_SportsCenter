@@ -76,17 +76,111 @@ export default function MemberPackagesPage() {
     setPaymentMethod('VIETQR');
   };
 
+  // QR Modal & Polling State
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrData, setQrData] = useState(null);
+  const [pollingPayment, setPollingPayment] = useState(false);
+  const [pollingInterval, setPollingInterval] = useState(null);
+
+  // Cleanup polling khi unmount
+  useEffect(() => {
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [pollingInterval]);
+
+  // Polling payment status từ backend
+  const startPollingPayment = (paymentId) => {
+    setPollingPayment(true);
+    
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/v1/payments/${paymentId}`);
+        const payment = await response.json();
+        
+        if (payment.paymentStatus === 'PAID') {
+          // Thanh toán thành công
+          clearInterval(interval);
+          setPollingInterval(null);
+          setPollingPayment(false);
+          setShowQrModal(false);
+          
+          // Show success popup
+          const title = actionType === 'renew' ? 'Gia hạn thành công' : actionType === 'upgrade' ? 'Nâng cấp thành công' : 'Đăng ký thành công';
+          showToast(title, `Gói ${selectedPackage.name} đã được kích hoạt!`, 'success');
+          
+          // Close modal and reload data
+          setSelectedPackage(null);
+          await loadData();
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+    }, 3000); // Poll mỗi 3 giây
+    
+    setPollingInterval(interval);
+    
+    // Timeout sau 5 phút (300s)
+    setTimeout(() => {
+      clearInterval(interval);
+      setPollingInterval(null);
+      setPollingPayment(false);
+    }, 300000);
+  };
+
   const handleConfirmPurchase = async () => {
     if (!selectedPackage) return;
     setSubmitting(true);
     try {
       const result = await purchaseMembership(selectedPackage.packageId, paymentMethod);
+
+      // Nếu chọn VIETQR → Generate QR Code và polling
+      if (paymentMethod === 'VIETQR' && result.paymentId) {
+        setSubmitting(false); // Cho phép user cancel trong khi chờ
+        
+        try {
+          // Gọi API generate QR với paymentId
+          const token = localStorage.getItem('authToken');
+          const qrResponse = await fetch(
+            `/api/v1/payment/generate-qr?paymentId=${result.paymentId}&amount=${selectedPackage.price}`,
+            {
+              headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            }
+          );
+          
+          if (!qrResponse.ok) {
+            const errorText = await qrResponse.text();
+            console.error('[PACKAGE QR] generate-qr API error:', errorText);
+            showToast('Lỗi tạo mã QR', `Không thể tạo mã QR: ${errorText}`, 'error');
+            return;
+          }
+          
+          const qrResult = await qrResponse.json();
+          
+          // Hiển thị QR Modal
+          setQrData(qrResult);
+          setShowQrModal(true);
+          
+          // Start polling payment status
+          startPollingPayment(result.paymentId);
+          return;
+        } catch (qrError) {
+          console.error('[PACKAGE QR] Exception:', qrError);
+          showToast('Lỗi hiển thị QR', 'Không thể hiển thị mã QR. Vui lòng thử lại.', 'error');
+          return;
+        }
+      }
+
+      // Các phương thức khác (CASH_COUNTER, VNPAY, SANDBOX) hoặc không có paymentId
       const title = actionType === 'renew' ? 'Gia hạn thành công' : actionType === 'upgrade' ? 'Nâng cấp thành công' : 'Đăng ký thành công';
       const message = `Gói ${selectedPackage.name} đang chờ Quản lý phê duyệt. Mã GD: ${result?.referenceCode || 'VQR-PKG'}`;
       showToast(title, message, 'success');
       setSelectedPackage(null);
       await loadData();
     } catch (err) {
+      console.error('[PACKAGE] Purchase error:', err);
       showToast('Thao tác không thành công', err.message || 'Không thể thực hiện giao dịch gói tập.', 'error');
     } finally {
       setSubmitting(false);
@@ -342,7 +436,7 @@ export default function MemberPackagesPage() {
         </section>
 
         {/* Modal Confirm Checkout */}
-        {selectedPackage && (
+        {selectedPackage && !showQrModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="w-full max-w-xl max-h-[92vh] flex flex-col rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
               <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100">
@@ -437,6 +531,79 @@ export default function MemberPackagesPage() {
                     : 'Xác Nhận & Kích Hoạt'}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* QR Payment Modal */}
+        {showQrModal && qrData && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl transform animate-in slide-in-from-bottom-4 duration-300">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-orange-100 mb-4">
+                <span className="material-symbols-outlined text-3xl text-orange-600">qr_code_scanner</span>
+              </div>
+              
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                Quét Mã QR Để Thanh Toán
+              </h2>
+              <p className="text-sm text-slate-500 mb-6">
+                Sử dụng app ngân hàng của bạn để scan mã QR bên dưới
+              </p>
+              
+              <div className="relative">
+                <img 
+                  src={qrData.qrUrl} 
+                  alt="QR Code Thanh Toán" 
+                  className="w-full max-w-xs mx-auto rounded-2xl border-4 border-orange-500 shadow-lg"
+                />
+              </div>
+              
+              <div className="mt-6 space-y-2 text-sm bg-slate-50 rounded-xl p-4 border border-slate-200">
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Số tiền:</span>
+                  <span className="font-bold text-slate-900">{formatMoney(qrData.amount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Nội dung CK:</span>
+                  <code className="font-mono font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded">
+                    {qrData.addInfo}
+                  </code>
+                </div>
+                <div className="flex justify-between text-xs pt-2 border-t border-slate-200">
+                  <span className="text-slate-500">Ngân hàng:</span>
+                  <span className="font-semibold text-slate-700">BIDV</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">STK:</span>
+                  <span className="font-semibold text-slate-700">{qrData.accountNo}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">Chủ TK:</span>
+                  <span className="font-semibold text-slate-700">{qrData.accountName}</span>
+                </div>
+              </div>
+              
+              {pollingPayment && (
+                <div className="mt-6 flex items-center justify-center gap-2 text-orange-600 bg-orange-50 rounded-xl py-3 px-4 border border-orange-200">
+                  <div className="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm font-semibold">Đang chờ xác nhận từ ngân hàng...</span>
+                </div>
+              )}
+              
+              <button 
+                onClick={() => {
+                  setShowQrModal(false);
+                  setPollingPayment(false);
+                  if (pollingInterval) {
+                    clearInterval(pollingInterval);
+                    setPollingInterval(null);
+                  }
+                  setSelectedPackage(null);
+                }}
+                className="mt-6 text-sm text-slate-500 hover:text-slate-700 font-semibold underline"
+              >
+                Hủy / Quay lại chọn phương thức khác
+              </button>
             </div>
           </div>
         )}
