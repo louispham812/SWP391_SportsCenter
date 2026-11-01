@@ -61,6 +61,11 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      name: 'facility-independence-sync',
+      testMatch: /facility-independence-sync\.spec\.js/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'final-audit',
       testMatch: /final-audit-cross-role\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },

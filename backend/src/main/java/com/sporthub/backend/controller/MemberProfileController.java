@@ -436,13 +436,15 @@ public class MemberProfileController {
             default -> "ONLINE";
         };
 
+        boolean isInstantPaid = !"VIETQR".equalsIgnoreCase(method) && !"TRANSFER".equalsIgnoreCase(method) && !"QR".equalsIgnoreCase(method);
+
         // ✅ Giữ nguyên ReceptionPayment (old system - legacy compatibility)
         ReceptionPayment payment = new ReceptionPayment();
         payment.setMemberId(Math.toIntExact(userId));
         payment.setMembershipId(Math.toIntExact(targetMembership.getMembershipId()));
         payment.setAmount(membershipPackage.getPrice());
         payment.setPaymentMethod(receptionPaymentMethod);
-        payment.setPaymentStatus("COMPLETED");
+        payment.setPaymentStatus(isInstantPaid ? "COMPLETED" : "PENDING");
         payment.setCreatedAt(LocalDateTime.now());
         ReceptionPayment savedPayment = paymentRepository.save(payment);
 

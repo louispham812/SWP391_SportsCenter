@@ -8,6 +8,7 @@ import com.sporthub.backend.dto.ReceptionistCheckInResponse;
 import com.sporthub.backend.dto.ReceptionistReportResponse;
 import com.sporthub.backend.entity.MemberCheckIn;
 import com.sporthub.backend.entity.MembershipPackage;
+import com.sporthub.backend.entity.PaymentTransaction;
 import com.sporthub.backend.entity.ReceptionPayment;
 import com.sporthub.backend.entity.UserMembership;
 import com.sporthub.backend.entity.User;
@@ -40,6 +41,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -239,31 +241,60 @@ public class ReceptionistController {
             Authentication authentication) {
         requireStaff(authentication);
         LocalDate reportDate = date == null ? LocalDate.now() : date;
+        LocalDateTime startOfDay = reportDate.atStartOfDay();
+        LocalDateTime endOfDay = reportDate.plusDays(1).atStartOfDay();
+
         List<ReceptionPayment> payments = paymentRepository
-                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
-                        reportDate.atStartOfDay(), reportDate.plusDays(1).atStartOfDay());
+                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(startOfDay, endOfDay);
+        List<PaymentTransaction> transactions = paymentTransactionRepository
+                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(startOfDay, endOfDay);
+
         List<PaymentEntry> allPayments = new ArrayList<>();
-        payments.stream()
-                .map(payment -> new PaymentEntry(
-                        "membership-" + payment.getPaymentId(),
-                        payment.getMemberId() == null ? null : payment.getMemberId().longValue(),
-                        payment.getAmount(),
-                        payment.getPaymentMethod(),
-                        payment.getPaymentStatus(),
-                        payment.getCreatedAt()))
-                .forEach(allPayments::add);
-        paymentTransactionRepository
-                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
-                        reportDate.atStartOfDay(), reportDate.plusDays(1).atStartOfDay())
-                .stream()
-                .map(payment -> new PaymentEntry(
-                        "booking-" + payment.getPaymentId(),
-                        payment.getMemberId(),
-                        payment.getAmount(),
-                        payment.getPaymentMethod(),
-                        payment.getPaymentStatus(),
-                        payment.getCreatedAt()))
-                .forEach(allPayments::add);
+        Set<Integer> matchedPaymentIds = new HashSet<>();
+
+        // 1. Process payment_transactions first (richer transaction data with reference codes)
+        for (PaymentTransaction tx : transactions) {
+            String id = tx.getReferenceCode() != null && !tx.getReferenceCode().isBlank()
+                    ? tx.getReferenceCode()
+                    : "trans-" + tx.getPaymentId();
+
+            allPayments.add(new PaymentEntry(
+                    id,
+                    tx.getMemberId(),
+                    tx.getAmount(),
+                    normalizeMethod(tx.getPaymentMethod()),
+                    normalizeStatus(tx.getPaymentStatus()),
+                    tx.getCreatedAt()));
+
+            // Find matching ReceptionPayment to prevent double counting
+            for (ReceptionPayment rp : payments) {
+                if (matchedPaymentIds.contains(rp.getPaymentId())) continue;
+                boolean sameMember = rp.getMemberId() != null && rp.getMemberId().longValue() == tx.getMemberId();
+                boolean sameAmount = rp.getAmount() != null && tx.getAmount() != null
+                        && rp.getAmount().compareTo(tx.getAmount()) == 0;
+                boolean nearTime = rp.getCreatedAt() != null && tx.getCreatedAt() != null
+                        && java.time.Duration.between(rp.getCreatedAt(), tx.getCreatedAt()).abs().toMinutes() <= 10;
+
+                if (sameMember && sameAmount && nearTime) {
+                    matchedPaymentIds.add(rp.getPaymentId());
+                    break;
+                }
+            }
+        }
+
+        // 2. Add only ReceptionPayments that do NOT have a duplicate in payment_transactions (e.g. POS direct sales)
+        for (ReceptionPayment rp : payments) {
+            if (matchedPaymentIds.contains(rp.getPaymentId())) {
+                continue; // Skip duplicate!
+            }
+            allPayments.add(new PaymentEntry(
+                    "pos-" + rp.getPaymentId(),
+                    rp.getMemberId() == null ? null : rp.getMemberId().longValue(),
+                    rp.getAmount(),
+                    normalizeMethod(rp.getPaymentMethod()),
+                    normalizeStatus(rp.getPaymentStatus()),
+                    rp.getCreatedAt()));
+        }
 
         List<PaymentEntry> completed = allPayments.stream()
                 .filter(ReceptionistController::isCompleted)
@@ -274,7 +305,7 @@ public class ReceptionistController {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         Map<String, List<PaymentEntry>> byMethod = completed.stream()
                 .collect(Collectors.groupingBy(
-                        payment -> normalizeMethod(payment.method()),
+                        PaymentEntry::method,
                         TreeMap::new,
                         Collectors.toList()));
         List<ReceptionistReportResponse.PaymentMethodTotal> methodTotals = byMethod.entrySet().stream()
@@ -303,7 +334,7 @@ public class ReceptionistController {
                             payment.id(),
                             member == null ? "Không rõ hội viên" : member.getFullName(),
                             payment.amount(),
-                            normalizeMethod(payment.method()),
+                            payment.method(),
                             payment.status(),
                             payment.createdAt());
                 })
@@ -825,19 +856,34 @@ public class ReceptionistController {
 
     private String normalizeMethod(String method) {
         if (method == null || method.isBlank()) {
-            return "KHÁC";
+            return "Khác";
         }
         return switch (method.trim().toUpperCase(Locale.ROOT)) {
-            case "CASH" -> "TIỀN MẶT";
-            case "POS", "CARD" -> "QUẸT THẺ POS";
-            case "TRANSFER", "QR" -> "CHUYỂN KHOẢN / QR";
-            case "ONLINE" -> "THANH TOÁN TRỰC TUYẾN";
+            case "CASH", "CASH_COUNTER", "TIỀN MẶT" -> "Tiền mặt";
+            case "POS", "CARD", "QUẸT THẺ POS" -> "Quẹt thẻ POS";
+            case "VIETQR", "TRANSFER", "QR", "CHUYỂN KHOẢN / QR" -> "Chuyển khoản / VietQR";
+            case "ONLINE", "VNPAY", "MOMO" -> "Thanh toán trực tuyến";
             default -> method.trim();
         };
     }
 
+    private String normalizeStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return "Chờ xử lý";
+        }
+        return switch (status.trim().toUpperCase(Locale.ROOT)) {
+            case "COMPLETED", "PAID", "SUCCESS", "HOÀN TẤT" -> "Hoàn tất";
+            case "PENDING", "PENDING_PAYMENT", "WAITING", "CHỜ THANH TOÁN" -> "Chờ thanh toán";
+            case "FAILED", "ERROR", "REJECTED", "THẤT BẠI" -> "Thất bại";
+            case "CANCELLED", "CANCELED", "ĐÃ HỦY" -> "Đã hủy";
+            case "REFUNDED", "ĐÃ HOÀN TIỀN" -> "Đã hoàn tiền";
+            default -> status.trim();
+        };
+    }
+
     private static boolean isCompleted(PaymentEntry payment) {
-        return "COMPLETED".equalsIgnoreCase(payment.status())
+        return "Hoàn tất".equalsIgnoreCase(payment.status())
+                || "COMPLETED".equalsIgnoreCase(payment.status())
                 || "PAID".equalsIgnoreCase(payment.status());
     }
 

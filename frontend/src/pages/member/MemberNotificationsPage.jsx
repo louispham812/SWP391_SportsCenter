@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
-import NotificationList from '../../components/common/NotificationList';
 import {
   getNotifications,
   markNotificationRead,
@@ -271,8 +270,6 @@ export default function MemberNotificationsPage() {
             })}
           </div>
         )}
-
-        <NotificationList title="Thông báo từ trung tâm" />
       </div>
     </MemberLayout>
   );

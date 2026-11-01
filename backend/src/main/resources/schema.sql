@@ -351,8 +351,8 @@ IF OBJECT_ID(N'dbo.facilities', N'U') IS NOT NULL
     FROM (VALUES
         (5, N'Sân Bóng Đá 7 Người - Sân F1', 14),
         (5, N'Sân Bóng Đá 7 Người - Sân F2', 14),
-        (6, N'Sân Cầu Lông Trong Nhà - Sân B1', 4),
-        (6, N'Sân Cầu Lông Trong Nhà - Sân B2', 4),
+        (6, N'Sân Cầu Lông Thảm Yonex - Sân L1', 4),
+        (6, N'Sân Cầu Lông Thảm Yonex - Sân L2', 4),
         (7, N'Sân Bóng Chuyền - Sân V1', 12),
         (7, N'Sân Bóng Chuyền - Sân V2', 12),
         (8, N'Khu Bóng Bàn - Bàn T1', 4),
@@ -373,8 +373,8 @@ IF EXISTS (
     JOIN (VALUES
         (N'Sân Bóng Đá 7 Người - Sân F1', N'booking-football-01'),
         (N'Sân Bóng Đá 7 Người - Sân F2', N'booking-football-02'),
-        (N'Sân Cầu Lông Trong Nhà - Sân B1', N'booking-badminton-01'),
-        (N'Sân Cầu Lông Trong Nhà - Sân B2', N'booking-badminton-02'),
+        (N'Sân Cầu Lông Thảm Yonex - Sân L1', N'booking-badminton-l1'),
+        (N'Sân Cầu Lông Thảm Yonex - Sân L2', N'booking-badminton-l2'),
         (N'Sân Bóng Chuyền - Sân V1', N'booking-volleyball-01'),
         (N'Sân Bóng Chuyền - Sân V2', N'booking-volleyball-02'),
         (N'Khu Bóng Bàn - Bàn T1', N'booking-table-tennis-01'),
@@ -448,7 +448,7 @@ WITH class_seed AS (
 
         -- Thứ Sáu (day_offset = 4)
         (N'swimming', N'Lớp Bơi Lội Căn Bản', N'coach.nam@sporthub.com', N'Hồ Bơi - Làn S1', 4, 990, 90, 8, 170000),
-        (N'badminton', N'Lớp Cầu Lông Căn Bản', N'coach.thao@sporthub.com', N'Sân Cầu Lông Trong Nhà - Sân B1', 4, 1110, 90, 8, 140000),
+        (N'badminton', N'Lớp Cầu Lông Căn Bản', N'coach.thao@sporthub.com', N'Sân Cầu Lông Thảm Yonex - Sân L2', 4, 1110, 90, 8, 140000),
 
         -- Thứ Bảy (day_offset = 5)
         (N'tennis', N'Lớp Tennis Chiến Thuật Đánh Đôi', N'coach.minh@sporthub.com', N'Sân Tennis Đơn & Đôi - Sân T2', 5, 480, 90, 6, 220000),
@@ -456,7 +456,7 @@ WITH class_seed AS (
 
         -- Chủ Nhật (day_offset = 6)
         (N'football', N'Lớp Bóng Đá Thể Lực & Phối Hợp', N'coach.phat@sporthub.com', N'Sân Bóng Đá 7 Người - Sân F1', 6, 480, 90, 14, 180000),
-        (N'badminton', N'Lớp Cầu Lông Đánh Đôi Nâng Cao', N'coach.thao@sporthub.com', N'Sân Cầu Lông Trong Nhà - Sân B1', 6, 960, 90, 8, 160000)
+        (N'badminton', N'Lớp Cầu Lông Đánh Đôi Nâng Cao', N'coach.thao@sporthub.com', N'Sân Cầu Lông Thảm Yonex - Sân L2', 6, 960, 90, 8, 160000)
     ) AS seed(sport_slug, class_name, coach_email, facility_name, day_offset, start_minute, duration_minute, max_slots, price_amount)
 ),
 week_offsets AS (
@@ -963,8 +963,10 @@ IF OBJECT_ID(N'dbo.user_memberships', N'U') IS NOT NULL
     ALTER TABLE dbo.user_memberships ADD initial_quota_sessions INT NULL CONSTRAINT DF_user_memberships_initial_quota DEFAULT 0;
 
 -- ===== Bo sung: cap nhat CHECK constraint cho user_memberships.status ho tro PENDING_APPROVAL va REJECTED =====
-IF OBJECT_ID(N'dbo.CK_user_memberships_status', N'C') IS NULL AND OBJECT_ID(N'dbo.user_memberships', N'U') IS NOT NULL
-    ALTER TABLE dbo.user_memberships ADD CONSTRAINT CK_user_memberships_status CHECK (status IN ('PENDING', 'PENDING_APPROVAL', 'ACTIVE', 'EXPIRED', 'FROZEN', 'REJECTED'));
+IF OBJECT_ID(N'dbo.CK_user_memberships_status', N'C') IS NOT NULL
+    ALTER TABLE dbo.user_memberships DROP CONSTRAINT CK_user_memberships_status;
+IF OBJECT_ID(N'dbo.user_memberships', N'U') IS NOT NULL
+    ALTER TABLE dbo.user_memberships ADD CONSTRAINT CK_user_memberships_status CHECK (status IN ('PENDING', 'PENDING_APPROVAL', 'PENDING_PAYMENT', 'ACTIVE', 'EXPIRED', 'FROZEN', 'REJECTED', 'CANCELLED'));
 
 
 
