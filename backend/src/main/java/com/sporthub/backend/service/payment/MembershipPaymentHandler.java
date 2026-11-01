@@ -70,6 +70,8 @@ public class MembershipPaymentHandler implements BookingPaymentHandler {
                     if ("PENDING_APPROVAL".equalsIgnoreCase(membership.getStatus())) {
                         membership.setStatus("ACTIVE");
                         userMembershipRepository.save(membership);
+                        matchingPayment.setPaymentStatus("COMPLETED");
+                        receptionPaymentRepository.save(matchingPayment);
                         System.out.println("✓✓✓ UserMembership #" + membershipId + " activated (PENDING_APPROVAL → ACTIVE)");
                         
                         // Send success notification

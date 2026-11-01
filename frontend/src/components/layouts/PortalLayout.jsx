@@ -1,8 +1,32 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { getMemberNotifications } from '../../services/memberApi';
+import { getNotifications, markNotificationRead } from '../../services/engagementApi';
 import { getAvatarImageUrl, getAvatarInitials } from '../../utils/avatarHelper';
+
+const parseNotifications = (data) => {
+  const rawList = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.items)
+    ? data.items
+    : Array.isArray(data?.notifications)
+    ? data.notifications
+    : Array.isArray(data?.data)
+    ? data.data
+    : [];
+
+  return rawList.map((item, idx) => ({
+    id: item.notificationId ?? item.id ?? `notif-${idx}`,
+    notificationId: item.notificationId ?? item.id,
+    title: item.title || 'Thông báo hệ thống',
+    message: item.message || item.content || '',
+    isRead: Boolean(item.read ?? item.isRead ?? false),
+    createdAt: item.createdAt || null,
+    link: item.link || null,
+    type: item.type || 'SYSTEM',
+  }));
+};
 
 export default function PortalLayout({
   role = 'member', // 'member' | 'receptionist' | 'coach' | 'admin'
@@ -47,15 +71,31 @@ export default function PortalLayout({
     }
   }, [searchOpen]);
 
-  useEffect(() => {
+  const fetchLiveNotifications = useCallback(async () => {
+    try {
+      const data = await getNotifications();
+      const parsed = parseNotifications(data);
+      if (parsed.length > 0) {
+        setLiveNotifications(parsed);
+        return;
+      }
+    } catch {
+      // If general notifications fails, try fallback for member
+    }
+
     if (role === 'member') {
-      getMemberNotifications()
-        .then((data) => {
-          if (Array.isArray(data)) setLiveNotifications(data);
-        })
-        .catch(() => {});
+      try {
+        const memberData = await getMemberNotifications();
+        setLiveNotifications(parseNotifications(memberData));
+      } catch {
+        // keep existing
+      }
     }
   }, [role]);
+
+  useEffect(() => {
+    fetchLiveNotifications();
+  }, [fetchLiveNotifications]);
 
   // System pages directory for quick jump
   const systemPages = [
@@ -276,8 +316,12 @@ export default function PortalLayout({
             <div className="relative">
               <button
                 onClick={() => {
-                  setNotificationsOpen(!notificationsOpen);
+                  const nextOpen = !notificationsOpen;
+                  setNotificationsOpen(nextOpen);
                   setProfileOpen(false);
+                  if (nextOpen) {
+                    fetchLiveNotifications();
+                  }
                 }}
                 type="button"
                 className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors relative cursor-pointer"
@@ -297,7 +341,7 @@ export default function PortalLayout({
                     <button
                       onClick={() => {
                         setNotificationsOpen(false);
-                        const targetNotifRoute = role === 'coach' ? '/coach/notifications' : role === 'admin' ? '/admin/broadcast' : '/member/notifications';
+                        const targetNotifRoute = role === 'coach' ? '/coach/notifications' : role === 'admin' ? '/admin/broadcast' : role === 'receptionist' ? '/receptionist' : '/member/notifications';
                         navigate(targetNotifRoute);
                       }}
                       className="text-[11px] font-bold text-orange-600 hover:text-orange-700 cursor-pointer"
@@ -311,15 +355,21 @@ export default function PortalLayout({
                     </div>
                   ) : (
                     <div className="py-2 divide-y divide-slate-100 max-h-72 overflow-y-auto">
-                      {liveNotifications.slice(0, 4).map((item) => (
+                      {liveNotifications.slice(0, 5).map((item) => (
                         <div
                           key={item.id}
-                          onClick={() => {
+                          onClick={async () => {
                             setNotificationsOpen(false);
+                            if (!item.isRead && item.notificationId) {
+                              await markNotificationRead(item.notificationId).catch(() => {});
+                              setLiveNotifications((prev) =>
+                                prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n))
+                              );
+                            }
                             if (item.link) {
                               navigate(item.link);
                             } else {
-                              const targetNotifRoute = role === 'coach' ? '/coach/notifications' : role === 'admin' ? '/admin/broadcast' : '/member/notifications';
+                              const targetNotifRoute = role === 'coach' ? '/coach/notifications' : role === 'admin' ? '/admin/broadcast' : role === 'receptionist' ? '/receptionist' : '/member/notifications';
                               navigate(targetNotifRoute);
                             }
                           }}
@@ -329,9 +379,16 @@ export default function PortalLayout({
                             <span className="text-xs font-bold text-slate-900 truncate">
                               {item.title}
                             </span>
-                            {!item.isRead && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0"></span>
-                            )}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {item.createdAt && (
+                                <span className="text-[10px] text-slate-400">
+                                  {new Date(item.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                              {!item.isRead && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0"></span>
+                              )}
+                            </div>
                           </div>
                           <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">
                             {item.message}

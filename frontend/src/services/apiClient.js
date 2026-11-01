@@ -49,5 +49,15 @@ export async function apiRequest(path, options = {}) {
     err.raw = rawText;
     throw err;
   }
-  return response.status === 204 ? null : response.json();
+  if (response.status === 204) return null;
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text, success: true };
+  }
 }

@@ -321,27 +321,33 @@ public class ManagerController {
         );
     }
 
+    public String rejectMembership(Long membershipId, String reason, Authentication authentication) {
+        rejectMembership(membershipId, reason != null ? Map.of("reason", reason) : null, reason, authentication);
+        return "Membership đã bị từ chối thành công";
+    }
+
     /**
      * MGR-09: Manager reject membership
      * PENDING_APPROVAL -> REJECTED
      */
-    @PatchMapping("/memberships/{membershipId}/reject")
+    @RequestMapping(value = "/memberships/{membershipId}/reject", method = {RequestMethod.PATCH, RequestMethod.POST})
     @Transactional
-    public String rejectMembership(
+    public Map<String, Object> rejectMembership(
             @PathVariable Long membershipId,
+            @RequestBody(required = false) Map<String, Object> body,
             @RequestParam(required = false) String reason,
             Authentication authentication) {
         requireManager(authentication);
         
         Long managerId = resolveManagerId(authentication);
 
-        String rejectReason = reason == null || reason.isBlank() 
-                ? "Không đạt yêu cầu duyệt" 
-                : reason.trim();
+        String rejectReason = (body != null && body.get("reason") != null && !body.get("reason").toString().isBlank())
+                ? body.get("reason").toString().trim()
+                : (reason != null && !reason.isBlank() ? reason.trim() : "Không đạt yêu cầu duyệt");
         
         membershipService.rejectMembership(membershipId, rejectReason, managerId);
 
-        return "Membership đã bị từ chối thành công";
+        return Map.of("message", "Membership đã bị từ chối thành công", "success", true);
     }
 
     private Long resolveManagerId(Authentication authentication) {
@@ -358,16 +364,6 @@ public class ManagerController {
         } catch (NumberFormatException ignored) {
         }
         throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Manager không tồn tại");
-    }
-
-    @PostMapping("/memberships/{membershipId}/reject")
-    @Transactional
-    public String rejectMembershipPost(
-            @PathVariable Long membershipId,
-            @RequestBody(required = false) Map<String, Object> body,
-            Authentication authentication) {
-        String reason = body != null && body.get("reason") != null ? body.get("reason").toString() : null;
-        return rejectMembership(membershipId, reason, authentication);
     }
 
     @PostMapping("/users")

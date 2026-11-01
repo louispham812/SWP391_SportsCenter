@@ -44,3 +44,4 @@ replay_pid*
 *.env
 **/.env
 !**/.env.example
+databaseSWP391.sql
