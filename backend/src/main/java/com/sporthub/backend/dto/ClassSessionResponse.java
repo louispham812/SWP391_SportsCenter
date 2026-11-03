@@ -17,5 +17,6 @@ public record ClassSessionResponse(
         String status,
         Long memberBookingId,
         String memberBookingStatus,
+        String refundStatus,      // PENDING_APPROVAL, APPROVED, REJECTED, null
         BigDecimal priceAmount) {
 }

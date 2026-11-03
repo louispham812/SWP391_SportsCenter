@@ -198,6 +198,23 @@ public class BookingService {
                 .toList();
         Map<Long, Booking> bookingsBySession = bookingRepository.findByMemberIdAndStatusIn(actorId, ALL_ACTIVE_STATUSES).stream()
                 .collect(Collectors.toMap(Booking::getSessionId, Function.identity(), (first, second) -> first));
+        
+        // Query RefundRequests for this member
+        Map<String, String> refundStatusMap = new java.util.HashMap<>();
+        if (refundRequestRepository != null) {
+            List<com.sporthub.backend.entity.RefundRequest> refundRequests = 
+                refundRequestRepository.findByMemberIdOrderByCreatedAtDesc(actorId);
+            
+            for (com.sporthub.backend.entity.RefundRequest r : refundRequests) {
+                if (r.getBookingId() != null && "CLASS".equals(r.getBookingType())) {
+                    // Only map active refund states
+                    if ("PENDING_APPROVAL".equals(r.getStatus()) || "APPROVED".equals(r.getStatus())) {
+                        refundStatusMap.put(String.valueOf(r.getBookingId()), r.getStatus());
+                    }
+                }
+            }
+        }
+        
         Map<Long, String> coachNames = userRepository.findAllById(
                         sessions.stream().map(ClassSession::getCoachId).distinct().toList()).stream()
                 .collect(Collectors.toMap(User::getUserId, User::getFullName));
@@ -216,6 +233,13 @@ public class BookingService {
             Booking booking = bookingsBySession.get(session.getSessionId());
             String facStatus = facilityStatuses.get(session.getFacilityId());
             String effectiveStatus = ("MAINTENANCE".equalsIgnoreCase(facStatus)) ? "MAINTENANCE" : session.getStatus();
+            
+            // Check refund status if booking exists
+            String refundStatus = null;
+            if (booking != null && booking.getBookingId() != null) {
+                refundStatus = refundStatusMap.get(String.valueOf(booking.getBookingId()));
+            }
+            
             return new ClassSessionResponse(
                     session.getSessionId(),
                     session.getClassName(),
@@ -230,6 +254,7 @@ public class BookingService {
                     effectiveStatus,
                     booking == null ? null : booking.getBookingId(),
                     booking == null ? null : booking.getStatus(),
+                    refundStatus,
                     session.getPriceAmount());
         }).toList();
     }
