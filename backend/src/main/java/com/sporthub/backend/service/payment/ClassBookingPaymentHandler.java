@@ -1,18 +1,23 @@
 package com.sporthub.backend.service.payment;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.sporthub.backend.dto.PaymentConfirmationResult;
 import com.sporthub.backend.entity.Booking;
 import com.sporthub.backend.entity.PaymentTransaction;
 import com.sporthub.backend.repository.BookingRepository;
 import com.sporthub.backend.service.EngagementService;
-import org.springframework.stereotype.Component;
-
-import java.util.Map;
 
 /**
  * Handle CLASS booking payment confirmation
  */
 @Component
 public class ClassBookingPaymentHandler implements BookingPaymentHandler {
+    
+    private static final Logger logger = LoggerFactory.getLogger(ClassBookingPaymentHandler.class);
     
     private final BookingRepository bookingRepository;
     private final EngagementService engagementService;
@@ -30,7 +35,8 @@ public class ClassBookingPaymentHandler implements BookingPaymentHandler {
     }
     
     @Override
-    public Map<String, Object> handlePaymentConfirmation(PaymentTransaction payment, Double transferAmount) {
+    @Transactional
+    public PaymentConfirmationResult handlePaymentConfirmation(PaymentTransaction payment, Double transferAmount) {
         Long paymentId = payment.getPaymentId();
         Booking classBooking = bookingRepository.findByPaymentId(paymentId);
         
@@ -40,7 +46,7 @@ public class ClassBookingPaymentHandler implements BookingPaymentHandler {
         
         // Rule 9: Check if booking already CANCELLED (late payment)
         if ("CANCELLED".equalsIgnoreCase(classBooking.getStatus())) {
-            System.out.println("⚠ CLASS Booking #" + classBooking.getBookingId() + " already CANCELLED (late payment)");
+            logger.warn("CLASS Booking #{} already CANCELLED (late payment)", classBooking.getBookingId());
             if (engagementService != null) {
                 engagementService.notifyUser(
                     classBooking.getMemberId(), "Thanh toán đến muộn",
@@ -51,12 +57,12 @@ public class ClassBookingPaymentHandler implements BookingPaymentHandler {
             // Update booking status to CONFIRMED
             classBooking.setStatus("CONFIRMED");
             bookingRepository.save(classBooking);
-            System.out.println("✓✓✓ CLASS Booking #" + classBooking.getBookingId() + " confirmed");
+            logger.info("CLASS Booking #{} confirmed", classBooking.getBookingId());
             
             // Send success notification
             if (engagementService != null) {
                 engagementService.audit(
-                    classBooking.getMemberId(), "MEMBER", "SEPAY_PAYMENT_CONFIRMED",
+                    classBooking.getMemberId(), "MEMBER", "PAYMENT_CONFIRMED",
                     "bookingId=" + classBooking.getBookingId() + ", paymentId=" + paymentId +
                     ", amount=" + transferAmount
                 );
@@ -67,11 +73,13 @@ public class ClassBookingPaymentHandler implements BookingPaymentHandler {
             }
         }
         
-        return Map.of(
-            "success", true, 
-            "paymentId", paymentId, 
-            "bookingType", "CLASS", 
-            "bookingId", classBooking.getBookingId()
-        );
+        return PaymentConfirmationResult.builder()
+            .success(true)
+            .paymentId(paymentId)
+            .bookingType("CLASS")
+            .bookingId(classBooking.getBookingId())
+            .status(classBooking.getStatus())
+            .message("CLASS booking confirmed")
+            .build();
     }
 }

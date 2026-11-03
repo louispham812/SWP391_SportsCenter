@@ -1,23 +1,24 @@
 package com.sporthub.backend.config;
 
-import com.sporthub.backend.repository.AuthSessionRepository;
-import com.sporthub.backend.repository.UserRepository;
-import com.sporthub.backend.security.BearerTokenAuthenticationFilter;
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.List;
+import com.sporthub.backend.repository.AuthSessionRepository;
+import com.sporthub.backend.repository.UserRepository;
+import com.sporthub.backend.security.BearerTokenAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -60,10 +61,12 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/vouchers", "/api/v1/vouchers/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/vouchers/validate").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/booking-flow/courts", "/api/v1/booking-flow/coaches", "/api/v1/booking-flow/coaches/**", "/api/v1/booking-flow/quote").permitAll()
-                // Payment endpoints - PUBLIC access (no auth required)
-                .requestMatchers("/api/v1/payment/**").permitAll()
-                .requestMatchers("/api/v1/payments/**").permitAll()
+                // VNPay webhook endpoints - PUBLIC (VNPay server calls these)
+                .requestMatchers("/api/v1/webhooks/**").permitAll()
                 .requestMatchers("/api/webhook/**").permitAll()
+                // Payment endpoints - AUTHENTICATED (user must be logged in)
+                .requestMatchers(HttpMethod.GET, "/api/v1/payments/generate").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/v1/payments/{paymentId}").authenticated()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(bearerTokenFilter, UsernamePasswordAuthenticationFilter.class);

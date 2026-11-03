@@ -24,7 +24,7 @@ export const updateMemberHealthProfile = (profile) =>
 
 export const getMemberMemberships = () => apiRequest('/members/me/memberships');
 
-export const purchaseMembership = (packageId, paymentMethod = 'VIETQR') =>
+export const purchaseMembership = (packageId, paymentMethod = 'VNPAY') =>
   apiRequest('/members/me/memberships', {
     method: 'POST',
     body: JSON.stringify({ packageId, paymentMethod }),

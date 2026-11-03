@@ -1,21 +1,34 @@
 package com.sporthub.backend.controller;
 
-import com.sporthub.backend.entity.PaymentTransaction;
-import com.sporthub.backend.repository.PaymentTransactionRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
-
 import java.util.HashMap;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+
+import com.sporthub.backend.entity.PaymentTransaction;
+import com.sporthub.backend.repository.PaymentTransactionRepository;
+import com.sporthub.backend.service.gateway.PaymentGateway;
+
 /**
- * Controller để frontend polling payment status
+ * Payment Gateway Controller
  * 
- * Sau khi tạo booking và generate QR, frontend sẽ poll endpoint này
- * để kiểm tra xem payment đã được confirm từ webhook chưa
+ * Unified endpoint for generating payment URLs.
+ * 
+ * Current Implementation:
+ * - VNPAY: Redirect to VNPay Sandbox payment page
+ * 
+ * Endpoint:
+ * GET /api/v1/payments/generate?paymentId={id}&gateway=VNPAY
  */
 @RestController
 @RequestMapping("/api/v1/payments")
@@ -23,19 +36,93 @@ import java.util.Map;
 public class PaymentController {
 
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final PaymentGateway vnpayGateway;
 
     @Autowired
-    public PaymentController(PaymentTransactionRepository paymentTransactionRepository) {
+    public PaymentController(
+            PaymentTransactionRepository paymentTransactionRepository,
+            @Qualifier("vnpayGateway") PaymentGateway vnpayGateway) {
         this.paymentTransactionRepository = paymentTransactionRepository;
+        this.vnpayGateway = vnpayGateway;
+    }
+    
+    /**
+     * Generate payment URL for VNPay gateway
+     * 
+     * @param paymentId Payment transaction ID
+     * @param amount Payment amount (optional, will use from payment record)
+     * @param gateway Gateway type (VNPAY only)
+     * @param request HttpServletRequest to extract client IP
+     * @return Payment URL
+     */
+    @GetMapping("/generate")
+    public ResponseEntity<?> generatePayment(
+            @RequestParam Long paymentId,
+            @RequestParam(required = false) Double amount,
+            @RequestParam(defaultValue = "VNPAY") String gateway,
+            jakarta.servlet.http.HttpServletRequest request) {
+        
+        // Only VNPAY gateway supported
+        if (!"VNPAY".equalsIgnoreCase(gateway)) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST, "Only VNPAY gateway is supported");
+        }
+        
+        PaymentTransaction payment = paymentTransactionRepository
+            .findById(paymentId)
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND, "Payment not found"));
+        
+        String description = "Thanh toan " + payment.getBookingType() + " #" + payment.getReferenceCode();
+        
+        // Extract client IP address
+        String ipAddress = getClientIpAddress(request);
+        
+        Map<String, Object> response = vnpayGateway.generatePayment(
+            paymentId, 
+            payment.getAmount(), 
+            description,
+            ipAddress
+        );
+        
+        // Add bookingType to response for frontend navigation
+        response.put("bookingType", payment.getBookingType());
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * Extract client IP address from request
+     * Force IPv4 format for VNPay compatibility
+     */
+    private String getClientIpAddress(jakarta.servlet.http.HttpServletRequest request) {
+        String ipAddress = request.getHeader("X-Forwarded-For");
+        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
+            ipAddress = request.getHeader("Proxy-Client-IP");
+        }
+        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
+            ipAddress = request.getHeader("WL-Proxy-Client-IP");
+        }
+        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
+            ipAddress = request.getRemoteAddr();
+        }
+        // If multiple IPs in X-Forwarded-For, take the first one
+        if (ipAddress != null && ipAddress.contains(",")) {
+            ipAddress = ipAddress.split(",")[0].trim();
+        }
+        
+        // Convert IPv6 localhost to IPv4 for VNPay
+        if (ipAddress != null && (ipAddress.equals("0:0:0:0:0:0:0:1") || ipAddress.equals("::1"))) {
+            ipAddress = "127.0.0.1";
+        }
+        
+        return ipAddress != null ? ipAddress : "127.0.0.1";
     }
 
     /**
-     * Get payment status for polling
+     * Get payment status for polling (used by VNPay return page)
      * 
-     * Frontend sẽ gọi endpoint này mỗi 3-5s để check xem
-     * webhook đã update payment status thành PAID chưa
-     * 
-     * @param paymentId Payment ID từ booking confirmation
+     * @param paymentId Payment ID from booking confirmation
      * @return Payment status details
      */
     @GetMapping("/{paymentId}")

@@ -210,7 +210,7 @@ export default function AdminStaffApprovalsPage() {
   const pendingStaffCount = registrations.length;
   const pendingMemCount = pendingMemberships.filter((m) => m.status === 'PENDING_APPROVAL').length;
   const pendingLeaveCount = coachLeaveRequests.filter((r) => r.status === 'PENDING').length;
-  const pendingRefundCount = refundRequests.filter((r) => r.status === 'PENDING').length;
+  const pendingRefundCount = refundRequests.filter((r) => r.status === 'PENDING_APPROVAL').length;
 
   return (
     <AdminLayout>
@@ -573,12 +573,12 @@ export default function AdminStaffApprovalsPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
                   {refundRequests.map((ref) => {
-                    const isPending = ref.status === 'PENDING';
+                    const isPending = ref.status === 'PENDING_APPROVAL';
                     return (
                       <tr key={ref.refundId} className="hover:bg-slate-50">
                         <td className="px-5 py-4">
                           <strong className="block text-slate-900 text-sm">{ref.memberName}</strong>
-                          <span className="text-slate-500">{ref.phone} · Mã: #{ref.refundId}</span>
+                          <span className="text-slate-500">{ref.phone} · Mã: #{ref.referenceCode}</span>
                         </td>
                         <td className="px-5 py-4 text-slate-800 font-semibold">{ref.bookingDescription}</td>
                         <td className="px-5 py-4">

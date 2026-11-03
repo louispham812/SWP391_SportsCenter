@@ -11,7 +11,7 @@ import {
   getBookingSports,
   getCoachPublicProfile,
 } from '../../services/bookingApi';
-import { apiRequest } from '../../services/apiClient';
+import { apiRequest, generatePayment } from '../../services/apiClient';
 import PaymentMethodSelector from '../../components/common/PaymentMethodSelector';
 import { getSportMedia } from '../../utils/mediaMap';
 import Pagination from '../../components/common/Pagination';
@@ -61,7 +61,7 @@ export default function MemberClassesPage() {
   const [sessionQuote, setSessionQuote] = useState(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [paymentMode, setPaymentMode] = useState('RETAIL'); // 'QUOTA' | 'RETAIL'
-  const [paymentMethod, setPaymentMethod] = useState('VIETQR');
+  const [paymentMethod, setPaymentMethod] = useState('VNPAY');
   const [submittingRegister, setSubmittingRegister] = useState(false);
   const [registerError, setRegisterError] = useState('');
 
@@ -123,7 +123,7 @@ export default function MemberClassesPage() {
     if (registeringSession) {
       setRegisterError('');
       setQuoteLoading(true);
-      setPaymentMethod('VIETQR');
+      setPaymentMethod('VNPAY');
       setPaymentMode('RETAIL');
       setAppliedVoucher(null);
       setVoucherCode('');
@@ -308,44 +308,28 @@ export default function MemberClassesPage() {
         paymentMethod
       );
 
-      // Nếu chọn VIETQR → Generate QR Code và polling
-      if (paymentMethod === 'VIETQR') {
-        setSubmittingRegister(false); // Cho phép user cancel trong khi chờ
-        
+      // Redirect to VNPay payment page
+      if (paymentMethod === 'VNPAY') {
         try {
-          // Gọi API generate QR với paymentId
-          const token = localStorage.getItem('authToken');
-          const qrResponse = await fetch(
-            `/api/v1/payment/generate-qr?paymentId=${confirmation.paymentId}&amount=${confirmation.amountPaid}`,
-            {
-              headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-            }
-          );
+          const vnpayResult = await generatePayment(confirmation.paymentId, 'VNPAY');
           
-          if (!qrResponse.ok) {
-            const errorText = await qrResponse.text();
-            console.error('[CLASS QR] generate-qr API error:', errorText);
-            showToast('Lỗi tạo mã QR', `Không thể tạo mã QR: ${errorText}`, 'error');
-            return;
-          }
+          // Append bookingType to VNPay URL for return page navigation
+          const bookingType = vnpayResult.bookingType || 'CLASS';
+          const separator = vnpayResult.paymentUrl.includes('?') ? '&' : '?';
+          const paymentUrlWithType = `${vnpayResult.paymentUrl}${separator}bookingType=${encodeURIComponent(bookingType)}`;
           
-          const qrResult = await qrResponse.json();
-          
-          // Hiển thị QR Modal
-          setQrData(qrResult);
-          setShowQrModal(true);
-          
-          // Start polling payment status
-          startPollingPayment(confirmation.paymentId, confirmation);
+          // Redirect to VNPay payment page
+          window.location.href = paymentUrlWithType;
           return;
-        } catch (qrError) {
-          console.error('[CLASS QR] Exception:', qrError);
-          showToast('Lỗi hiển thị QR', 'Không thể hiển thị mã QR. Vui lòng thử lại.', 'error');
+        } catch (vnpayError) {
+          console.error('[VNPAY] Exception:', vnpayError);
+          showToast('Lỗi VNPay', vnpayError.message || 'Không thể chuyển đến trang thanh toán VNPay. Vui lòng thử lại.', 'error');
+          setSubmittingRegister(false);
           return;
         }
       }
 
-      // Các phương thức khác (CASH_COUNTER, VNPAY) → Show toast success
+      // Các phương thức khác (CASH_COUNTER) → Show toast success
       showToast(
         'Đăng ký thành công!',
         `Mã xác nhận: ${confirmation.referenceCode || 'TXN-OK'}. Lớp "${registeringSession.className}" đã được thêm vào Thời khóa biểu!`,
@@ -408,12 +392,24 @@ export default function MemberClassesPage() {
     if (!cancelingBooking) return;
     setSubmittingCancel(true);
     try {
-      await cancelMemberBooking('CLASS', cancelingBooking.bookingId);
-      showToast(
-        'Hủy đăng ký thành công',
-        'Lớp học đã được xóa khỏi thời khóa biểu. 100% học phí đã được hoàn vào ví giao dịch sandbox.',
-        'success'
-      );
+      const response = await cancelMemberBooking('CLASS', cancelingBooking.bookingId);
+      
+      // Check if refund is pending approval or already requested
+      if (response.refundStatus === 'PENDING_APPROVAL') {
+        showToast(
+          'Yêu cầu hoàn tiền đang chờ duyệt',
+          response.message || 'Yêu cầu hủy của bạn đã được gửi tới quản lý. Bạn sẽ nhận được thông báo khi có kết quả.',
+          'success'
+        );
+      } else {
+        // Fallback for other statuses
+        showToast(
+          response.status === 'COMPLETED' ? 'Hủy đăng ký thành công' : 'Yêu cầu đã gửi',
+          response.message || response.detailMessage || 'Yêu cầu của bạn đang được xử lý.',
+          'success'
+        );
+      }
+      
       setCancelingBooking(null);
       await loadData();
     } catch (err) {
@@ -691,8 +687,9 @@ export default function MemberClassesPage() {
                         </div>
                         <button
                           type="button"
+                          disabled={submittingCancel || cancelingBooking?.bookingId === cls.memberBookingId}
                           onClick={() => setCancelingBooking({ bookingId: cls.memberBookingId, className: cls.className })}
-                          className="w-full rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 py-2.5 text-xs font-bold text-red-700 transition cursor-pointer"
+                          className="w-full rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 py-2.5 text-xs font-bold text-red-700 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Hủy đăng ký lớp này
                         </button>
@@ -825,8 +822,6 @@ export default function MemberClassesPage() {
             ? 'Đang xử lý...'
             : paymentMode === 'QUOTA'
             ? `Xác Nhận Đặt Chỗ — Trừ ${requiredQuota} Buổi Gói Tập (Còn: ${memberQuota.remainingQuota - requiredQuota} buổi)`
-            : paymentMethod === 'VIETQR'
-            ? `Tôi Đã Chuyển Khoản — Xác Nhận ${formatMoney(finalPrice)}`
             : paymentMethod === 'CASH_COUNTER'
             ? `Giữ Chỗ (Thanh Toán Tại Quầy) — ${formatMoney(finalPrice)}`
             : paymentMethod === 'VNPAY'
@@ -1019,7 +1014,7 @@ export default function MemberClassesPage() {
                                 <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
                               )}
                             </div>
-                            <p className="text-[11px] text-slate-500 mt-1">Chuyển khoản VietQR, VNPay hoặc tiền mặt</p>
+                            <p className="text-[11px] text-slate-500 mt-1">Thanh toán VNPay hoặc tiền mặt quầy</p>
                           </div>
                           <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                             <span className="text-slate-500">Cần thanh toán:</span>

@@ -1,11 +1,12 @@
 package com.sporthub.backend.service.payment;
 
+import com.sporthub.backend.dto.PaymentConfirmationResult;
 import com.sporthub.backend.entity.PaymentTransaction;
-import java.util.Map;
 
 /**
- * Strategy interface cho webhook payment processing
- * Giảm ~200 lines duplicate code trong SePayWebhookController
+ * Strategy interface for webhook payment processing
+ * Supports multiple payment gateways (VNPay, VietQR, etc.)
+ * Used by VNPayWebhookController to confirm bookings after payment
  */
 public interface BookingPaymentHandler {
     
@@ -18,8 +19,8 @@ public interface BookingPaymentHandler {
      * Handle payment confirmation for specific booking type
      * 
      * @param payment PaymentTransaction đã được update status = PAID
-     * @param transferAmount Số tiền từ webhook (Double from SePay)
-     * @return Response map với success=true và booking details
+     * @param transferAmount Số tiền từ webhook (Double from payment gateway)
+     * @return PaymentConfirmationResult với success=true và booking details, hoặc null nếu không match
      */
-    Map<String, Object> handlePaymentConfirmation(PaymentTransaction payment, Double transferAmount);
+    PaymentConfirmationResult handlePaymentConfirmation(PaymentTransaction payment, Double transferAmount);
 }

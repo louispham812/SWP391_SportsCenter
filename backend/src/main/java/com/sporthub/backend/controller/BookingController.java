@@ -1,5 +1,21 @@
 package com.sporthub.backend.controller;
 
+import java.time.LocalDate;
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.sporthub.backend.dto.CancelBookingResponse;
 import com.sporthub.backend.dto.ClassSessionResponse;
 import com.sporthub.backend.dto.CoachScheduleEntryResponse;
 import com.sporthub.backend.dto.CoachStudentBookingResponse;
@@ -7,13 +23,6 @@ import com.sporthub.backend.dto.ReceptionistClassResponse;
 import com.sporthub.backend.dto.RosterBookingResponse;
 import com.sporthub.backend.entity.Booking;
 import com.sporthub.backend.service.BookingService;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
-
-import java.time.LocalDate;
-import java.util.List;
 
 
 @RestController
@@ -65,7 +74,7 @@ public class BookingController {
     }
 
     @DeleteMapping("/{bookingId}")
-    public ResponseEntity<Booking> cancelBooking(
+    public ResponseEntity<CancelBookingResponse> cancelBooking(
             @PathVariable Long bookingId,
             Authentication authentication) {
         requireRole(authentication, "MEMBER");

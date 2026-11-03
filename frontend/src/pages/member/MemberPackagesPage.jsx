@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { useApp } from '../../context/AppContext';
+import { generatePayment } from '../../services/apiClient';
 import { getPublicPackages } from '../../services/publicContentApi';
 import { getMemberMemberships, purchaseMembership } from '../../services/memberApi';
 import PaymentMethodSelector from '../../components/common/PaymentMethodSelector';
@@ -23,7 +24,7 @@ export default function MemberPackagesPage() {
   // Checkout modal
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [actionType, setActionType] = useState('register'); // 'register' | 'renew' | 'upgrade'
-  const [paymentMethod, setPaymentMethod] = useState('VIETQR');
+  const [paymentMethod, setPaymentMethod] = useState('VNPAY');
   const [submitting, setSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState('');
 
@@ -75,7 +76,7 @@ export default function MemberPackagesPage() {
   const handleOpenCheckout = (pkg, type) => {
     setSelectedPackage(pkg);
     setActionType(type);
-    setPaymentMethod('VIETQR');
+    setPaymentMethod('VNPAY');
     setCheckoutError('');
   };
 
@@ -140,44 +141,28 @@ export default function MemberPackagesPage() {
     try {
       const result = await purchaseMembership(selectedPackage.packageId, paymentMethod);
 
-      // Nếu chọn VIETQR → Generate QR Code và polling
-      if (paymentMethod === 'VIETQR' && result.paymentId) {
-        setSubmitting(false); // Cho phép user cancel trong khi chờ
-        
+      // Redirect to VNPay payment page
+      if (paymentMethod === 'VNPAY' && result.paymentId) {
         try {
-          // Gọi API generate QR với paymentId
-          const token = localStorage.getItem('authToken');
-          const qrResponse = await fetch(
-            `/api/v1/payment/generate-qr?paymentId=${result.paymentId}&amount=${selectedPackage.price}`,
-            {
-              headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-            }
-          );
+          const vnpayResult = await generatePayment(result.paymentId, 'VNPAY');
           
-          if (!qrResponse.ok) {
-            const errorText = await qrResponse.text();
-            console.error('[PACKAGE QR] generate-qr API error:', errorText);
-            showToast('Lỗi tạo mã QR', `Không thể tạo mã QR: ${errorText}`, 'error');
-            return;
-          }
+          // Append bookingType to VNPay URL for return page navigation
+          const bookingType = vnpayResult.bookingType || 'MEMBERSHIP_PACKAGE';
+          const separator = vnpayResult.paymentUrl.includes('?') ? '&' : '?';
+          const paymentUrlWithType = `${vnpayResult.paymentUrl}${separator}bookingType=${encodeURIComponent(bookingType)}`;
           
-          const qrResult = await qrResponse.json();
-          
-          // Hiển thị QR Modal
-          setQrData(qrResult);
-          setShowQrModal(true);
-          
-          // Start polling payment status
-          startPollingPayment(result.paymentId);
+          // Redirect to VNPay payment page
+          window.location.href = paymentUrlWithType;
           return;
-        } catch (qrError) {
-          console.error('[PACKAGE QR] Exception:', qrError);
-          showToast('Lỗi hiển thị QR', 'Không thể hiển thị mã QR. Vui lòng thử lại.', 'error');
+        } catch (vnpayError) {
+          console.error('[VNPAY] Exception:', vnpayError);
+          showToast('Lỗi VNPay', vnpayError.message || 'Không thể chuyển đến trang thanh toán VNPay. Vui lòng thử lại.', 'error');
+          setSubmitting(false);
           return;
         }
       }
 
-      // Các phương thức khác (CASH_COUNTER, VNPAY, SANDBOX) hoặc không có paymentId
+      // Các phương thức khác (CASH_COUNTER, SANDBOX) hoặc không có paymentId
       const title = actionType === 'renew' ? 'Gia hạn thành công' : actionType === 'upgrade' ? 'Nâng cấp thành công' : 'Đăng ký thành công';
       const message = `Gói ${selectedPackage.name} đang chờ Quản lý phê duyệt. Mã GD: ${result?.referenceCode || 'VQR-PKG'}`;
       showToast(title, message, 'success');
@@ -537,8 +522,6 @@ export default function MemberPackagesPage() {
                 >
                   {submitting
                     ? 'Đang xử lý...'
-                    : paymentMethod === 'VIETQR'
-                    ? 'Tôi Đã Chuyển Khoản — Kích Hoạt'
                     : paymentMethod === 'CASH_COUNTER'
                     ? 'Đăng Ký (Trả Tại Quầy)'
                     : paymentMethod === 'VNPAY'

@@ -1,43 +1,16 @@
 package com.sporthub.backend.service;
 
-import com.sporthub.backend.dto.BookingConfirmationResponse;
-import com.sporthub.backend.dto.CoachScheduleEntryResponse;
-import com.sporthub.backend.dto.ReceptionistClassResponse;
-import com.sporthub.backend.dto.CheckoutRequest;
-import com.sporthub.backend.entity.Booking;
-import com.sporthub.backend.entity.ClassSession;
-import com.sporthub.backend.entity.CourtBooking;
-import com.sporthub.backend.entity.PaymentTransaction;
-import com.sporthub.backend.entity.PublicFacility;
-import com.sporthub.backend.entity.PublicSport;
-import com.sporthub.backend.entity.SportsCourt;
-import com.sporthub.backend.entity.User;
-import com.sporthub.backend.entity.CourtMaintenance;
-import com.sporthub.backend.enums.AttendanceStatus;
-import com.sporthub.backend.repository.BookingRepository;
-import com.sporthub.backend.repository.ClassSessionRepository;
-import com.sporthub.backend.repository.CourtBookingRepository;
-import com.sporthub.backend.repository.CourtMaintenanceRepository;
-import com.sporthub.backend.repository.PaymentTransactionRepository;
-import com.sporthub.backend.repository.PublicFacilityRepository;
-import com.sporthub.backend.repository.PublicSportRepository;
-import com.sporthub.backend.repository.MembershipPackageRepository;
-import com.sporthub.backend.repository.SportsCourtRepository;
-import com.sporthub.backend.repository.UserMembershipRepository;
-import com.sporthub.backend.repository.UserRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.web.server.ResponseStatusException;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.Optional;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -45,6 +18,34 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.springframework.web.server.ResponseStatusException;
+
+import com.sporthub.backend.constants.PaymentConstants;
+import com.sporthub.backend.dto.BookingConfirmationResponse;
+import com.sporthub.backend.dto.CheckoutRequest;
+import com.sporthub.backend.dto.CoachScheduleEntryResponse;
+import com.sporthub.backend.dto.ReceptionistClassResponse;
+import com.sporthub.backend.entity.Booking;
+import com.sporthub.backend.entity.ClassSession;
+import com.sporthub.backend.entity.CourtBooking;
+import com.sporthub.backend.entity.CourtMaintenance;
+import com.sporthub.backend.entity.PaymentTransaction;
+import com.sporthub.backend.entity.PublicFacility;
+import com.sporthub.backend.entity.PublicSport;
+import com.sporthub.backend.entity.SportsCourt;
+import com.sporthub.backend.entity.User;
+import com.sporthub.backend.enums.AttendanceStatus;
+import com.sporthub.backend.repository.BookingRepository;
+import com.sporthub.backend.repository.ClassSessionRepository;
+import com.sporthub.backend.repository.CourtBookingRepository;
+import com.sporthub.backend.repository.CourtMaintenanceRepository;
+import com.sporthub.backend.repository.MembershipPackageRepository;
+import com.sporthub.backend.repository.PaymentTransactionRepository;
+import com.sporthub.backend.repository.PublicFacilityRepository;
+import com.sporthub.backend.repository.PublicSportRepository;
+import com.sporthub.backend.repository.SportsCourtRepository;
+import com.sporthub.backend.repository.UserMembershipRepository;
+import com.sporthub.backend.repository.UserRepository;
 
 class BookingServiceTest {
 
@@ -110,7 +111,7 @@ class BookingServiceTest {
 
         BookingConfirmationResponse response = bookingService.checkout(
                 11L,
-                new CheckoutRequest("CLASS", 22L, null, null, "SANDBOX"));
+                new CheckoutRequest("CLASS", 22L, null, null, PaymentConstants.METHOD_VNPAY));
 
         assertEquals("CLASS", response.bookingType());
         assertEquals(88L, response.bookingId());
@@ -130,7 +131,7 @@ class BookingServiceTest {
 
         assertThrows(ResponseStatusException.class, () -> bookingService.checkout(
                 11L,
-                new CheckoutRequest("CLASS", 22L, null, null, "SANDBOX")));
+                new CheckoutRequest("CLASS", 22L, null, null, PaymentConstants.METHOD_VNPAY)));
         verify(paymentTransactionRepository, never()).save(any(PaymentTransaction.class));
     }
 
@@ -253,7 +254,7 @@ class BookingServiceTest {
 
         BookingConfirmationResponse response = bookingService.checkout(
                 11L,
-                new CheckoutRequest("COURT", 33L, start, end, "SANDBOX"));
+                new CheckoutRequest("COURT", 33L, start, end, PaymentConstants.METHOD_VNPAY));
 
         assertEquals(99L, response.bookingId());
         assertEquals(new BigDecimal("180000"), response.amountPaid());
@@ -283,7 +284,7 @@ class BookingServiceTest {
 
         BookingConfirmationResponse response = bookingService.checkout(
                 11L,
-                new CheckoutRequest("COURT", 33L, start, end, "SANDBOX"));
+                new CheckoutRequest("COURT", 33L, start, end, PaymentConstants.METHOD_VNPAY));
 
         assertEquals(100L, response.bookingId());
         assertEquals(new BigDecimal("540000"), response.amountPaid());
@@ -399,7 +400,7 @@ class BookingServiceTest {
         when(courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(33L, end, start))
                 .thenReturn(true);
 
-        CheckoutRequest request = new CheckoutRequest("COURT", 33L, start, end, "VIETQR");
+        CheckoutRequest request = new CheckoutRequest("COURT", 33L, start, end, PaymentConstants.METHOD_VNPAY);
         ResponseStatusException ex = assertThrows(ResponseStatusException.class, () ->
                 bookingService.checkout(11L, request));
         assertEquals(409, ex.getStatusCode().value());

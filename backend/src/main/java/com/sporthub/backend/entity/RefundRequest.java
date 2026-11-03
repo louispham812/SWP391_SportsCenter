@@ -1,9 +1,19 @@
 package com.sporthub.backend.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "refund_requests")
@@ -34,6 +44,12 @@ public class RefundRequest {
     @Column(name = "reference_code", length = 50)
     private String referenceCode;
 
+    @Column(name = "booking_id")
+    private Long bookingId;
+
+    @Column(name = "booking_type", length = 20)
+    private String bookingType;  // "CLASS" | "COURT" | "MEMBERSHIP"
+
     @Column(name = "booking_description", length = 255)
     private String bookingDescription;
 
@@ -54,7 +70,7 @@ public class RefundRequest {
 
     @Builder.Default
     @Column(nullable = false, length = 20)
-    private String status = "PENDING"; // PENDING, APPROVED, REJECTED
+    private String status = "PENDING_APPROVAL"; // PENDING_APPROVAL, APPROVED, REJECTED
 
     @Column(name = "approved_by")
     private Long approvedBy;

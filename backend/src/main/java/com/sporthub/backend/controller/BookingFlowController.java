@@ -108,21 +108,22 @@ public class BookingFlowController {
     }
 
     @DeleteMapping("/schedule/{bookingType}/{bookingId}")
-    public ResponseEntity<Void> cancelScheduleEntry(
+    public ResponseEntity<com.sporthub.backend.dto.CancelBookingResponse> cancelScheduleEntry(
             @PathVariable String bookingType,
             @PathVariable Long bookingId,
             Authentication authentication) {
         requireMember(authentication);
         String normalizedType = bookingType.toUpperCase(java.util.Locale.ROOT);
+        com.sporthub.backend.dto.CancelBookingResponse response;
         if ("CLASS".equals(normalizedType)) {
-            bookingService.cancelClassBooking(bookingId, actorId(authentication));
+            response = bookingService.cancelClassBooking(bookingId, actorId(authentication));
         } else if ("COURT".equals(normalizedType)) {
-            bookingService.cancelCourtBooking(bookingId, actorId(authentication));
+            response = bookingService.cancelCourtBooking(bookingId, actorId(authentication));
         } else {
             throw new org.springframework.web.server.ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Loại booking không hợp lệ.");
         }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(response);
     }
 
     private void requireMember(Authentication authentication) {

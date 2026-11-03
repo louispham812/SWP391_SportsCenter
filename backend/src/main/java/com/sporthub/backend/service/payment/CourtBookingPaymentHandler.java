@@ -1,18 +1,23 @@
 package com.sporthub.backend.service.payment;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.sporthub.backend.dto.PaymentConfirmationResult;
 import com.sporthub.backend.entity.CourtBooking;
 import com.sporthub.backend.entity.PaymentTransaction;
 import com.sporthub.backend.repository.CourtBookingRepository;
 import com.sporthub.backend.service.EngagementService;
-import org.springframework.stereotype.Component;
-
-import java.util.Map;
 
 /**
  * Handle COURT booking payment confirmation
  */
 @Component
 public class CourtBookingPaymentHandler implements BookingPaymentHandler {
+    
+    private static final Logger logger = LoggerFactory.getLogger(CourtBookingPaymentHandler.class);
     
     private final CourtBookingRepository courtBookingRepository;
     private final EngagementService engagementService;
@@ -30,7 +35,8 @@ public class CourtBookingPaymentHandler implements BookingPaymentHandler {
     }
     
     @Override
-    public Map<String, Object> handlePaymentConfirmation(PaymentTransaction payment, Double transferAmount) {
+    @Transactional
+    public PaymentConfirmationResult handlePaymentConfirmation(PaymentTransaction payment, Double transferAmount) {
         Long paymentId = payment.getPaymentId();
         CourtBooking courtBooking = courtBookingRepository.findByPaymentId(paymentId);
         
@@ -40,7 +46,7 @@ public class CourtBookingPaymentHandler implements BookingPaymentHandler {
         
         // Rule 9: Check if booking already CANCELLED (late payment)
         if ("CANCELLED".equalsIgnoreCase(courtBooking.getStatus())) {
-            System.out.println("⚠ COURT Booking #" + courtBooking.getCourtBookingId() + " already CANCELLED (late payment)");
+            logger.warn("COURT Booking #{} already CANCELLED (late payment)", courtBooking.getCourtBookingId());
             if (engagementService != null) {
                 engagementService.notifyUser(
                     courtBooking.getMemberId(), "Thanh toán đến muộn",
@@ -51,12 +57,12 @@ public class CourtBookingPaymentHandler implements BookingPaymentHandler {
             // Update court booking status to CONFIRMED
             courtBooking.setStatus("CONFIRMED");
             courtBookingRepository.save(courtBooking);
-            System.out.println("✓✓✓ COURT Booking #" + courtBooking.getCourtBookingId() + " confirmed");
+            logger.info("COURT Booking #{} confirmed", courtBooking.getCourtBookingId());
             
             // Send success notification
             if (engagementService != null) {
                 engagementService.audit(
-                    courtBooking.getMemberId(), "MEMBER", "SEPAY_PAYMENT_CONFIRMED",
+                    courtBooking.getMemberId(), "MEMBER", "PAYMENT_CONFIRMED",
                     "courtBookingId=" + courtBooking.getCourtBookingId() + ", paymentId=" + paymentId +
                     ", amount=" + transferAmount
                 );
@@ -67,11 +73,13 @@ public class CourtBookingPaymentHandler implements BookingPaymentHandler {
             }
         }
         
-        return Map.of(
-            "success", true, 
-            "paymentId", paymentId, 
-            "bookingType", "COURT", 
-            "courtBookingId", courtBooking.getCourtBookingId()
-        );
+        PaymentConfirmationResult result = new PaymentConfirmationResult();
+        result.setSuccess(true);
+        result.setPaymentId(paymentId);
+        result.setBookingType("COURT");
+        result.setBookingId(courtBooking.getCourtBookingId());
+        result.setStatus(courtBooking.getStatus());
+        result.setMessage("Đặt sân đã được xác nhận");
+        return result;
     }
 }
