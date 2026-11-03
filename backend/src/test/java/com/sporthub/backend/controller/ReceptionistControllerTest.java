@@ -1,31 +1,31 @@
 package com.sporthub.backend.controller;
 
-import com.sporthub.backend.entity.PaymentTransaction;
-import com.sporthub.backend.entity.ReceptionPayment;
-import com.sporthub.backend.entity.User;
-import com.sporthub.backend.dto.*;
-import com.sporthub.backend.repository.PaymentTransactionRepository;
-import com.sporthub.backend.repository.MembershipPackageRepository;
-import com.sporthub.backend.repository.MemberCheckInRepository;
-import com.sporthub.backend.repository.ReceptionPaymentRepository;
-import com.sporthub.backend.repository.UserMembershipRepository;
-import com.sporthub.backend.repository.UserRepository;
-import org.junit.jupiter.api.Test;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+
+import com.sporthub.backend.constants.PaymentConstants;
+import com.sporthub.backend.entity.PaymentTransaction;
+import com.sporthub.backend.entity.ReceptionPayment;
+import com.sporthub.backend.entity.User;
+import com.sporthub.backend.repository.MemberCheckInRepository;
+import com.sporthub.backend.repository.MembershipPackageRepository;
+import com.sporthub.backend.repository.PaymentTransactionRepository;
+import com.sporthub.backend.repository.ReceptionPaymentRepository;
+import com.sporthub.backend.repository.UserMembershipRepository;
+import com.sporthub.backend.repository.UserRepository;
 
 class ReceptionistControllerTest {
 
@@ -95,7 +95,7 @@ class ReceptionistControllerTest {
         bookingPayment.setPaymentId(3L);
         bookingPayment.setMemberId(9L);
         bookingPayment.setAmount(new BigDecimal("200000"));
-        bookingPayment.setPaymentMethod("SANDBOX");
+        bookingPayment.setPaymentMethod(PaymentConstants.METHOD_VNPAY);
         bookingPayment.setPaymentStatus("PAID");
         bookingPayment.setCreatedAt(createdAt.plusMinutes(2));
 

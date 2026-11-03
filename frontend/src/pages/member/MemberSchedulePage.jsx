@@ -121,29 +121,54 @@ export default function MemberSchedulePage() {
     }
   };
 
-  // Confirm cancel booking with 100% refund
+  // Confirm cancel booking - Create RefundRequest and wait for Manager approval
   const handleConfirmCancel = async () => {
     if (!cancelingBooking) return;
     const target = cancelingBooking;
     setSubmittingCancel(true);
     try {
-      await cancelMemberBooking(target.bookingType, target.bookingId);
-      const isClass = target.bookingType === 'CLASS';
-      const successText = `Đã hủy ${isClass ? 'lớp học' : 'sân'} thành công`;
-      setStatusMessage(successText);
-      showToast(
-        'Hủy đặt chỗ thành công',
-        `Đã hủy thành công ${target.title}. Hệ thống đã hoàn tiền 100% vào sổ giao dịch.`,
-        'success'
-      );
-      // Optimistically remove immediately from local schedule state
-      setScheduleEntries((prev) =>
-        prev.filter(
-          (item) => !(item.bookingType === target.bookingType && String(item.bookingId) === String(target.bookingId))
-        )
-      );
-      setCancelingBooking(null);
-      await loadSchedule();
+      const response = await cancelMemberBooking(target.bookingType, target.bookingId);
+      
+      // Check response status
+      if (response && response.status === 'PENDING_APPROVAL') {
+        // LUỒNG 1: RefundRequest created, waiting for Manager approval
+        setStatusMessage('Yêu cầu hoàn tiền đã được gửi và đang chờ quản lý phê duyệt');
+        showToast(
+          'Yêu cầu hủy đã được gửi',
+          response.message || 'Yêu cầu hủy đăng ký của bạn đang chờ quản lý phê duyệt. Bạn sẽ nhận được thông báo khi có kết quả.',
+          'info'
+        );
+        // ✅ GIỮ NGUYÊN UI - KHÔNG XÓA booking khỏi schedule
+        // Booking vẫn hiển thị với badge "Chờ duyệt hoàn tiền"
+        setCancelingBooking(null);
+        await loadSchedule(); // Reload to get updated status
+      } else if (response && response.status === 'ALREADY_REQUESTED') {
+        // RefundRequest already exists
+        showToast(
+          'Yêu cầu đã tồn tại',
+          response.message || 'Bạn đã gửi yêu cầu hoàn tiền trước đó. Vui lòng chờ quản lý xử lý.',
+          'warning'
+        );
+        setCancelingBooking(null);
+      } else {
+        // Fallback: old behavior (immediate cancel)
+        const isClass = target.bookingType === 'CLASS';
+        const successText = `Đã hủy ${isClass ? 'lớp học' : 'sân'} thành công`;
+        setStatusMessage(successText);
+        showToast(
+          'Hủy đặt chỗ thành công',
+          `Đã hủy thành công ${target.title}.`,
+          'success'
+        );
+        // Remove from UI immediately (old flow)
+        setScheduleEntries((prev) =>
+          prev.filter(
+            (item) => !(item.bookingType === target.bookingType && String(item.bookingId) === String(target.bookingId))
+          )
+        );
+        setCancelingBooking(null);
+        await loadSchedule();
+      }
     } catch (err) {
       showToast('Hủy lịch thất bại', err.message || 'Không thể hủy lịch này.', 'error');
     } finally {
@@ -157,8 +182,13 @@ export default function MemberSchedulePage() {
 
   const weekEntries = useMemo(() => {
     return scheduleEntries.filter((entry) => {
-      // Exclude cancelled and refunded bookings from the schedule
-      if (entry.status === 'CANCELLED' || entry.status === 'REFUNDED' || entry.refundStatus === 'REFUNDED') {
+      // Exclude CANCELLED and REFUNDED bookings from the schedule
+      // But KEEP bookings with refundStatus='PENDING_APPROVAL' (waiting for Manager)
+      if (entry.status === 'CANCELLED' || entry.status === 'REFUNDED') {
+        return false;
+      }
+      // Also exclude if refund completed
+      if (entry.refundStatus === 'REFUNDED') {
         return false;
       }
 
@@ -213,7 +243,12 @@ export default function MemberSchedulePage() {
   const canCancel = (entry) => {
     const startMs = new Date(entry.startTime).getTime();
     const diffHours = (startMs - nowMs) / (1000 * 60 * 60);
-    return diffHours >= 2 && entry.status !== 'CANCELLED' && entry.status !== 'REFUNDED';
+    // Can cancel if: >= 2h before start, not cancelled/refunded, and NOT already have pending refund request
+    return diffHours >= 2 && 
+           entry.status !== 'CANCELLED' && 
+           entry.status !== 'REFUNDED' && 
+           entry.refundStatus !== 'PENDING_APPROVAL' &&
+           entry.refundStatus !== 'REFUNDED';
   };
 
   return (
@@ -570,7 +605,13 @@ export default function MemberSchedulePage() {
                             >
                               {/* Status Badge */}
                               <div>
-                                {isPast ? (
+                                {/* Check if refund request pending approval */}
+                                {entry.refundStatus === 'PENDING_APPROVAL' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-800 border border-yellow-300">
+                                    <span className="material-symbols-outlined text-[12px]">schedule</span>
+                                    Chờ duyệt hoàn tiền
+                                  </span>
+                                ) : isPast ? (
                                   isAttended ? (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                                       <span className="material-symbols-outlined text-[12px]">check</span>
@@ -600,8 +641,8 @@ export default function MemberSchedulePage() {
                                 )}
                               </div>
 
-                              {/* Cancel Action */}
-                              {canCancel(entry) && (
+                              {/* Cancel Action - Hide if refund pending */}
+                              {canCancel(entry) && entry.refundStatus !== 'PENDING_APPROVAL' && (
                                 <button
                                   type="button"
                                   onClick={() => setCancelingBooking(entry)}

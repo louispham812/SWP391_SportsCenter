@@ -1,13 +1,21 @@
 package com.sporthub.backend;
 
-import com.sporthub.backend.controller.*;
-import com.sporthub.backend.dto.*;
-import com.sporthub.backend.entity.*;
-import com.sporthub.backend.enums.AttendanceStatus;
-import com.sporthub.backend.repository.*;
-import com.sporthub.backend.service.*;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -15,16 +23,54 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import com.sporthub.backend.controller.CoachLeaveController;
+import com.sporthub.backend.controller.EquipmentController;
+import com.sporthub.backend.controller.ManagerController;
+import com.sporthub.backend.controller.RefundRequestController;
+import com.sporthub.backend.controller.SupportTicketController;
+import com.sporthub.backend.dto.AuthResponse;
+import com.sporthub.backend.dto.CreateRefundRequest;
+import com.sporthub.backend.dto.CreateTicketRequest;
+import com.sporthub.backend.dto.LeaveDecisionRequest;
+import com.sporthub.backend.dto.MembershipQuotaResponse;
+import com.sporthub.backend.dto.RefundDecisionRequest;
+import com.sporthub.backend.dto.RegisterRequest;
+import com.sporthub.backend.entity.Booking;
+import com.sporthub.backend.entity.ClassSession;
+import com.sporthub.backend.entity.CoachLeaveRequest;
+import com.sporthub.backend.entity.EquipmentLoan;
+import com.sporthub.backend.entity.MembershipPackage;
+import com.sporthub.backend.entity.PaymentTransaction;
+import com.sporthub.backend.entity.RefundRequest;
+import com.sporthub.backend.entity.User;
+import com.sporthub.backend.entity.UserMembership;
+import com.sporthub.backend.enums.AttendanceStatus;
+import com.sporthub.backend.repository.AuthSessionRepository;
+import com.sporthub.backend.repository.BookingRepository;
+import com.sporthub.backend.repository.ClassSessionRepository;
+import com.sporthub.backend.repository.CoachLeaveRequestRepository;
+import com.sporthub.backend.repository.CourtBookingRepository;
+import com.sporthub.backend.repository.CourtMaintenanceRepository;
+import com.sporthub.backend.repository.EquipmentLoanRepository;
+import com.sporthub.backend.repository.EquipmentRepository;
+import com.sporthub.backend.repository.MembershipPackageRepository;
+import com.sporthub.backend.repository.PaymentTransactionRepository;
+import com.sporthub.backend.repository.PublicFacilityRepository;
+import com.sporthub.backend.repository.PublicSportRepository;
+import com.sporthub.backend.repository.ReceptionPaymentRepository;
+import com.sporthub.backend.repository.RefundRequestRepository;
+import com.sporthub.backend.repository.SportsCourtRepository;
+import com.sporthub.backend.repository.SupportTicketRepository;
+import com.sporthub.backend.repository.UserMembershipRepository;
+import com.sporthub.backend.repository.UserRepository;
+import com.sporthub.backend.repository.VerificationTokenRepository;
+import com.sporthub.backend.service.AuditLogService;
+import com.sporthub.backend.service.AuthService;
+import com.sporthub.backend.service.BookingService;
+import com.sporthub.backend.service.EmailService;
+import com.sporthub.backend.service.EngagementService;
+import com.sporthub.backend.service.MembershipService;
+import com.sporthub.backend.service.PaymentService;
 
 class BusinessRulesValidationTest {
 
@@ -126,8 +172,9 @@ class BusinessRulesValidationTest {
         equipmentController = new EquipmentController(equipmentRepository, equipmentLoanRepository, userRepository);
 
         receptionPaymentRepository = mock(ReceptionPaymentRepository.class);
+        com.sporthub.backend.service.gateway.VNPayGateway vnpayGateway = mock(com.sporthub.backend.service.gateway.VNPayGateway.class);
         refundRequestController = new RefundRequestController(
-                refundRequestRepository, userRepository, paymentTransactionRepository, receptionPaymentRepository, engagementService
+                refundRequestRepository, userRepository, paymentTransactionRepository, receptionPaymentRepository, engagementService, vnpayGateway
         );
 
         supportTicketRepository = mock(SupportTicketRepository.class);

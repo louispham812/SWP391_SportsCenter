@@ -12,6 +12,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import VerifyCodePage from './pages/VerifyCodePage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import PublicContentPage from './pages/PublicContentPage';
+import VNPayReturnPage from './pages/VNPayReturnPage';
 
 // Member Portal Pages
 import MemberDashboardPage from './pages/member/MemberDashboardPage';
@@ -99,6 +100,7 @@ function App() {
           <Route path="/change-password" element={<ChangePasswordPage />} />
           <Route path="/verify-otp" element={<OtpVerificationPage />} />
           <Route path="/otp" element={<OtpVerificationPage />} />
+          <Route path="/payment/return" element={<VNPayReturnPage />} />
 
           {/* Member Routes */}
           <Route path="/member" element={<RequireRole role="member"><MemberDashboardPage /></RequireRole>} />

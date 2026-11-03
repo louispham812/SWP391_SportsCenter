@@ -1,17 +1,18 @@
 package com.sporthub.backend.service;
 
-import com.sporthub.backend.entity.MembershipPackage;
-import com.sporthub.backend.entity.UserMembership;
-import com.sporthub.backend.repository.MembershipPackageRepository;
-import com.sporthub.backend.repository.UserMembershipRepository;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
+import com.sporthub.backend.entity.MembershipPackage;
+import com.sporthub.backend.entity.UserMembership;
+import com.sporthub.backend.repository.MembershipPackageRepository;
+import com.sporthub.backend.repository.UserMembershipRepository;
 
 /**
  * Service xử lý nghiệp vụ membership và quota tracking
@@ -366,5 +367,73 @@ public class MembershipService {
 
         userMembershipRepository.save(membership);
         validateQuotaFormula(membership);
+    }
+
+    /**
+     * LUỒNG 2: Hủy membership sau khi Manager duyệt refund request
+     * Gọi SAU KHI VNPay refund API thành công
+     * 
+     * @param membershipId ID của UserMembership cần hủy
+     * @param refundId ID của RefundRequest (cho audit log)
+     */
+    @Transactional
+    public void cancelMembershipAfterRefund(Long membershipId, Long refundId) {
+        UserMembership membership = userMembershipRepository.findById(membershipId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                    "Membership không tồn tại"));
+
+        // Chỉ cancel membership đang ACTIVE
+        if (!"ACTIVE".equals(membership.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    String.format("Chỉ có thể hủy membership ở trạng thái ACTIVE. Hiện tại: %s", 
+                            membership.getStatus()));
+        }
+
+        // Get package info for notification
+        MembershipPackage pkg = membershipPackageRepository.findById(membership.getPackageId())
+                .orElse(null);
+
+        // Hủy membership
+        membership.setStatus("CANCELLED");
+        
+        // Xóa hết quota - revoke all privileges
+        membership.setRemainingQuotaSessions(0);
+        membership.setHeldQuotaSessions(0);
+        // used giữ nguyên (đã dùng thì đã dùng)
+        
+        // Hết hiệu lực ngay
+        membership.setEndDate(LocalDate.now());
+        
+        userMembershipRepository.save(membership);
+
+        // Send notification
+        if (engagementService != null) {
+            String pkgName = pkg != null ? pkg.getName() : "Gói tập";
+            engagementService.notifyUser(
+                membership.getUserId(),
+                "Gói tập đã bị hủy do hoàn tiền",
+                String.format("Gói tập '%s' của bạn đã bị hủy do yêu cầu hoàn tiền được duyệt. " +
+                        "Quota và quyền lợi đã bị thu hồi. Tiền sẽ được chuyển về tài khoản trong 3-5 ngày làm việc.",
+                        pkgName),
+                "MEMBERSHIP_CANCELLED"
+            );
+        }
+
+        // Audit log
+        if (auditLogService != null) {
+            String pkgName = pkg != null ? pkg.getName() : "Unknown";
+            auditLogService.logSuccess(
+                "MEMBERSHIP_CANCELLED_REFUND",
+                String.format("RefundRequest #%d", refundId),
+                membership.getMembershipId(),
+                String.format("Cancelled membership #%d (Package: %s) for user #%d after refund approval. " +
+                        "Quota revoked: remaining=%d, held=%d → 0. Status: ACTIVE → CANCELLED",
+                        membership.getMembershipId(),
+                        pkgName,
+                        membership.getUserId(),
+                        membership.getRemainingQuotaSessions(),
+                        membership.getHeldQuotaSessions())
+            );
+        }
     }
 }

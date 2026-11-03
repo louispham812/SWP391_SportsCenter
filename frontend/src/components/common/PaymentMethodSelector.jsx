@@ -1,15 +1,15 @@
 import React from 'react';
 
 export default function PaymentMethodSelector({
-  selectedMethod = 'VIETQR',
+  selectedMethod = 'VNPAY',
   onChange,
 }) {
   const methods = [
     {
-      id: 'VIETQR',
-      name: 'Chuyển khoản VietQR',
-      subtitle: 'Napas 247 · Tự động duyệt',
-      icon: 'qr_code_2',
+      id: 'VNPAY',
+      name: 'Thanh toán VNPay',
+      subtitle: 'Thẻ ATM · Visa · MasterCard',
+      icon: 'credit_card',
       badge: 'Khuyên dùng',
     },
     {
@@ -79,6 +79,18 @@ export default function PaymentMethodSelector({
           })}
         </div>
       </div>
+
+      {selectedMethod === 'VNPAY' && (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 text-xs text-blue-950 space-y-2">
+          <div className="flex items-center gap-2 font-bold text-blue-900">
+            <span className="material-symbols-outlined text-lg text-blue-600">credit_card</span>
+            <span>Thanh toán qua VNPay</span>
+          </div>
+          <p className="leading-relaxed text-blue-800">
+            Hệ thống sẽ chuyển bạn đến cổng thanh toán VNPay. Bạn có thể thanh toán bằng <strong>thẻ ATM nội địa</strong>, <strong>thẻ tín dụng Visa/MasterCard</strong> hoặc <strong>QR Pay</strong> của VNPay.
+          </p>
+        </div>
+      )}
 
       {selectedMethod === 'CASH_COUNTER' && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-xs text-emerald-950 space-y-2">

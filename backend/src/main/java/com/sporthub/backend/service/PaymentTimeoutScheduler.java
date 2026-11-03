@@ -1,5 +1,14 @@
 package com.sporthub.backend.service;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.sporthub.backend.constants.PaymentConstants;
 import com.sporthub.backend.entity.Booking;
 import com.sporthub.backend.entity.CourtBooking;
@@ -7,12 +16,6 @@ import com.sporthub.backend.entity.PaymentTransaction;
 import com.sporthub.backend.repository.BookingRepository;
 import com.sporthub.backend.repository.CourtBookingRepository;
 import com.sporthub.backend.repository.PaymentTransactionRepository;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * Scheduled task để tự động CANCEL các booking chưa thanh toán sau 10 phút
@@ -24,6 +27,7 @@ import java.util.List;
 @Service
 public class PaymentTimeoutScheduler {
 
+    private static final Logger logger = LoggerFactory.getLogger(PaymentTimeoutScheduler.class);
     private static final int TIMEOUT_MINUTES = 10;
     
     private final BookingRepository bookingRepository;
@@ -78,7 +82,7 @@ public class PaymentTimeoutScheduler {
                     }
                 }
                 
-                System.out.println("✂ Auto-cancelled CLASS booking #" + booking.getBookingId() + " (unpaid after " + TIMEOUT_MINUTES + " minutes)");
+                logger.info("Auto-cancelled CLASS booking #{} (unpaid after {} minutes)", booking.getBookingId(), TIMEOUT_MINUTES);
                 
                 // Notify user
                 if (engagementService != null) {
@@ -90,7 +94,7 @@ public class PaymentTimeoutScheduler {
                     );
                 }
             } catch (Exception e) {
-                System.err.println("Error cancelling CLASS booking #" + booking.getBookingId() + ": " + e.getMessage());
+                logger.error("Error cancelling CLASS booking #{}: {}", booking.getBookingId(), e.getMessage());
             }
         }
         
@@ -121,7 +125,7 @@ public class PaymentTimeoutScheduler {
                     }
                 }
                 
-                System.out.println("✂ Auto-cancelled COURT booking #" + courtBooking.getCourtBookingId() + " (unpaid after " + TIMEOUT_MINUTES + " minutes)");
+                logger.info("Auto-cancelled COURT booking #{} (unpaid after {} minutes)", courtBooking.getCourtBookingId(), TIMEOUT_MINUTES);
                 
                 // Notify user
                 if (engagementService != null) {
@@ -133,14 +137,13 @@ public class PaymentTimeoutScheduler {
                     );
                 }
             } catch (Exception e) {
-                System.err.println("Error cancelling COURT booking #" + courtBooking.getCourtBookingId() + ": " + e.getMessage());
+                logger.error("Error cancelling COURT booking #{}: {}", courtBooking.getCourtBookingId(), e.getMessage());
             }
         }
         
         if (!unpaidClassBookings.isEmpty() || !unpaidCourtBookings.isEmpty()) {
-            System.out.println("✓ Payment timeout check completed: " + 
-                unpaidClassBookings.size() + " class bookings, " + 
-                unpaidCourtBookings.size() + " court bookings cancelled.");
+            logger.info("Payment timeout check completed: {} class bookings, {} court bookings cancelled", 
+                unpaidClassBookings.size(), unpaidCourtBookings.size());
         }
         
         // Rule: Handle MEMBERSHIP_PACKAGE payments (payment_transactions table)
@@ -156,7 +159,7 @@ public class PaymentTimeoutScheduler {
                 payment.setPaymentStatus(PaymentConstants.PAYMENT_STATUS_FAILED);
                 paymentTransactionRepository.save(payment);
                 
-                System.out.println("✂ Auto-failed MEMBERSHIP_PACKAGE payment #" + payment.getPaymentId() + " (unpaid after " + TIMEOUT_MINUTES + " minutes)");
+                logger.info("Auto-failed MEMBERSHIP_PACKAGE payment #{} (unpaid after {} minutes)", payment.getPaymentId(), TIMEOUT_MINUTES);
                 
                 // Note: UserMembership remains in PENDING_APPROVAL state
                 // Manager will see it as not yet approved, won't activate
@@ -171,12 +174,12 @@ public class PaymentTimeoutScheduler {
                     );
                 }
             } catch (Exception e) {
-                System.err.println("Error failing MEMBERSHIP_PACKAGE payment #" + payment.getPaymentId() + ": " + e.getMessage());
+                logger.error("Error failing MEMBERSHIP_PACKAGE payment #{}: {}", payment.getPaymentId(), e.getMessage());
             }
         }
         
         if (!unpaidPackagePayments.isEmpty()) {
-            System.out.println("✓ Payment timeout check: " + unpaidPackagePayments.size() + " package payments marked as FAILED.");
+            logger.info("Payment timeout check: {} package payments marked as FAILED", unpaidPackagePayments.size());
         }
     }
 }

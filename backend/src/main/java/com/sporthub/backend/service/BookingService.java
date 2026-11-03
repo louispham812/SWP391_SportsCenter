@@ -1,47 +1,7 @@
 package com.sporthub.backend.service;
 
-import com.sporthub.backend.dto.BookingConfirmationResponse;
-import com.sporthub.backend.dto.BookingQuoteResponse;
-import com.sporthub.backend.dto.CoachScheduleEntryResponse;
-import com.sporthub.backend.dto.CoachStudentBookingResponse;
-import com.sporthub.backend.dto.CoachPublicProfileResponse;
-import com.sporthub.backend.dto.CheckoutRequest;
-import com.sporthub.backend.entity.Booking;
-import com.sporthub.backend.entity.ClassSession;
-import com.sporthub.backend.entity.CourtBooking;
-import com.sporthub.backend.entity.CourtMaintenance;
-import com.sporthub.backend.entity.PaymentTransaction;
-import com.sporthub.backend.entity.PublicFacility;
-import com.sporthub.backend.entity.PublicSport;
-import com.sporthub.backend.entity.SportsCourt;
-import com.sporthub.backend.entity.User;
-import com.sporthub.backend.dto.ClassSessionResponse;
-import com.sporthub.backend.dto.CourtSlotResponse;
-import com.sporthub.backend.dto.MemberScheduleEntryResponse;
-import com.sporthub.backend.dto.RosterBookingResponse;
-import com.sporthub.backend.dto.ReceptionistClassResponse;
-import com.sporthub.backend.repository.BookingRepository;
-import com.sporthub.backend.repository.ClassSessionRepository;
-import com.sporthub.backend.repository.CourtBookingRepository;
-import com.sporthub.backend.repository.CourtMaintenanceRepository;
-import com.sporthub.backend.repository.PaymentTransactionRepository;
-import com.sporthub.backend.repository.PublicFacilityRepository;
-import com.sporthub.backend.repository.PublicSportRepository;
-import com.sporthub.backend.repository.SportsCourtRepository;
-import com.sporthub.backend.repository.UserRepository;
-import com.sporthub.backend.entity.UserMembership;
-import com.sporthub.backend.entity.MembershipPackage;
-import com.sporthub.backend.repository.UserMembershipRepository;
-import com.sporthub.backend.repository.MembershipPackageRepository;
-import com.sporthub.backend.enums.AttendanceStatus;
-import java.math.RoundingMode;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
-
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -53,8 +13,54 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.context.annotation.Lazy;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import com.sporthub.backend.dto.BookingConfirmationResponse;
+import com.sporthub.backend.dto.BookingQuoteResponse;
+import com.sporthub.backend.dto.CancelBookingResponse;
+import com.sporthub.backend.dto.CheckoutRequest;
+import com.sporthub.backend.dto.ClassSessionResponse;
+import com.sporthub.backend.dto.CoachPublicProfileResponse;
+import com.sporthub.backend.dto.CoachScheduleEntryResponse;
+import com.sporthub.backend.dto.CoachStudentBookingResponse;
+import com.sporthub.backend.dto.CourtSlotResponse;
+import com.sporthub.backend.dto.MemberScheduleEntryResponse;
+import com.sporthub.backend.dto.ReceptionistClassResponse;
+import com.sporthub.backend.dto.RosterBookingResponse;
+import com.sporthub.backend.entity.Booking;
+import com.sporthub.backend.entity.ClassSession;
+import com.sporthub.backend.entity.CourtBooking;
+import com.sporthub.backend.entity.CourtMaintenance;
+import com.sporthub.backend.entity.MembershipPackage;
+import com.sporthub.backend.entity.PaymentTransaction;
+import com.sporthub.backend.entity.PublicFacility;
+import com.sporthub.backend.entity.PublicSport;
+import com.sporthub.backend.entity.RefundRequest;
+import com.sporthub.backend.entity.SportsCourt;
+import com.sporthub.backend.entity.User;
+import com.sporthub.backend.entity.UserMembership;
+import com.sporthub.backend.enums.AttendanceStatus;
+import com.sporthub.backend.repository.BookingRepository;
+import com.sporthub.backend.repository.ClassSessionRepository;
+import com.sporthub.backend.repository.CourtBookingRepository;
+import com.sporthub.backend.repository.CourtMaintenanceRepository;
+import com.sporthub.backend.repository.MembershipPackageRepository;
+import com.sporthub.backend.repository.PaymentTransactionRepository;
+import com.sporthub.backend.repository.PublicFacilityRepository;
+import com.sporthub.backend.repository.PublicSportRepository;
+import com.sporthub.backend.repository.RefundRequestRepository;
+import com.sporthub.backend.repository.SportsCourtRepository;
+import com.sporthub.backend.repository.UserMembershipRepository;
+import com.sporthub.backend.repository.UserRepository;
+
 @Service
 public class BookingService {
+    
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BookingService.class);
 
     // ACTIVE_STATUSES: BOOKED (chờ thanh toán) + CONFIRMED (đã thanh toán) để đếm slot chính xác
     // Chi tiết: xem PAYMENT_FLOW_DOCUMENTATION.md - Rule 4
@@ -74,8 +80,11 @@ public class BookingService {
     private final MembershipPackageRepository membershipPackageRepository;
     private final MembershipService membershipService;
     private final AuditLogService auditLogService;
+    private final com.sporthub.backend.service.gateway.VNPayGateway vnpayGateway;
     private final PaymentService paymentService;
     private final com.sporthub.backend.repository.FacilityRepository facilityRepository;
+    private final RefundRequestRepository refundRequestRepository;
+    private final EngagementService engagementService;
 
     public BookingService(
             BookingRepository bookingRepository,
@@ -94,7 +103,7 @@ public class BookingService {
         this(bookingRepository, classSessionRepository, userRepository, publicSportRepository,
                 publicFacilityRepository, sportsCourtRepository, courtBookingRepository,
                 courtMaintenanceRepository, paymentTransactionRepository, userMembershipRepository,
-                membershipPackageRepository, membershipService, auditLogService, null, null);
+                membershipPackageRepository, membershipService, auditLogService, null, null, null, null, null);
     }
 
     public BookingService(
@@ -115,7 +124,7 @@ public class BookingService {
         this(bookingRepository, classSessionRepository, userRepository, publicSportRepository,
                 publicFacilityRepository, sportsCourtRepository, courtBookingRepository,
                 courtMaintenanceRepository, paymentTransactionRepository, userMembershipRepository,
-                membershipPackageRepository, membershipService, auditLogService, paymentService, null);
+                membershipPackageRepository, membershipService, auditLogService, paymentService, null, null, null, null);
     }
 
     public BookingService(
@@ -136,7 +145,7 @@ public class BookingService {
         this(bookingRepository, classSessionRepository, userRepository, publicSportRepository,
                 publicFacilityRepository, sportsCourtRepository, courtBookingRepository,
                 courtMaintenanceRepository, paymentTransactionRepository, userMembershipRepository,
-                membershipPackageRepository, membershipService, auditLogService, null, facilityRepository);
+                membershipPackageRepository, membershipService, auditLogService, null, facilityRepository, null, null, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -155,7 +164,10 @@ public class BookingService {
             @Lazy MembershipService membershipService,
             AuditLogService auditLogService,
             @org.springframework.beans.factory.annotation.Autowired(required = false) PaymentService paymentService,
-            @org.springframework.beans.factory.annotation.Autowired(required = false) com.sporthub.backend.repository.FacilityRepository facilityRepository) {
+            @org.springframework.beans.factory.annotation.Autowired(required = false) com.sporthub.backend.repository.FacilityRepository facilityRepository,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) com.sporthub.backend.service.gateway.VNPayGateway vnpayGateway,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) RefundRequestRepository refundRequestRepository,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) EngagementService engagementService) {
         this.bookingRepository = bookingRepository;
         this.classSessionRepository = classSessionRepository;
         this.userRepository = userRepository;
@@ -171,6 +183,9 @@ public class BookingService {
         this.auditLogService = auditLogService;
         this.paymentService = paymentService;
         this.facilityRepository = facilityRepository;
+        this.vnpayGateway = vnpayGateway;
+        this.refundRequestRepository = refundRequestRepository;
+        this.engagementService = engagementService;
     }
 
     @Transactional(readOnly = true)
@@ -668,21 +683,43 @@ public class BookingService {
     }
 
     private BookingConfirmationResponse checkoutCourt(Long memberId, CheckoutRequest request) {
+        // 1. Lock court to prevent concurrent modifications
         SportsCourt court = sportsCourtRepository.findByIdForUpdate(request.itemId())
                 .orElseThrow(() -> notFound("Không tìm thấy sân thể thao."));
         if (!court.isActive()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Sân này đang trong lịch bảo trì, tạm thời không nhận đặt chỗ.");
         }
+        
+        // 2. Validate time slot
         long hours = validateCourtSlot(court, request.startTime(), request.endTime());
+        
+        // 3. Check maintenance schedule
         if (courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(court.getCourtId(), request.endTime(), request.startTime())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Sân này đang trong lịch bảo trì, không thể đặt chỗ.");
         }
+        
+        // 4. BR-COURT-01: Check court availability (prevent double booking)
         if (courtBookingRepository.existsConfirmedOverlap(court.getCourtId(), request.startTime(), request.endTime())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Một hoặc nhiều khung giờ sân đã chọn vừa được người khác đặt.");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                "Sân này đã được đặt trong khung giờ bạn chọn. Vui lòng chọn sân khác hoặc thời gian khác.");
         }
+        
+        // 5. BR-COURT-02: Check member concurrent court limit (max 3 courts at same time)
+        long memberConcurrentCourts = courtBookingRepository.countMemberConcurrentCourts(
+            memberId, request.startTime(), request.endTime()
+        );
+        if (memberConcurrentCourts >= 3) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                "Bạn đã đặt tối đa 3 sân trong cùng khung giờ này. " +
+                "Vui lòng chọn thời gian khác hoặc hủy một trong các sân đã đặt.");
+        }
+        
+        // 6. Check time conflicts with class bookings
         if (bookingRepository.existsOverlappingBookingForMember(memberId, ALL_ACTIVE_STATUSES, request.startTime(), request.endTime())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có lịch tham gia lớp học trong khung giờ này.");
         }
+        
+        // 7. Check time conflicts with other court bookings
         if (courtBookingRepository.existsConfirmedOverlapForMember(memberId, request.startTime(), request.endTime())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có một lịch đặt sân khác trong khung giờ này.");
         }
@@ -710,15 +747,24 @@ public class BookingService {
     }
 
     private BookingConfirmationResponse checkoutClass(Long memberId, CheckoutRequest request) {
+        // 1. Lock session first (prevent concurrent modifications)
         ClassSession session = classSessionRepository.findByIdForUpdate(request.itemId())
                 .orElseThrow(() -> notFound("Không tìm thấy lớp học."));
         validateBookableClass(session);
+        
+        // 2. Check duplicate booking for this member
         if (bookingRepository.existsByMemberIdAndSessionIdAndStatusIn(memberId, session.getSessionId(), ALL_ACTIVE_STATUSES)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã đặt chỗ hoặc đang trong hàng đợi lớp này.");
         }
-        if (bookingRepository.countBySessionIdAndStatusIn(session.getSessionId(), ACTIVE_STATUSES) >= session.getMaxSlots()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Lớp học vừa hết chỗ.");
+        
+        // 3. BR-CLASS-01: Check slot availability with lock (prevent race condition)
+        long currentBookedCount = bookingRepository.countActiveBookingsWithLock(session.getSessionId(), ACTIVE_STATUSES);
+        if (currentBookedCount >= session.getMaxSlots()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                "Lớp học đã hết chỗ. Vui lòng chọn lớp khác hoặc thời gian khác.");
         }
+        
+        // 4. Check time conflicts with other bookings
         if (bookingRepository.existsOverlappingBookingForMember(memberId, ALL_ACTIVE_STATUSES, session.getStartTime(), session.getEndTime())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có lịch tham gia lớp học khác trong khung giờ này.");
         }
@@ -766,7 +812,7 @@ public class BookingService {
      */
     @Transactional
     private BookingConfirmationResponse checkoutClassWithQuota(Long memberId, CheckoutRequest request) {
-        // 1. Get and validate class session
+        // 1. Lock session first (prevent concurrent modifications)
         ClassSession session = classSessionRepository.findByIdForUpdate(request.itemId())
                 .orElseThrow(() -> notFound("Không tìm thấy lớp học."));
         validateBookableClass(session);
@@ -776,9 +822,11 @@ public class BookingService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã đặt chỗ hoặc đang trong hàng đợi lớp này.");
         }
         
-        // 3. Check slot availability
-        if (bookingRepository.countBySessionIdAndStatusIn(session.getSessionId(), ACTIVE_STATUSES) >= session.getMaxSlots()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Lớp học vừa hết chỗ.");
+        // 3. BR-CLASS-01: Check slot availability with lock (prevent race condition)
+        long currentBookedCount = bookingRepository.countActiveBookingsWithLock(session.getSessionId(), ACTIVE_STATUSES);
+        if (currentBookedCount >= session.getMaxSlots()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                "Lớp học đã hết chỗ. Vui lòng chọn lớp khác hoặc thời gian khác.");
         }
         
         // 4. Check time conflicts
@@ -987,6 +1035,7 @@ public class BookingService {
         payment.setPaymentStatus("PAID");
         payment.setReferenceCode(prefix + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
         payment.setCreatedAt(LocalDateTime.now());
+        payment.setPaymentCompletedAt(LocalDateTime.now()); // Set for CASH payments (completed immediately)
         return paymentTransactionRepository.save(payment);
     }
 
@@ -1170,173 +1219,6 @@ public class BookingService {
         }).toList();
     }
 
-    // Cancel booking - Refund policy: cancel trước 2 giờ mới được hoàn tiền
-    // Chi tiết: PAYMENT_FLOW_DOCUMENTATION.md - Rule 6
-    @Transactional
-    public Booking cancelClassBooking(Long bookingId, Long actorId) {
-        Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> notFound("Không tìm thấy thông tin đặt chỗ."));
-        if (!booking.getMemberId().equals(actorId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn chỉ được hủy đặt chỗ của chính mình.");
-        }
-
-        ClassSession session = classSessionRepository.findByIdForUpdate(booking.getSessionId())
-                .orElseThrow(() -> notFound("Không tìm thấy lớp học liên quan."));
-        if ("CANCELLED".equalsIgnoreCase(booking.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Đặt chỗ này đã được hủy.");
-        }
-        if (!ACTIVE_STATUSES.contains(booking.getStatus().toUpperCase(Locale.ROOT))) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Trạng thái đặt chỗ không thể hủy.");
-        }
-
-        boolean wasBooked = ACTIVE_STATUSES.contains(booking.getStatus().toUpperCase(Locale.ROOT));
-        
-        // Refund policy: cancel trước 2 giờ → REFUNDED, cancel sau 2 giờ → giữ nguyên PAID
-        boolean isCancelledOnTime = session.getStartTime() == null 
-                || !session.getStartTime().minusHours(2).isBefore(LocalDateTime.now());
-        
-        booking.setStatus("CANCELLED");
-        bookingRepository.save(booking);
-
-        // ✅ Hoàn quota nếu booking dùng quota
-        if (Boolean.TRUE.equals(booking.getUsesMembershipQuota()) && booking.getMembershipId() != null) {
-            if (isCancelledOnTime) {
-                // Hủy đúng hạn: held → remaining (hoàn quota)
-                membershipService.releaseQuota(booking.getMembershipId(), 1);
-            } else {
-                // Hủy muộn: held → used (trừ quota như vắng không phép)
-                membershipService.consumeQuota(booking.getMembershipId(), 1);
-            }
-        }
-
-        // ✅ Record refund transaction theo chính sách: Đúng hạn 100%, Muộn 0%
-        if (booking.getFeeAmount() != null && booking.getFeeAmount().signum() > 0) {
-            BigDecimal refundAmount;
-            String refundNote;
-            
-            if (isCancelledOnTime) {
-                // Hủy đúng hạn (>= 2 tiếng trước): Hoàn 100%
-                refundAmount = booking.getFeeAmount();
-                refundNote = "Hủy đúng hạn (trước 2 tiếng) - Hoàn 100%";
-            } else {
-                // Hủy muộn (< 2 tiếng trước): Không hoàn
-                refundAmount = BigDecimal.ZERO;
-                refundNote = "Hủy muộn (trong 2 tiếng) - Không hoàn tiền";
-            }
-            
-            // Chỉ tạo refund transaction nếu có hoàn tiền
-            if (refundAmount.signum() > 0) {
-                String origMethod = "SANDBOX";
-                if (booking.getPaymentId() != null) {
-                    origMethod = paymentTransactionRepository.findById(booking.getPaymentId())
-                            .map(PaymentTransaction::getPaymentMethod)
-                            .orElse("SANDBOX");
-                }
-                
-                // ✅ Use PaymentService instead of manual creation
-                PaymentTransaction rfd = (paymentService != null)
-                        ? paymentService.createRefund(actorId, "CLASS_REFUND", refundAmount, origMethod)
-                        : null;
-                if (rfd == null) {
-                    PaymentTransaction refund = new PaymentTransaction();
-                    refund.setMemberId(actorId);
-                    refund.setBookingType("CLASS_REFUND");
-                    refund.setAmount(refundAmount);
-                    refund.setPaymentMethod(origMethod);
-                    refund.setPaymentStatus("REFUNDED");
-                    refund.setReferenceCode("RFD-CLS-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
-                    refund.setCreatedAt(LocalDateTime.now());
-                    paymentTransactionRepository.save(refund);
-                }
-            }
-            
-            // Ghi audit log
-            auditLogService.logSuccess("CANCEL_CLASS_BOOKING", 
-                    "booking_id=" + bookingId, actorId, 
-                    refundNote + " | Original fee: " + booking.getFeeAmount() + " | Refund: " + refundAmount);
-        }
-
-        if (wasBooked) {
-            // No waitlist in this system - just update booked_slots
-        }
-        long remainingBooked = bookingRepository.countBySessionIdAndStatusIn(booking.getSessionId(), ACTIVE_STATUSES);
-        session.setBookedSlots((int) remainingBooked);
-        classSessionRepository.save(session);
-        return booking;
-    }
-
-    @Transactional
-    public CourtBooking cancelCourtBooking(Long bookingId, Long actorId) {
-        CourtBooking booking = courtBookingRepository.findByIdForUpdate(bookingId)
-                .orElseThrow(() -> notFound("Không tìm thấy thông tin đặt sân."));
-        if (!booking.getMemberId().equals(actorId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn chỉ được hủy đặt sân của chính mình.");
-        }
-        if (!"CONFIRMED".equalsIgnoreCase(booking.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Trạng thái đặt sân không thể hủy.");
-        }
-        if (booking.getStartTime() != null
-                && booking.getStartTime().minusHours(2).isBefore(LocalDateTime.now())) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Không thể hủy lịch khi còn dưới 2 tiếng trước giờ bắt đầu.");
-        }
-        
-        // ✅ Tính refund policy theo DATABASE_SCHEMA_SPECIFICATION.md Section 5.3.1
-        boolean isCancelledOnTime = booking.getStartTime() == null 
-                || !booking.getStartTime().minusHours(2).isBefore(LocalDateTime.now());
-
-        booking.setStatus("CANCELLED");
-        CourtBooking saved = courtBookingRepository.save(booking);
-
-        // ✅ Record refund transaction theo chính sách: Đúng hạn 100%, Muộn 0%
-        if (booking.getAmountPaid() != null && booking.getAmountPaid().signum() > 0) {
-            BigDecimal refundAmount;
-            String refundNote;
-            
-            if (isCancelledOnTime) {
-                // Hủy đúng hạn (>= 2 tiếng trước): Hoàn 100%
-                refundAmount = booking.getAmountPaid();
-                refundNote = "Hủy đúng hạn (trước 2 tiếng) - Hoàn 100%";
-            } else {
-                // Hủy muộn (< 2 tiếng trước): Không hoàn
-                refundAmount = BigDecimal.ZERO;
-                refundNote = "Hủy muộn (trong 2 tiếng) - Không hoàn tiền";
-            }
-            
-            // Chỉ tạo refund transaction nếu có hoàn tiền
-            if (refundAmount.signum() > 0) {
-                String origMethod = "SANDBOX";
-                if (booking.getPaymentId() != null) {
-                    origMethod = paymentTransactionRepository.findById(booking.getPaymentId())
-                            .map(PaymentTransaction::getPaymentMethod)
-                            .orElse("SANDBOX");
-                }
-                
-                // ✅ Use PaymentService instead of manual creation
-                PaymentTransaction rfd = (paymentService != null)
-                        ? paymentService.createRefund(actorId, "COURT_REFUND", refundAmount, origMethod)
-                        : null;
-                if (rfd == null) {
-                    PaymentTransaction refund = new PaymentTransaction();
-                    refund.setMemberId(actorId);
-                    refund.setBookingType("COURT_REFUND");
-                    refund.setAmount(refundAmount);
-                    refund.setPaymentMethod(origMethod);
-                    refund.setPaymentStatus("REFUNDED");
-                    refund.setReferenceCode("RFD-CRT-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
-                    refund.setCreatedAt(LocalDateTime.now());
-                    paymentTransactionRepository.save(refund);
-                }
-            }
-            
-            // Ghi audit log
-            auditLogService.logSuccess("CANCEL_COURT_BOOKING", 
-                    "booking_id=" + bookingId, actorId, 
-                    refundNote + " | Original amount: " + booking.getAmountPaid() + " | Refund: " + refundAmount);
-        }
-        return saved;
-    }
-
     @Transactional(readOnly = true)
     public CoachPublicProfileResponse getCoachPublicProfile(Long coachId) {
         User coach = userRepository.findById(coachId)
@@ -1476,6 +1358,361 @@ public class BookingService {
         }
 
         return saved;
+    }
+
+    // ==================== CANCEL BOOKING METHODS (LUỒNG 1) ====================
+    
+    /**
+     * LUỒNG 1: Cancel CLASS booking (trong 2h) - Tạo RefundRequest
+     */
+    @Transactional
+    public CancelBookingResponse cancelClassBooking(Long bookingId, Long userId) {
+        // 1. Get booking + validate ownership
+        Booking booking = bookingRepository.findById(bookingId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                "Không tìm thấy booking."));
+        
+        if (!booking.getMemberId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, 
+                "Bạn không có quyền hủy booking này.");
+        }
+        
+        if ("CANCELLED".equals(booking.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                "Booking đã bị hủy trước đó.");
+        }
+        
+        // 2. Get payment transaction
+        if (booking.getPaymentId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                "Booking này không có thông tin thanh toán.");
+        }
+        
+        PaymentTransaction payment = paymentTransactionRepository
+            .findById(booking.getPaymentId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                "Không tìm thấy giao dịch thanh toán."));
+        
+        // 3. CHECK 2H WINDOW
+        // Use paymentCompletedAt (set when VNPay callback), fallback to createdAt for CASH payments
+        LocalDateTime paymentCompletedAt = payment.getPaymentCompletedAt();
+        if (paymentCompletedAt == null) {
+            // Fallback for CASH_COUNTER payments or legacy data
+            paymentCompletedAt = payment.getCreatedAt();
+        }
+        
+        if (paymentCompletedAt == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                "Giao dịch chưa hoàn tất thanh toán.");
+        }
+        
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime deadline = paymentCompletedAt.plusHours(2);
+        
+        if (now.isAfter(deadline)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                "Đã quá thời hạn hủy miễn phí (2h từ khi thanh toán). " +
+                "Vui lòng liên hệ quầy để được hỗ trợ.");
+        }
+        
+        // 4. Check duplicate RefundRequest
+        if (refundRequestRepository != null) {
+            List<RefundRequest> existing = refundRequestRepository
+                .findByBookingIdAndBookingType(bookingId, "CLASS");
+            
+            for (RefundRequest r : existing) {
+                if ("PENDING_APPROVAL".equals(r.getStatus()) || 
+                    "APPROVED".equals(r.getStatus())) {
+                    // Already requested
+                    ClassSession session = classSessionRepository.findById(booking.getSessionId()).orElse(null);
+                    String bookingTitle = session != null ? session.getClassName() 
+                        : "Lớp học #" + bookingId;
+                    LocalDateTime startTime = session != null ? session.getStartTime() : null;
+                    
+                    return CancelBookingResponse.alreadyRequested(
+                        "CLASS", bookingId, bookingTitle, startTime,
+                        r.getRefundAmount(), r.getRefundId(),
+                        payment.getPaymentId(), payment.getPaymentMethod(),
+                        r.getStatus()
+                    );
+                }
+            }
+        }
+        
+        // 5. Get booking details
+        ClassSession session = classSessionRepository.findById(booking.getSessionId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                "Không tìm thấy lớp học."));
+        
+        User member = userRepository.findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                "Không tìm thấy người dùng."));
+        
+        PublicSport sport = publicSportRepository.findById(session.getSportId()).orElse(null);
+        String sportName = sport != null ? sport.getName() : "";
+        
+        PublicFacility facility = publicFacilityRepository.findById(session.getFacilityId()).orElse(null);
+        String facilityName = facility != null ? facility.getName() : "";
+        
+        User coach = userRepository.findById(session.getCoachId()).orElse(null);
+        String coachName = coach != null ? coach.getFullName() : "";
+        
+        // 6. CREATE RefundRequest
+        String bookingDescription = String.format("%s - %s - %s - HLV %s",
+            session.getClassName(), sportName, facilityName, coachName);
+        
+        if (refundRequestRepository != null && engagementService != null) {
+            RefundRequest refundRequest = RefundRequest.builder()
+                .memberId(userId)
+                .memberName(member.getFullName())
+                .phone(member.getPhone() != null ? member.getPhone() : member.getEmail())
+                .transactionId(payment.getPaymentId())
+                .referenceCode(payment.getReferenceCode())
+                .bookingId(bookingId)
+                .bookingType("CLASS")
+                .bookingDescription(bookingDescription)
+                .refundAmount(payment.getAmount())
+                .reason("Hủy đăng ký lớp trong 2h từ khi thanh toán (tự động)")
+                .bankName(null)
+                .bankAccount(null)
+                .accountHolder(member.getFullName())
+                .status("PENDING_APPROVAL")
+                .createdAt(LocalDateTime.now())
+                .build();
+            
+            RefundRequest saved = refundRequestRepository.save(refundRequest);
+            
+            // 7. Notify Manager + User
+            List<User> managers = userRepository.findByRole("MANAGER");
+            for (User manager : managers) {
+                engagementService.notifyUser(
+                    manager.getUserId(),
+                    "Yêu cầu hoàn tiền mới",
+                    String.format("%s yêu cầu hoàn tiền %,.0f VNĐ cho: %s",
+                        member.getFullName(),
+                        saved.getRefundAmount().doubleValue(),
+                        bookingDescription),
+                    "REFUND_REQUEST"
+                );
+            }
+            
+            engagementService.notifyUser(
+                userId,
+                "Yêu cầu hủy đăng ký đã được gửi",
+                "Yêu cầu hủy đăng ký của bạn đang chờ quản lý phê duyệt. " +
+                "Bạn sẽ nhận được thông báo khi có kết quả.",
+                "BOOKING_CANCEL"
+            );
+            
+            engagementService.audit(userId, "MEMBER", "REFUND_REQUEST_CREATED",
+                "bookingId=" + bookingId + ", bookingType=CLASS, amount=" + saved.getRefundAmount() +
+                ", refundId=" + saved.getRefundId());
+            
+            // 8. Return response
+            return CancelBookingResponse.pendingApproval(
+                "CLASS", bookingId, session.getClassName(), session.getStartTime(),
+                saved.getRefundAmount(), saved.getRefundId(),
+                payment.getPaymentId(), payment.getPaymentMethod()
+            );
+        }
+        
+        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
+            "Không thể tạo yêu cầu hoàn tiền.");
+    }
+    
+    /**
+     * LUỒNG 1: Cancel COURT booking (trong 2h) - Tạo RefundRequest
+     */
+    @Transactional
+    public CancelBookingResponse cancelCourtBooking(Long courtBookingId, Long userId) {
+        // 1. Get court booking + validate ownership
+        CourtBooking courtBooking = courtBookingRepository.findById(courtBookingId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                "Không tìm thấy đặt sân."));
+        
+        if (!courtBooking.getMemberId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, 
+                "Bạn không có quyền hủy đặt sân này.");
+        }
+        
+        if ("CANCELLED".equals(courtBooking.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                "Đặt sân đã bị hủy trước đó.");
+        }
+        
+        // 2. Get payment transaction
+        if (courtBooking.getPaymentId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                "Đặt sân này không có thông tin thanh toán.");
+        }
+        
+        PaymentTransaction payment = paymentTransactionRepository
+            .findById(courtBooking.getPaymentId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                "Không tìm thấy giao dịch thanh toán."));
+        
+        // 3. CHECK 2H WINDOW
+        // Use paymentCompletedAt (set when VNPay callback), fallback to createdAt for CASH payments
+        LocalDateTime paymentCompletedAt = payment.getPaymentCompletedAt();
+        if (paymentCompletedAt == null) {
+            // Fallback for CASH_COUNTER payments or legacy data
+            paymentCompletedAt = payment.getCreatedAt();
+        }
+        
+        if (paymentCompletedAt == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                "Giao dịch chưa hoàn tất thanh toán.");
+        }
+        
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime deadline = paymentCompletedAt.plusHours(2);
+        
+        if (now.isAfter(deadline)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                "Đã quá thời hạn hủy miễn phí (2h từ khi thanh toán).");
+        }
+        
+        // 4. Check duplicate RefundRequest
+        if (refundRequestRepository != null) {
+            List<RefundRequest> existing = refundRequestRepository
+                .findByBookingIdAndBookingType(courtBookingId, "COURT");
+            
+            for (RefundRequest r : existing) {
+                if ("PENDING_APPROVAL".equals(r.getStatus()) || 
+                    "APPROVED".equals(r.getStatus())) {
+                    SportsCourt court = sportsCourtRepository.findById(courtBooking.getCourtId()).orElse(null);
+                    String courtName = court != null ? court.getCourtName() : "Sân #" + courtBookingId;
+                    
+                    return CancelBookingResponse.alreadyRequested(
+                        "COURT", courtBookingId, courtName, courtBooking.getStartTime(),
+                        r.getRefundAmount(), r.getRefundId(),
+                        payment.getPaymentId(), payment.getPaymentMethod(),
+                        r.getStatus()
+                    );
+                }
+            }
+        }
+        
+        // 5. Get court details
+        SportsCourt court = sportsCourtRepository.findById(courtBooking.getCourtId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                "Không tìm thấy sân."));
+        
+        User member = userRepository.findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                "Không tìm thấy người dùng."));
+        
+        PublicSport sport = publicSportRepository.findById(court.getSportId()).orElse(null);
+        String sportName = sport != null ? sport.getName() : "";
+        
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        String bookingDescription = String.format("%s - %s - %s đến %s",
+            court.getCourtName(), sportName,
+            courtBooking.getStartTime().format(formatter),
+            courtBooking.getEndTime().format(formatter)
+        );
+        
+        // 6. CREATE RefundRequest
+        if (refundRequestRepository != null && engagementService != null) {
+            RefundRequest refundRequest = RefundRequest.builder()
+                .memberId(userId)
+                .memberName(member.getFullName())
+                .phone(member.getPhone() != null ? member.getPhone() : member.getEmail())
+                .transactionId(payment.getPaymentId())
+                .referenceCode(payment.getReferenceCode())
+                .bookingId(courtBookingId)
+                .bookingType("COURT")
+                .bookingDescription(bookingDescription)
+                .refundAmount(payment.getAmount())
+                .reason("Hủy đặt sân trong 2h từ khi thanh toán (tự động)")
+                .bankName(null)
+                .bankAccount(null)
+                .accountHolder(member.getFullName())
+                .status("PENDING_APPROVAL")
+                .createdAt(LocalDateTime.now())
+                .build();
+            
+            RefundRequest saved = refundRequestRepository.save(refundRequest);
+            
+            // 7. Notify
+            List<User> managers = userRepository.findByRole("MANAGER");
+            for (User manager : managers) {
+                engagementService.notifyUser(
+                    manager.getUserId(),
+                    "Yêu cầu hoàn tiền mới",
+                    String.format("%s yêu cầu hoàn tiền %,.0f VNĐ cho: %s",
+                        member.getFullName(),
+                        saved.getRefundAmount().doubleValue(),
+                        bookingDescription),
+                    "REFUND_REQUEST"
+                );
+            }
+            
+            engagementService.notifyUser(
+                userId,
+                "Yêu cầu hủy đặt sân đã được gửi",
+                "Yêu cầu hủy đặt sân của bạn đang chờ quản lý phê duyệt.",
+                "BOOKING_CANCEL"
+            );
+            
+            engagementService.audit(userId, "MEMBER", "REFUND_REQUEST_CREATED",
+                "courtBookingId=" + courtBookingId + ", bookingType=COURT, amount=" + saved.getRefundAmount());
+            
+            // 8. Return
+            return CancelBookingResponse.pendingApproval(
+                "COURT", courtBookingId, court.getCourtName(), courtBooking.getStartTime(),
+                saved.getRefundAmount(), saved.getRefundId(),
+                payment.getPaymentId(), payment.getPaymentMethod()
+            );
+        }
+        
+        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
+            "Không thể tạo yêu cầu hoàn tiền.");
+    }
+    
+    /**
+     * CANCEL BOOKING AFTER REFUND SUCCESS
+     * Called by RefundRequestController.decideRefund() after VNPay refund success
+     */
+    @Transactional
+    public void cancelBookingAfterRefund(Long bookingId, String bookingType, Long refundId) {
+        logger.info("🔥 CANCEL BOOKING AFTER REFUND - Type: {}, ID: {}", bookingType, bookingId);
+        
+        if ("CLASS".equals(bookingType)) {
+            Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                    "Không tìm thấy booking."));
+            
+            booking.setStatus("CANCELLED");
+            bookingRepository.save(booking);
+            
+            // Release quota if used
+            if (Boolean.TRUE.equals(booking.getUsesMembershipQuota()) 
+                && booking.getMembershipId() != null && membershipService != null) {
+                membershipService.releaseQuota(booking.getMembershipId(), 1);
+            }
+            
+            // Update session booked_slots
+            ClassSession session = classSessionRepository.findById(booking.getSessionId()).orElse(null);
+            if (session != null) {
+                int activeBookings = (int) bookingRepository
+                    .countBySessionIdAndStatusIn(session.getSessionId(), ACTIVE_STATUSES);
+                session.setBookedSlots(activeBookings);
+                classSessionRepository.save(session);
+            }
+            
+            logger.info("✅ CLASS booking cancelled: {}", bookingId);
+            
+        } else if ("COURT".equals(bookingType)) {
+            CourtBooking courtBooking = courtBookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                    "Không tìm thấy court booking."));
+            
+            courtBooking.setStatus("CANCELLED");
+            courtBookingRepository.save(courtBooking);
+            
+            logger.info("✅ COURT booking cancelled: {}", bookingId);
+        }
     }
 
     private ResponseStatusException notFound(String message) {

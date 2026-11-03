@@ -61,3 +61,13 @@ export async function apiRequest(path, options = {}) {
     return { message: text, success: true };
   }
 }
+
+/**
+ * Generate payment URL for VNPAY gateway only
+ * @param {number} paymentId - Payment transaction ID
+ * @param {string} gateway - Payment gateway ('VNPAY' only)
+ * @returns {Promise<{paymentUrl: string, bookingType: string}>}
+ */
+export async function generatePayment(paymentId, gateway) {
+  return apiRequest(`/payments/generate?paymentId=${paymentId}&gateway=${gateway}`);
+}

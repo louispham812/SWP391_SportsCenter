@@ -8,8 +8,9 @@ import {
   getBookingCoaches,
   getBookingQuote,
   getBookingSports,
+  getMemberBookingSchedule,
 } from '../../services/bookingApi';
-import { apiRequest } from '../../services/apiClient';
+import { apiRequest, generatePayment } from '../../services/apiClient';
 import PaymentMethodSelector from '../../components/common/PaymentMethodSelector';
 import { getSportMedia } from '../../utils/mediaMap';
 
@@ -305,6 +306,7 @@ function CourtPicker({ sportId }) {
       setSelectionHint('Khung giờ này đang trong thời gian bảo trì, vui lòng chọn khung giờ khác.');
       return;
     }
+    
     setSelectionHint('');
     if (selectedCourtId !== courtId || selectedSlots.length === 0) {
       setSelectedCourtId(courtId);
@@ -837,7 +839,7 @@ function CheckoutPage({ bookingType, itemId }) {
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(true);
   const [paymentMode, setPaymentMode] = useState('RETAIL'); // 'QUOTA' | 'RETAIL'
-  const [paymentMethod, setPaymentMethod] = useState('VIETQR');
+  const [paymentMethod, setPaymentMethod] = useState('VNPAY');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -1027,45 +1029,28 @@ function CheckoutPage({ bookingType, itemId }) {
         paymentMethod
       );
 
-      // Nếu chọn VIETQR → Generate QR Code và polling
-      if (paymentMethod === 'VIETQR') {
-        setSubmitting(false); // Cho phép user cancel trong khi chờ
-        
+      // Redirect to VNPay payment page
+      if (paymentMethod === 'VNPAY') {
         try {
-          // Gọi API generate QR với paymentId
-          const token = localStorage.getItem('authToken');
+          const vnpayResult = await generatePayment(confirmation.paymentId, 'VNPAY');
           
-          const qrResponse = await fetch(
-            `/api/v1/payment/generate-qr?paymentId=${confirmation.paymentId}&amount=${confirmation.amountPaid}`,
-            {
-              headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-            }
-          );
+          // Append bookingType to VNPay URL for return page navigation
+          const bookingType = vnpayResult.bookingType || bookingType.toUpperCase();
+          const separator = vnpayResult.paymentUrl.includes('?') ? '&' : '?';
+          const paymentUrlWithType = `${vnpayResult.paymentUrl}${separator}bookingType=${encodeURIComponent(bookingType)}`;
           
-          if (!qrResponse.ok) {
-            const errorText = await qrResponse.text();
-            console.error('[QR] generate-qr API error:', errorText);
-            setError(`Không thể tạo mã QR: ${errorText}`);
-            return;
-          }
-          
-          const qrResult = await qrResponse.json();
-          
-          // Hiển thị QR Modal
-          setQrData(qrResult);
-          setShowQrModal(true);
-          
-          // Start polling payment status
-          startPollingPayment(confirmation.paymentId, confirmation);
+          // Redirect to VNPay payment page
+          window.location.href = paymentUrlWithType;
           return;
-        } catch (qrError) {
-          console.error('[QR] Exception:', qrError);
-          setError('Không thể hiển thị mã QR. Vui lòng thử lại.');
+        } catch (vnpayError) {
+          console.error('[VNPAY] Exception:', vnpayError);
+          setError(vnpayError.message || 'Không thể chuyển đến trang thanh toán VNPay. Vui lòng thử lại.');
+          setSubmitting(false);
           return;
         }
       }
 
-      // Các phương thức khác (CASH_COUNTER, VNPAY) → Navigate trực tiếp
+      // Các phương thức khác (CASH_COUNTER) → Navigate trực tiếp
       navigate('/member/book/confirmation', { replace: true, state: { confirmation } });
       
     } catch (requestError) {
@@ -1149,8 +1134,6 @@ function CheckoutPage({ bookingType, itemId }) {
     ? 'Đang xử lý...'
     : paymentMode === 'QUOTA'
     ? `Xác Nhận Đặt Chỗ — Trừ ${requiredQuota} Buổi Gói Tập (Còn: ${memberQuota.remainingQuota - requiredQuota} buổi)`
-    : paymentMethod === 'VIETQR'
-    ? `Tôi Đã Chuyển Khoản — Xác Nhận ${formatMoney(finalPrice)}`
     : paymentMethod === 'CASH_COUNTER'
     ? `Giữ Chỗ (Thanh Toán Tại Quầy) — ${formatMoney(finalPrice)}`
     : paymentMethod === 'VNPAY'
@@ -1322,7 +1305,7 @@ function CheckoutPage({ bookingType, itemId }) {
                       <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
                     )}
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">Chuyển khoản VietQR, VNPay hoặc tiền mặt</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Thanh toán VNPay hoặc tiền mặt quầy</p>
                 </div>
                 <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                   <span className="text-slate-500">Cần thanh toán:</span>

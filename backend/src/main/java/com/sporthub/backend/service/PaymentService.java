@@ -1,14 +1,15 @@
 package com.sporthub.backend.service;
 
-import com.sporthub.backend.constants.PaymentConstants;
-import com.sporthub.backend.entity.PaymentTransaction;
-import com.sporthub.backend.repository.PaymentTransactionRepository;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+
+import com.sporthub.backend.constants.PaymentConstants;
+import com.sporthub.backend.entity.PaymentTransaction;
+import com.sporthub.backend.repository.PaymentTransactionRepository;
 
 /**
  * Service centralize payment creation logic
@@ -74,11 +75,13 @@ public class PaymentService {
     /**
      * Determine initial payment status based on method
      * 
-     * Rule: VIETQR → PENDING (chờ webhook)
+     * Rule: VIETQR → PENDING (chờ webhook callback)
+     *       VNPAY → PENDING (chờ VNPay IPN)
      *       CASH_COUNTER → PAID (thanh toán ngay)
      */
     private String determineInitialStatus(String normalizedMethod) {
-        if (PaymentConstants.METHOD_VIETQR.equals(normalizedMethod)) {
+        if (PaymentConstants.METHOD_VIETQR.equals(normalizedMethod) ||
+            PaymentConstants.METHOD_VNPAY.equals(normalizedMethod)) {
             return PaymentConstants.PAYMENT_STATUS_PENDING;
         }
         return PaymentConstants.PAYMENT_STATUS_PAID;

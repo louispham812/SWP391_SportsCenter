@@ -9,6 +9,7 @@ public final class PaymentConstants {
     // Payment Methods
     public static final String METHOD_VIETQR = "VIETQR";
     public static final String METHOD_QR = "QR"; // Alias
+    public static final String METHOD_VNPAY = "VNPAY";
     public static final String METHOD_CASH_COUNTER = "CASH_COUNTER";
     public static final String METHOD_CASH = "CASH"; // Alias
     
