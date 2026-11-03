@@ -685,14 +685,22 @@ export default function MemberClassesPage() {
                         <div className="text-center text-[11px] font-bold text-emerald-700 bg-emerald-50 py-1.5 rounded-xl border border-emerald-200">
                           ✓ Bạn đã đăng ký lớp học này
                         </div>
-                        <button
-                          type="button"
-                          disabled={submittingCancel || cancelingBooking?.bookingId === cls.memberBookingId}
-                          onClick={() => setCancelingBooking({ bookingId: cls.memberBookingId, className: cls.className })}
-                          className="w-full rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 py-2.5 text-xs font-bold text-red-700 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Hủy đăng ký lớp này
-                        </button>
+                        {/* Show refund pending badge if refund request exists */}
+                        {cls.refundStatus === 'PENDING_APPROVAL' || cls.refundStatus === 'APPROVED' ? (
+                          <div className="text-center text-[11px] font-bold text-amber-700 bg-amber-50 py-1.5 rounded-xl border border-amber-200 flex items-center justify-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]">schedule</span>
+                            <span>Yêu cầu hoàn tiền đã tồn tại</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={submittingCancel || cancelingBooking?.bookingId === cls.memberBookingId}
+                            onClick={() => setCancelingBooking({ bookingId: cls.memberBookingId, className: cls.className })}
+                            className="w-full rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 py-2.5 text-xs font-bold text-red-700 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Hủy đăng ký lớp này
+                          </button>
+                        )}
                       </div>
                     ) : remaining < 1 ? (
                       <button

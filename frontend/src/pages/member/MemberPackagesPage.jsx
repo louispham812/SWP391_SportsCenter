@@ -48,12 +48,7 @@ export default function MemberPackagesPage() {
 
   // Tìm gói đang kích hoạt (ACTIVE và chưa hết hạn)
   const currentMembership = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    return memberships.find(
-      (m) =>
-        m.status === 'ACTIVE' &&
-        (!m.endDate || m.endDate >= today)
-    ) || null;
+    return memberships.find((m) => m.status === 'ACTIVE') || null;
   }, [memberships]);
 
   const currentPackage = useMemo(() => {
