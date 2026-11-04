@@ -1,5 +1,8 @@
 package com.sporthub.backend.entity;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -9,9 +12,6 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "court_bookings")
@@ -38,9 +38,9 @@ public class CourtBooking {
     private LocalDateTime endTime;
 
     @Column(name = "amount_paid", nullable = false, precision = 12, scale = 2)
-    private BigDecimal amountPaid;
+    private BigDecimal amountPaid = BigDecimal.ZERO;
 
-    @Column(name = "payment_id", nullable = false)
+    @Column(name = "payment_id")
     private Long paymentId;
 
     @Column(nullable = false, length = 20)
@@ -48,4 +48,14 @@ public class CourtBooking {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    // Quota booking fields (added by migration 002)
+    @Column(name = "uses_membership_quota")
+    private Boolean usesMembershipQuota = false;
+
+    @Column(name = "membership_id")
+    private Long membershipId;
+
+    @Column(name = "quota_hours_used", precision = 4, scale = 2)
+    private BigDecimal quotaHoursUsed = BigDecimal.ZERO;
 }

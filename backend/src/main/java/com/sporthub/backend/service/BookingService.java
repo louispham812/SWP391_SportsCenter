@@ -593,15 +593,12 @@ public class BookingService {
 
         String bookingType = normalizeBookingType(request.bookingType());
         
-        // NEW: Check useQuota flag (theo DATABASE_SCHEMA_SPECIFICATION.md Section 5.1)
+        // Migration 002: Check useQuota flag with auto-check logic
         if (Boolean.TRUE.equals(request.useQuota())) {
-            // Chỉ CLASS và PT mới có thể dùng quota
-            if ("COURT".equals(bookingType)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
-                    "Đặt sân không hỗ trợ dùng quota. Vui lòng chọn thanh toán giá lẻ.");
-            }
-            
             // Route to quota-based checkout
+            if ("COURT".equals(bookingType)) {
+                return checkoutCourtWithQuota(memberId, request);
+            }
             if ("PT".equals(bookingType)) {
                 return checkoutPtWithQuota(memberId, request);
             }
@@ -1738,6 +1735,119 @@ public class BookingService {
             
             logger.info("✅ COURT booking cancelled: {}", bookingId);
         }
+    }
+
+    /**
+     * Checkout court booking using MEMBERSHIP COURT QUOTA (Migration 002)
+     * Business Rules:
+     * 1. Trừ quota đúng theo số giờ user đặt (exact hours)
+     * 2. KHÔNG cho phép đặt quota + payment (phải full quota hoặc full payment)
+     * 3. User PHẢI có membership với sufficient court quota
+     */
+    @Transactional
+    private BookingConfirmationResponse checkoutCourtWithQuota(Long memberId, CheckoutRequest request) {
+        // 1. Lock court to prevent concurrent modifications
+        SportsCourt court = sportsCourtRepository.findByIdForUpdate(request.itemId())
+                .orElseThrow(() -> notFound("Không tìm thấy sân thể thao."));
+        
+        if (!court.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                "Sân này đang trong lịch bảo trì, tạm thời không nhận đặt chỗ.");
+        }
+        
+        // 2. Validate time slot and calculate hours
+        long hours = validateCourtSlot(court, request.startTime(), request.endTime());
+        double exactHours = hours; // Use exact hours for quota
+        
+        // 3. Check maintenance schedule
+        if (courtMaintenanceRepository.existsByCourtIdAndDateRangeDuringPeriod(
+                court.getCourtId(), request.startTime(), request.endTime())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Sân đang trong lịch bảo trì tại thời điểm này.");
+        }
+        
+        // 4. Check existing overlapping bookings
+        if (courtBookingRepository.existsByCourtIdAndDateRangeOverlaps(
+                court.getCourtId(), request.startTime(), request.endTime())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Khung giờ này đã có người đặt. Vui lòng chọn thời gian khác.");
+        }
+        
+        // 5. Get and validate membership with court quota
+        UserMembership membership = membershipService.getActiveMembershipWithCourtQuota(memberId, exactHours);
+        if (membership == null || membership.getRemainingQuotaCourts() < exactHours) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                String.format("Số giờ sân trong gói hội viên của bạn không đủ (cần %.1f giờ, hiện còn %d giờ). " +
+                    "Vui lòng thanh toán theo giá bán lẻ.", 
+                    exactHours, 
+                    membership != null ? membership.getRemainingQuotaCourts() : 0));
+        }
+        
+        // 6. Hold court quota
+        membershipService.holdCourtQuota(membership.getMembershipId(), exactHours);
+        
+        // 7. Create CourtBooking with quota flag
+        CourtBooking booking = new CourtBooking();
+        booking.setMemberId(memberId);
+        booking.setCourtId(court.getCourtId());
+        booking.setStartTime(request.startTime());
+        booking.setEndTime(request.endTime());
+        booking.setStatus("CONFIRMED");
+        booking.setAmountPaid(BigDecimal.ZERO); // No payment for quota booking
+        booking.setPaymentId(null); // No payment needed
+        booking.setUsesMembershipQuota(true);
+        booking.setMembershipId(membership.getMembershipId());
+        booking.setQuotaHoursUsed(BigDecimal.valueOf(exactHours));
+        booking.setCreatedAt(LocalDateTime.now());
+        
+        CourtBooking savedBooking = courtBookingRepository.save(booking);
+        
+        // 8. Log audit
+        if (auditLogService != null) {
+            auditLogService.logSuccess(
+                "COURT_BOOKING_QUOTA",
+                "CourtBooking#" + savedBooking.getCourtBookingId(),
+                memberId,
+                String.format("Booked court %s (%.1f hours) using membership court quota. Membership #%d held %.1f hours.",
+                    court.getCourtName(), exactHours, membership.getMembershipId(), exactHours)
+            );
+        }
+        
+        // 9. Refresh membership to get updated quota
+        UserMembership updatedMembership = userMembershipRepository.findById(membership.getMembershipId())
+                .orElseThrow();
+        
+        // 10. Get sport info
+        PublicSport sport = getActiveSport(court.getSportId());
+        
+        // 11. Return confirmation
+        String quotaMessage = String.format(
+            "Đã dùng %.1f giờ court quota cho sân %s. Còn %d giờ.",
+            exactHours, court.getCourtName(), 
+            updatedMembership.getRemainingQuotaCourts());
+            
+        return new BookingConfirmationResponse(
+                "COURT",
+                savedBooking.getCourtBookingId(),
+                null, // No payment
+                court.getCourtName(),
+                sport.getName(),
+                court.getDescription(),
+                savedBooking.getStartTime(),
+                savedBooking.getEndTime(),
+                BigDecimal.ZERO,
+                null, // No payment status
+                null, // No reference code
+                true, // usedQuota
+                (int) Math.ceil(exactHours), // quotaUsed
+                updatedMembership.getRemainingQuotaCourts(), // quotaRemaining
+                quotaMessage
+        );
+    }
+
+    private PublicSport getActiveSport(Long sportId) {
+        return publicSportRepository.findById(sportId)
+                .orElseThrow(() -> notFound("Môn thể thao không tồn tại."));
     }
 
     private ResponseStatusException notFound(String message) {
