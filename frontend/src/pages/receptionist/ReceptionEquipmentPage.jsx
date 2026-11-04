@@ -517,8 +517,7 @@ export default function ReceptionEquipmentPage() {
                       className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 outline-none cursor-pointer"
                     >
                       <option value="CASH">Tiền mặt tại quầy (CASH)</option>
-                      <option value="VIETQR">Chuyển khoản VietQR</option>
-                      <option value="POS">Quẹt thẻ máy POS</option>
+                      <option value="VNPAY">Thanh toán VNPay (VNPAY)</option>
                     </select>
                   </div>
                 </div>

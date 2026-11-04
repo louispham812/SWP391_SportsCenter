@@ -748,7 +748,10 @@ public class BookingService {
         PublicSport sport = getActiveSport(court.getSportId());
         BigDecimal baseAmount = court.getHourlyRate().multiply(BigDecimal.valueOf(hours));
         DiscountInfo discount = calculateDiscount(memberId, "COURT", baseAmount);
-        PaymentTransaction payment = createPaymentTransaction(memberId, "COURT", discount.finalAmount(), request.paymentMethod());
+        
+        // Store court details for transaction history: "Sân Cầu Lông 01 (Thể Thao FPT)"
+        String courtDescription = court.getCourtName() + " (" + sport.getName() + ")";
+        PaymentTransaction payment = createPaymentTransaction(memberId, "COURT", courtDescription, discount.finalAmount(), request.paymentMethod());
 
         CourtBooking booking = new CourtBooking();
         booking.setMemberId(memberId);
@@ -804,7 +807,10 @@ public class BookingService {
         }
         User coach = userRepository.findById(session.getCoachId())
                 .orElseThrow(() -> notFound("Không tìm thấy huấn luyện viên của lớp."));
-        PaymentTransaction payment = createPaymentTransaction(memberId, "CLASS", discount.finalAmount(), request.paymentMethod());
+        
+        // Store class details for transaction history: "Yoga Cơ Bản - HLV Nguyễn Văn A"
+        String classDescription = session.getClassName() + " - HLV " + coach.getFullName();
+        PaymentTransaction payment = createPaymentTransaction(memberId, "CLASS", classDescription, discount.finalAmount(), request.paymentMethod());
 
         Booking booking = Booking.builder()
                 .memberId(memberId)
@@ -869,7 +875,26 @@ public class BookingService {
         // 6. Hold quota (remaining → held)
         membershipService.holdQuota(membership.getMembershipId(), 1);
         
-        // 7. Create booking with quota
+        // 6.5. Create 0đ payment transaction for quota tracking & refund support
+        PublicSport sport = getActiveSport(session.getSportId());
+        PublicFacility facility = publicFacilityRepository.findById(session.getFacilityId())
+                .orElseThrow(() -> notFound("Không tìm thấy địa điểm lớp học."));
+        User coach = userRepository.findById(session.getCoachId())
+                .orElseThrow(() -> notFound("Không tìm thấy huấn luyện viên."));
+        
+        // Store class details for transaction history: "Yoga Cơ Bản - HLV Nguyễn Văn A"
+        String classDescription = session.getClassName() + " - HLV " + coach.getFullName();
+        
+        // Create payment transaction với amount=0, method=MEMBERSHIP_QUOTA
+        PaymentTransaction payment = createPaymentTransaction(
+            memberId, 
+            "CLASS", 
+            classDescription,
+            BigDecimal.ZERO,  // amount = 0đ (dùng quota)
+            "MEMBERSHIP_QUOTA"  // payment method
+        );
+        
+        // 7. Create booking with quota (now has payment_id for refund support)
         Booking booking = Booking.builder()
                 .memberId(memberId)
                 .sessionId(session.getSessionId())
@@ -879,7 +904,7 @@ public class BookingService {
                 .usesMembershipQuota(true)  // FLAG quan trọng
                 .membershipId(membership.getMembershipId())
                 .feeAmount(BigDecimal.ZERO)  // 0đ vì dùng quota
-                .paymentId(null)  // No payment transaction
+                .paymentId(payment.getPaymentId())  // ✅ Now has payment for refund flow
                 .build();
         Booking saved = bookingRepository.save(booking);
         
@@ -887,29 +912,19 @@ public class BookingService {
         session.setBookedSlots((int) bookingRepository.countBySessionIdAndStatusIn(session.getSessionId(), ACTIVE_STATUSES));
         classSessionRepository.save(session);
         
-        // 9. Get display info
-        PublicSport sport = getActiveSport(session.getSportId());
-        PublicFacility facility = publicFacilityRepository.findById(session.getFacilityId())
-                .orElseThrow(() -> notFound("Không tìm thấy địa điểm lớp học."));
-        if (!facility.isActive()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Địa điểm diễn ra lớp học hiện đang bảo trì, không thể đặt chỗ.");
-        }
-        User coach = userRepository.findById(session.getCoachId())
-                .orElseThrow(() -> notFound("Không tìm thấy huấn luyện viên."));
-        
-        // 10. Return response with quota info
+        // 9. Return response with quota info
         return new BookingConfirmationResponse(
                 "CLASS",
                 saved.getBookingId(),
-                null,  // No payment ID
+                payment.getPaymentId(),  // ✅ Return payment ID
                 session.getClassName(),
                 sport.getName(),
                 facility.getName() + " · HLV " + coach.getFullName(),
                 session.getStartTime(),
                 session.getEndTime(),
                 BigDecimal.ZERO,  // Paid 0đ
-                "PAID",  // Status = PAID (vì dùng quota)
-                null,  // No reference code
+                "PAID",  // Status = PAID (vì dùng quota, không cần VNPay callback)
+                payment.getReferenceCode(),  // ✅ Return reference code
                 true,  // usedQuota = true
                 1,  // quotaUsed = 1
                 membership.getRemainingQuotaSessions(),  // quotaRemaining after hold
@@ -962,6 +977,17 @@ public class BookingService {
         // 5. Hold quota (remaining → held)
         membershipService.holdQuota(membership.getMembershipId(), 1);
 
+        // 5.5. Create 0đ payment transaction for quota tracking
+        String ptDescription = "Huấn Luyện 1-1 (" + coach.getFullName() + ")";
+        
+        PaymentTransaction payment = createPaymentTransaction(
+            memberId,
+            "PT",
+            ptDescription,
+            BigDecimal.ZERO,
+            "MEMBERSHIP_QUOTA"
+        );
+
         // 6. Create PT session
         List<ClassSession> coachSessions = classSessionRepository.findByCoachIdOrderByStartTimeAsc(coach.getUserId());
         Long sportId = coachSessions.stream()
@@ -988,7 +1014,7 @@ public class BookingService {
         session.setStatus("SCHEDULED");
         ClassSession savedSession = classSessionRepository.save(session);
 
-        // 7. Create booking with quota
+        // 7. Create booking with quota (now has payment_id)
         Booking booking = Booking.builder()
                 .memberId(memberId)
                 .sessionId(savedSession.getSessionId())
@@ -998,7 +1024,7 @@ public class BookingService {
                 .usesMembershipQuota(true)
                 .membershipId(membership.getMembershipId())
                 .feeAmount(BigDecimal.ZERO)
-                .paymentId(null)
+                .paymentId(payment.getPaymentId())  // ✅ Now has payment
                 .coachNote("Buổi tập cá nhân 1-1 (Dùng quota)")
                 .build();
         Booking savedBooking = bookingRepository.save(booking);
@@ -1013,7 +1039,7 @@ public class BookingService {
         return new BookingConfirmationResponse(
                 "PT",
                 savedBooking.getBookingId(),
-                null,
+                payment.getPaymentId(),  // ✅ Return payment ID
                 savedSession.getClassName(),
                 sportName,
                 facilityName,
@@ -1021,7 +1047,7 @@ public class BookingService {
                 end,
                 BigDecimal.ZERO,
                 "PAID",
-                null,
+                payment.getReferenceCode(),  // ✅ Return reference code
                 true,  // usedQuota
                 1,  // quotaUsed
                 membership.getRemainingQuotaSessions(),
@@ -1035,15 +1061,18 @@ public class BookingService {
      * Kept for backward compatibility if needed
      */
     private PaymentTransaction createPaymentTransaction(Long memberId, String bookingType, BigDecimal amount, String paymentMethod) {
+        return createPaymentTransaction(memberId, bookingType, null, amount, paymentMethod);
+    }
+
+    private PaymentTransaction createPaymentTransaction(Long memberId, String bookingType, String itemDescription, BigDecimal amount, String paymentMethod) {
         if (paymentService != null) {
-            PaymentTransaction pt = paymentService.createPayment(memberId, bookingType, amount, paymentMethod);
+            PaymentTransaction pt = paymentService.createPayment(memberId, bookingType, itemDescription, amount, paymentMethod);
             if (pt != null) {
                 return pt;
             }
         }
         String method = (paymentMethod == null || paymentMethod.isBlank()) ? "SANDBOX" : paymentMethod.toUpperCase(Locale.ROOT);
         String prefix = switch (method) {
-            case "VIETQR", "QR" -> "VQR";
             case "VNPAY" -> "VNP";
             case "MOMO" -> "MOM";
             case "CASH_COUNTER", "CASH" -> "CSH";
@@ -1052,6 +1081,7 @@ public class BookingService {
         PaymentTransaction payment = new PaymentTransaction();
         payment.setMemberId(memberId);
         payment.setBookingType(bookingType);
+        payment.setItemDescription(itemDescription); // Store description for history
         payment.setAmount(amount);
         payment.setPaymentMethod(method);
         payment.setPaymentStatus("PAID");

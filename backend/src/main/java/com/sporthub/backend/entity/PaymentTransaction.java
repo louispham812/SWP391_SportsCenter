@@ -31,6 +31,12 @@ public class PaymentTransaction {
     @Column(name = "booking_type", nullable = false, length = 20)
     private String bookingType;
 
+    @Column(name = "item_type", length = 20)
+    private String itemType; // Frontend-friendly type: MEMBERSHIP, COURT, CLASS, PT, QUOTA
+
+    @Column(name = "item_description", length = 500, columnDefinition = "NVARCHAR(500)")
+    private String itemDescription; // Chi tiết: "Gói VIP 6 Tháng", "Sân Cầu Lông 01", "Lớp Yoga Cơ Bản"
+
     @Column(name = "amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 

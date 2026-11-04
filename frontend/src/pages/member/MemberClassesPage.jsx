@@ -1229,7 +1229,7 @@ export default function MemberClassesPage() {
                 <div className="mx-auto w-64 h-64 rounded-2xl overflow-hidden border-4 border-orange-500 shadow-lg bg-white p-2">
                   <img
                     src={qrData.qrUrl}
-                    alt="VietQR Payment"
+                    alt="VNPay QR Payment"
                     className="w-full h-full object-contain"
                   />
                 </div>

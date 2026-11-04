@@ -56,7 +56,7 @@ public class EquipmentLoan {
     private String status = "BORROWED"; // BORROWED, RETURNED, LOST
 
     @Column(name = "payment_method", length = 20)
-    private String paymentMethod; // CASH, CARD, TRANSFER, POS
+    private String paymentMethod; // CASH, VNPAY
 
     @Column(name = "recorded_by")
     private Long recordedBy;

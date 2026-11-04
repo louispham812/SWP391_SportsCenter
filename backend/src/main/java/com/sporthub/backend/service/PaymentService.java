@@ -30,7 +30,7 @@ public class PaymentService {
      * @param memberId User ID
      * @param bookingType CLASS, COURT, or MEMBERSHIP_PACKAGE
      * @param amount Payment amount
-     * @param paymentMethod VIETQR, CASH_COUNTER, etc
+     * @param paymentMethod VNPAY, CASH_COUNTER, etc
      * @return Saved PaymentTransaction
      */
     public PaymentTransaction createPayment(
@@ -45,6 +45,8 @@ public class PaymentService {
         PaymentTransaction payment = new PaymentTransaction();
         payment.setMemberId(memberId);
         payment.setBookingType(bookingType);
+        payment.setItemType(mapBookingTypeToItemType(bookingType)); // Map to frontend-friendly type
+        payment.setItemDescription(null); // Will be set by caller if needed
         payment.setAmount(amount);
         payment.setPaymentMethod(normalizedMethod);
         payment.setPaymentStatus(determineInitialStatus(normalizedMethod));
@@ -53,9 +55,64 @@ public class PaymentService {
         
         return paymentTransactionRepository.save(payment);
     }
+
+    /**
+     * Create payment transaction with item details (for history display)
+     * 
+     * @param memberId User ID
+     * @param bookingType CLASS, COURT, or MEMBERSHIP_PACKAGE
+     * @param itemDescription Chi tiết hiển thị: "Gói VIP 6 Tháng", "Sân Cầu Lông 01"
+     * @param amount Payment amount
+     * @param paymentMethod VNPAY, CASH_COUNTER, etc
+     * @return Saved PaymentTransaction
+     */
+    public PaymentTransaction createPayment(
+            Long memberId,
+            String bookingType,
+            String itemDescription,
+            BigDecimal amount,
+            String paymentMethod) {
+        
+        // Normalize payment method
+        String normalizedMethod = normalizePaymentMethod(paymentMethod);
+        
+        PaymentTransaction payment = new PaymentTransaction();
+        payment.setMemberId(memberId);
+        payment.setBookingType(bookingType);
+        payment.setItemType(mapBookingTypeToItemType(bookingType));
+        payment.setItemDescription(itemDescription); // Store detail for history
+        payment.setAmount(amount);
+        payment.setPaymentMethod(normalizedMethod);
+        payment.setPaymentStatus(determineInitialStatus(normalizedMethod));
+        payment.setReferenceCode(generateReferenceCode(bookingType));
+        payment.setCreatedAt(LocalDateTime.now());
+        
+        return paymentTransactionRepository.save(payment);
+    }
+
+    /**
+     * Map bookingType to frontend-friendly itemType
+     * MEMBERSHIP_PACKAGE → MEMBERSHIP
+     * COURT → COURT
+     * CLASS → CLASS
+     * PT → PT
+     * *_REFUND → Keep original for status detection
+     */
+    private String mapBookingTypeToItemType(String bookingType) {
+        if (bookingType == null) return null;
+        
+        return switch (bookingType.toUpperCase(Locale.ROOT)) {
+            case "MEMBERSHIP_PACKAGE" -> "MEMBERSHIP";
+            case "COURT", "CLASS", "PT" -> bookingType.toUpperCase(Locale.ROOT);
+            case "COURT_REFUND" -> "COURT";
+            case "CLASS_REFUND" -> "CLASS";
+            case "MEMBERSHIP_REFUND" -> "MEMBERSHIP";
+            default -> bookingType;
+        };
+    }
     
     /**
-     * Normalize payment method (handle aliases like QR → VIETQR, CASH → CASH_COUNTER)
+     * Normalize payment method (handle aliases like CASH → CASH_COUNTER)
      */
     private String normalizePaymentMethod(String method) {
         if (method == null || method.isBlank()) {
@@ -66,7 +123,6 @@ public class PaymentService {
         
         // Handle aliases
         return switch (normalized) {
-            case "QR" -> PaymentConstants.METHOD_VIETQR;
             case "CASH" -> PaymentConstants.METHOD_CASH_COUNTER;
             default -> normalized;
         };
@@ -75,13 +131,11 @@ public class PaymentService {
     /**
      * Determine initial payment status based on method
      * 
-     * Rule: VIETQR → PENDING (chờ webhook callback)
-     *       VNPAY → PENDING (chờ VNPay IPN)
+     * Rule: VNPAY → PENDING (chờ VNPay IPN)
      *       CASH_COUNTER → PAID (thanh toán ngay)
      */
     private String determineInitialStatus(String normalizedMethod) {
-        if (PaymentConstants.METHOD_VIETQR.equals(normalizedMethod) ||
-            PaymentConstants.METHOD_VNPAY.equals(normalizedMethod)) {
+        if (PaymentConstants.METHOD_VNPAY.equals(normalizedMethod)) {
             return PaymentConstants.PAYMENT_STATUS_PENDING;
         }
         return PaymentConstants.PAYMENT_STATUS_PAID;

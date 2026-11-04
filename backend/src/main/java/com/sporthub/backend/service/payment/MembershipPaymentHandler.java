@@ -80,28 +80,40 @@ public class MembershipPaymentHandler implements BookingPaymentHandler {
                 UserMembership membership = userMembershipRepository.findById(membershipId).orElse(null);
                 
                 if (membership != null) {
-                    // ✅ NEW FLOW: GIỮ NGUYÊN PENDING_APPROVAL, KHÔNG auto-activate
-                    // Manager sẽ approve/reject sau
+                    // ✅ NEW FLOW FOR RECEPTION: Auto-activate membership (đã thanh toán xác thực)
+                    // Reception đã xác nhận member → Auto ACTIVE ngay khi payment success
                     if ("PENDING_APPROVAL".equalsIgnoreCase(membership.getStatus())) {
-                        // Update ReceptionPayment status to COMPLETED (payment confirmed)
+                        // Auto-activate membership
+                        membership.setStatus("ACTIVE");
+                        
+                        // Cấp quota nếu package có initial_quota_sessions
+                        if (membership.getInitialQuotaSessions() != null && membership.getInitialQuotaSessions() > 0) {
+                            membership.setUsedQuotaSessions(0);
+                            membership.setHeldQuotaSessions(0);
+                            membership.setRemainingQuotaSessions(membership.getInitialQuotaSessions());
+                        }
+                        
+                        userMembershipRepository.save(membership);
+                        
+                        // Update ReceptionPayment status to COMPLETED
                         matchingPayment.setPaymentStatus("COMPLETED");
                         receptionPaymentRepository.save(matchingPayment);
                         
-                        logger.info("✅ MEMBERSHIP PAYMENT CONFIRMED: Membership #{} stays in PENDING_APPROVAL (waiting for Manager approval)", membershipId);
+                        logger.info("✅ MEMBERSHIP AUTO-ACTIVATED: Membership #{} status=ACTIVE, quota granted", membershipId);
                         
-                        // Send notification: Payment success, chờ Manager duyệt
+                        // Send notification: Membership activated
                         if (engagementService != null) {
                             engagementService.audit(
-                                payment.getMemberId(), "MEMBER", "MEMBERSHIP_PAYMENT_CONFIRMED",
+                                payment.getMemberId(), "MEMBER", "MEMBERSHIP_ACTIVATED",
                                 "membershipId=" + membershipId + ", paymentId=" + paymentId +
-                                ", amount=" + transferAmount + ", status=PENDING_APPROVAL"
+                                ", amount=" + transferAmount + ", status=ACTIVE"
                             );
                             engagementService.notifyUser(
                                 payment.getMemberId(), 
-                                "Thanh toán gói thành công",
-                                "Gói hội viên #" + membershipId + " của bạn đã được thanh toán thành công! " +
-                                "Hệ thống đang chờ Quản lý phê duyệt để kích hoạt gói tập.", 
-                                "PAYMENT"
+                                "Gói hội viên đã được kích hoạt",
+                                "Gói hội viên #" + membershipId + " của bạn đã được kích hoạt thành công! " +
+                                "Bạn có thể bắt đầu đăng ký lớp học và sử dụng dịch vụ.", 
+                                "MEMBERSHIP"
                             );
                         }
                         
@@ -110,8 +122,8 @@ public class MembershipPaymentHandler implements BookingPaymentHandler {
                         result.setPaymentId(paymentId);
                         result.setBookingType("MEMBERSHIP_PACKAGE");
                         result.setMembershipId(membershipId);
-                        result.setStatus("PENDING_APPROVAL");
-                        result.setMessage("Thanh toán thành công. Đang chờ quản lý phê duyệt.");
+                        result.setStatus("ACTIVE");
+                        result.setMessage("Gói hội viên đã được kích hoạt thành công.");
                         return result;
                     } else {
                         logger.warn("UserMembership #{} already has status: {}", membershipId, membership.getStatus());

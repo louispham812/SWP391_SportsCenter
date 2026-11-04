@@ -64,7 +64,7 @@ export default function ReceptionDashboardPage() {
     },
     {
       title: 'Bán hàng & Thu ngân POS',
-      desc: 'Bán gói tập, nước uống, gia hạn thẻ và thanh toán VietQR / POS',
+      desc: 'Bán gói tập, nước uống, gia hạn thẻ và thanh toán VNPay / CASH',
       icon: 'point_of_sale',
       path: '/receptionist/pos',
       color: 'bg-orange-50 text-orange-600 group-hover:bg-orange-500 group-hover:text-white',

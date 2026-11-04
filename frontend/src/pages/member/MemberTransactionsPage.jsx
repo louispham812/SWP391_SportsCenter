@@ -1,11 +1,101 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { getMemberTransactions, getMemberProfile } from '../../services/memberApi';
-import { apiRequest } from '../../services/apiClient';
 import { useApp } from '../../context/AppContext';
-import { TableSkeleton } from '../../components/common/Skeleton';
 import Pagination from '../../components/common/Pagination';
+import { TableSkeleton } from '../../components/common/Skeleton';
+import { apiRequest } from '../../services/apiClient';
 
+// Import only 2 reusable modals
+import ReceiptModal from '../../components/member/ReceiptModal';
+import RefundRequestModal from '../../components/member/RefundRequestModal';
+
+// ============================================================
+// FORMAT FUNCTIONS (Inline - follows MemberClassesPage pattern)
+// ============================================================
+const formatMoney = (amount) =>
+  new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(amount || 0);
+
+const formatDate = (value) => {
+  if (!value) return '';
+  try {
+    return new Date(value).toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return value;
+  }
+};
+
+const formatRefCode = (refCode) => {
+  if (!refCode) return '#N/A';
+  if (refCode.startsWith('#')) return refCode;
+  if (/^\d+$/.test(refCode)) return `#${refCode}`;
+  if (refCode.includes('-') && refCode.length > 20) return `#${refCode.substring(0, 8)}`;
+  return `#${refCode}`;
+};
+
+const getItemTypeBadge = (itemType, paymentStatus, amount) => {
+  if (paymentStatus === 'REFUNDED') {
+    return { label: 'Hoàn Tiền 100%', color: 'bg-indigo-100 text-indigo-800 border-indigo-200', icon: 'currency_exchange' };
+  }
+  if (itemType === 'QUOTA' || parseFloat(amount) === 0) {
+    return { label: 'Khấu trừ Quota (0đ)', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: 'stars' };
+  }
+  switch (itemType) {
+    case 'MEMBERSHIP': return { label: 'Gói Hội Viên', color: 'bg-orange-100 text-orange-800 border-orange-200', icon: 'card_membership' };
+    case 'CLASS': return { label: 'Lớp Thể Thao', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: 'school' };
+    case 'COURT': return { label: 'Đặt Sân Bãi', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: 'sports_tennis' };
+    case 'PT': return { label: 'Thuê HLV Riêng', color: 'bg-purple-100 text-purple-800 border-purple-200', icon: 'person_add_alt_1' };
+    default: return { label: 'Dịch Vụ Khác', color: 'bg-slate-100 text-slate-800 border-slate-200', icon: 'receipt' };
+  }
+};
+
+const getItemTypeIcon = (itemType) => {
+  switch (itemType) {
+    case 'MEMBERSHIP': return '🎫';
+    case 'COURT': return '🏸';
+    case 'CLASS': return '📚';
+    case 'PT': return '💪';
+    case 'QUOTA': return '⭐';
+    default: return '📄';
+  }
+};
+
+const getItemTypeLabel = (itemType) => {
+  switch (itemType) {
+    case 'MEMBERSHIP': return 'Gói Hội Viên';
+    case 'COURT': return 'Đặt Sân';
+    case 'CLASS': return 'Lớp Học';
+    case 'PT': return 'Huấn Luyện Viên';
+    case 'QUOTA': return 'Khấu Trừ Quota';
+    default: return 'Dịch Vụ Khác';
+  }
+};
+
+// Filter labels
+const FILTER_LABELS = {
+  ALL: 'Tất cả',
+  MEMBERSHIP: 'Gói thành viên',
+  CLASS: 'Lớp học',
+  COURT: 'Đặt sân',
+  QUOTA: 'Khấu trừ Quota (0đ)',
+  REFUNDED: 'Đã hoàn tiền',
+};
+
+/**
+ * Member Transactions Page
+ * Displays transaction history with filtering, pagination, and modals
+ * Option 2: Clean refactor with inline rendering (3 files total)
+ */
 export default function MemberTransactionsPage() {
   const { showToast } = useApp();
   const [transactions, setTransactions] = useState([]);
@@ -15,20 +105,13 @@ export default function MemberTransactionsPage() {
   const [filterType, setFilterType] = useState('ALL'); // 'ALL' | 'MEMBERSHIP' | 'CLASS' | 'COURT' | 'REFUNDED' | 'QUOTA'
   const [currentPage, setCurrentPage] = useState(1);
   const TX_PER_PAGE = 8;
+  
+  // Modal states
   const [selectedReceipt, setSelectedReceipt] = useState(null);
-
-  // Modals for MEM-26 and MEM-31
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [showComplaintModal, setShowComplaintModal] = useState(false);
-
-  // Refund Form State (MEM-31 / MGR-16)
-  const [selectedTxForRefund, setSelectedTxForRefund] = useState('');
-  const [refundReason, setRefundReason] = useState('');
-  const [bankName, setBankName] = useState('Vietcombank');
-  const [bankAccount, setBankAccount] = useState('');
-  const [accountHolder, setAccountHolder] = useState('');
-
-  // Complaint Form State (MEM-26)
+  
+  // Complaint modal form states
   const [complaintCategory, setComplaintCategory] = useState('ATTENDANCE_DISPUTE');
   const [complaintTitle, setComplaintTitle] = useState('');
   const [complaintDescription, setComplaintDescription] = useState('');
@@ -48,6 +131,7 @@ export default function MemberTransactionsPage() {
       ]);
 
       let list = Array.isArray(txRes) ? txRes : [];
+      
       // If no quota transaction exists, inject realistic 0đ quota transaction for VIP demonstration (MEM-12)
       const hasQuotaTx = list.some((t) => t.itemType === 'QUOTA' || t.amount === 0);
       if (!hasQuotaTx) {
@@ -81,6 +165,7 @@ export default function MemberTransactionsPage() {
     }
   };
 
+  // Filter transactions based on selected type
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => {
       if (filterType === 'ALL') return true;
@@ -94,11 +179,13 @@ export default function MemberTransactionsPage() {
 
   const totalPages = Math.ceil(filteredTransactions.length / TX_PER_PAGE) || 1;
 
+  // Paginate filtered transactions
   const paginatedTransactions = useMemo(() => {
     const start = (currentPage - 1) * TX_PER_PAGE;
     return filteredTransactions.slice(start, start + TX_PER_PAGE);
   }, [filteredTransactions, currentPage]);
 
+  // Calculate statistics
   const stats = useMemo(() => {
     let totalSpent = 0;
     let totalRefunded = 0;
@@ -117,119 +204,12 @@ export default function MemberTransactionsPage() {
     };
   }, [transactions]);
 
-  const formatVnd = (amount) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-    }).format(amount || 0);
+  const handleFilterChange = (newFilter) => {
+    setFilterType(newFilter);
+    setCurrentPage(1); // Reset to first page when filter changes
   };
 
-  const formatDateTime = (isoStr) => {
-    if (!isoStr) return '';
-    try {
-      const d = new Date(isoStr);
-      return d.toLocaleDateString('vi-VN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return isoStr;
-    }
-  };
-
-  const getItemTypeBadge = (itemType, paymentStatus, amount) => {
-    if (paymentStatus === 'REFUNDED') {
-      return {
-        label: 'Hoàn Tiền 100%',
-        color: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-        icon: 'currency_exchange',
-      };
-    }
-    if (itemType === 'QUOTA' || parseFloat(amount) === 0) {
-      return {
-        label: 'Khấu trừ Quota (0đ)',
-        color: 'bg-amber-100 text-amber-800 border-amber-200',
-        icon: 'stars',
-      };
-    }
-    switch (itemType) {
-      case 'MEMBERSHIP':
-        return {
-          label: 'Gói Hội Viên',
-          color: 'bg-orange-100 text-orange-800 border-orange-200',
-          icon: 'card_membership',
-        };
-      case 'CLASS':
-        return {
-          label: 'Lớp Thể Thao',
-          color: 'bg-blue-100 text-blue-800 border-blue-200',
-          icon: 'school',
-        };
-      case 'COURT':
-        return {
-          label: 'Đặt Sân Bãi',
-          color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-          icon: 'sports_tennis',
-        };
-      case 'PT':
-        return {
-          label: 'Thuê HLV Riêng',
-          color: 'bg-purple-100 text-purple-800 border-purple-200',
-          icon: 'person_add_alt_1',
-        };
-      default:
-        return {
-          label: 'Dịch Vụ Khác',
-          color: 'bg-slate-100 text-slate-800 border-slate-200',
-          icon: 'receipt',
-        };
-    }
-  };
-
-  // Submit Refund Request (MEM-31 / MGR-16)
-  const handleRefundSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedTxForRefund) {
-      showToast('Lỗi', 'Vui lòng chọn giao dịch muốn yêu cầu hoàn tiền.', 'error');
-      return;
-    }
-    const targetTx = transactions.find((t) => (t.referenceCode || `TX-${t.id}`) === selectedTxForRefund);
-    if (!targetTx) return;
-
-    try {
-      await apiRequest('/members/me/refunds', {
-        method: 'POST',
-        body: JSON.stringify({
-          transactionId: targetTx.id || null,
-          referenceCode: targetTx.referenceCode || `TX-${targetTx.id}`,
-          bookingDescription: targetTx.itemName || 'Giao dịch dịch vụ thể thao',
-          refundAmount: parseFloat(targetTx.amount) || 0,
-          reason: refundReason,
-          bankName,
-          bankAccount,
-          accountHolder,
-        }),
-      });
-      setShowRefundModal(false);
-      setSelectedTxForRefund('');
-      setRefundReason('');
-      setBankAccount('');
-      setAccountHolder('');
-      showToast(
-        'Yêu cầu hoàn tiền đã gửi',
-        'Đã chuyển đến Quản lý xét duyệt theo quy chế hoàn tiền 2 tiếng.',
-        'success'
-      );
-      await loadData();
-    } catch (err) {
-      showToast('Lỗi yêu cầu hoàn tiền', err.message || 'Không thể gửi yêu cầu hoàn tiền.', 'error');
-    }
-  };
-
-  // Submit Complaint (MEM-26)
+  // Handle complaint submission
   const handleComplaintSubmit = async (e) => {
     e.preventDefault();
     if (!complaintTitle.trim() || !complaintDescription.trim()) {
@@ -247,22 +227,21 @@ export default function MemberTransactionsPage() {
           severity: complaintSeverity,
         }),
       });
-      setShowComplaintModal(false);
+      
       setComplaintTitle('');
       setComplaintDescription('');
+      setShowComplaintModal(false);
+      
       showToast(
         'Khiếu nại đã gửi thành công',
         'Bộ phận CSKH và Quản lý F Sport sẽ phản hồi trong vòng 24h.',
         'success'
       );
+      await loadData();
     } catch (err) {
       showToast('Lỗi gửi khiếu nại', err.message || 'Không thể gửi khiếu nại.', 'error');
     }
   };
-
-  const paidTransactions = transactions.filter(
-    (t) => t.paymentStatus === 'PAID' && parseFloat(t.amount) > 0
-  );
 
   return (
     <MemberLayout>
@@ -312,12 +291,15 @@ export default function MemberTransactionsPage() {
           </div>
         </div>
 
-        {/* Financial Stat Cards */}
+        {/* Financial Stats Cards - INLINE */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Total Spent Card */}
           <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tổng Đã Thanh Toán</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Tổng Đã Thanh Toán
+            </span>
             <div className="mt-2 text-2xl sm:text-3xl font-black text-slate-900">
-              {formatVnd(stats.totalSpent)}
+              {formatMoney(stats.totalSpent)}
             </div>
             <span className="text-[11px] text-emerald-600 font-semibold mt-1 flex items-center gap-1">
               <span className="material-symbols-outlined text-[14px]">verified</span>
@@ -325,10 +307,13 @@ export default function MemberTransactionsPage() {
             </span>
           </div>
 
+          {/* Total Refunded Card */}
           <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Đã Được Hoàn Lại</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Đã Được Hoàn Lại
+            </span>
             <div className="mt-2 text-2xl sm:text-3xl font-black text-indigo-600">
-              {formatVnd(stats.totalRefunded)}
+              {formatMoney(stats.totalRefunded)}
             </div>
             <span className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
               <span className="material-symbols-outlined text-[14px]">published_with_changes</span>
@@ -336,8 +321,11 @@ export default function MemberTransactionsPage() {
             </span>
           </div>
 
+          {/* Transaction Count Card */}
           <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tổng Lệnh Giao Dịch</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Tổng Lệnh Giao Dịch
+            </span>
             <div className="mt-2 text-2xl sm:text-3xl font-black text-orange-600">
               {stats.count}
             </div>
@@ -349,45 +337,35 @@ export default function MemberTransactionsPage() {
 
         {/* Transactions Table Section */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          {/* Filters */}
+          {/* Filters - INLINE */}
           <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between gap-4 overflow-x-auto">
             <div className="flex items-center gap-2">
-              {[
-                { id: 'ALL', label: 'Tất cả' },
-                { id: 'MEMBERSHIP', label: 'Gói thành viên' },
-                { id: 'CLASS', label: 'Lớp học' },
-                { id: 'COURT', label: 'Đặt sân' },
-                { id: 'QUOTA', label: 'Khấu trừ Quota (0đ)' },
-                { id: 'REFUNDED', label: 'Đã hoàn tiền' },
-              ].map((tab) => (
+              {Object.keys(FILTER_LABELS).map((filter) => (
                 <button
-                  key={tab.id}
-                  onClick={() => {
-                    setFilterType(tab.id);
-                    setCurrentPage(1);
-                  }}
+                  key={filter}
+                  onClick={() => handleFilterChange(filter)}
                   type="button"
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                    filterType === tab.id
+                    filterType === filter
                       ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/20'
                       : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                   }`}
                 >
-                  {tab.label}
+                  {FILTER_LABELS[filter]}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Table */}
+          {/* Table - INLINE */}
           <div className="p-4 sm:p-5">
             {loading ? (
-              <TableSkeleton rows={5} cols={6} />
+              <TableSkeleton rows={5} cols={7} />
             ) : error ? (
               <div className="p-6 text-center text-red-600 bg-red-50 rounded-xl text-xs">
                 {error}
               </div>
-            ) : filteredTransactions.length === 0 ? (
+            ) : paginatedTransactions.length === 0 ? (
               <div className="py-16 text-center">
                 <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
                   <span className="material-symbols-outlined text-[32px]">receipt_long</span>
@@ -418,10 +396,16 @@ export default function MemberTransactionsPage() {
                       const isQuota = tx.itemType === 'QUOTA' || parseFloat(tx.amount) === 0;
 
                       return (
-                        <tr key={tx.id || tx.transactionId || tx.paymentId || tx.referenceCode || `tx-${idx}`} className="hover:bg-slate-50/70 transition-colors">
+                        <tr 
+                          key={tx.id || tx.transactionId || tx.paymentId || tx.referenceCode || `tx-${idx}`} 
+                          className="hover:bg-slate-50/70 transition-colors"
+                        >
+                          {/* Reference Code */}
                           <td className="py-3.5 px-4 font-mono font-bold text-slate-800">
                             {tx.referenceCode || `TX-${tx.id}`}
                           </td>
+
+                          {/* Item Name & Type Badge */}
                           <td className="py-3.5 px-4">
                             <div className="flex items-center gap-2">
                               <span className={`p-1.5 rounded-lg border text-[14px] ${typeMeta.color}`}>
@@ -435,23 +419,31 @@ export default function MemberTransactionsPage() {
                               </div>
                             </div>
                           </td>
+
+                          {/* Created At */}
                           <td className="py-3.5 px-4 text-slate-600 font-medium">
-                            {formatDateTime(tx.createdAt)}
+                            {formatDate(tx.createdAt)}
                           </td>
+
+                          {/* Payment Method */}
                           <td className="py-3.5 px-4">
                             <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-semibold">
                               {isQuota ? 'MEMBERSHIP_QUOTA' : tx.paymentMethod || 'SANDBOX'}
                             </span>
                           </td>
+
+                          {/* Amount */}
                           <td className="py-3.5 px-4 font-bold">
                             {isQuota ? (
                               <span className="text-amber-600 font-extrabold">0 ₫ (Quota VIP)</span>
                             ) : isRefund ? (
-                              <span className="text-indigo-600">+{formatVnd(tx.amount)}</span>
+                              <span className="text-indigo-600">+{formatMoney(tx.amount)}</span>
                             ) : (
-                              <span className="text-slate-900">{formatVnd(tx.amount)}</span>
+                              <span className="text-slate-900">{formatMoney(tx.amount)}</span>
                             )}
                           </td>
+
+                          {/* Status Badge */}
                           <td className="py-3.5 px-4">
                             {isRefund ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
@@ -470,6 +462,8 @@ export default function MemberTransactionsPage() {
                               </span>
                             )}
                           </td>
+
+                          {/* Receipt Button */}
                           <td className="py-3.5 px-4 text-right">
                             <button
                               onClick={() => setSelectedReceipt(tx)}
@@ -504,248 +498,7 @@ export default function MemberTransactionsPage() {
           </div>
         </div>
 
-        {/* Printable E-Receipt Modal */}
-        {selectedReceipt && (
-          <div
-            onClick={() => setSelectedReceipt(null)}
-            className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-5 relative animate-in zoom-in-95 duration-150"
-            >
-              {/* Close Button */}
-              <button
-                onClick={() => setSelectedReceipt(null)}
-                className="absolute right-4 top-4 w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-
-              {/* Receipt Header */}
-              <div className="text-center pb-4 border-b border-dashed border-slate-200">
-                <div className="w-12 h-12 rounded-2xl bg-orange-500 text-white flex items-center justify-center mx-auto mb-2 shadow-md shadow-orange-500/25">
-                  <span className="material-symbols-outlined text-[24px]">verified</span>
-                </div>
-                <h3 className="font-headline-sm font-black text-slate-900 text-lg uppercase tracking-tight">
-                  F SPORT ATHLETIC CENTER
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  {selectedReceipt.paymentStatus === 'REFUNDED'
-                    ? 'PHIẾU XÁC NHẬN HOÀN TIỀN ĐIỆN TỬ'
-                    : parseFloat(selectedReceipt.amount) === 0
-                    ? 'BIÊN LAI KHẤU TRỪ HẠN NGẠCH GÓI TẬP'
-                    : 'HÓA ĐƠN XÁC NHẬN THANH TOÁN ĐIỆN TỬ'}
-                </p>
-                <span className="inline-block mt-2 font-mono text-[11px] font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
-                  Mã: {selectedReceipt.referenceCode || `TX-${selectedReceipt.id}`}
-                </span>
-              </div>
-
-              {/* 0d Quota Highlight Box (MEM-12) */}
-              {(parseFloat(selectedReceipt.amount) === 0 || selectedReceipt.paymentMethod === 'MEMBERSHIP_QUOTA') && (
-                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
-                  <div className="font-bold flex items-center gap-1.5 text-amber-800">
-                    <span className="material-symbols-outlined text-[18px]">stars</span>
-                    Khấu Trừ Gói Hội Viên VIP All-Access
-                  </div>
-                  <p className="text-[11px] text-amber-700">
-                    Đã cấn trừ <strong>1 buổi</strong> từ hạn ngạch gói tập đã mua. Số tiền thanh toán trực tiếp: <strong>0 VNĐ</strong>.
-                  </p>
-                </div>
-              )}
-
-              {/* Receipt Content */}
-              <div className="space-y-2.5 text-xs">
-                <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-400">Khách hàng:</span>
-                  <span className="font-bold text-slate-800">{profile?.fullName || 'Hội viên F Sport'}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-400">Thời gian tạo:</span>
-                  <span className="font-medium text-slate-800">{formatDateTime(selectedReceipt.createdAt)}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-400">Nội dung dịch vụ:</span>
-                  <span className="font-bold text-slate-900">{selectedReceipt.itemName}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-400">Phương thức:</span>
-                  <span className="font-mono font-bold text-slate-700">{selectedReceipt.paymentMethod}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-400">Trạng thái giao dịch:</span>
-                  <span
-                    className={`font-bold ${
-                      selectedReceipt.paymentStatus === 'REFUNDED'
-                        ? 'text-indigo-600'
-                        : parseFloat(selectedReceipt.amount) === 0
-                        ? 'text-amber-600'
-                        : 'text-emerald-600'
-                    }`}
-                  >
-                    {selectedReceipt.paymentStatus === 'REFUNDED'
-                      ? 'Đã hoàn trả 100%'
-                      : parseFloat(selectedReceipt.amount) === 0
-                      ? 'Đã cấn trừ Quota'
-                      : 'Thành công (Đã quyết toán)'}
-                  </span>
-                </div>
-
-                <div className="pt-2 flex justify-between items-baseline text-sm">
-                  <span className="font-bold text-slate-700">Tổng tiền giao dịch:</span>
-                  <span className="text-xl font-black text-orange-600">
-                    {formatVnd(selectedReceipt.amount)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Stamp & Footer */}
-              <div className="pt-3 border-t border-dashed border-slate-200 text-center space-y-2.5">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] text-emerald-800 font-bold uppercase tracking-wider">
-                  <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                  Hệ thống F Sport đã chứng thực điện tử
-                </div>
-                <p className="text-[10px] text-slate-400 leading-tight">
-                  Biên lai điện tử có giá trị đối soát kế toán và giải quyết quyền lợi hội viên tại quầy Lễ tân.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition-colors shadow-md flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[16px]">print</span>
-                  In / Lưu biên lai PDF
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* REFUND REQUEST MODAL (MEM-31 / MGR-16) */}
-        {showRefundModal && (
-          <div
-            onClick={() => setShowRefundModal(false)}
-            className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-5 relative"
-            >
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[20px]">currency_exchange</span>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-base">Gửi Yêu Cầu Hoàn Tiền</h3>
-                    <p className="text-xs text-slate-500">Áp dụng cho hủy lịch trước 2h hoặc yêu cầu hoàn phí theo quy chế</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowRefundModal(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]">close</span>
-                </button>
-              </div>
-
-              <form onSubmit={handleRefundSubmit} className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700">Chọn Giao Dịch Cần Hoàn</label>
-                  <select
-                    value={selectedTxForRefund}
-                    onChange={(e) => setSelectedTxForRefund(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="">-- Chọn giao dịch đã thanh toán --</option>
-                    {paidTransactions.map((tx) => (
-                      <option key={tx.id} value={tx.referenceCode || `TX-${tx.id}`}>
-                        {tx.referenceCode || `TX-${tx.id}`} · {tx.itemName} ({formatVnd(tx.amount)})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700">Lý Do Yêu Cầu Hoàn Tiền</label>
-                  <textarea
-                    rows="2"
-                    placeholder="Ví dụ: Bận công tác đột xuất, hủy sân trước giờ quy định 2 tiếng, lý do sức khỏe..."
-                    value={refundReason}
-                    onChange={(e) => setRefundReason(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white focus:ring-2 focus:ring-orange-500"
-                  ></textarea>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700">Ngân Hàng</label>
-                    <select
-                      value={bankName}
-                      onChange={(e) => setBankName(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white"
-                    >
-                      <option value="Vietcombank">Vietcombank</option>
-                      <option value="MB Bank">MB Bank</option>
-                      <option value="Techcombank">Techcombank</option>
-                      <option value="BIDV">BIDV</option>
-                      <option value="ACB">ACB</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700">Số Tài Khoản</label>
-                    <input
-                      type="text"
-                      placeholder="0123456789"
-                      value={bankAccount}
-                      onChange={(e) => setBankAccount(e.target.value)}
-                      required
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700">Chủ Tài Khoản</label>
-                    <input
-                      type="text"
-                      placeholder="NGUYEN VAN A"
-                      value={accountHolder}
-                      onChange={(e) => setAccountHolder(e.target.value.toUpperCase())}
-                      required
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold uppercase"
-                    />
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900">
-                  <strong>Lưu ý quy chế:</strong> Hệ thống đối soát mốc thời gian hủy booking trước 2 tiếng. Sau khi Quản lý duyệt, số tiền sẽ được chuyển khoản trực tiếp qua ngân hàng thụ hưởng trong vòng 24 giờ.
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setShowRefundModal(false)}
-                    className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
-                  >
-                    Hủy Bỏ
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md cursor-pointer"
-                  >
-                    Gửi Yêu Cầu Hoàn Tiền
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* COMPLAINT MODAL (MEM-26) */}
+        {/* Complaint Modal - INLINE */}
         {showComplaintModal && (
           <div
             onClick={() => setShowComplaintModal(false)}
@@ -768,6 +521,7 @@ export default function MemberTransactionsPage() {
                 <button
                   onClick={() => setShowComplaintModal(false)}
                   className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer"
+                  type="button"
                 >
                   <span className="material-symbols-outlined text-[18px]">close</span>
                 </button>
@@ -845,6 +599,21 @@ export default function MemberTransactionsPage() {
             </div>
           </div>
         )}
+
+        {/* Modals - Only 2 reusable modals imported */}
+        <ReceiptModal 
+          receipt={selectedReceipt} 
+          profile={profile} 
+          onClose={() => setSelectedReceipt(null)} 
+        />
+
+        <RefundRequestModal
+          show={showRefundModal}
+          onClose={() => setShowRefundModal(false)}
+          transactions={transactions}
+          onSuccess={loadData}
+          showToast={showToast}
+        />
       </div>
     </MemberLayout>
   );
