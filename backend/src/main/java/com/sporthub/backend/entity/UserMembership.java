@@ -1,10 +1,16 @@
 package com.sporthub.backend.entity;
 
-import jakarta.persistence.*;
+import java.time.LocalDate;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import java.time.LocalDate;
 
 @Entity
 @Table(name = "user_memberships")
@@ -33,7 +39,7 @@ public class UserMembership {
     @Column(length = 20)
     private String status;
 
-    // Quota tracking fields (added by migration 001)
+    // Quota tracking fields for CLASS/PT bookings (added by migration 001)
     @Column(name = "remaining_quota_sessions")
     private Integer remainingQuotaSessions = 0;
 
@@ -45,4 +51,17 @@ public class UserMembership {
 
     @Column(name = "initial_quota_sessions")
     private Integer initialQuotaSessions = 0;
+
+    // Quota tracking fields for COURT bookings (added by migration 002)
+    @Column(name = "remaining_quota_courts")
+    private Integer remainingQuotaCourts = 0;
+
+    @Column(name = "held_quota_courts")
+    private Integer heldQuotaCourts = 0;
+
+    @Column(name = "used_quota_courts")
+    private Integer usedQuotaCourts = 0;
+
+    @Column(name = "initial_quota_courts")
+    private Integer initialQuotaCourts = 0;
 }

@@ -436,4 +436,84 @@ public class MembershipService {
             );
         }
     }
+
+    // =========================================================================
+    // COURT QUOTA METHODS (Migration 002)
+    // =========================================================================
+
+    /**
+     * Get active membership with sufficient COURT quota
+     * @param userId User ID
+     * @param requiredHours Required court hours (can be decimal, e.g., 2.5)
+     * @return UserMembership nếu đủ điều kiện, null nếu không
+     */
+    @Transactional(readOnly = true)
+    public UserMembership getActiveMembershipWithCourtQuota(Long userId, double requiredHours) {
+        List<UserMembership> memberships = userMembershipRepository.findByUserIdAndStatus(userId, "ACTIVE");
+
+        return memberships.stream()
+                .filter(m -> m.getEndDate() != null && m.getEndDate().isAfter(LocalDate.now()))
+                .filter(m -> m.getRemainingQuotaCourts() != null && m.getRemainingQuotaCourts() >= requiredHours)
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Validate court quota formula
+     */
+    public void validateCourtQuotaFormula(UserMembership membership) {
+        int remaining = membership.getRemainingQuotaCourts() != null ? membership.getRemainingQuotaCourts() : 0;
+        int held = membership.getHeldQuotaCourts() != null ? membership.getHeldQuotaCourts() : 0;
+        int used = membership.getUsedQuotaCourts() != null ? membership.getUsedQuotaCourts() : 0;
+        int initial = membership.getInitialQuotaCourts() != null ? membership.getInitialQuotaCourts() : 0;
+
+        if (remaining + held + used != initial) {
+            throw new IllegalStateException(String.format(
+                "Court quota formula mismatch for membership %d: remaining=%d + held=%d + used=%d != initial=%d",
+                membership.getMembershipId(), remaining, held, used, initial
+            ));
+        }
+    }
+
+    /**
+     * Hold court quota on booking creation
+     */
+    @Transactional
+    public void holdCourtQuota(Long membershipId, double hours) {
+        UserMembership membership = userMembershipRepository.findById(membershipId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Membership không tồn tại"));
+        int hoursInt = (int) Math.ceil(hours);
+        membership.setRemainingQuotaCourts(membership.getRemainingQuotaCourts() - hoursInt);
+        membership.setHeldQuotaCourts(membership.getHeldQuotaCourts() + hoursInt);
+        userMembershipRepository.save(membership);
+        validateCourtQuotaFormula(membership);
+    }
+
+    /**
+     * Release court quota on booking cancellation
+     */
+    @Transactional
+    public void releaseCourtQuota(Long membershipId, double hours) {
+        UserMembership membership = userMembershipRepository.findById(membershipId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Membership không tồn tại"));
+        int hoursInt = (int) Math.ceil(hours);
+        membership.setHeldQuotaCourts(membership.getHeldQuotaCourts() - hoursInt);
+        membership.setRemainingQuotaCourts(membership.getRemainingQuotaCourts() + hoursInt);
+        userMembershipRepository.save(membership);
+        validateCourtQuotaFormula(membership);
+    }
+
+    /**
+     * Consume court quota on check-in
+     */
+    @Transactional
+    public void consumeCourtQuota(Long membershipId, double hours) {
+        UserMembership membership = userMembershipRepository.findById(membershipId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Membership không tồn tại"));
+        int hoursInt = (int) Math.ceil(hours);
+        membership.setHeldQuotaCourts(membership.getHeldQuotaCourts() - hoursInt);
+        membership.setUsedQuotaCourts(membership.getUsedQuotaCourts() + hoursInt);
+        userMembershipRepository.save(membership);
+        validateCourtQuotaFormula(membership);
+    }
 }

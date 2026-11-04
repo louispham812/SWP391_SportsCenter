@@ -1,5 +1,30 @@
 package com.sporthub.backend.controller;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+
 import com.sporthub.backend.dto.AvatarUpdateRequest;
 import com.sporthub.backend.dto.MemberAttendanceRecordResponse;
 import com.sporthub.backend.dto.MemberAttendanceSummaryResponse;
@@ -33,20 +58,6 @@ import com.sporthub.backend.repository.ReceptionPaymentRepository;
 import com.sporthub.backend.repository.UserMembershipRepository;
 import com.sporthub.backend.repository.UserRepository;
 import com.sporthub.backend.service.PaymentService;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
-
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/members/me")
@@ -241,7 +252,8 @@ public class MemberProfileController {
                     0,
                     0,
                     false,
-                    "Bạn chưa có gói tập nào. Vui lòng đăng ký gói để sử dụng dịch vụ.");
+                    "Bạn chưa có gói tập nào. Vui lòng đăng ký gói để sử dụng dịch vụ.",
+                    0, 0, 0, 0, false);
         }
         
         // Lấy membership đầu tiên (active và chưa hết hạn)
@@ -257,7 +269,14 @@ public class MemberProfileController {
         int used = membership.getUsedQuotaSessions() != null ? membership.getUsedQuotaSessions() : 0;
         int initial = membership.getInitialQuotaSessions() != null ? membership.getInitialQuotaSessions() : 0;
         
+        // Court quota (Migration 002)
+        int remainingCourts = membership.getRemainingQuotaCourts() != null ? membership.getRemainingQuotaCourts() : 0;
+        int heldCourts = membership.getHeldQuotaCourts() != null ? membership.getHeldQuotaCourts() : 0;
+        int usedCourts = membership.getUsedQuotaCourts() != null ? membership.getUsedQuotaCourts() : 0;
+        int initialCourts = membership.getInitialQuotaCourts() != null ? membership.getInitialQuotaCourts() : 0;
+        
         boolean canUse = remaining > 0 && membership.getEndDate().isAfter(LocalDate.now());
+        boolean canUseCourts = remainingCourts > 0 && membership.getEndDate().isAfter(LocalDate.now());
         
         String message = String.format("Còn %d/%d buổi (đã dùng: %d, đang giữ: %d)", 
                 remaining, initial, used, held);
@@ -274,7 +293,12 @@ public class MemberProfileController {
                 held,
                 used,
                 canUse,
-                message);
+                message,
+                initialCourts,
+                remainingCourts,
+                heldCourts,
+                usedCourts,
+                canUseCourts);
     }
 
     @GetMapping("/digital-card")
