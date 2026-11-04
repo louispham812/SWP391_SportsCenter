@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
-import { apiRequest } from '../../services/apiClient';
+import { apiRequest, generatePayment } from '../../services/apiClient';
 import QrCodeSvg from '../../components/common/QrCodeSvg';
 
 const formatPrice = (amount) => new Intl.NumberFormat('vi-VN', {
@@ -85,19 +85,30 @@ export default function ReceptionPOSPage() {
           paymentMethod,
         }),
       });
-      setReceipt({
-        ...result,
-        member: selectedMember,
-        pkg: selectedPackage,
-        paymentMethodName:
-          paymentMethod === 'CASH'
-            ? 'Tiền mặt tại quầy'
-            : paymentMethod === 'TRANSFER'
-            ? 'Chuyển khoản VietQR'
-            : 'Quẹt thẻ máy POS',
-        createdAtFormatted: new Date().toLocaleString('vi-VN'),
-      });
-      setShowPrintModal(true);
+
+      // VNPAY Flow: Redirect to VNPay payment page (same tab to keep sessionStorage)
+      if (paymentMethod === 'VNPAY' && result.paymentStatus === 'PENDING') {
+        try {
+          const vnpayResult = await generatePayment(result.paymentId, 'VNPAY');
+          
+          // Redirect to VNPay payment page (same tab - giữ sessionStorage)
+          // VNPay sẽ redirect về /payment/return sau khi thanh toán
+          window.location.href = vnpayResult.paymentUrl;
+          return; // Stop execution after redirect
+        } catch (vnpayError) {
+          setError(vnpayError.message || 'Không thể tạo thanh toán VNPay. Vui lòng thử lại.');
+        }
+      } else {
+        // CASH Flow: Show receipt immediately
+        setReceipt({
+          ...result, // Backend fields: paymentId, membershipId, packageName, amount, paymentStatus, createdAt, referenceCode
+          member: selectedMember,
+          pkg: selectedPackage,
+          paymentMethodName: paymentMethod === 'CASH' ? 'Tiền mặt tại quầy' : 'Khác',
+          createdAtFormatted: new Date().toLocaleString('vi-VN'),
+        });
+        setShowPrintModal(true);
+      }
     } catch (requestError) {
       setError(requestError.message || 'Không thể ghi nhận giao dịch.');
     } finally {
@@ -129,7 +140,46 @@ export default function ReceptionPOSPage() {
           </p>
         )}
 
-        {receipt && (
+        {receipt && receipt.isVNPayPending && (
+          <section className="rounded-2xl border border-blue-200 bg-blue-50/90 p-5 text-sm text-blue-900 space-y-4">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-blue-600 text-3xl shrink-0 animate-pulse">schedule</span>
+              <div className="flex-1">
+                <div className="font-bold text-base text-blue-900">
+                  Đang chờ khách thanh toán VNPay
+                </div>
+                <div className="text-xs text-blue-800 mt-1">
+                  Mã giao dịch: <strong>#{receipt.paymentId}</strong> · Gói <strong>{receipt.packageName}</strong> · Số tiền: <strong>{formatPrice(receipt.amount)}</strong>
+                </div>
+                <div className="text-xs text-blue-700 mt-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[14px]">info</span>
+                  <span>Trang VNPay đã mở trong tab mới. Khách hàng vui lòng hoàn tất thanh toán.</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-2 border-t border-blue-200/60">
+              <a
+                href={receipt.vnpayUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="py-2 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                <span>Mở lại trang VNPay</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="py-2 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">refresh</span>
+                <span>Làm mới trang</span>
+              </button>
+            </div>
+          </section>
+        )}
+        
+        {receipt && !receipt.isVNPayPending && (
           <section role="status" className="rounded-2xl border border-emerald-200 bg-emerald-50/90 p-5 text-sm text-emerald-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-emerald-600 text-3xl shrink-0">check_circle</span>
@@ -239,8 +289,7 @@ export default function ReceptionPOSPage() {
                 className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-orange-500"
               >
                 <option value="CASH">Tiền mặt tại quầy (CASH)</option>
-                <option value="TRANSFER">Chuyển khoản VietQR (TRANSFER)</option>
-                <option value="POS">Quẹt thẻ máy POS (POS)</option>
+                <option value="VNPAY">Thanh toán VNPay (VNPAY)</option>
               </select>
               <div className="flex justify-between items-center border-t border-slate-100 pt-4 text-sm">
                 <span className="font-bold text-slate-600">Tổng thanh toán:</span>

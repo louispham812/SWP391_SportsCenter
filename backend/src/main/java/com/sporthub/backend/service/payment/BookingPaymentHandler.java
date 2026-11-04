@@ -5,7 +5,7 @@ import com.sporthub.backend.entity.PaymentTransaction;
 
 /**
  * Strategy interface for webhook payment processing
- * Supports multiple payment gateways (VNPay, VietQR, etc.)
+ * Supports multiple payment gateways (VNPay, etc.)
  * Used by VNPayWebhookController to confirm bookings after payment
  */
 public interface BookingPaymentHandler {

@@ -37,7 +37,7 @@ export default function AdminLayout({ children }) {
             "Tổng lượt check-in qua cổng,586 lượt\n" +
             "Tỷ lệ lấp đầy sân & lớp,88.5%\n\n" +
             "DOANH THU THEO PHƯƠNG THỨC THANH TOÁN,SỐ TIỀN,SỐ LƯỢNG GIAO DỊCH\n" +
-            "Chuyển khoản VietQR,94.200.000 VNĐ,142\n" +
+            "Thanh toán trực tuyến VNPay,94.200.000 VNĐ,142\n" +
             "Tiền mặt tại quầy POS,38.150.000 VNĐ,58\n" +
             "Thẻ ngân hàng / POS,26.100.000 VNĐ,35\n";
           const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

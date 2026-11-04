@@ -7,11 +7,10 @@ package com.sporthub.backend.constants;
 public final class PaymentConstants {
     
     // Payment Methods
-    public static final String METHOD_VIETQR = "VIETQR";
-    public static final String METHOD_QR = "QR"; // Alias
     public static final String METHOD_VNPAY = "VNPAY";
     public static final String METHOD_CASH_COUNTER = "CASH_COUNTER";
     public static final String METHOD_CASH = "CASH"; // Alias
+    public static final String METHOD_MEMBERSHIP_QUOTA = "MEMBERSHIP_QUOTA"; // For quota bookings (0đ)
     
     // Payment Status (PaymentTransaction)
     public static final String PAYMENT_STATUS_PENDING = "PENDING";

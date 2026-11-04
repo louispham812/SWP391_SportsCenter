@@ -7,10 +7,9 @@ import java.util.Map;
  * Payment Gateway Interface
  * 
  * Clean Architecture pattern để support nhiều payment gateway
- * (VietQR, VNPay, MoMo, ZaloPay, etc.)
+ * (VNPay, MoMo, ZaloPay, etc.)
  * 
  * Implementation:
- * - VietQRGateway: Generate QR code URL with bank account
  * - VNPayGateway: Redirect to VNPay payment page with HMAC SHA512
  */
 public interface PaymentGateway {
@@ -34,7 +33,7 @@ public interface PaymentGateway {
     /**
      * Get gateway name
      * 
-     * @return Gateway identifier (VIETQR, VNPAY, etc.)
+     * @return Gateway identifier (VNPAY, etc.)
      */
     String getGatewayName();
 }

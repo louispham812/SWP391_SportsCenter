@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useApp } from '../context/AppContext';
 
 /**
  * VNPay Return Page
@@ -25,12 +26,20 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 export default function VNPayReturnPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { currentUser, currentRole, showToast } = useApp();
   const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('');
   const [paymentId, setPaymentId] = useState(null);
   
   useEffect(() => {
     const verifyPayment = async () => {
+      // Check auth first - nếu không có auth thì redirect login
+      if (!currentUser || !currentRole) {
+        console.warn('No auth found, redirecting to login...');
+        navigate('/login', { replace: true });
+        return;
+      }
+      
       const vnpResponseCode = searchParams.get('vnp_ResponseCode');
       const vnpTxnRef = searchParams.get('vnp_TxnRef');
       const vnpSecureHash = searchParams.get('vnp_SecureHash');
@@ -80,7 +89,7 @@ export default function VNPayReturnPage() {
     };
     
     verifyPayment();
-  }, [searchParams]);
+  }, [searchParams, currentUser, currentRole, navigate]);
   
   const getErrorMessage = (code) => {
     const messages = {
@@ -101,14 +110,39 @@ export default function VNPayReturnPage() {
   };
   
   const handleContinue = () => {
-    // Read bookingType from URL query params (more reliable than sessionStorage)
-    const bookingType = searchParams.get('bookingType');
-    const targetPage = bookingType === 'CLASS' ? '/member/classes' :
-                      bookingType === 'COURT' ? '/member/book' :
-                      bookingType === 'MEMBERSHIP_PACKAGE' ? '/member/packages' :
-                      '/member/dashboard';
+    // Show toast success message
+    if (status === 'success') {
+    showToast('Thanh toán thành công', message, 'success');
+    // Delay navigate để user thấy toast
+    setTimeout(() => {
+        navigate('/receptionist/pos', { replace: true });
+    }, 1500);
+}
     
-    navigate(targetPage);
+    // Determine target page based on user role and booking type
+    if (!currentUser || !currentRole) {
+      // User not logged in → go to login
+      navigate('/login', { replace: true });
+      return;
+    }
+    
+    const bookingType = searchParams.get('bookingType');
+    
+    // Route based on role
+    if (currentRole === 'receptionist') {
+      // Receptionist always returns to POS dashboard
+      navigate('/receptionist/pos', { replace: true });
+    } else if (currentRole === 'member') {
+      // Member navigates based on booking type
+      const targetPage = bookingType === 'CLASS' ? '/member/classes' :
+                        bookingType === 'COURT' ? '/member/book' :
+                        bookingType === 'MEMBERSHIP_PACKAGE' ? '/member/packages' :
+                        '/member/dashboard';
+      navigate(targetPage, { replace: true });
+    } else {
+      // Other roles → go to their dashboard
+      navigate(`/${currentRole}`, { replace: true });
+    }
   };
   
   if (status === 'loading') {

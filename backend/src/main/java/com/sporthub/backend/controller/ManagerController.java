@@ -285,8 +285,8 @@ public class ManagerController {
             row.put("packageName", pkg != null ? pkg.getName() : "Gói tập #" + um.getPackageId());
             row.put("packageType", pkg != null ? pkg.getAccessType() : "VIP");
             row.put("price", pkg != null ? pkg.getPrice() : 0);
-            row.put("paymentMethod", "VIETQR");
-            row.put("referenceCode", "VQR-MBR-" + um.getMembershipId());
+            row.put("paymentMethod", "VNPAY");
+            row.put("referenceCode", "VNP-MBR-" + um.getMembershipId());
             row.put("quotaCourtHours", pkg != null && pkg.getQuotaSessions() != null ? pkg.getQuotaSessions() : 0);
             row.put("quotaClassSessions", pkg != null && pkg.getQuotaSessions() != null ? pkg.getQuotaSessions() : 0);
             row.put("quotaPtSessions", 0);

@@ -72,6 +72,7 @@ public class ReceptionistController {
     private final com.sporthub.backend.service.EmailService emailService;
     private final com.sporthub.backend.service.AuditLogService auditLogService;
     private final com.sporthub.backend.service.AuthService authService;
+    private final com.sporthub.backend.service.PaymentService paymentService;
 
     @Autowired(required = false)
     private com.sporthub.backend.repository.EquipmentLoanRepository equipmentLoanRepository;
@@ -95,9 +96,11 @@ public class ReceptionistController {
             PasswordEncoder passwordEncoder,
             com.sporthub.backend.service.EmailService emailService,
             com.sporthub.backend.service.AuditLogService auditLogService,
-            com.sporthub.backend.service.AuthService authService) {
+            com.sporthub.backend.service.AuthService authService,
+            com.sporthub.backend.service.PaymentService paymentService) {
         this.userRepository = userRepository;
         this.paymentRepository = paymentRepository;
+        this.paymentService = paymentService;
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.membershipRepository = membershipRepository;
         this.packageRepository = packageRepository;
@@ -195,7 +198,7 @@ public class ReceptionistController {
         requireStaff(authentication);
         if (request == null || request.memberId() == null || request.packageId() == null
                 || request.paymentMethod() == null
-                || !Set.of("CASH", "TRANSFER", "POS").contains(request.paymentMethod().toUpperCase(Locale.ROOT))) {
+                || !Set.of("CASH", "VNPAY").contains(request.paymentMethod().toUpperCase(Locale.ROOT))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thông tin thanh toán không hợp lệ.");
         }
         User member = userRepository.findById(request.memberId())
@@ -216,22 +219,38 @@ public class ReceptionistController {
         membership.setStatus("PENDING_APPROVAL");
         UserMembership savedMembership = membershipRepository.save(membership);
 
+        String method = request.paymentMethod().toUpperCase(Locale.ROOT);
+        
+        // Create PaymentTransaction (for VNPAY flow or CASH) with package name for history
+        PaymentTransaction savedTransaction = paymentService.createPayment(
+                member.getUserId(), 
+                "MEMBERSHIP_PACKAGE",
+                membershipPackage.getName(), // Store package name for transaction history
+                membershipPackage.getPrice(), 
+                method);
+        
+        // Legacy ReceptionPayment for backward compatibility
+        String receptionPaymentMethod = "VNPAY".equals(method) ? "ONLINE" : "CASH";
+        boolean isInstantPaid = !"VNPAY".equals(method);
+        
         ReceptionPayment payment = new ReceptionPayment();
         payment.setMemberId(Math.toIntExact(member.getUserId()));
         payment.setMembershipId(Math.toIntExact(savedMembership.getMembershipId()));
         payment.setAmount(membershipPackage.getPrice());
-        payment.setPaymentMethod(request.paymentMethod().toUpperCase(Locale.ROOT));
-        payment.setPaymentStatus("COMPLETED");
-        payment.setApprovedBy(Math.toIntExact(actorId(authentication)));
+        payment.setPaymentMethod(receptionPaymentMethod);
+        payment.setPaymentStatus(isInstantPaid ? "COMPLETED" : "PENDING");
+        payment.setApprovedBy(isInstantPaid ? Math.toIntExact(actorId(authentication)) : null);
         payment.setCreatedAt(LocalDateTime.now());
         ReceptionPayment savedPayment = paymentRepository.save(payment);
+        
         return new MemberPackagePurchaseResponse(
-                savedPayment.getPaymentId().longValue(),
+                savedTransaction.getPaymentId(), // Use PaymentTransaction.paymentId for VNPay polling
                 savedMembership.getMembershipId(),
                 membershipPackage.getName(),
                 savedPayment.getAmount(),
-                savedPayment.getPaymentStatus(),
-                savedPayment.getCreatedAt());
+                savedTransaction.getPaymentStatus(), // PENDING for VNPAY, PAID for CASH
+                savedPayment.getCreatedAt(),
+                savedTransaction.getReferenceCode());
     }
 
     @GetMapping("/report")
@@ -860,9 +879,7 @@ public class ReceptionistController {
         }
         return switch (method.trim().toUpperCase(Locale.ROOT)) {
             case "CASH", "CASH_COUNTER", "TIỀN MẶT" -> "Tiền mặt";
-            case "POS", "CARD", "QUẸT THẺ POS" -> "Quẹt thẻ POS";
-            case "VIETQR", "TRANSFER", "QR", "CHUYỂN KHOẢN / QR" -> "Chuyển khoản / VietQR";
-            case "ONLINE", "VNPAY", "MOMO" -> "Thanh toán trực tuyến";
+            case "ONLINE", "VNPAY", "MOMO" -> "Thanh toán trực tuyến VNPay";
             default -> method.trim();
         };
     }

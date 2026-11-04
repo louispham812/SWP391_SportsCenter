@@ -430,13 +430,12 @@ public class MemberProfileController {
                 : request.paymentMethod().toUpperCase(Locale.ROOT);
 
         String receptionPaymentMethod = switch (method) {
-            case "VIETQR", "QR", "TRANSFER" -> "TRANSFER";
             case "CASH_COUNTER", "CASH" -> "CASH";
             case "POS" -> "POS";
             default -> "ONLINE";
         };
 
-        boolean isInstantPaid = !"VIETQR".equalsIgnoreCase(method) && !"TRANSFER".equalsIgnoreCase(method) && !"QR".equalsIgnoreCase(method);
+        boolean isInstantPaid = true; // Member payment always instant (CASH) or redirect to VNPAY
 
         // ✅ Giữ nguyên ReceptionPayment (old system - legacy compatibility)
         ReceptionPayment payment = new ReceptionPayment();
@@ -460,7 +459,7 @@ public class MemberProfileController {
                 targetMembership.getMembershipId(),
                 membershipPackage.getName(),
                 savedPayment.getAmount(),
-                savedTransaction.getPaymentStatus(), // ← Trả về PaymentTransaction.paymentStatus (PENDING cho VietQR, PAID cho còn lại)
+                savedTransaction.getPaymentStatus(), // ← Trả về PaymentTransaction.paymentStatus (PENDING cho VNPAY, PAID cho còn lại)
                 savedPayment.getCreatedAt(),
                 savedTransaction.getReferenceCode());
     }
@@ -650,13 +649,28 @@ public class MemberProfileController {
                 .map(tx -> new MemberTransactionResponse(
                         tx.getPaymentId(),
                         tx.getReferenceCode(),
-                        tx.getBookingType(),
-                        mapTransactionDescription(tx.getBookingType()),
+                        tx.getItemType() != null ? tx.getItemType() : mapBookingTypeToItemType(tx.getBookingType()),
+                        tx.getItemDescription() != null ? tx.getItemDescription() : mapTransactionDescription(tx.getBookingType()),
                         tx.getAmount(),
                         tx.getPaymentMethod(),
                         tx.getPaymentStatus(),
                         tx.getCreatedAt()))
                 .toList();
+    }
+
+    /**
+     * Map bookingType to frontend itemType (fallback for old data without itemType)
+     */
+    private String mapBookingTypeToItemType(String bookingType) {
+        if (bookingType == null) return null;
+        return switch (bookingType.toUpperCase(Locale.ROOT)) {
+            case "MEMBERSHIP_PACKAGE" -> "MEMBERSHIP";
+            case "COURT", "CLASS", "PT" -> bookingType.toUpperCase(Locale.ROOT);
+            case "COURT_REFUND" -> "COURT";
+            case "CLASS_REFUND" -> "CLASS";
+            case "MEMBERSHIP_REFUND" -> "MEMBERSHIP";
+            default -> null;
+        };
     }
 
     private String mapTransactionDescription(String bookingType) {
