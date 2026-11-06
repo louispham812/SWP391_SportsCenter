@@ -111,6 +111,20 @@ public class ReceptionistController {
         this.authService = authService;
     }
 
+    public ReceptionistController(
+            UserRepository userRepository,
+            ReceptionPaymentRepository paymentRepository,
+            PaymentTransactionRepository paymentTransactionRepository,
+            UserMembershipRepository membershipRepository,
+            MembershipPackageRepository packageRepository,
+            MemberCheckInRepository checkInRepository,
+            PasswordEncoder passwordEncoder,
+            com.sporthub.backend.service.EmailService emailService,
+            com.sporthub.backend.service.AuditLogService auditLogService,
+            com.sporthub.backend.service.AuthService authService) {
+        this(userRepository, paymentRepository, paymentTransactionRepository, membershipRepository, packageRepository, checkInRepository, passwordEncoder, emailService, auditLogService, authService, null);
+    }
+
     @GetMapping("/members")
     @Transactional(readOnly = true)
     public Page<ReceptionistMemberResponse> searchMembers(

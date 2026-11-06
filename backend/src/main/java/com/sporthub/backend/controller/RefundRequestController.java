@@ -71,6 +71,16 @@ public class RefundRequestController {
             RefundRequestRepository refundRepository,
             UserRepository userRepository,
             PaymentTransactionRepository paymentTransactionRepository,
+            ReceptionPaymentRepository paymentRepository,
+            EngagementService engagementService,
+            com.sporthub.backend.service.gateway.VNPayGateway vnpayGateway) {
+        this(refundRepository, userRepository, paymentTransactionRepository, paymentRepository, engagementService, vnpayGateway, null, null);
+    }
+
+    public RefundRequestController(
+            RefundRequestRepository refundRepository,
+            UserRepository userRepository,
+            PaymentTransactionRepository paymentTransactionRepository,
             ReceptionPaymentRepository paymentRepository) {
         this(refundRepository, userRepository, paymentTransactionRepository, paymentRepository, null, null, null, null);
     }
@@ -178,7 +188,7 @@ public class RefundRequestController {
         RefundRequest refund = refundRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu hoàn tiền."));
 
-        if (!"PENDING_APPROVAL".equalsIgnoreCase(refund.getStatus())) {
+        if (!"PENDING_APPROVAL".equalsIgnoreCase(refund.getStatus()) && !"PENDING".equalsIgnoreCase(refund.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Yêu cầu hoàn tiền này đã được xử lý trước đó.");
         }
 

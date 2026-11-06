@@ -27,6 +27,7 @@ import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.sporthub.backend.constants.PaymentConstants;
+import com.sporthub.backend.dto.CancelBookingResponse;
 import com.sporthub.backend.entity.Booking;
 import com.sporthub.backend.entity.ClassSession;
 import com.sporthub.backend.entity.CourtBooking;
@@ -145,7 +146,7 @@ class VNPayRefundTest {
         when(bookingRepository.countBySessionIdAndStatusIn(anyLong(), anyList())).thenReturn(0L);
 
         // When
-        Booking result = bookingService.cancelClassBooking(bookingId, actorId);
+        CancelBookingResponse result = bookingService.cancelClassBooking(bookingId, actorId);
 
         // Then
         assertEquals("CANCELLED", result.getStatus());
@@ -205,7 +206,7 @@ class VNPayRefundTest {
         when(bookingRepository.countBySessionIdAndStatusIn(anyLong(), anyList())).thenReturn(0L);
 
         // When
-        Booking result = bookingService.cancelClassBooking(bookingId, actorId);
+        CancelBookingResponse result = bookingService.cancelClassBooking(bookingId, actorId);
 
         // Then
         assertEquals("CANCELLED", result.getStatus());
@@ -253,7 +254,7 @@ class VNPayRefundTest {
         when(paymentTransactionRepository.save(any())).thenReturn(payment);
 
         // When
-        CourtBooking result = bookingService.cancelCourtBooking(bookingId, actorId);
+        CancelBookingResponse result = bookingService.cancelCourtBooking(bookingId, actorId);
 
         // Then
         assertEquals("CANCELLED", result.getStatus());
@@ -299,7 +300,7 @@ class VNPayRefundTest {
         when(bookingRepository.countBySessionIdAndStatusIn(anyLong(), anyList())).thenReturn(0L);
 
         // When
-        Booking result = bookingService.cancelClassBooking(bookingId, actorId);
+        CancelBookingResponse result = bookingService.cancelClassBooking(bookingId, actorId);
 
         // Then
         assertEquals("CANCELLED", result.getStatus());
@@ -350,7 +351,7 @@ class VNPayRefundTest {
         when(bookingRepository.countBySessionIdAndStatusIn(anyLong(), anyList())).thenReturn(0L);
 
         // When
-        Booking result = bookingService.cancelClassBooking(bookingId, actorId);
+        CancelBookingResponse result = bookingService.cancelClassBooking(bookingId, actorId);
         
         // Then
         assertEquals("CANCELLED", result.getStatus());
@@ -387,7 +388,7 @@ class VNPayRefundTest {
         when(bookingRepository.countBySessionIdAndStatusIn(anyLong(), anyList())).thenReturn(0L);
 
         // When
-        Booking result = bookingService.cancelClassBooking(bookingId, actorId);
+        CancelBookingResponse result = bookingService.cancelClassBooking(bookingId, actorId);
 
         // Then
         assertEquals("CANCELLED", result.getStatus());

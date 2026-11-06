@@ -22,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.sporthub.backend.constants.PaymentConstants;
 import com.sporthub.backend.dto.BookingConfirmationResponse;
+import com.sporthub.backend.dto.CancelBookingResponse;
 import com.sporthub.backend.dto.CheckoutRequest;
 import com.sporthub.backend.dto.CoachScheduleEntryResponse;
 import com.sporthub.backend.dto.ReceptionistClassResponse;
@@ -307,7 +308,7 @@ class BookingServiceTest {
         when(courtBookingRepository.findByIdForUpdate(99L)).thenReturn(Optional.of(booking));
         when(courtBookingRepository.save(booking)).thenReturn(booking);
 
-        CourtBooking cancelled = bookingService.cancelCourtBooking(99L, 11L);
+        CancelBookingResponse cancelled = bookingService.cancelCourtBooking(99L, 11L);
 
         assertEquals("CANCELLED", cancelled.getStatus());
         verify(courtBookingRepository).save(booking);
