@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import { CardGridSkeleton, TableSkeleton } from '../../components/common/Skeleton';
 import {
@@ -31,6 +31,20 @@ const emptySession = {
   priceAmount: 0,
 };
 
+const getSportIcon = (sportName = '') => {
+  const s = String(sportName || '').toLowerCase();
+  if (s.includes('pickleball') || s.includes('tennis')) return 'sports_tennis';
+  if (s.includes('bóng đá') || s.includes('football') || s.includes('soccer')) return 'sports_soccer';
+  if (s.includes('cầu lông') || s.includes('badminton')) return 'sports_tennis';
+  if (s.includes('bóng chuyền') || s.includes('volleyball')) return 'sports_volleyball';
+  if (s.includes('bóng bàn') || s.includes('table tennis')) return 'table_restaurant';
+  if (s.includes('bơi') || s.includes('swimming') || s.includes('hồ bơi')) return 'pool';
+  if (s.includes('điền kinh') || s.includes('chạy') || s.includes('athletics')) return 'directions_run';
+  if (s.includes('gym') || s.includes('fitness')) return 'fitness_center';
+  if (s.includes('yoga') || s.includes('pilates')) return 'self_improvement';
+  return 'sports';
+};
+
 export default function AdminFacilitiesPage() {
   const { showToast } = useApp();
   const [activeTab, setActiveTab] = useState('facilities'); // 'facilities' | 'maintenance'
@@ -39,6 +53,7 @@ export default function AdminFacilitiesPage() {
   const [courts, setCourts] = useState([]);
   const [sports, setSports] = useState([]);
   const [coaches, setCoaches] = useState([]);
+  const [selectedSportFilter, setSelectedSportFilter] = useState('ALL');
   const [showAddClassModal, setShowAddClassModal] = useState(false);
   const [sessionForm, setSessionForm] = useState(emptySession);
   const [loading, setLoading] = useState(true);
@@ -189,6 +204,42 @@ export default function AdminFacilitiesPage() {
       facility.status === 'AVAILABLE' &&
       (!sessionForm.sportId || String(facility.sportId) === sessionForm.sportId),
   );
+
+  const groupedFacilities = useMemo(() => {
+    const groupsMap = new Map();
+
+    facilities.forEach((facility) => {
+      const sportKey = facility.sportId ? String(facility.sportId) : (facility.sportName || 'OTHER');
+      const sportName = facility.sportName || 'Cơ sở & Tiện ích chung';
+
+      if (!groupsMap.has(sportKey)) {
+        groupsMap.set(sportKey, {
+          sportKey,
+          sportId: facility.sportId,
+          sportName,
+          facilities: [],
+        });
+      }
+      groupsMap.get(sportKey).facilities.push(facility);
+    });
+
+    return Array.from(groupsMap.values()).map((group) => {
+      const availableCount = group.facilities.filter((f) => f.status === 'AVAILABLE').length;
+      const maintenanceCount = group.facilities.filter((f) => f.status !== 'AVAILABLE').length;
+      return {
+        ...group,
+        availableCount,
+        maintenanceCount,
+      };
+    });
+  }, [facilities]);
+
+  const filteredGroups = useMemo(() => {
+    if (selectedSportFilter === 'ALL') {
+      return groupedFacilities;
+    }
+    return groupedFacilities.filter((g) => g.sportKey === selectedSportFilter);
+  }, [groupedFacilities, selectedSportFilter]);
 
   const handleFacilityStatus = async (facility) => {
     setError('');
@@ -344,7 +395,7 @@ export default function AdminFacilitiesPage() {
           </p>
         )}
 
-        {/* Tab 1: Facilities List */}
+        {/* Tab 1: Facilities List (Grouped by Sport) */}
         {activeTab === 'facilities' && (
           <div>
             {loading ? (
@@ -354,42 +405,146 @@ export default function AdminFacilitiesPage() {
                 Chưa có tiện ích hoặc cơ sở nào được tạo.
               </p>
             ) : (
-              <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {facilities.map((facility) => (
-                  <article key={facility.facilityId} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs card-hover">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold uppercase text-slate-700">
-                        {facility.sportName || 'Chung'}
-                      </span>
-                      <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
-                        facility.status === 'AVAILABLE'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-amber-50 text-amber-800 border border-amber-200'
-                      }`}>
-                        {facility.status === 'AVAILABLE' ? 'Sẵn sàng hoạt động' : 'Bảo trì tạm khóa'}
-                      </span>
-                    </div>
-                    <h2 className="text-lg font-bold text-slate-900">{facility.facilityName}</h2>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Sức chứa tối đa {facility.capacity} người · Trạng thái lưu trực tiếp trong bảng public_facilities.
-                    </p>
-                    <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
-                      <span className="text-xs text-slate-400">Mã cơ sở: #{facility.facilityId}</span>
+              <div className="space-y-6">
+                {/* Thanh điều hướng / lọc nhanh theo môn thể thao */}
+                <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 max-w-full">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSportFilter('ALL')}
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        selectedSportFilter === 'ALL'
+                          ? 'bg-slate-900 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[16px]">apps</span>
+                      <span>Tất cả các môn ({facilities.length})</span>
+                    </button>
+                    {groupedFacilities.map((group) => (
                       <button
+                        key={group.sportKey}
                         type="button"
-                        onClick={() => handleFacilityStatus(facility)}
-                        className={`rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                          facility.status === 'AVAILABLE'
-                            ? 'border border-amber-300 text-amber-800 hover:bg-amber-50'
-                            : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-2xs'
+                        onClick={() => setSelectedSportFilter(group.sportKey)}
+                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                          selectedSportFilter === group.sportKey
+                            ? 'bg-orange-500 text-white shadow-xs shadow-orange-500/20'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
                       >
-                        {facility.status === 'AVAILABLE' ? 'Tạm khóa bảo trì' : 'Mở lại hoạt động'}
+                        <span className="material-symbols-outlined text-[16px]">
+                          {getSportIcon(group.sportName)}
+                        </span>
+                        <span>{group.sportName} ({group.facilities.length})</span>
                       </button>
-                    </div>
-                  </article>
-                ))}
-              </section>
+                    ))}
+                  </div>
+
+                  <div className="text-xs text-slate-500 font-medium">
+                    Tổng cộng <strong className="text-slate-800">{facilities.length}</strong> cơ sở thuộc <strong className="text-slate-800">{groupedFacilities.length}</strong> bộ môn
+                  </div>
+                </div>
+
+                {/* Danh sách các nhóm mẹ (theo Tên môn thể thao) */}
+                <div className="space-y-6">
+                  {filteredGroups.map((group) => (
+                    <section
+                      key={group.sportKey}
+                      className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-5"
+                    >
+                      {/* Tiêu đề mục mẹ: Môn thể thao */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-2xl bg-orange-50 border border-orange-100 text-orange-600 flex items-center justify-center shrink-0 shadow-2xs">
+                            <span className="material-symbols-outlined text-[24px]">
+                              {getSportIcon(group.sportName)}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-orange-100 text-orange-800">
+                                Bộ Môn
+                              </span>
+                              <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                                {group.sportName}
+                              </h2>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Hệ thống sân thi đấu &amp; cụm cơ sở luyện tập môn {group.sportName}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Thống kê nhanh của môn */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 whitespace-nowrap">
+                            <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                            {group.facilities.length} sân/cơ sở
+                          </span>
+                          {group.availableCount > 0 && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              {group.availableCount} sẵn sàng
+                            </span>
+                          )}
+                          {group.maintenanceCount > 0 && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                              {group.maintenanceCount} bảo trì
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Danh sách cơ sở con thuộc bộ môn */}
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        {group.facilities.map((facility) => (
+                          <article
+                            key={facility.facilityId}
+                            className="rounded-2xl border border-slate-200/90 bg-slate-50/50 p-5 hover:bg-white hover:border-slate-300 transition-all shadow-2xs card-hover flex flex-col justify-between"
+                          >
+                            <div>
+                              <div className="mb-3 flex items-center justify-between gap-3">
+                                <span className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-slate-700 border border-slate-200/80 whitespace-nowrap">
+                                  <span className="material-symbols-outlined text-[15px] text-slate-400">stadium</span>
+                                  Mã #{facility.facilityId}
+                                </span>
+                                <span
+                                  className={`inline-flex items-center justify-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+                                    facility.status === 'AVAILABLE'
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      : 'bg-amber-50 text-amber-800 border border-amber-200'
+                                  }`}
+                                >
+                                  {facility.status === 'AVAILABLE' ? 'Sẵn sàng hoạt động' : 'Bảo trì tạm khóa'}
+                                </span>
+                              </div>
+                              <h3 className="text-base font-bold text-slate-900">{facility.facilityName}</h3>
+                              <p className="mt-1 text-xs text-slate-500">
+                                Sức chứa tối đa {facility.capacity} người · Trạng thái lưu trực tiếp trong bảng public_facilities.
+                              </p>
+                            </div>
+                            <div className="mt-5 flex items-center justify-between border-t border-slate-200/70 pt-3.5">
+                              <span className="text-xs text-slate-400 font-medium">Mã cơ sở: #{facility.facilityId}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleFacilityStatus(facility)}
+                                className={`rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                                  facility.status === 'AVAILABLE'
+                                    ? 'border border-amber-300 text-amber-800 hover:bg-amber-50'
+                                    : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-2xs'
+                                }`}
+                              >
+                                {facility.status === 'AVAILABLE' ? 'Tạm khóa bảo trì' : 'Mở lại hoạt động'}
+                              </button>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}

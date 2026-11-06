@@ -299,8 +299,8 @@ export default function AdminStaffApprovalsPage() {
                     <tr>
                       <th className="px-5 py-3">Nhân sự</th>
                       <th className="px-5 py-3">Vai trò</th>
-                      <th className="px-5 py-3">Thời gian tạo</th>
-                      <th className="px-5 py-3 text-right">Quyết định</th>
+                      <th className="px-5 py-3 whitespace-nowrap">Thời gian tạo</th>
+                      <th className="px-5 py-3 text-right whitespace-nowrap">Quyết định</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
@@ -310,19 +310,19 @@ export default function AdminStaffApprovalsPage() {
                           <strong className="block text-slate-900 text-sm">{user.fullName}</strong>
                           <span className="text-slate-500">{user.email} · {user.phone || 'Chưa cập nhật SĐT'}</span>
                         </td>
-                        <td className="px-5 py-4">
-                          <span className="px-2.5 py-1 rounded-md bg-purple-50 text-purple-700 font-bold border border-purple-200">
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center justify-center whitespace-nowrap px-2.5 py-1 rounded-md bg-purple-50 text-purple-700 font-bold border border-purple-200">
                             {user.role}
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-slate-600">{formatDate(user.createdAt)}</td>
-                        <td className="px-5 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="px-5 py-4 text-slate-600 whitespace-nowrap">{formatDate(user.createdAt)}</td>
+                        <td className="px-5 py-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                             <button
                               type="button"
                               onClick={() => handleDecision(user, 'reject')}
                               disabled={processingId === user.userId}
-                              className="px-3.5 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer"
+                              className="px-3.5 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0"
                             >
                               Từ chối
                             </button>
@@ -330,7 +330,7 @@ export default function AdminStaffApprovalsPage() {
                               type="button"
                               onClick={() => handleDecision(user, 'approve')}
                               disabled={processingId === user.userId}
-                              className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase transition-all shadow-2xs cursor-pointer"
+                              className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase transition-all shadow-2xs cursor-pointer whitespace-nowrap shrink-0"
                             >
                               {processingId === user.userId ? 'Đang xử lý...' : 'Phê duyệt'}
                             </button>
@@ -370,10 +370,10 @@ export default function AdminStaffApprovalsPage() {
                   <tr>
                     <th className="px-5 py-3">Mã đơn &amp; Hội viên</th>
                     <th className="px-5 py-3">Gói thành viên</th>
-                    <th className="px-5 py-3">Thanh toán</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Thanh toán</th>
                     <th className="px-5 py-3">Quyền lợi quota cấp</th>
-                    <th className="px-5 py-3">Trạng thái</th>
-                    <th className="px-5 py-3 text-right">Thao tác</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Trạng thái</th>
+                    <th className="px-5 py-3 text-right whitespace-nowrap">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
@@ -389,9 +389,9 @@ export default function AdminStaffApprovalsPage() {
                           <strong className="text-slate-900">{mem.packageName}</strong>
                           <span className="block text-[11px] font-bold text-orange-600 uppercase">{mem.packageType}</span>
                         </td>
-                        <td className="px-5 py-4">
-                          <strong className="text-slate-900 text-sm">{formatPrice(mem.price)}</strong>
-                          <span className="block text-slate-500 text-[11px]">{mem.paymentMethod}</span>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <strong className="text-slate-900 text-sm whitespace-nowrap">{formatPrice(mem.price)}</strong>
+                          <span className="block text-slate-500 text-[11px] whitespace-nowrap">{mem.paymentMethod}</span>
                         </td>
                         <td className="px-5 py-4 text-slate-700">
                           {mem.packageType === 'VIP' ? (
@@ -400,9 +400,9 @@ export default function AdminStaffApprovalsPage() {
                             <span>{mem.totalSessions || 10} Buổi trọn gói</span>
                           )}
                         </td>
-                        <td className="px-5 py-4">
+                        <td className="px-5 py-4 whitespace-nowrap">
                           <span
-                            className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                            className={`inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
                               mem.status === 'ACTIVE'
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                 : mem.status === 'REJECTED'
@@ -413,26 +413,26 @@ export default function AdminStaffApprovalsPage() {
                             {mem.status === 'ACTIVE' ? 'Đã kích hoạt' : mem.status === 'REJECTED' ? 'Từ chối (Hoàn 100%)' : 'Chờ duyệt'}
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-right">
+                        <td className="px-5 py-4 text-right whitespace-nowrap">
                           {isPending ? (
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                               <button
                                 type="button"
                                 onClick={() => setRejectMembershipModal(mem)}
-                                className="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer"
+                                className="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0"
                               >
                                 Từ chối
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleApproveMembership(mem)}
-                                className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase transition-all shadow-2xs cursor-pointer"
+                                className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase transition-all shadow-2xs cursor-pointer whitespace-nowrap shrink-0"
                               >
                                 Kích hoạt gói
                               </button>
                             </div>
                           ) : (
-                            <span className="text-xs text-slate-400 font-semibold">Đã xử lý</span>
+                            <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">Đã xử lý</span>
                           )}
                         </td>
                       </tr>
@@ -470,9 +470,9 @@ export default function AdminStaffApprovalsPage() {
                     <th className="px-5 py-3">Huấn luyện viên</th>
                     <th className="px-5 py-3">Loại nghỉ &amp; Thời gian</th>
                     <th className="px-5 py-3">Lý do</th>
-                    <th className="px-5 py-3">Số ca bị ảnh hưởng</th>
-                    <th className="px-5 py-3">Trạng thái</th>
-                    <th className="px-5 py-3 text-right">Thao tác</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Số ca bị ảnh hưởng</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Trạng thái</th>
+                    <th className="px-5 py-3 text-right whitespace-nowrap">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
@@ -491,14 +491,14 @@ export default function AdminStaffApprovalsPage() {
                           <span className="text-slate-600">{req.startDate} → {req.endDate}</span>
                         </td>
                         <td className="px-5 py-4 max-w-xs text-slate-600">{req.reason}</td>
-                        <td className="px-5 py-4">
-                          <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 font-bold border border-amber-200">
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 font-bold border border-amber-200 whitespace-nowrap">
                             {req.affectedBookingsCount || 2} ca học/PT
                           </span>
                         </td>
-                        <td className="px-5 py-4">
+                        <td className="px-5 py-4 whitespace-nowrap">
                           <span
-                            className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                            className={`inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
                               req.status === 'APPROVED'
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                 : req.status === 'REJECTED'
@@ -509,26 +509,26 @@ export default function AdminStaffApprovalsPage() {
                             {req.status === 'APPROVED' ? 'Đã phân công Coach khác' : req.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-right">
+                        <td className="px-5 py-4 text-right whitespace-nowrap">
                           {isPending ? (
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                               <button
                                 type="button"
                                 onClick={() => handleRejectLeave(req)}
-                                className="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer"
+                                className="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0"
                               >
                                 Từ chối
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleOpenApproveLeave(req)}
-                                className="px-4 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase transition-all shadow-2xs cursor-pointer"
+                                className="px-4 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase transition-all shadow-2xs cursor-pointer whitespace-nowrap shrink-0"
                               >
                                 Duyệt &amp; Đổi Coach
                               </button>
                             </div>
                           ) : (
-                            <span className="text-xs text-slate-400 font-semibold">Đã xong</span>
+                            <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">Đã xong</span>
                           )}
                         </td>
                       </tr>
@@ -565,10 +565,10 @@ export default function AdminStaffApprovalsPage() {
                   <tr>
                     <th className="px-5 py-3">Hội viên</th>
                     <th className="px-5 py-3">Dịch vụ liên quan</th>
-                    <th className="px-5 py-3">Số tiền hoàn</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Số tiền hoàn</th>
                     <th className="px-5 py-3">Lý do</th>
-                    <th className="px-5 py-3">Trạng thái</th>
-                    <th className="px-5 py-3 text-right">Quyết định</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Trạng thái</th>
+                    <th className="px-5 py-3 text-right whitespace-nowrap">Quyết định</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
@@ -581,13 +581,13 @@ export default function AdminStaffApprovalsPage() {
                           <span className="text-slate-500">{ref.phone} · Mã: #{ref.referenceCode}</span>
                         </td>
                         <td className="px-5 py-4 text-slate-800 font-semibold">{ref.bookingDescription}</td>
-                        <td className="px-5 py-4">
-                          <strong className="text-indigo-600 text-sm font-black">{formatPrice(ref.refundAmount)}</strong>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <strong className="text-indigo-600 text-sm font-black whitespace-nowrap">{formatPrice(ref.refundAmount)}</strong>
                         </td>
                         <td className="px-5 py-4 max-w-xs text-slate-600">{ref.reason}</td>
-                        <td className="px-5 py-4">
+                        <td className="px-5 py-4 whitespace-nowrap">
                           <span
-                            className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                            className={`inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
                               ref.status === 'COMPLETED' || ref.status === 'APPROVED'
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                 : ref.status === 'REJECTED'
@@ -598,26 +598,26 @@ export default function AdminStaffApprovalsPage() {
                             {ref.status === 'COMPLETED' || ref.status === 'APPROVED' ? 'Đã hoàn tiền' : ref.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-right">
+                        <td className="px-5 py-4 text-right whitespace-nowrap">
                           {isPending ? (
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                               <button
                                 type="button"
                                 onClick={() => handleDecisionRefund(ref, false)}
-                                className="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer"
+                                className="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0"
                               >
                                 Từ chối
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleDecisionRefund(ref, true)}
-                                className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase transition-all shadow-2xs cursor-pointer"
+                                className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase transition-all shadow-2xs cursor-pointer whitespace-nowrap shrink-0"
                               >
                                 Phê duyệt hoàn
                               </button>
                             </div>
                           ) : (
-                            <span className="text-xs text-slate-400 font-semibold">Đã đối soát</span>
+                            <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">Đã đối soát</span>
                           )}
                         </td>
                       </tr>

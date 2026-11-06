@@ -187,8 +187,8 @@ export default function MemberSchedulePage() {
       if (entry.status === 'CANCELLED' || entry.status === 'REFUNDED') {
         return false;
       }
-      // Also exclude if refund completed
-      if (entry.refundStatus === 'REFUNDED') {
+      // Also exclude if refund completed or approved
+      if (entry.refundStatus === 'REFUNDED' || entry.refundStatus === 'APPROVED') {
         return false;
       }
 
@@ -248,6 +248,7 @@ export default function MemberSchedulePage() {
            entry.status !== 'CANCELLED' && 
            entry.status !== 'REFUNDED' && 
            entry.refundStatus !== 'PENDING_APPROVAL' &&
+           entry.refundStatus !== 'APPROVED' &&
            entry.refundStatus !== 'REFUNDED';
   };
 
@@ -648,7 +649,7 @@ export default function MemberSchedulePage() {
                                   onClick={() => setCancelingBooking(entry)}
                                   className="text-[10px] font-bold text-red-600 hover:text-red-700 hover:underline cursor-pointer"
                                 >
-                                  Hủy (Hoàn 100%)
+                                  Hủy {Number(entry.amountPaid) > 0 ? '(Hoàn 100%)' : 'lịch'}
                                 </button>
                               )}
                             </div>
@@ -847,6 +848,11 @@ export default function MemberSchedulePage() {
                                       Đã hoàn thành
                                     </span>
                                   )
+                                ) : entry.refundStatus === 'PENDING_APPROVAL' ? (
+                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                                    Chờ duyệt hoàn tiền
+                                  </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
                                     <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
@@ -862,13 +868,19 @@ export default function MemberSchedulePage() {
                                   className="px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 border border-red-200"
                                 >
                                   <span className="material-symbols-outlined text-[16px]">cancel</span>
-                                  <span>Hủy (Hoàn 100%)</span>
+                                  <span>Hủy {Number(entry.amountPaid) > 0 ? '(Hoàn 100%)' : 'lịch'}</span>
                                 </button>
                               ) : (
                                 !isPast && (
-                                  <span className="text-[11px] text-slate-400 italic">
-                                    Không thể hủy (&lt; 2h trước giờ học)
-                                  </span>
+                                  entry.refundStatus === 'PENDING_APPROVAL' ? (
+                                    <span className="text-[11px] text-amber-600 font-semibold italic">
+                                      Đang chờ quản lý duyệt hoàn tiền
+                                    </span>
+                                  ) : (
+                                    <span className="text-[11px] text-slate-400 italic">
+                                      Không thể hủy (&lt; 2h trước giờ học)
+                                    </span>
+                                  )
                                 )
                               )}
                             </div>
@@ -1000,15 +1012,27 @@ export default function MemberSchedulePage() {
                 </p>
               </div>
 
-              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-1 text-xs">
-                <div className="flex items-center gap-1.5 font-bold text-emerald-800">
-                  <span className="material-symbols-outlined text-[16px]">verified</span>
-                  Chính sách hoàn tiền 100%
+              {Number(cancelingBooking.amountPaid) > 0 ? (
+                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-1 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-800">
+                    <span className="material-symbols-outlined text-[16px]">verified</span>
+                    Chính sách hoàn tiền 100%
+                  </div>
+                  <p className="text-emerald-700 leading-relaxed text-[11px]">
+                    Do bạn thực hiện hủy trước giờ tập trên 2 tiếng, yêu cầu hoàn 100% học phí/tiền sân ({formatMoney(cancelingBooking.amountPaid)}) sẽ được gửi tới ban quản lý để duyệt hoàn trả. Lịch tập sẽ chuyển sang trạng thái "Chờ duyệt hoàn tiền".
+                  </p>
                 </div>
-                <p className="text-emerald-700 leading-relaxed text-[11px]">
-                  Do bạn thực hiện hủy trước giờ học trên 2 tiếng, toàn bộ học phí/tiền sân ({formatMoney(cancelingBooking.amountPaid)}) sẽ được hoàn 100% vào sổ giao dịch điện tử của bạn. Lịch này sẽ được xóa khỏi thời khóa biểu.
-                </p>
-              </div>
+              ) : (
+                <div className="p-4 bg-blue-50 rounded-2xl border border-blue-200 space-y-1 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-blue-800">
+                    <span className="material-symbols-outlined text-[16px]">event_busy</span>
+                    Chính sách hủy lịch tập
+                  </div>
+                  <p className="text-blue-700 leading-relaxed text-[11px]">
+                    Do bạn thực hiện hủy trước giờ tập trên 2 tiếng, lịch tập này sẽ được hủy ngay lập tức và lượt tập / quota hội viên (nếu có) sẽ được hoàn lại vào tài khoản của bạn.
+                  </p>
+                </div>
+              )}
 
               <div className="flex items-center gap-3 pt-2">
                 <button
@@ -1031,7 +1055,7 @@ export default function MemberSchedulePage() {
                       <span>Đang xử lý...</span>
                     </>
                   ) : (
-                    <span>Xác Nhận Hủy (Hoàn 100%)</span>
+                    <span>{Number(cancelingBooking.amountPaid) > 0 ? 'Xác Nhận Hủy (Hoàn 100%)' : 'Xác Nhận Hủy Lịch'}</span>
                   )}
                 </button>
               </div>

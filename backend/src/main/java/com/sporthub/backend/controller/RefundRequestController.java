@@ -47,6 +47,12 @@ public class RefundRequestController {
     private final com.sporthub.backend.service.BookingService bookingService;
     private final com.sporthub.backend.service.MembershipService membershipService;
 
+    @Autowired(required = false)
+    private com.sporthub.backend.repository.BookingRepository bookingRepository;
+
+    @Autowired(required = false)
+    private com.sporthub.backend.repository.CourtBookingRepository courtBookingRepository;
+
     @Autowired
     public RefundRequestController(
             RefundRequestRepository refundRepository,
@@ -154,12 +160,28 @@ public class RefundRequestController {
             }
         }
 
+        Long bookingId = null;
+        String bookingType = null;
+        if (origTx != null) {
+            bookingType = origTx.getBookingType();
+            Long txPaymentId = origTx.getPaymentId();
+            if ("CLASS".equalsIgnoreCase(bookingType) && bookingRepository != null) {
+                com.sporthub.backend.entity.Booking b = bookingRepository.findByPaymentId(txPaymentId);
+                if (b != null) bookingId = b.getBookingId();
+            } else if ("COURT".equalsIgnoreCase(bookingType) && courtBookingRepository != null) {
+                com.sporthub.backend.entity.CourtBooking cb = courtBookingRepository.findByPaymentId(txPaymentId);
+                if (cb != null) bookingId = cb.getCourtBookingId();
+            }
+        }
+
         RefundRequest refund = RefundRequest.builder()
                 .memberId(memberId)
                 .memberName(user.getFullName())
                 .phone(user.getPhone() != null ? user.getPhone() : user.getEmail())
-                .transactionId(req.transactionId())
-                .referenceCode(req.referenceCode())
+                .transactionId(origTx != null ? origTx.getPaymentId() : req.transactionId())
+                .referenceCode(origTx != null ? origTx.getReferenceCode() : req.referenceCode())
+                .bookingId(bookingId)
+                .bookingType(bookingType)
                 .bookingDescription(req.bookingDescription())
                 .refundAmount(req.refundAmount())
                 .reason(req.reason().trim())
@@ -207,85 +229,72 @@ public class RefundRequestController {
             logger.info("🟢 REFUND APPROVED - Starting process...");
             logger.info("  Refund ID: {}", refund.getRefundId());
             logger.info("  Transaction ID: {}", refund.getTransactionId());
+            logger.info("  Reference Code: {}", refund.getReferenceCode());
             logger.info("  paymentTransactionRepository null? {}", paymentTransactionRepository == null);
             logger.info("  vnpayGateway null? {}", vnpayGateway == null);
             
-            boolean refundSuccess = false;
-            
+            PaymentTransaction tx = null;
             if (paymentTransactionRepository != null) {
-                logger.info("✅ Repository found, checking transaction...");
                 if (refund.getTransactionId() != null) {
-                    logger.info("✅ Transaction ID exists: {}", refund.getTransactionId());
-                    PaymentTransaction tx = paymentTransactionRepository.findById(refund.getTransactionId()).orElse(null);
-                    
-                    if (tx != null) {
-                        // 🔍 DEBUG: MEMBERSHIP Refund Check
-                        logger.info("═══════════════════════════════════════");
-                        logger.info("🔍 REFUND - Transaction: {}", tx.getPaymentId());
-                        logger.info("  Method: '{}'", tx.getPaymentMethod());
-                        logger.info("  Status: '{}'", tx.getPaymentStatus());
-                        logger.info("  RefCode: '{}'", tx.getReferenceCode());
-                        logger.info("  Expected: '{}'", com.sporthub.backend.constants.PaymentConstants.METHOD_VNPAY);
-                        logger.info("  Match? {}", com.sporthub.backend.constants.PaymentConstants.METHOD_VNPAY.equals(tx.getPaymentMethod()));
-                        logger.info("═══════════════════════════════════════");
-                        
-                        // ✅ Call VNPay Refund API if original payment was via VNPay
-                        if (com.sporthub.backend.constants.PaymentConstants.METHOD_VNPAY.equals(tx.getPaymentMethod()) && vnpayGateway != null) {
-                            logger.info(">>> ✅ CALLING VNPAY REFUND API <<<");
-                            try {
-                                Map<String, Object> refundResult = vnpayGateway.refundPayment(
-                                        tx,
-                                        refund.getRefundAmount(),
-                                        refund.getReason()
-                                );
-                                
-                                String responseCode = (String) refundResult.get("vnp_ResponseCode");
-                                if ("00".equals(responseCode)) {
-                                    // VNPay refund successful
-                                    tx.setPaymentStatus("REFUNDED");
-                                    paymentTransactionRepository.save(tx);
-                                    refundSuccess = true;  // ← SET FLAG
-                                    logger.info("✅ VNPay refund SUCCESS");
-                                } else {
-                                    // VNPay refund failed → Log but continue
-                                    refund.setDecisionNote((refund.getDecisionNote() != null ? refund.getDecisionNote() : "") 
-                                            + " | VNPay refund failed: " + refundResult.get("vnp_Message"));
-                                    logger.warn("❌ VNPay refund FAILED: {}", responseCode);
-                                }
-                            } catch (Exception e) {
-                                logger.error("❌ VNPay refund ERROR: ", e);
-                                refund.setDecisionNote((refund.getDecisionNote() != null ? refund.getDecisionNote() : "") 
-                                        + " | VNPay refund error: " + e.getMessage());
-                            }
+                    tx = paymentTransactionRepository.findById(refund.getTransactionId()).orElse(null);
+                }
+                if (tx == null && refund.getReferenceCode() != null && !refund.getReferenceCode().isBlank()) {
+                    tx = paymentTransactionRepository.findAll().stream()
+                            .filter(t -> refund.getReferenceCode().equalsIgnoreCase(t.getReferenceCode()))
+                            .findFirst()
+                            .orElse(null);
+                }
+            }
+
+            if (tx != null) {
+                if (refund.getTransactionId() == null) {
+                    refund.setTransactionId(tx.getPaymentId());
+                }
+                if (refund.getBookingType() == null) {
+                    refund.setBookingType(tx.getBookingType());
+                }
+                if (refund.getBookingId() == null) {
+                    if ("CLASS".equalsIgnoreCase(tx.getBookingType()) && bookingRepository != null) {
+                        com.sporthub.backend.entity.Booking b = bookingRepository.findByPaymentId(tx.getPaymentId());
+                        if (b != null) refund.setBookingId(b.getBookingId());
+                    } else if ("COURT".equalsIgnoreCase(tx.getBookingType()) && courtBookingRepository != null) {
+                        com.sporthub.backend.entity.CourtBooking cb = courtBookingRepository.findByPaymentId(tx.getPaymentId());
+                        if (cb != null) refund.setBookingId(cb.getCourtBookingId());
+                    }
+                }
+
+                // ✅ Call VNPay Refund API if original payment was via VNPay
+                if (com.sporthub.backend.constants.PaymentConstants.METHOD_VNPAY.equals(tx.getPaymentMethod()) && vnpayGateway != null) {
+                    logger.info(">>> ✅ CALLING VNPAY REFUND API <<<");
+                    try {
+                        Map<String, Object> refundResult = vnpayGateway.refundPayment(
+                                tx,
+                                refund.getRefundAmount(),
+                                refund.getReason()
+                        );
+                        String responseCode = (String) refundResult.get("vnp_ResponseCode");
+                        if ("00".equals(responseCode)) {
+                            logger.info("✅ VNPay refund SUCCESS");
                         } else {
-                            logger.warn(">>> ❌ NOT CALLING VNPAY - Payment method: '{}', Gateway: {}", 
-                                    tx.getPaymentMethod(), vnpayGateway != null ? "available" : "null");
-                            // Not VNPay → Just update local DB
-                            tx.setPaymentStatus("REFUNDED");
-                            paymentTransactionRepository.save(tx);
-                            refundSuccess = true;  // ← SET FLAG for non-VNPay payments
+                            refund.setDecisionNote((refund.getDecisionNote() != null ? refund.getDecisionNote() : "") 
+                                    + " | VNPay refund failed: " + refundResult.get("vnp_Message"));
+                            logger.warn("❌ VNPay refund FAILED: {}", responseCode);
                         }
-                    } else {
-                        logger.warn("⚠️ Transaction not found for ID: {}", refund.getTransactionId());
+                    } catch (Exception e) {
+                        logger.error("❌ VNPay refund ERROR: ", e);
+                        refund.setDecisionNote((refund.getDecisionNote() != null ? refund.getDecisionNote() : "") 
+                                + " | VNPay refund error: " + e.getMessage());
                     }
                 } else {
-                    logger.warn("⚠️ Transaction ID is NULL - cannot lookup payment");
+                    logger.info("Payment method is not VNPay or gateway is null. Direct refund update.");
                 }
-                
-                // Handle reference code lookup
-                if (refund.getReferenceCode() != null && !refund.getReferenceCode().isBlank()) {
-                    paymentTransactionRepository.findAll().stream()
-                            .filter(tx -> refund.getReferenceCode().equalsIgnoreCase(tx.getReferenceCode()))
-                            .findFirst()
-                            .ifPresent(tx -> {
-                                tx.setPaymentStatus("REFUNDED");
-                                paymentTransactionRepository.save(tx);
-                            });
-                }
+
+                tx.setPaymentStatus("REFUNDED");
+                paymentTransactionRepository.save(tx);
             } else {
-                logger.error("❌ paymentTransactionRepository is NULL - cannot process VNPay refund");
+                logger.warn("⚠️ Transaction not found for ID: {} or Ref: {}", refund.getTransactionId(), refund.getReferenceCode());
             }
-            
+
             if (paymentRepository != null && refund.getTransactionId() != null) {
                 try {
                     paymentRepository.findById(Math.toIntExact(refund.getTransactionId())).ifPresent(rp -> {
@@ -295,16 +304,16 @@ public class RefundRequestController {
                 } catch (Exception ignored) {
                 }
             }
-            
-            // 🔥 SAU KHI VNPay success → Cancel Booking/Membership
-            if (refundSuccess && refund.getBookingId() != null && refund.getBookingType() != null) {
+
+            // 🔥 When Manager approves refund -> Cancel Booking/Membership
+            if (refund.getBookingId() != null && refund.getBookingType() != null) {
                 String bookingType = refund.getBookingType();
-                
+
                 // LUỒNG 1: Cancel CLASS/COURT booking
                 if (("CLASS".equalsIgnoreCase(bookingType) || "COURT".equalsIgnoreCase(bookingType)) 
                     && bookingService != null) {
                     try {
-                        logger.info("🔥 LUỒNG 1 - Calling cancelBookingAfterRefund - bookingId: {}, bookingType: {}", 
+                        logger.info("🔥 Calling cancelBookingAfterRefund - bookingId: {}, bookingType: {}", 
                             refund.getBookingId(), bookingType);
                         bookingService.cancelBookingAfterRefund(
                             refund.getBookingId(), 
@@ -321,10 +330,10 @@ public class RefundRequestController {
                 // LUỒNG 2: Cancel MEMBERSHIP
                 else if ("MEMBERSHIP".equalsIgnoreCase(bookingType) && membershipService != null) {
                     try {
-                        logger.info("🔥 LUỒNG 2 - Calling cancelMembershipAfterRefund - membershipId: {}", 
+                        logger.info("🔥 Calling cancelMembershipAfterRefund - membershipId: {}", 
                             refund.getBookingId());
                         membershipService.cancelMembershipAfterRefund(
-                            refund.getBookingId(),  // bookingId chứa membershipId cho LUỒNG 2
+                            refund.getBookingId(),  // bookingId contains membershipId
                             refund.getRefundId()
                         );
                     } catch (Exception e) {
@@ -334,12 +343,7 @@ public class RefundRequestController {
                     }
                 }
             } else {
-                if (!refundSuccess) {
-                    logger.warn("⚠️ Refund not successful - NOT cancelling booking");
-                }
-                if (refund.getBookingId() == null || refund.getBookingType() == null) {
-                    logger.warn("⚠️ Missing bookingId or bookingType - Cannot cancel booking");
-                }
+                logger.warn("⚠️ Missing bookingId or bookingType - Cannot cancel booking");
             }
         }
 

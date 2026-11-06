@@ -252,10 +252,14 @@ public class VNPayWebhookController {
             return result;
         }
         
-        // 2. Parse payment ID
+        // 2. Parse payment ID (supports unique suffixes like paymentId_timestamp)
         Long paymentId;
         try {
-            paymentId = Long.parseLong(vnpTxnRef);
+            String idStr = vnpTxnRef;
+            if (idStr != null && idStr.contains("_")) {
+                idStr = idStr.split("_")[0];
+            }
+            paymentId = Long.parseLong(idStr);
         } catch (NumberFormatException e) {
             logger.error("Invalid payment ID format: {}", vnpTxnRef);
             result.put("valid", false);

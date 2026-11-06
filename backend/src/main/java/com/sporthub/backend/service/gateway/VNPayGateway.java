@@ -4,6 +4,10 @@ import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
@@ -54,6 +58,80 @@ public class VNPayGateway implements PaymentGateway {
     @Value("${vnpay.ipn-url}")
     private String ipnUrl;
     
+    private static volatile Long clockOffsetMillis = null;
+    private static volatile long lastOffsetFetch = 0;
+
+    /**
+     * Get real time synchronized with VNPay server HTTP header 'Date'
+     */
+    private ZonedDateTime getVNPayRealTime() {
+        ZoneId vnZone = ZoneId.of("Asia/Ho_Chi_Minh");
+        long now = System.currentTimeMillis();
+        
+        // Refresh offset every 5 minutes or if not initialized
+        if (clockOffsetMillis == null || now - lastOffsetFetch > 300_000) {
+            syncClockOffsetWithVNPay();
+        }
+        
+        long offset = clockOffsetMillis != null ? clockOffsetMillis : 0L;
+        return Instant.ofEpochMilli(now + offset).atZone(vnZone);
+    }
+
+    private java.net.http.HttpClient createInsecureHttpClient(java.time.Duration timeout) {
+        try {
+            javax.net.ssl.TrustManager[] trustAllCerts = new javax.net.ssl.TrustManager[]{
+                new javax.net.ssl.X509TrustManager() {
+                    public java.security.cert.X509Certificate[] getAcceptedIssuers() { return null; }
+                    public void checkClientTrusted(java.security.cert.X509Certificate[] certs, String authType) {}
+                    public void checkServerTrusted(java.security.cert.X509Certificate[] certs, String authType) {}
+                }
+            };
+            javax.net.ssl.SSLContext sc = javax.net.ssl.SSLContext.getInstance("TLS");
+            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+            return java.net.http.HttpClient.newBuilder()
+                    .sslContext(sc)
+                    .connectTimeout(timeout)
+                    .build();
+        } catch (Exception e) {
+            return java.net.http.HttpClient.newBuilder()
+                    .connectTimeout(timeout)
+                    .build();
+        }
+    }
+
+    private synchronized void syncClockOffsetWithVNPay() {
+        if (vnpayUrl == null || vnpayUrl.isBlank()) {
+            clockOffsetMillis = 0L;
+            lastOffsetFetch = System.currentTimeMillis();
+            return;
+        }
+        try {
+            java.net.http.HttpClient client = createInsecureHttpClient(java.time.Duration.ofMillis(2000));
+            java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(vnpayUrl))
+                    .timeout(java.time.Duration.ofMillis(3000))
+                    .method("HEAD", java.net.http.HttpRequest.BodyPublishers.noBody())
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                    .build();
+            java.net.http.HttpResponse<Void> resp = client.send(req, java.net.http.HttpResponse.BodyHandlers.discarding());
+            String dateHeader = resp.headers().firstValue("Date").orElse(null);
+            if (dateHeader != null && !dateHeader.isBlank()) {
+                Instant serverInstant = DateTimeFormatter.RFC_1123_DATE_TIME.parse(dateHeader, Instant::from);
+                long currentLocal = System.currentTimeMillis();
+                clockOffsetMillis = serverInstant.toEpochMilli() - currentLocal;
+                lastOffsetFetch = currentLocal;
+                logger.info("🕒 Synced clock offset with VNPay: {} ms (Server Date: {})", clockOffsetMillis, dateHeader);
+                return;
+            }
+        } catch (Exception e) {
+            logger.warn("Could not sync clock offset with VNPay, using 0ms: {}", e.getMessage());
+        }
+        if (clockOffsetMillis == null) {
+            clockOffsetMillis = 0L;
+        }
+        lastOffsetFetch = System.currentTimeMillis();
+    }
+
     @Override
     public Map<String, Object> generatePayment(Long paymentId, BigDecimal amount, String description, String ipAddress) {
         logger.info("=== VNPay Payment Generation Started ===");
@@ -70,22 +148,23 @@ public class VNPayGateway implements PaymentGateway {
         vnpParams.put("vnp_TmnCode", tmnCode);
         vnpParams.put("vnp_Amount", String.valueOf(amount.multiply(new BigDecimal(100)).longValue()));
         vnpParams.put("vnp_CurrCode", "VND");
-        vnpParams.put("vnp_TxnRef", paymentId.toString());
+        
+        // Ensure vnp_TxnRef is unique per payment attempt (avoids Error 01 on retries/reused IDs)
+        String txnRef = paymentId + "_" + System.currentTimeMillis();
+        vnpParams.put("vnp_TxnRef", txnRef);
         vnpParams.put("vnp_OrderInfo", "Thanh toan don hang " + paymentId);
         vnpParams.put("vnp_OrderType", "other");
         vnpParams.put("vnp_Locale", "vn");
         vnpParams.put("vnp_ReturnUrl", returnUrl);
         vnpParams.put("vnp_IpAddr", ipAddress != null ? ipAddress : "127.0.0.1");
         
-        Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
-        formatter.setTimeZone(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
+        ZonedDateTime nowVn = getVNPayRealTime();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
         
-        String vnpCreateDate = formatter.format(calendar.getTime());
+        String vnpCreateDate = formatter.format(nowVn);
         vnpParams.put("vnp_CreateDate", vnpCreateDate);
         
-        calendar.add(Calendar.MINUTE, 10);
-        String vnpExpireDate = formatter.format(calendar.getTime());
+        String vnpExpireDate = formatter.format(nowVn.plusMinutes(15));
         vnpParams.put("vnp_ExpireDate", vnpExpireDate);
         
         logger.info("VNPay Parameters (before hash): {}", vnpParams);
@@ -207,8 +286,7 @@ public class VNPayGateway implements PaymentGateway {
             Map<String, String> vnpParams = new TreeMap<>();
             
             String requestId = java.util.UUID.randomUUID().toString();
-            String createDate = new java.text.SimpleDateFormat("yyyyMMddHHmmss")
-                    .format(new java.util.Date());
+            String createDate = DateTimeFormatter.ofPattern("yyyyMMddHHmmss").format(getVNPayRealTime());
             
             // Get original transaction date from VNPay webhook (vnp_PayDate)
             // VNPay Refund API requires vnp_TransactionDate = original vnp_PayDate from payment
@@ -252,7 +330,7 @@ public class VNPayGateway implements PaymentGateway {
             logger.info("Calling VNPay Refund API: {}", vnpayApiUrl);
             logger.debug("Request Body: {}", requestBody);
             
-            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+            java.net.http.HttpClient client = createInsecureHttpClient(java.time.Duration.ofSeconds(10));
             java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
                     .uri(java.net.URI.create(vnpayApiUrl))
                     .header("Content-Type", "application/x-www-form-urlencoded")

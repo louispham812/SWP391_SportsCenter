@@ -41,7 +41,7 @@ export default function MemberAIAssistantPage() {
         getMyWorkoutProgress().catch(() => null),
       ]);
       setHealth(healthData);
-      setSchedule(Array.isArray(scheduleData) ? scheduleData.filter((s) => s.status !== 'CANCELLED' && s.refundStatus !== 'REFUNDED') : []);
+      setSchedule(Array.isArray(scheduleData) ? scheduleData.filter((s) => s.status !== 'CANCELLED' && s.refundStatus !== 'REFUNDED' && s.refundStatus !== 'APPROVED') : []);
       if (workoutData?.bodyLogs?.length) {
         const withLift = workoutData.bodyLogs.filter((l) => l.maxLiftKg != null);
         if (withLift.length) {

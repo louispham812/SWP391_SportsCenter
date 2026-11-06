@@ -41,12 +41,13 @@ export default function VNPayReturnPage() {
       }
       
       const vnpResponseCode = searchParams.get('vnp_ResponseCode');
-      const vnpTxnRef = searchParams.get('vnp_TxnRef');
+      const rawTxnRef = searchParams.get('vnp_TxnRef');
+      const vnpTxnRef = rawTxnRef && rawTxnRef.includes('_') ? rawTxnRef.split('_')[0] : rawTxnRef;
       const vnpSecureHash = searchParams.get('vnp_SecureHash');
       
       setPaymentId(vnpTxnRef);
       
-      if (!vnpResponseCode || !vnpTxnRef) {
+      if (!vnpResponseCode || !rawTxnRef) {
         setStatus('error');
         setMessage('Thiếu thông tin giao dịch');
         return;

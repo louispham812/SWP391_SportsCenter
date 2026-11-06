@@ -332,6 +332,86 @@ class BookingServiceTest {
         verify(courtBookingRepository, never()).save(any(CourtBooking.class));
     }
 
+    @Test
+    void memberCanCancelClassBookingMoreThanTwoHoursBeforeStart() {
+        Booking booking = Booking.builder()
+                .bookingId(101L)
+                .memberId(11L)
+                .sessionId(22L)
+                .feeAmount(new BigDecimal("150000"))
+                .status("CONFIRMED")
+                .build();
+        ClassSession session = session(5);
+        when(bookingRepository.findById(101L)).thenReturn(Optional.of(booking));
+        when(classSessionRepository.findByIdForUpdate(22L)).thenReturn(Optional.of(session));
+        when(bookingRepository.save(booking)).thenReturn(booking);
+        when(classSessionRepository.save(session)).thenReturn(session);
+
+        CancelBookingResponse cancelled = bookingService.cancelClassBooking(101L, 11L);
+
+        assertEquals("CANCELLED", cancelled.getStatus());
+        assertEquals("CLASS", cancelled.getBookingType());
+        verify(bookingRepository).save(booking);
+    }
+
+    @Test
+    void memberCanCancelClassBookingWithQuotaAndRestoresQuota() {
+        Booking booking = Booking.builder()
+                .bookingId(102L)
+                .memberId(11L)
+                .sessionId(22L)
+                .feeAmount(BigDecimal.ZERO)
+                .usesMembershipQuota(true)
+                .membershipId(55L)
+                .status("CONFIRMED")
+                .build();
+        ClassSession session = session(5);
+        when(bookingRepository.findById(102L)).thenReturn(Optional.of(booking));
+        when(classSessionRepository.findByIdForUpdate(22L)).thenReturn(Optional.of(session));
+        when(bookingRepository.save(booking)).thenReturn(booking);
+        when(classSessionRepository.save(session)).thenReturn(session);
+
+        CancelBookingResponse cancelled = bookingService.cancelClassBooking(102L, 11L);
+
+        assertEquals("CANCELLED", cancelled.getStatus());
+        verify(membershipService).releaseQuota(55L, 1);
+        verify(bookingRepository).save(booking);
+    }
+
+    @Test
+    void memberCannotCancelClassBookingAfterSessionStarted() {
+        Booking booking = Booking.builder()
+                .bookingId(103L)
+                .memberId(11L)
+                .sessionId(22L)
+                .status("CONFIRMED")
+                .build();
+        ClassSession pastSession = session(5);
+        pastSession.setStartTime(LocalDateTime.now().minusMinutes(30));
+        when(bookingRepository.findById(103L)).thenReturn(Optional.of(booking));
+        when(classSessionRepository.findByIdForUpdate(22L)).thenReturn(Optional.of(pastSession));
+
+        assertThrows(ResponseStatusException.class, () -> bookingService.cancelClassBooking(103L, 11L));
+        verify(bookingRepository, never()).save(any(Booking.class));
+    }
+
+    @Test
+    void memberCanCancelCourtBookingWithQuotaAndRestoresQuota() {
+        CourtBooking booking = courtBooking(11L, LocalDateTime.now().plusDays(1));
+        booking.setUsesMembershipQuota(true);
+        booking.setMembershipId(77L);
+        booking.setQuotaHoursUsed(BigDecimal.valueOf(1.0));
+        booking.setAmountPaid(BigDecimal.ZERO);
+        when(courtBookingRepository.findByIdForUpdate(99L)).thenReturn(Optional.of(booking));
+        when(courtBookingRepository.save(booking)).thenReturn(booking);
+
+        CancelBookingResponse cancelled = bookingService.cancelCourtBooking(99L, 11L);
+
+        assertEquals("CANCELLED", cancelled.getStatus());
+        verify(membershipService).releaseQuota(77L, 1);
+        verify(courtBookingRepository).save(booking);
+    }
+
     private CourtBooking courtBooking(Long memberId, LocalDateTime startTime) {
         CourtBooking booking = new CourtBooking();
         booking.setCourtBookingId(99L);
