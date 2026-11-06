@@ -41,6 +41,25 @@ public class SystemAutomationScheduler {
     private final UserMembershipRepository userMembershipRepository;
     private final EquipmentLoanRepository equipmentLoanRepository;
     private final EngagementService engagementService;
+    private final FacilityCourtSyncService facilityCourtSyncService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public SystemAutomationScheduler(
+            BookingRepository bookingRepository,
+            CourtBookingRepository courtBookingRepository,
+            ClassSessionRepository classSessionRepository,
+            UserMembershipRepository userMembershipRepository,
+            EquipmentLoanRepository equipmentLoanRepository,
+            EngagementService engagementService,
+            FacilityCourtSyncService facilityCourtSyncService) {
+        this.bookingRepository = bookingRepository;
+        this.courtBookingRepository = courtBookingRepository;
+        this.classSessionRepository = classSessionRepository;
+        this.userMembershipRepository = userMembershipRepository;
+        this.equipmentLoanRepository = equipmentLoanRepository;
+        this.engagementService = engagementService;
+        this.facilityCourtSyncService = facilityCourtSyncService;
+    }
 
     public SystemAutomationScheduler(
             BookingRepository bookingRepository,
@@ -49,21 +68,33 @@ public class SystemAutomationScheduler {
             UserMembershipRepository userMembershipRepository,
             EquipmentLoanRepository equipmentLoanRepository,
             EngagementService engagementService) {
-        this.bookingRepository = bookingRepository;
-        this.courtBookingRepository = courtBookingRepository;
-        this.classSessionRepository = classSessionRepository;
-        this.userMembershipRepository = userMembershipRepository;
-        this.equipmentLoanRepository = equipmentLoanRepository;
-        this.engagementService = engagementService;
+        this(bookingRepository, courtBookingRepository, classSessionRepository,
+             userMembershipRepository, equipmentLoanRepository, engagementService, null);
     }
 
     @PostConstruct
     public void onStartup() {
         log.info("SystemAutomationScheduler initialized. Performing startup checks...");
         try {
+            if (facilityCourtSyncService != null) {
+                facilityCourtSyncService.syncAllCourtsMaintenanceStatus();
+            }
             scanExpiredMembershipsAndEquipment();
         } catch (Exception e) {
             log.warn("Startup scan warning: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Tự động quét và đóng/mở sân theo khung giờ bảo trì mỗi 60 giây:
+     * - Khi startTime <= now <= endTime: chuyển sân sang MAINTENANCE (court.active = false)
+     * - Khi now > endTime và không còn bảo trì: mở lại sân sang AVAILABLE (court.active = true)
+     */
+    @Scheduled(fixedDelay = 60000)
+    @Transactional
+    public void autoSyncCourtMaintenanceStatus() {
+        if (facilityCourtSyncService != null) {
+            facilityCourtSyncService.syncAllCourtsMaintenanceStatus();
         }
     }
 

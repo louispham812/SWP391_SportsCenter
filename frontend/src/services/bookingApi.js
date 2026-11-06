@@ -43,3 +43,8 @@ export const cancelMemberBooking = (bookingType, bookingId) =>
   apiRequest(`/booking-flow/schedule/${encodeURIComponent(bookingType)}/${encodeURIComponent(bookingId)}`, {
     method: 'DELETE',
   });
+export const rescheduleCourtBooking = (bookingId, data) =>
+  apiRequest(`/booking-flow/court-bookings/${encodeURIComponent(bookingId)}/reschedule`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });

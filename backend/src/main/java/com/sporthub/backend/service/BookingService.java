@@ -87,6 +87,9 @@ public class BookingService {
     private final RefundRequestRepository refundRequestRepository;
     private final EngagementService engagementService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private FacilityCourtSyncService syncService;
+
     public BookingService(
             BookingRepository bookingRepository,
             ClassSessionRepository classSessionRepository,
@@ -1153,6 +1156,19 @@ public class BookingService {
                     if ("APPROVED".equalsIgnoreCase(refundStatus) || "REFUNDED".equalsIgnoreCase(refundStatus)) {
                         return null;
                     }
+
+                    boolean isMaintenanceAffected = false;
+                    if (session.getFacilityId() != null && syncService != null) {
+                        List<Long> courtIds = syncService.getCourtIdsForFacility(session.getFacilityId(), session.getSportId(), null);
+                        for (Long cId : courtIds) {
+                            if (courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(
+                                    cId, session.getEndTime(), session.getStartTime())) {
+                                isMaintenanceAffected = true;
+                                break;
+                            }
+                        }
+                    }
+
                     return new MemberScheduleEntryResponse(
                             "CLASS",
                             booking.getBookingId(),
@@ -1169,7 +1185,8 @@ public class BookingService {
                             coach == null ? null : coach.getAvatar(),
                             booking.getAttendanceStatus() == null ? null : booking.getAttendanceStatus().name(),
                             booking.getCoachNote(),
-                            refundStatus);
+                            refundStatus,
+                            isMaintenanceAffected);
                 })
                 .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toCollection(java.util.ArrayList::new));
@@ -1191,6 +1208,10 @@ public class BookingService {
             if ("APPROVED".equalsIgnoreCase(refundStatus) || "REFUNDED".equalsIgnoreCase(refundStatus)) {
                 continue;
             }
+
+            boolean isMaintenanceAffected = courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(
+                    booking.getCourtId(), booking.getEndTime(), booking.getStartTime());
+
             entries.add(new MemberScheduleEntryResponse(
                     "COURT",
                     booking.getCourtBookingId(),
@@ -1207,7 +1228,8 @@ public class BookingService {
                     null,
                     null,
                     null,
-                    refundStatus));
+                    refundStatus,
+                    isMaintenanceAffected));
         }
         entries.sort((left, right) -> left.startTime().compareTo(right.startTime()));
         return entries;
@@ -1497,8 +1519,21 @@ public class BookingService {
                 "Không thể hủy lớp học đã hoặc đang diễn ra.");
         }
 
-        // Cancellation > 2 hours before start is eligible for refund/quota restoration
-        boolean isEligibleForRefund = session.getStartTime() == null 
+        boolean isMaintenanceOverlap = false;
+        if (session.getFacilityId() != null && syncService != null) {
+            List<Long> courtIds = syncService.getCourtIdsForFacility(session.getFacilityId(), session.getSportId(), null);
+            for (Long cId : courtIds) {
+                if (courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(
+                        cId, session.getEndTime(), session.getStartTime())) {
+                    isMaintenanceOverlap = true;
+                    break;
+                }
+            }
+        }
+
+        // Cancellation > 2 hours before start OR maintenance overlap is eligible for refund/quota restoration
+        boolean isEligibleForRefund = isMaintenanceOverlap 
+                || session.getStartTime() == null 
                 || !session.getStartTime().minusHours(2).isBefore(now);
 
         // Check duplicate RefundRequest
@@ -1546,6 +1581,9 @@ public class BookingService {
                     session.getClassName(), sportName, facilityName, coachName);
                 
                 BigDecimal refundAmount = payment.getAmount() != null ? payment.getAmount() : booking.getFeeAmount();
+                String classCancelReason = isMaintenanceOverlap
+                    ? "Hủy không phạt do cơ sở bảo trì (hoàn 100%)"
+                    : "Hủy booking đúng hạn trước 2 giờ theo chính sách quy định";
                 
                 RefundRequest refundRequest = RefundRequest.builder()
                     .memberId(userId)
@@ -1557,7 +1595,7 @@ public class BookingService {
                     .bookingType("CLASS")
                     .bookingDescription(bookingDescription)
                     .refundAmount(refundAmount)
-                    .reason("Hủy booking đúng hạn trước 2 giờ theo chính sách quy định")
+                    .reason(classCancelReason)
                     .bankName(null)
                     .bankAccount(null)
                     .accountHolder(member.getFullName())
@@ -1684,7 +1722,11 @@ public class BookingService {
                 "Đặt sân đã bị hủy trước đó.");
         }
 
-        if (courtBooking.getStartTime() != null
+        // Check if this booking overlaps with any maintenance on this court
+        boolean isMaintenanceOverlap = courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(
+                courtBooking.getCourtId(), courtBooking.getEndTime(), courtBooking.getStartTime());
+
+        if (!isMaintenanceOverlap && courtBooking.getStartTime() != null
                 && courtBooking.getStartTime().minusHours(2).isBefore(LocalDateTime.now())) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Chỉ có thể hủy đặt sân trước giờ bắt đầu ít nhất 2 tiếng.");
@@ -1735,6 +1777,9 @@ public class BookingService {
                 );
                 
                 BigDecimal refundAmount = payment.getAmount() != null ? payment.getAmount() : courtBooking.getAmountPaid();
+                String cancelReason = isMaintenanceOverlap
+                    ? "Hủy không phạt do sân bảo trì (hoàn 100%)"
+                    : "Hủy booking đúng hạn trước 2 giờ theo chính sách quy định";
                 
                 RefundRequest refundRequest = RefundRequest.builder()
                     .memberId(userId)
@@ -1746,7 +1791,7 @@ public class BookingService {
                     .bookingType("COURT")
                     .bookingDescription(bookingDescription)
                     .refundAmount(refundAmount)
-                    .reason("Hủy booking đúng hạn trước 2 giờ theo chính sách quy định")
+                    .reason(cancelReason)
                     .bankName(null)
                     .bankAccount(null)
                     .accountHolder(member.getFullName())
@@ -1773,7 +1818,9 @@ public class BookingService {
                 engagementService.notifyUser(
                     userId,
                     "Yêu cầu hủy đặt sân đã được gửi",
-                    "Yêu cầu hủy đặt sân của bạn đang chờ quản lý phê duyệt.",
+                    isMaintenanceOverlap
+                        ? "Yêu cầu hủy đặt sân do trùng lịch bảo trì của bạn đã được gửi (miễn phí phạt, hoàn 100%)."
+                        : "Yêu cầu hủy đặt sân của bạn đang chờ quản lý phê duyệt.",
                     "BOOKING_CANCEL"
                 );
                 
@@ -1839,7 +1886,7 @@ public class BookingService {
                 .bookingTitle(courtName)
                 .startTime(courtBooking.getStartTime())
                 .refundAmount(refundAmount)
-                .message("Đã hủy đặt sân thành công.")
+                .message(isMaintenanceOverlap ? "Đã hủy đặt sân thành công không phạt do trùng lịch bảo trì (hoàn 100%)." : "Đã hủy đặt sân thành công.")
                 .build();
     }
     
@@ -1893,6 +1940,95 @@ public class BookingService {
             
             logger.info("✅ COURT booking cancelled: {}", bookingId);
         }
+    }
+
+    /**
+     * Cho phép đổi lịch đặt sân miễn phí khi bị trùng lịch bảo trì hoặc đổi lịch chủ động
+     */
+    @Transactional
+    public Map<String, Object> rescheduleCourtBooking(
+            Long courtBookingId,
+            Long userId,
+            Long newCourtId,
+            LocalDateTime newStartTime,
+            LocalDateTime newEndTime) {
+        CourtBooking courtBooking = courtBookingRepository.findByIdForUpdate(courtBookingId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đặt sân."));
+
+        if (!courtBooking.getMemberId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền đổi lịch đặt sân này.");
+        }
+        if (!"CONFIRMED".equalsIgnoreCase(courtBooking.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Chỉ có thể đổi lịch cho đơn đặt sân đang hoạt động (CONFIRMED).");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (newStartTime == null || !newStartTime.isAfter(now)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời gian bắt đầu mới phải ở trong tương lai.");
+        }
+        if (newEndTime == null || !newEndTime.isAfter(newStartTime)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời gian kết thúc mới phải sau thời gian bắt đầu.");
+        }
+
+        Long targetCourtId = newCourtId != null ? newCourtId : courtBooking.getCourtId();
+        SportsCourt targetCourt = sportsCourtRepository.findById(targetCourtId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sân thể thao mục tiêu."));
+
+        // Validate court opens/closes
+        validateCourtSlot(targetCourt, newStartTime, newEndTime);
+
+        // Check maintenance schedule on target court
+        if (courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(
+                targetCourtId, newEndTime, newStartTime)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Sân mục tiêu đang trong lịch bảo trì tại khung giờ này.");
+        }
+
+        // Check confirmed overlap on target court (excluding current booking)
+        boolean courtOverlap = courtBookingRepository.existsConfirmedOverlapExcluding(
+                targetCourtId, courtBookingId, newStartTime, newEndTime);
+        if (courtOverlap) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Khung giờ tại sân này đã có người khác đặt.");
+        }
+
+        // Check member doesn't have other overlapping booking
+        boolean memberOverlap = courtBookingRepository.findAll().stream().anyMatch(cb ->
+                !cb.getCourtBookingId().equals(courtBookingId)
+                && cb.getMemberId().equals(userId)
+                && "CONFIRMED".equalsIgnoreCase(cb.getStatus())
+                && cb.getStartTime().isBefore(newEndTime)
+                && cb.getEndTime().isAfter(newStartTime));
+        if (memberOverlap) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có lịch đặt sân khác trong khung giờ này.");
+        }
+
+        LocalDateTime oldStart = courtBooking.getStartTime();
+        LocalDateTime oldEnd = courtBooking.getEndTime();
+        Long oldCourtId = courtBooking.getCourtId();
+
+        courtBooking.setCourtId(targetCourtId);
+        courtBooking.setStartTime(newStartTime);
+        courtBooking.setEndTime(newEndTime);
+        CourtBooking saved = courtBookingRepository.save(courtBooking);
+
+        java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+        String notice = "Bạn đã đổi lịch đặt sân #" + courtBookingId + " thành công sang " + targetCourt.getCourtName()
+                + " (" + newStartTime.format(dtf) + " - " + newEndTime.format(dtf) + ").";
+        if (engagementService != null) {
+            engagementService.notifyUser(userId, "Đổi lịch đặt sân thành công", notice, "BOOKING_RESCHEDULE");
+        }
+        if (auditLogService != null) {
+            auditLogService.logSuccess("BOOKING_RESCHEDULE", "COURT", userId,
+                    "courtBookingId=" + courtBookingId + ", old=[" + oldCourtId + ", " + oldStart + "], new=[" + targetCourtId + ", " + newStartTime + "]");
+        }
+
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("courtBookingId", saved.getCourtBookingId());
+        resp.put("courtId", saved.getCourtId());
+        resp.put("courtName", targetCourt.getCourtName());
+        resp.put("startTime", saved.getStartTime());
+        resp.put("endTime", saved.getEndTime());
+        resp.put("message", notice);
+        return resp;
     }
 
     /**

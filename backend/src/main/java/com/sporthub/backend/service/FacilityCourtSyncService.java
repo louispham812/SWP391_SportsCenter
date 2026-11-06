@@ -329,6 +329,60 @@ public class FacilityCourtSyncService {
     }
 
     /**
+     * Đồng bộ trạng thái đóng/mở sân và cơ sở vật chất theo khung giờ bảo trì thực tế:
+     * - Khi đang trong giờ bảo trì (startTime <= now <= endTime): court.active = false, facility = MAINTENANCE, pf.active = false
+     * - Khi ngoài giờ bảo trì (chưa tới hoặc đã kết thúc): court.active = true, facility = AVAILABLE, pf.active = true
+     */
+    @Transactional
+    public void syncCourtMaintenanceStatus(Long courtId) {
+        if (courtId == null) return;
+        SportsCourt court = sportsCourtRepository.findById(courtId).orElse(null);
+        if (court == null) return;
+
+        LocalDateTime now = LocalDateTime.now();
+        boolean inMaintenance = courtMaintenanceRepository.existsByCourtIdAndActiveAtTime(courtId, now);
+        boolean shouldBeActive = !inMaintenance;
+
+        if (court.isActive() != shouldBeActive) {
+            court.setActive(shouldBeActive);
+            sportsCourtRepository.save(court);
+            log.info("Auto-synced court {} ({}) -> active: {}", courtId, court.getCourtName(), shouldBeActive);
+        }
+
+        String status = shouldBeActive ? "AVAILABLE" : "MAINTENANCE";
+        List<Long> facilityIds = getFacilityIdsForCourt(courtId, court.getSportId(), court.getCourtName());
+        for (Long facId : facilityIds) {
+            facilityRepository.findById(facId).ifPresent(f -> {
+                if (!status.equalsIgnoreCase(f.getStatus())) {
+                    f.setStatus(status);
+                    facilityRepository.save(f);
+                }
+            });
+        }
+
+        List<Long> pfIds = getPublicFacilityIdsForCourt(courtId, court.getSportId(), court.getCourtName());
+        for (Long pfId : pfIds) {
+            publicFacilityRepository.findById(pfId).ifPresent(pf -> {
+                if (pf.isActive() != shouldBeActive) {
+                    pf.setActive(shouldBeActive);
+                    publicFacilityRepository.save(pf);
+                }
+            });
+        }
+    }
+
+    /**
+     * Quét và đồng bộ trạng thái bảo trì cho toàn bộ các sân trong hệ thống
+     */
+    @Transactional
+    public void syncAllCourtsMaintenanceStatus() {
+        List<SportsCourt> courts = sportsCourtRepository.findAll();
+        for (SportsCourt court : courts) {
+            syncCourtMaintenanceStatus(court.getCourtId());
+        }
+    }
+
+    /**
      * Triggered when Manager creates a maintenance schedule window
      */
     @Transactional
@@ -336,29 +390,8 @@ public class FacilityCourtSyncService {
         SportsCourt court = sportsCourtRepository.findById(courtId).orElse(null);
         if (court == null) return;
 
-        LocalDateTime now = LocalDateTime.now();
-        // If maintenance window covers the current moment or is active
-        if (!now.isBefore(start) && !now.isAfter(end)) {
-            court.setActive(false);
-            sportsCourtRepository.save(court);
-        }
-
-        List<Long> facilityIds = getFacilityIdsForCourt(courtId, court.getSportId(), court.getCourtName());
-        for (Long facId : facilityIds) {
-            facilityRepository.findById(facId).ifPresent(f -> {
-                f.setStatus("MAINTENANCE");
-                facilityRepository.save(f);
-            });
-        }
-
-        List<Long> pfIds = getPublicFacilityIdsForCourt(courtId, court.getSportId(), court.getCourtName());
-        for (Long pfId : pfIds) {
-            publicFacilityRepository.findById(pfId).ifPresent(pf -> {
-                pf.setActive(false);
-                publicFacilityRepository.save(pf);
-            });
-        }
-        log.info("Synced maintenance create for court {} -> facilities affected: {}, publicFacilities: {}", courtId, facilityIds, pfIds);
+        syncCourtMaintenanceStatus(courtId);
+        log.info("Synced maintenance create for court {} (start: {}, end: {})", courtId, start, end);
     }
 
     /**
@@ -367,30 +400,7 @@ public class FacilityCourtSyncService {
     @Transactional
     public void syncFromMaintenanceDelete(Long courtId) {
         if (courtId == null) return;
-        LocalDateTime now = LocalDateTime.now();
-        List<CourtMaintenance> activeMaintenances = courtMaintenanceRepository.findByCourtIdAndEndTimeAfter(courtId, now);
-        if (activeMaintenances.isEmpty()) {
-            sportsCourtRepository.findById(courtId).ifPresent(court -> {
-                court.setActive(true);
-                sportsCourtRepository.save(court);
-
-                List<Long> facilityIds = getFacilityIdsForCourt(courtId, court.getSportId(), court.getCourtName());
-                for (Long facId : facilityIds) {
-                    facilityRepository.findById(facId).ifPresent(f -> {
-                        f.setStatus("AVAILABLE");
-                        facilityRepository.save(f);
-                    });
-                }
-
-                List<Long> pfIds = getPublicFacilityIdsForCourt(courtId, court.getSportId(), court.getCourtName());
-                for (Long pfId : pfIds) {
-                    publicFacilityRepository.findById(pfId).ifPresent(pf -> {
-                        pf.setActive(true);
-                        publicFacilityRepository.save(pf);
-                    });
-                }
-                log.info("Synced maintenance delete for court {} -> restored facilities: {}, publicFacilities: {}", courtId, facilityIds, pfIds);
-            });
-        }
+        syncCourtMaintenanceStatus(courtId);
+        log.info("Synced maintenance delete for court {}", courtId);
     }
 }

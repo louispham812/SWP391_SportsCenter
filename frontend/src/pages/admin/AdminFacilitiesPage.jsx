@@ -13,6 +13,7 @@ import {
 } from '../../services/managerApi';
 import {
   createMaintenance,
+  extendMaintenance,
   deleteMaintenance,
   getMaintenanceList,
 } from '../../services/engagementApi';
@@ -68,6 +69,12 @@ export default function AdminFacilitiesPage() {
     courtId: '',
     startTime: '',
     endTime: '',
+    reason: '',
+  });
+  const [isExtendModalOpen, setIsExtendModalOpen] = useState(false);
+  const [extendingMaintenance, setExtendingMaintenance] = useState(null);
+  const [extendForm, setExtendForm] = useState({
+    newEndTime: '',
     reason: '',
   });
 
@@ -309,6 +316,43 @@ export default function AdminFacilitiesPage() {
       await loadFacilities();
     } catch (err) {
       showToast('Lỗi lên lịch bảo trì', err.message || 'Không thể tạo lịch bảo trì.', 'danger');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleOpenExtendModal = (m) => {
+    setExtendingMaintenance(m);
+    setExtendForm({
+      newEndTime: m.endTime ? m.endTime.substring(0, 16) : '',
+      reason: '',
+    });
+    setIsExtendModalOpen(true);
+  };
+
+  const handleExtendMaintenance = async (e) => {
+    e.preventDefault();
+    if (!extendingMaintenance || !extendForm.newEndTime) {
+      showToast('Lỗi', 'Vui lòng chọn thời gian kết thúc gia hạn mới.', 'warning');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await extendMaintenance(extendingMaintenance.maintenanceId, {
+        newEndTime: extendForm.newEndTime,
+        reason: extendForm.reason.trim() || 'Gia hạn hoàn thiện bảo dưỡng sân',
+      });
+      showToast(
+        'Gia hạn bảo trì thành công',
+        res.message || `Đã gia hạn bảo trì sân #${extendingMaintenance.courtId} đến ${extendForm.newEndTime}.`,
+        'success'
+      );
+      setIsExtendModalOpen(false);
+      setExtendingMaintenance(null);
+      await loadMaintenance();
+      await loadFacilities();
+    } catch (err) {
+      showToast('Lỗi gia hạn bảo trì', err.message || 'Không thể gia hạn lịch bảo trì.', 'danger');
     } finally {
       setSaving(false);
     }
@@ -747,13 +791,26 @@ export default function AdminFacilitiesPage() {
                         </span>
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteMaintenance(m.maintenanceId)}
-                          className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer"
-                        >
-                          Xóa / Mở sân
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          {m.status !== 'COMPLETED' && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenExtendModal(m)}
+                              className="px-3 py-1.5 rounded-lg border border-orange-200 text-orange-600 hover:bg-orange-50 text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                              title="Gia hạn thời gian bảo trì"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">more_time</span>
+                              <span>Gia hạn</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteMaintenance(m.maintenanceId)}
+                            className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer"
+                          >
+                            Xóa / Mở sân
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -866,6 +923,112 @@ export default function AdminFacilitiesPage() {
                     className="rounded-xl bg-orange-500 hover:bg-orange-600 px-5 py-2 text-xs font-bold uppercase text-white shadow-sm cursor-pointer"
                   >
                     Xác nhận khóa sân &amp; Lên lịch
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Gia Hạn Bảo Trì */}
+        {isExtendModalOpen && extendingMaintenance && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-orange-600 text-[22px]">more_time</span>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Gia Hạn Tiến Độ Bảo Trì Sân
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsExtendModalOpen(false);
+                    setExtendingMaintenance(null);
+                  }}
+                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Sân bảo trì:</span>
+                  <strong className="text-slate-900">
+                    {extendingMaintenance.courtName || `Sân #${extendingMaintenance.courtId}`}
+                  </strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Bắt đầu bảo trì:</span>
+                  <span className="font-semibold text-slate-700">
+                    {new Date(extendingMaintenance.startTime).toLocaleString('vi-VN')}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Thời gian kết thúc hiện tại:</span>
+                  <span className="font-bold text-red-600">
+                    {new Date(extendingMaintenance.endTime).toLocaleString('vi-VN')}
+                  </span>
+                </div>
+              </div>
+
+              <form onSubmit={handleExtendMaintenance} className="space-y-3.5">
+                <div>
+                  <label className="text-xs font-bold uppercase text-slate-700">
+                    Thời gian kết thúc mới (Gia hạn đến) *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={extendForm.newEndTime}
+                    onChange={(e) => setExtendForm({ ...extendForm, newEndTime: e.target.value })}
+                    className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none"
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Lưu ý: Thời gian gia hạn mới phải sau thời gian kết thúc hiện tại.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase text-slate-700">
+                    Lý do gia hạn thêm thời gian *
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={extendForm.reason}
+                    onChange={(e) => setExtendForm({ ...extendForm, reason: e.target.value })}
+                    placeholder="VD: Tiến độ thi công sửa đèn chậm do thời tiết, chờ vật tư thay thế mặt sân..."
+                    className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs outline-none resize-none"
+                  />
+                </div>
+
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed space-y-1">
+                  <strong>Quy tắc nghiệp vụ gia hạn:</strong>
+                  <p>
+                    Hệ thống sẽ quét các booking bị trùng trong khung giờ kéo dài, gửi thông báo in-app cho khách hàng để họ tự chọn: <strong>Đổi lịch miễn phí</strong> hoặc <strong>Hủy không phạt (hoàn 100%)</strong>.
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsExtendModalOpen(false);
+                      setExtendingMaintenance(null);
+                    }}
+                    className="rounded-xl border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="rounded-xl bg-orange-500 hover:bg-orange-600 px-5 py-2 text-xs font-bold uppercase text-white shadow-sm cursor-pointer disabled:opacity-50"
+                  >
+                    {saving ? 'Đang lưu...' : 'Xác nhận gia hạn'}
                   </button>
                 </div>
               </form>

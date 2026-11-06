@@ -3,14 +3,17 @@ package com.sporthub.backend.controller;
 import com.sporthub.backend.entity.AuditLog;
 import com.sporthub.backend.entity.Booking;
 import com.sporthub.backend.entity.ClassSession;
+import com.sporthub.backend.entity.CourtBooking;
 import com.sporthub.backend.entity.CourtMaintenance;
 import com.sporthub.backend.entity.Feedback;
 import com.sporthub.backend.entity.Notification;
+import com.sporthub.backend.entity.SportsCourt;
 import com.sporthub.backend.entity.SystemSetting;
 import com.sporthub.backend.entity.User;
 import com.sporthub.backend.repository.AuditLogRepository;
 import com.sporthub.backend.repository.BookingRepository;
 import com.sporthub.backend.repository.ClassSessionRepository;
+import com.sporthub.backend.repository.CourtBookingRepository;
 import com.sporthub.backend.repository.CourtMaintenanceRepository;
 import com.sporthub.backend.repository.FeedbackRepository;
 import com.sporthub.backend.repository.MemberCheckInRepository;
@@ -52,9 +55,11 @@ public class EngagementController {
     public record FeedbackRequest(Long sessionId, Integer rating, String comment) {}
     public record BroadcastRequest(String audience, String title, String message) {}
     public record MaintenanceRequest(Long courtId, LocalDateTime startTime, LocalDateTime endTime, String reason) {}
+    public record ExtendMaintenanceRequest(LocalDateTime newEndTime, String reason) {}
 
     private final FeedbackRepository feedbackRepository;
     private final BookingRepository bookingRepository;
+    private final CourtBookingRepository courtBookingRepository;
     private final ClassSessionRepository classSessionRepository;
     private final UserRepository userRepository;
     private final NotificationRepository notificationRepository;
@@ -71,6 +76,7 @@ public class EngagementController {
     public EngagementController(
             FeedbackRepository feedbackRepository,
             BookingRepository bookingRepository,
+            CourtBookingRepository courtBookingRepository,
             ClassSessionRepository classSessionRepository,
             UserRepository userRepository,
             NotificationRepository notificationRepository,
@@ -84,6 +90,7 @@ public class EngagementController {
             com.sporthub.backend.service.FacilityCourtSyncService syncService) {
         this.feedbackRepository = feedbackRepository;
         this.bookingRepository = bookingRepository;
+        this.courtBookingRepository = courtBookingRepository;
         this.classSessionRepository = classSessionRepository;
         this.userRepository = userRepository;
         this.notificationRepository = notificationRepository;
@@ -107,7 +114,7 @@ public class EngagementController {
             CourtMaintenanceRepository maintenanceRepository,
             SportsCourtRepository courtRepository,
             EngagementService engagementService) {
-        this(feedbackRepository, bookingRepository, classSessionRepository, userRepository,
+        this(feedbackRepository, bookingRepository, null, classSessionRepository, userRepository,
              notificationRepository, auditLogRepository, maintenanceRepository, courtRepository,
              engagementService, null, null, null, null);
     }
@@ -259,6 +266,9 @@ public class EngagementController {
     @GetMapping("/manager/courts")
     public List<Map<String, Object>> listCourts(Authentication auth) {
         requireRole(auth, "MANAGER", "ADMIN", "RECEPTIONIST");
+        if (syncService != null) {
+            syncService.syncAllCourtsMaintenanceStatus();
+        }
         return courtRepository.findAll().stream().map(c -> {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("courtId", c.getCourtId());
@@ -272,6 +282,9 @@ public class EngagementController {
     @GetMapping("/manager/maintenance")
     public List<Map<String, Object>> listMaintenance(Authentication auth) {
         requireRole(auth, "MANAGER", "ADMIN", "RECEPTIONIST");
+        if (syncService != null) {
+            syncService.syncAllCourtsMaintenanceStatus();
+        }
         var courts = courtRepository.findAll().stream()
                 .collect(Collectors.toMap(c -> c.getCourtId(), c -> c.getCourtName(), (a, b) -> a));
         LocalDateTime now = LocalDateTime.now();
@@ -335,12 +348,64 @@ public class EngagementController {
                 .createdAt(LocalDateTime.now())
                 .build());
         if (syncService != null) {
-            syncService.syncFromMaintenanceCreate(request.courtId(), request.startTime(), request.endTime(), request.reason());
+            syncService.syncCourtMaintenanceStatus(request.courtId());
         }
+
+        // Scan and notify overlapping bookings
+        int affectedCount = notifyAffectedBookings(request.courtId(), request.startTime(), request.endTime(), "Lên lịch bảo trì sân");
+
         engagementService.audit(actorId(auth), actorRole(auth), "MAINTENANCE_CREATED",
-                "court=" + request.courtId() + ", " + request.startTime() + " -> " + request.endTime());
+                "court=" + request.courtId() + ", " + request.startTime() + " -> " + request.endTime() + ", affectedBookings=" + affectedCount);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("maintenance", saved);
+        result.put("affectedCount", affectedCount);
+        result.put("message", "Đã tạo lịch bảo trì thành công." + (affectedCount > 0 ? " Đã gửi thông báo cho " + affectedCount + " lượt đặt bị trùng lịch." : ""));
+        return result;
+    }
+
+    @PutMapping("/manager/maintenance/{id}/extend")
+    @Transactional
+    public Map<String, Object> extendMaintenance(
+            @PathVariable Long id,
+            @RequestBody ExtendMaintenanceRequest request,
+            Authentication auth) {
+        requireRole(auth, "MANAGER", "ADMIN");
+        if (request == null || request.newEndTime() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng chọn thời gian kết thúc gia hạn mới.");
+        }
+        CourtMaintenance existing = maintenanceRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy lịch bảo trì."));
+
+        if (!request.newEndTime().isAfter(existing.getStartTime())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời gian gia hạn phải sau thời gian bắt đầu bảo trì.");
+        }
+        if (!request.newEndTime().isAfter(existing.getEndTime())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời gian gia hạn mới phải sau thời gian kết thúc hiện tại (" + existing.getEndTime() + ").");
+        }
+
+        LocalDateTime oldEndTime = existing.getEndTime();
+        existing.setEndTime(request.newEndTime());
+        if (request.reason() != null && !request.reason().isBlank()) {
+            existing.setReason(existing.getReason() != null
+                    ? existing.getReason() + " | Gia hạn: " + request.reason().trim()
+                    : request.reason().trim());
+        }
+        CourtMaintenance saved = maintenanceRepository.save(existing);
+
+        if (syncService != null) {
+            syncService.syncCourtMaintenanceStatus(saved.getCourtId());
+        }
+
+        // Scan and notify overlapping bookings
+        int affectedCount = notifyAffectedBookings(saved.getCourtId(), existing.getStartTime(), saved.getEndTime(), "Gia hạn thời gian bảo trì sân");
+
+        engagementService.audit(actorId(auth), actorRole(auth), "MAINTENANCE_EXTENDED",
+                "id=" + id + ", court=" + saved.getCourtId() + ", " + oldEndTime + " -> " + saved.getEndTime() + ", affectedBookings=" + affectedCount);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("maintenance", saved);
+        result.put("affectedCount", affectedCount);
+        result.put("message", "Đã gia hạn bảo trì đến " + saved.getEndTime() + "." + (affectedCount > 0 ? " Đã gửi thông báo cho " + affectedCount + " lượt đặt bị trùng lịch." : ""));
         return result;
     }
 
@@ -359,6 +424,52 @@ public class EngagementController {
         }
         engagementService.audit(actorId(auth), actorRole(auth), "MAINTENANCE_DELETED", "id=" + id);
         return Map.of("deleted", true);
+    }
+
+    private int notifyAffectedBookings(Long courtId, LocalDateTime start, LocalDateTime end, String context) {
+        int count = 0;
+        SportsCourt court = courtRepository.findById(courtId).orElse(null);
+        String courtName = court != null ? court.getCourtName() : "Sân #" + courtId;
+        java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+        String timeStr = start.format(dtf) + " đến " + end.format(dtf);
+
+        // 1. Quét CourtBooking
+        if (courtBookingRepository != null) {
+            List<CourtBooking> overlappingCourts = courtBookingRepository.findActiveOverlappingBookings(courtId, start, end);
+            for (CourtBooking cb : overlappingCourts) {
+                String title = "Thông báo bảo trì: " + courtName + " (Đặt sân #" + cb.getCourtBookingId() + ")";
+                String msg = "Sân [" + courtName + "] có lịch bảo trì (" + context + ") từ " + timeStr 
+                        + ", trùng với khung giờ đặt sân của bạn (" + cb.getStartTime().format(dtf) + " - " + cb.getEndTime().format(dtf) + "). "
+                        + "Bạn có thể Đổi lịch miễn phí sang khung giờ khác hoặc Hủy không phạt (hoàn tiền 100%) tại mục Lịch tập của bạn.";
+                if (engagementService != null) {
+                    engagementService.notifyUser(cb.getMemberId(), title, msg, "MAINTENANCE_OVERLAP");
+                }
+                count++;
+            }
+        }
+
+        // 2. Quét ClassSession / Booking nếu có facility liên kết
+        if (syncService != null && classSessionRepository != null && bookingRepository != null) {
+            List<Long> facilityIds = syncService.getFacilityIdsForCourt(
+                    courtId, court != null ? court.getSportId() : null, court != null ? court.getCourtName() : null);
+            for (Long facId : facilityIds) {
+                List<ClassSession> overlappingSessions = classSessionRepository.findActiveOverlappingSessions(facId, start, end);
+                for (ClassSession session : overlappingSessions) {
+                    List<Booking> bookings = bookingRepository.findBySessionIdInAndStatusIn(
+                            List.of(session.getSessionId()), List.of("BOOKED", "CONFIRMED"));
+                    for (Booking b : bookings) {
+                        String title = "Thông báo bảo trì cơ sở: " + session.getClassName();
+                        String msg = "Cơ sở diễn ra lớp học [" + session.getClassName() + "] có lịch bảo trì từ " + timeStr 
+                                + ", trùng với giờ học. Bạn có thể Hủy không phạt (hoàn 100% học phí/lượt) hoặc đổi ca học khác.";
+                        if (engagementService != null) {
+                            engagementService.notifyUser(b.getMemberId(), title, msg, "MAINTENANCE_OVERLAP");
+                        }
+                        count++;
+                    }
+                }
+            }
+        }
+        return count;
     }
 
     // ------------------------------------------------------------------- Staff Performance & Commission (MGR-11)

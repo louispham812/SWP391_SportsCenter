@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/booking-flow")
@@ -124,6 +125,23 @@ public class BookingFlowController {
                     HttpStatus.BAD_REQUEST, "Loại booking không hợp lệ.");
         }
         return ResponseEntity.ok(response);
+    }
+
+    public record RescheduleCourtBookingRequest(Long newCourtId, LocalDateTime newStartTime, LocalDateTime newEndTime) {}
+
+    @PostMapping("/court-bookings/{bookingId}/reschedule")
+    public ResponseEntity<Map<String, Object>> rescheduleCourtBooking(
+            @PathVariable Long bookingId,
+            @RequestBody RescheduleCourtBookingRequest request,
+            Authentication authentication) {
+        requireMember(authentication);
+        Long memberId = actorId(authentication);
+        return ResponseEntity.ok(bookingService.rescheduleCourtBooking(
+                bookingId,
+                memberId,
+                request != null ? request.newCourtId() : null,
+                request != null ? request.newStartTime() : null,
+                request != null ? request.newEndTime() : null));
     }
 
     private void requireMember(Authentication authentication) {

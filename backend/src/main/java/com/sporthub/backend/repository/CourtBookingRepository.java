@@ -78,4 +78,31 @@ public interface CourtBookingRepository extends JpaRepository<CourtBooking, Long
             @Param("memberId") Long memberId,
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime);
+
+    @Query("""
+            SELECT cb FROM CourtBooking cb
+            WHERE cb.courtId = :courtId
+              AND cb.status IN ('PENDING', 'CONFIRMED')
+              AND cb.startTime < :endTime
+              AND cb.endTime > :startTime
+            """)
+    List<CourtBooking> findActiveOverlappingBookings(
+            @Param("courtId") Long courtId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime);
+
+    @Query("""
+            SELECT COUNT(cb) > 0
+            FROM CourtBooking cb
+            WHERE cb.courtId = :courtId
+              AND cb.courtBookingId <> :excludeBookingId
+              AND cb.status = 'CONFIRMED'
+              AND cb.startTime < :endTime
+              AND cb.endTime > :startTime
+            """)
+    boolean existsConfirmedOverlapExcluding(
+            @Param("courtId") Long courtId,
+            @Param("excludeBookingId") Long excludeBookingId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime);
 }
