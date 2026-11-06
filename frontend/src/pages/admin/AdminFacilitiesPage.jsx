@@ -505,9 +505,9 @@ export default function AdminFacilitiesPage() {
                           >
                             <div>
                               <div className="mb-3 flex items-center justify-between gap-3">
-                                <span className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-slate-700 border border-slate-200/80 whitespace-nowrap">
-                                  <span className="material-symbols-outlined text-[15px] text-slate-400">stadium</span>
-                                  Mã #{facility.facilityId}
+                                <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
+                                  <span className="material-symbols-outlined text-[16px] text-slate-400">group</span>
+                                  Sức chứa: {facility.capacity} người
                                 </span>
                                 <span
                                   className={`inline-flex items-center justify-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
@@ -521,7 +521,7 @@ export default function AdminFacilitiesPage() {
                               </div>
                               <h3 className="text-base font-bold text-slate-900">{facility.facilityName}</h3>
                               <p className="mt-1 text-xs text-slate-500">
-                                Sức chứa tối đa {facility.capacity} người · Trạng thái lưu trực tiếp trong bảng public_facilities.
+                                Khu vực luyện tập &amp; thi đấu tiêu chuẩn của trung tâm F Sport.
                               </p>
                             </div>
                             <div className="mt-5 flex items-center justify-between border-t border-slate-200/70 pt-3.5">
