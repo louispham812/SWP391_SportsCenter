@@ -12,10 +12,24 @@ import { apiRequest } from '../../services/apiClient';
 
 const formatDate = (value) => {
   if (!value) return '—';
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+    if (match) {
+      const [, y, m, d, hh, mm] = match;
+      if (hh !== undefined && mm !== undefined) {
+        return `${d}/${m}/${y} ${hh}:${mm}`;
+      }
+      return `${d}/${m}/${y} 00:00`;
+    }
+  }
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '—';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
 };
 
 const formatPrice = (val) =>
@@ -364,83 +378,98 @@ export default function AdminStaffApprovalsPage() {
               </span>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 uppercase text-slate-500 font-bold">
-                  <tr>
-                    <th className="px-5 py-3">Mã đơn &amp; Hội viên</th>
-                    <th className="px-5 py-3">Gói thành viên</th>
-                    <th className="px-5 py-3 whitespace-nowrap">Thanh toán</th>
-                    <th className="px-5 py-3">Quyền lợi quota cấp</th>
-                    <th className="px-5 py-3 whitespace-nowrap">Trạng thái</th>
-                    <th className="px-5 py-3 text-right whitespace-nowrap">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {pendingMemberships.map((mem) => {
-                    const isPending = mem.status === 'PENDING_APPROVAL';
-                    return (
-                      <tr key={mem.membershipId} className="hover:bg-slate-50">
-                        <td className="px-5 py-4">
-                          <strong className="block text-slate-900 text-sm">#{mem.membershipId} · {mem.memberName}</strong>
-                          <span className="text-slate-500">{mem.memberPhone} · Mã GD: {mem.referenceCode}</span>
-                        </td>
-                        <td className="px-5 py-4">
-                          <strong className="text-slate-900">{mem.packageName}</strong>
-                          <span className="block text-[11px] font-bold text-orange-600 uppercase">{mem.packageType}</span>
-                        </td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <strong className="text-slate-900 text-sm whitespace-nowrap">{formatPrice(mem.price)}</strong>
-                          <span className="block text-slate-500 text-[11px] whitespace-nowrap">{mem.paymentMethod}</span>
-                        </td>
-                        <td className="px-5 py-4 text-slate-700">
-                          {mem.packageType === 'VIP' ? (
-                            <span>{mem.quotaCourtHours}h Sân · {mem.quotaClassSessions} Buổi Lớp · {mem.quotaPtSessions} Buổi PT</span>
-                          ) : (
-                            <span>{mem.totalSessions || 10} Buổi trọn gói</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                              mem.status === 'ACTIVE'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : mem.status === 'REJECTED'
-                                ? 'bg-red-50 text-red-700 border-red-200'
-                                : 'bg-amber-50 text-amber-800 border-amber-200'
-                            }`}
-                          >
-                            {mem.status === 'ACTIVE' ? 'Đã kích hoạt' : mem.status === 'REJECTED' ? 'Từ chối (Hoàn 100%)' : 'Chờ duyệt'}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-right whitespace-nowrap">
-                          {isPending ? (
-                            <div className="flex items-center justify-end gap-2 whitespace-nowrap">
-                              <button
-                                type="button"
-                                onClick={() => setRejectMembershipModal(mem)}
-                                className="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0"
-                              >
-                                Từ chối
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleApproveMembership(mem)}
-                                className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase transition-all shadow-2xs cursor-pointer whitespace-nowrap shrink-0"
-                              >
-                                Kích hoạt gói
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">Đã xử lý</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            {loading ? (
+              <div className="p-4">
+                <TableSkeleton rows={5} cols={7} />
+              </div>
+            ) : pendingMemberships.length === 0 ? (
+              <div className="p-10 text-center text-slate-400 space-y-2">
+                <span className="material-symbols-outlined text-4xl">check_circle</span>
+                <p className="text-xs font-bold text-slate-600">Hiện không có đơn mua gói nào đang chờ duyệt.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 uppercase text-slate-500 font-bold">
+                    <tr>
+                      <th className="px-5 py-3">Mã đơn &amp; Hội viên</th>
+                      <th className="px-5 py-3">Gói thành viên</th>
+                      <th className="px-5 py-3 whitespace-nowrap">Thanh toán</th>
+                      <th className="px-5 py-3 whitespace-nowrap">Thời gian tạo</th>
+                      <th className="px-5 py-3">Quyền lợi quota cấp</th>
+                      <th className="px-5 py-3 whitespace-nowrap">Trạng thái</th>
+                      <th className="px-5 py-3 text-right whitespace-nowrap">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {pendingMemberships.map((mem) => {
+                      const isPending = mem.status === 'PENDING_APPROVAL';
+                      return (
+                        <tr key={mem.membershipId} className="hover:bg-slate-50">
+                          <td className="px-5 py-4">
+                            <strong className="block text-slate-900 text-sm">#{mem.membershipId} · {mem.memberName}</strong>
+                            <span className="text-slate-500">{mem.memberPhone} · Mã GD: {mem.referenceCode}</span>
+                          </td>
+                          <td className="px-5 py-4">
+                            <strong className="text-slate-900">{mem.packageName}</strong>
+                            <span className="block text-[11px] font-bold text-orange-600 uppercase">{mem.packageType}</span>
+                          </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <strong className="text-slate-900 text-sm whitespace-nowrap">{formatPrice(mem.price)}</strong>
+                            <span className="block text-slate-500 text-[11px] whitespace-nowrap">{mem.paymentMethod}</span>
+                          </td>
+                          <td className="px-5 py-4 text-slate-600 whitespace-nowrap">
+                            {formatDate(mem.createdAt)}
+                          </td>
+                          <td className="px-5 py-4 text-slate-700">
+                            {mem.packageType === 'VIP' ? (
+                              <span>{mem.quotaCourtHours}h Sân · {mem.quotaClassSessions} Buổi Lớp · {mem.quotaPtSessions} Buổi PT</span>
+                            ) : (
+                              <span>{mem.totalSessions || 10} Buổi trọn gói</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                                mem.status === 'ACTIVE'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : mem.status === 'REJECTED'
+                                  ? 'bg-red-50 text-red-700 border-red-200'
+                                  : 'bg-amber-50 text-amber-800 border-amber-200'
+                              }`}
+                            >
+                              {mem.status === 'ACTIVE' ? 'Đã kích hoạt' : mem.status === 'REJECTED' ? 'Từ chối (Hoàn 100%)' : 'Chờ duyệt'}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 text-right whitespace-nowrap">
+                            {isPending ? (
+                              <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => setRejectMembershipModal(mem)}
+                                  className="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0"
+                                >
+                                  Từ chối
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveMembership(mem)}
+                                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase transition-all shadow-2xs cursor-pointer whitespace-nowrap shrink-0"
+                                >
+                                  Kích hoạt gói
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">Đã xử lý</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         )}
 
@@ -463,80 +492,95 @@ export default function AdminStaffApprovalsPage() {
               </span>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 uppercase text-slate-500 font-bold">
-                  <tr>
-                    <th className="px-5 py-3">Huấn luyện viên</th>
-                    <th className="px-5 py-3">Loại nghỉ &amp; Thời gian</th>
-                    <th className="px-5 py-3">Lý do</th>
-                    <th className="px-5 py-3 whitespace-nowrap">Số ca bị ảnh hưởng</th>
-                    <th className="px-5 py-3 whitespace-nowrap">Trạng thái</th>
-                    <th className="px-5 py-3 text-right whitespace-nowrap">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {coachLeaveRequests.map((req) => {
-                    const isPending = req.status === 'PENDING';
-                    return (
-                      <tr key={req.requestId} className="hover:bg-slate-50">
-                        <td className="px-5 py-4">
-                          <strong className="block text-slate-900 text-sm">{req.coachName}</strong>
-                          <span className="text-slate-500 text-[11px]">Mã đơn: #{req.requestId}</span>
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className="font-bold text-slate-900 block">
-                            {req.leaveType === 'SICK_LEAVE' ? 'Nghỉ ốm / Y tế' : 'Việc cá nhân'}
-                          </span>
-                          <span className="text-slate-600">{req.startDate} → {req.endDate}</span>
-                        </td>
-                        <td className="px-5 py-4 max-w-xs text-slate-600">{req.reason}</td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 font-bold border border-amber-200 whitespace-nowrap">
-                            {req.affectedBookingsCount || 2} ca học/PT
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                              req.status === 'APPROVED'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : req.status === 'REJECTED'
-                                ? 'bg-red-50 text-red-700 border-red-200'
-                                : 'bg-amber-50 text-amber-800 border-amber-200'
-                            }`}
-                          >
-                            {req.status === 'APPROVED' ? 'Đã phân công Coach khác' : req.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-right whitespace-nowrap">
-                          {isPending ? (
-                            <div className="flex items-center justify-end gap-2 whitespace-nowrap">
-                              <button
-                                type="button"
-                                onClick={() => handleRejectLeave(req)}
-                                className="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0"
-                              >
-                                Từ chối
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenApproveLeave(req)}
-                                className="px-4 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase transition-all shadow-2xs cursor-pointer whitespace-nowrap shrink-0"
-                              >
-                                Duyệt &amp; Đổi Coach
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">Đã xong</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            {loading ? (
+              <div className="p-4">
+                <TableSkeleton rows={5} cols={7} />
+              </div>
+            ) : coachLeaveRequests.length === 0 ? (
+              <div className="p-10 text-center text-slate-400 space-y-2">
+                <span className="material-symbols-outlined text-4xl">check_circle</span>
+                <p className="text-xs font-bold text-slate-600">Hiện không có đơn xin nghỉ nào của Huấn luyện viên.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 uppercase text-slate-500 font-bold">
+                    <tr>
+                      <th className="px-5 py-3">Huấn luyện viên</th>
+                      <th className="px-5 py-3 whitespace-nowrap">Thời gian gửi đơn</th>
+                      <th className="px-5 py-3">Khoảng thời gian nghỉ</th>
+                      <th className="px-5 py-3">Lý do</th>
+                      <th className="px-5 py-3 whitespace-nowrap">Số ca bị ảnh hưởng</th>
+                      <th className="px-5 py-3 whitespace-nowrap">Trạng thái</th>
+                      <th className="px-5 py-3 text-right whitespace-nowrap">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {coachLeaveRequests.map((req) => {
+                      const isPending = req.status === 'PENDING';
+                      return (
+                        <tr key={req.requestId} className="hover:bg-slate-50">
+                          <td className="px-5 py-4">
+                            <strong className="block text-slate-900 text-sm">{req.coachName}</strong>
+                            <span className="text-slate-500 text-[11px]">Mã đơn: #{req.requestId}</span>
+                          </td>
+                          <td className="px-5 py-4 text-slate-600 whitespace-nowrap">
+                            {formatDate(req.createdAt)}
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className="font-bold text-slate-900 block">
+                              {req.leaveType === 'SICK_LEAVE' ? 'Nghỉ ốm / Y tế' : 'Việc cá nhân'}
+                            </span>
+                            <span className="text-slate-600">{req.startDate} → {req.endDate}</span>
+                          </td>
+                          <td className="px-5 py-4 max-w-xs text-slate-600">{req.reason}</td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 font-bold border border-amber-200 whitespace-nowrap">
+                              {req.affectedBookingsCount || 2} ca học/PT
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                                req.status === 'APPROVED'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : req.status === 'REJECTED'
+                                  ? 'bg-red-50 text-red-700 border-red-200'
+                                  : 'bg-amber-50 text-amber-800 border-amber-200'
+                              }`}
+                            >
+                              {req.status === 'APPROVED' ? 'Đã phân công Coach khác' : req.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 text-right whitespace-nowrap">
+                            {isPending ? (
+                              <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRejectLeave(req)}
+                                  className="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0"
+                                >
+                                  Từ chối
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenApproveLeave(req)}
+                                  className="px-4 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase transition-all shadow-2xs cursor-pointer whitespace-nowrap shrink-0"
+                                >
+                                  Duyệt &amp; Đổi Coach
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">Đã xong</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         )}
 
@@ -559,73 +603,88 @@ export default function AdminStaffApprovalsPage() {
               </span>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 uppercase text-slate-500 font-bold">
-                  <tr>
-                    <th className="px-5 py-3">Hội viên</th>
-                    <th className="px-5 py-3">Dịch vụ liên quan</th>
-                    <th className="px-5 py-3 whitespace-nowrap">Số tiền hoàn</th>
-                    <th className="px-5 py-3">Lý do</th>
-                    <th className="px-5 py-3 whitespace-nowrap">Trạng thái</th>
-                    <th className="px-5 py-3 text-right whitespace-nowrap">Quyết định</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {refundRequests.map((ref) => {
-                    const isPending = ref.status === 'PENDING_APPROVAL';
-                    return (
-                      <tr key={ref.refundId} className="hover:bg-slate-50">
-                        <td className="px-5 py-4">
-                          <strong className="block text-slate-900 text-sm">{ref.memberName}</strong>
-                          <span className="text-slate-500">{ref.phone} · Mã: #{ref.referenceCode}</span>
-                        </td>
-                        <td className="px-5 py-4 text-slate-800 font-semibold">{ref.bookingDescription}</td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <strong className="text-indigo-600 text-sm font-black whitespace-nowrap">{formatPrice(ref.refundAmount)}</strong>
-                        </td>
-                        <td className="px-5 py-4 max-w-xs text-slate-600">{ref.reason}</td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                              ref.status === 'COMPLETED' || ref.status === 'APPROVED'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : ref.status === 'REJECTED'
-                                ? 'bg-red-50 text-red-700 border-red-200'
-                                : 'bg-amber-50 text-amber-800 border-amber-200'
-                            }`}
-                          >
-                            {ref.status === 'COMPLETED' || ref.status === 'APPROVED' ? 'Đã hoàn tiền' : ref.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-right whitespace-nowrap">
-                          {isPending ? (
-                            <div className="flex items-center justify-end gap-2 whitespace-nowrap">
-                              <button
-                                type="button"
-                                onClick={() => handleDecisionRefund(ref, false)}
-                                className="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0"
-                              >
-                                Từ chối
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDecisionRefund(ref, true)}
-                                className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase transition-all shadow-2xs cursor-pointer whitespace-nowrap shrink-0"
-                              >
-                                Phê duyệt hoàn
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">Đã đối soát</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            {loading ? (
+              <div className="p-4">
+                <TableSkeleton rows={5} cols={7} />
+              </div>
+            ) : refundRequests.length === 0 ? (
+              <div className="p-10 text-center text-slate-400 space-y-2">
+                <span className="material-symbols-outlined text-4xl">check_circle</span>
+                <p className="text-xs font-bold text-slate-600">Hiện không có yêu cầu hoàn tiền nào.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 uppercase text-slate-500 font-bold">
+                    <tr>
+                      <th className="px-5 py-3">Hội viên</th>
+                      <th className="px-5 py-3">Dịch vụ liên quan</th>
+                      <th className="px-5 py-3 whitespace-nowrap">Số tiền hoàn</th>
+                      <th className="px-5 py-3 whitespace-nowrap">Thời gian yêu cầu</th>
+                      <th className="px-5 py-3">Lý do</th>
+                      <th className="px-5 py-3 whitespace-nowrap">Trạng thái</th>
+                      <th className="px-5 py-3 text-right whitespace-nowrap">Quyết định</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {refundRequests.map((ref) => {
+                      const isPending = ref.status === 'PENDING_APPROVAL';
+                      return (
+                        <tr key={ref.refundId} className="hover:bg-slate-50">
+                          <td className="px-5 py-4">
+                            <strong className="block text-slate-900 text-sm">{ref.memberName}</strong>
+                            <span className="text-slate-500">{ref.phone} · Mã: #{ref.referenceCode}</span>
+                          </td>
+                          <td className="px-5 py-4 text-slate-800 font-semibold">{ref.bookingDescription}</td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <strong className="text-indigo-600 text-sm font-black whitespace-nowrap">{formatPrice(ref.refundAmount)}</strong>
+                          </td>
+                          <td className="px-5 py-4 text-slate-600 whitespace-nowrap">
+                            {formatDate(ref.createdAt)}
+                          </td>
+                          <td className="px-5 py-4 max-w-xs text-slate-600">{ref.reason}</td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                                ref.status === 'COMPLETED' || ref.status === 'APPROVED'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : ref.status === 'REJECTED'
+                                  ? 'bg-red-50 text-red-700 border-red-200'
+                                  : 'bg-amber-50 text-amber-800 border-amber-200'
+                              }`}
+                            >
+                              {ref.status === 'COMPLETED' || ref.status === 'APPROVED' ? 'Đã hoàn tiền' : ref.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 text-right whitespace-nowrap">
+                            {isPending ? (
+                              <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDecisionRefund(ref, false)}
+                                  className="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0"
+                                >
+                                  Từ chối
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDecisionRefund(ref, true)}
+                                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase transition-all shadow-2xs cursor-pointer whitespace-nowrap shrink-0"
+                                >
+                                  Phê duyệt hoàn
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">Đã đối soát</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         )}
       </main>
