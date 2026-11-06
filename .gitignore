@@ -45,5 +45,11 @@ replay_pid*
 **/.env
 !**/.env.example
 databaseSWP391.sql
-graphify-out/cache/
+graphify-out/
 .playwright-cli/
+**/playwright-report/
+**/test-results/
+**/blob-report/
+**/playwright/.cache/
+backend/uploads/
+uploads/
