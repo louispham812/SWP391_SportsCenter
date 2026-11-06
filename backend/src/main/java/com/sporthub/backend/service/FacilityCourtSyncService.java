@@ -46,36 +46,32 @@ public class FacilityCourtSyncService {
             switch (facilityId.intValue()) {
                 case 1 -> courtIds.add(1L);   // Pickleball Court 01
                 case 2 -> courtIds.add(2L);   // Pickleball Court 02
-                case 3 -> courtIds.add(5L);   // Fitness Studio 01
                 case 4 -> courtIds.add(3L);   // Tennis Court 01
                 case 5 -> courtIds.add(4L);   // Tennis Court 02
-                case 6 -> courtIds.add(6L);   // Fitness Studio 02
-                case 7 -> courtIds.add(7L);   // Yoga Studio 01
-                case 8, 24 -> courtIds.add(10L);  // Sân Cầu Lông Thảm Yonex - Sân L1 <-> Sân cầu lông 01
-                case 9, 25 -> courtIds.add(11L);  // Sân Cầu Lông Thảm Yonex - Sân L2 <-> Sân cầu lông 02
-                case 10, 26 -> courtIds.add(12L); // Sân Bóng Chuyền - Sân V1 <-> Sân bóng chuyền 01
-                case 11, 28 -> courtIds.add(14L); // Khu Bóng Bàn - Bàn T1 <-> Bàn bóng bàn 01
-                case 12, 30 -> courtIds.add(16L); // Hồ Bơi - Làn S1 <-> Làn bơi 01
-                case 13, 32 -> courtIds.add(18L); // Đường Chạy Điền Kinh - Khu A1 <-> Đường chạy 01
-                case 14, 22 -> courtIds.add(8L);  // Sân Bóng Đá 7 Người - Sân F1 <-> Sân bóng đá 7 người 01
-                case 15, 23 -> courtIds.add(9L);  // Sân Bóng Đá 7 Người - Sân F2 <-> Sân bóng đá 7 người 02
-                case 16, 31 -> courtIds.add(17L); // Hồ Bơi - Làn S2 <-> Làn bơi 02
-                case 17, 33 -> courtIds.add(19L); // Đường Chạy Điền Kinh - Khu A2 <-> Đường chạy 02
+                case 14, 6 -> courtIds.add(8L);  // Sân Bóng Đá 7 Người - Sân F1
+                case 15, 7 -> courtIds.add(9L);  // Sân Bóng Đá 7 Người - Sân F2
+                case 16, 8 -> courtIds.add(10L); // Sân Cầu Lông Trong Nhà - Sân B1
+                case 17, 9 -> courtIds.add(11L); // Sân Cầu Lông Trong Nhà - Sân B2
+                case 10 -> courtIds.add(12L); // Sân Bóng Chuyền - Sân V1
                 case 18 -> {
                     // Check if test passed 18 for Swimming Lane 1
                     if (facilityName != null && (facilityName.contains("Hồ Bơi") || facilityName.contains("Làn S1") || facilityName.contains("Bơi"))) {
                         courtIds.add(16L);
                     } else {
                         Facility f = facilityRepository.findById(18L).orElse(null);
-                        if (f != null && f.getFacilityName().contains("Bóng Chuyền")) {
-                            courtIds.add(13L); // Sân bóng chuyền 02
+                        if (f != null && f.getFacilityName().contains("Hồ Bơi")) {
+                            courtIds.add(16L);
                         } else {
-                            courtIds.add(16L); // Legacy test mapping for Swimming Lane 1
+                            courtIds.add(13L); // Sân bóng chuyền 02
                         }
                     }
                 }
-                case 19, 29 -> courtIds.add(15L); // Khu Bóng Bàn - Bàn T2 <-> Bàn bóng bàn 02
-                case 27 -> courtIds.add(13L);     // Sân bóng chuyền 02
+                case 11 -> courtIds.add(14L); // Khu Bóng Bàn - Bàn T1
+                case 19 -> courtIds.add(15L); // Khu Bóng Bàn - Bàn T2
+                case 12 -> courtIds.add(16L); // Hồ Bơi - Làn S1
+                case 20 -> courtIds.add(17L); // Hồ Bơi - Làn S2
+                case 13 -> courtIds.add(18L); // Đường Chạy Điền Kinh - Khu A1
+                case 21 -> courtIds.add(19L); // Đường Chạy Điền Kinh - Khu A2
             }
         }
         if (!courtIds.isEmpty()) {
@@ -103,25 +99,22 @@ public class FacilityCourtSyncService {
         List<Long> facilityIds = new ArrayList<>();
         if (courtId != null) {
             switch (courtId.intValue()) {
-                case 1 -> facilityIds.add(1L);  // Pickleball Court 01
-                case 2 -> facilityIds.add(2L);  // Pickleball Court 02
-                case 3 -> facilityIds.add(4L);  // Tennis Court 01
-                case 4 -> facilityIds.add(5L);  // Tennis Court 02
-                case 5 -> facilityIds.add(3L);  // Fitness Studio 01
-                case 6 -> facilityIds.add(6L);  // Fitness Studio 02
-                case 7 -> facilityIds.add(7L);  // Yoga Studio 01
-                case 8 -> facilityIds.addAll(List.of(14L, 22L));  // Sân bóng đá 01
-                case 9 -> facilityIds.addAll(List.of(15L, 23L));  // Sân bóng đá 02
-                case 10 -> facilityIds.addAll(List.of(8L, 24L));   // Sân cầu lông 01 (Facility 8 only! NEVER 12!)
-                case 11 -> facilityIds.addAll(List.of(9L, 25L));   // Sân cầu lông 02
-                case 12 -> facilityIds.addAll(List.of(10L, 26L));  // Sân bóng chuyền 01
-                case 13 -> facilityIds.addAll(List.of(18L, 27L));  // Sân bóng chuyền 02
-                case 14 -> facilityIds.addAll(List.of(11L, 28L));  // Bàn bóng bàn 01
-                case 15 -> facilityIds.addAll(List.of(19L, 29L));  // Bàn bóng bàn 02
-                case 16 -> facilityIds.addAll(List.of(12L, 18L, 30L)); // Làn bơi 01 <-> Hồ Bơi - Làn S1 (12)
-                case 17 -> facilityIds.addAll(List.of(16L, 31L));  // Làn bơi 02 <-> Hồ Bơi - Làn S2 (16)
-                case 18 -> facilityIds.addAll(List.of(13L, 32L));  // Đường chạy 01 <-> Khu A1 (13)
-                case 19 -> facilityIds.addAll(List.of(17L, 33L));  // Đường chạy 02 <-> Khu A2 (17)
+                case 1 -> facilityIds.add(1L);   // Pickleball Court 01
+                case 2 -> facilityIds.add(2L);   // Pickleball Court 02
+                case 3 -> facilityIds.add(4L);   // Tennis Court 01
+                case 4 -> facilityIds.add(5L);   // Tennis Court 02
+                case 8 -> facilityIds.add(14L);  // Sân bóng đá 7 người 01
+                case 9 -> facilityIds.add(15L);  // Sân bóng đá 7 người 02
+                case 10 -> facilityIds.add(16L); // Sân cầu lông 01 (Facility 16)
+                case 11 -> facilityIds.add(17L); // Sân cầu lông 02 (Facility 17)
+                case 12 -> facilityIds.add(10L); // Sân bóng chuyền 01
+                case 13 -> facilityIds.add(18L); // Sân bóng chuyền 02
+                case 14 -> facilityIds.add(11L); // Bàn bóng bàn 01
+                case 15 -> facilityIds.add(19L); // Bàn bóng bàn 02
+                case 16 -> facilityIds.add(12L); // Làn bơi 01 <-> Hồ Bơi - Làn S1 (12)
+                case 17 -> facilityIds.add(20L); // Làn bơi 02 <-> Hồ Bơi - Làn S2 (20)
+                case 18 -> facilityIds.add(13L); // Đường chạy 01 <-> Khu A1 (13)
+                case 19 -> facilityIds.add(21L); // Đường chạy 02 <-> Khu A2 (21)
             }
         }
         if (!facilityIds.isEmpty()) {
@@ -149,18 +142,22 @@ public class FacilityCourtSyncService {
         List<Long> ids = new ArrayList<>();
         if (courtId != null) {
             switch (courtId.intValue()) {
-                case 16 -> ids.addAll(List.of(12L, 30L)); // Làn bơi 01 <-> Hồ bơi 01
-                case 17 -> ids.addAll(List.of(16L, 31L)); // Làn bơi 02 <-> Hồ bơi 02
-                case 18 -> ids.addAll(List.of(13L, 32L)); // Đường chạy 01
-                case 19 -> ids.addAll(List.of(17L, 33L)); // Đường chạy 02
-                case 14 -> ids.addAll(List.of(11L, 28L)); // Bàn bóng bàn 01
-                case 15 -> ids.addAll(List.of(19L, 29L)); // Bàn bóng bàn 02
-                case 12 -> ids.addAll(List.of(10L, 26L)); // Sân bóng chuyền 01
-                case 13 -> ids.addAll(List.of(18L, 27L)); // Sân bóng chuyền 02
-                case 10 -> ids.addAll(List.of(8L, 24L));  // Sân cầu lông 01 (NEVER 12!)
-                case 11 -> ids.addAll(List.of(9L, 25L));  // Sân cầu lông 02
-                case 8 -> ids.addAll(List.of(14L, 22L));  // Sân bóng đá 01
-                case 9 -> ids.addAll(List.of(15L, 23L));  // Sân bóng đá 02
+                case 1 -> ids.add(1L);
+                case 2 -> ids.add(2L);
+                case 3 -> ids.add(4L);
+                case 4 -> ids.add(5L);
+                case 8 -> ids.add(14L);
+                case 9 -> ids.add(15L);
+                case 10 -> ids.add(16L);
+                case 11 -> ids.add(17L);
+                case 12 -> ids.add(10L);
+                case 13 -> ids.add(18L);
+                case 14 -> ids.add(11L);
+                case 15 -> ids.add(19L);
+                case 16 -> ids.add(12L);
+                case 17 -> ids.add(20L);
+                case 18 -> ids.add(13L);
+                case 19 -> ids.add(21L);
                 default -> ids.add(courtId);
             }
         }
@@ -170,46 +167,17 @@ public class FacilityCourtSyncService {
     public List<Long> getPublicFacilityIdsForFacility(Long facilityId, Long sportId, String facilityName) {
         List<Long> ids = new ArrayList<>();
         if (facilityId != null) {
-            switch (facilityId.intValue()) {
-                case 12, 18, 30 -> ids.addAll(List.of(12L, 30L)); // Hồ bơi 01
-                case 16, 31 -> ids.addAll(List.of(16L, 31L));     // Hồ bơi 02
-                case 13, 32 -> ids.addAll(List.of(13L, 32L));     // Điền kinh 01
-                case 17, 33 -> ids.addAll(List.of(17L, 33L));     // Điền kinh 02
-                case 11, 28 -> ids.addAll(List.of(11L, 28L));     // Bóng bàn 01
-                case 19, 29 -> ids.addAll(List.of(19L, 29L));     // Bóng bàn 02
-                case 10, 26 -> ids.addAll(List.of(10L, 26L));     // Bóng chuyền 01
-                case 8, 24 -> ids.addAll(List.of(8L, 24L));       // Cầu lông 01 (NEVER 12!)
-                case 9, 25 -> ids.addAll(List.of(9L, 25L));       // Cầu lông 02
-                case 14, 22 -> ids.addAll(List.of(14L, 22L));     // Bóng đá 01
-                case 15, 23 -> ids.addAll(List.of(15L, 23L));     // Bóng đá 02
-                default -> ids.add(facilityId);
-            }
-        }
-        if (facilityId != null && publicFacilityRepository.existsById(facilityId)) {
             ids.add(facilityId);
         }
-        return ids.stream().distinct().toList();
+        return ids;
     }
 
     public List<Long> getSiblingFacilityIds(Long facilityId, Long sportId, String facilityName) {
         List<Long> siblings = new ArrayList<>();
         if (facilityId != null) {
             siblings.add(facilityId);
-            switch (facilityId.intValue()) {
-                case 12, 18, 30 -> {
-                    siblings.add(12L);
-                    if (facilityRepository.existsById(18L)) {
-                        Facility f18 = facilityRepository.findById(18L).orElse(null);
-                        if (f18 != null && (f18.getFacilityName().contains("Hồ Bơi") || f18.getFacilityName().contains("Làn S1"))) {
-                            siblings.add(18L);
-                        }
-                    }
-                }
-                case 8 -> siblings.add(8L); // Sân cầu lông 8 (Yonex L1): ONLY 8! NEVER 12!
-                case 9 -> siblings.add(9L);
-            }
         }
-        return siblings.stream().distinct().toList();
+        return siblings;
     }
 
     private int extractIndex(String text) {

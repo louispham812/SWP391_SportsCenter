@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { apiBaseUrl, loginManager, loginMember, logoutMember } from './helpers.js';
 
 test.describe('Admin Facilities 1-1 Mapping & Independent Synchronization', () => {
-  test('Admin sees 19 facilities matching member courts 1-1; toggling Facility 8 does not touch Facility 12 and vice versa', async ({ page, request }) => {
+  test('Admin sees 16 facilities matching member courts 1-1; toggling Facility 16 does not touch Facility 12 and vice versa', async ({ page, request }) => {
     // Step 1: Login Manager
     await loginManager(page);
     const session = await page.evaluate(() => JSON.parse(
@@ -10,8 +10,8 @@ test.describe('Admin Facilities 1-1 Mapping & Independent Synchronization', () =
     ));
     const authHeaders = { Authorization: `Bearer ${session.token}` };
 
-    // Reset both Facility 8 and Facility 12 to AVAILABLE
-    await request.patch(`${apiBaseUrl}/manager/facilities/8/status`, {
+    // Reset both Facility 16 and Facility 12 to AVAILABLE
+    await request.patch(`${apiBaseUrl}/manager/facilities/16/status`, {
       headers: authHeaders,
       data: { status: 'AVAILABLE' },
     });
@@ -24,12 +24,12 @@ test.describe('Admin Facilities 1-1 Mapping & Independent Synchronization', () =
     await page.goto('/admin/facilities');
     await expect(page.getByText('Cơ sở, Sân Bãi & Lịch Bảo Trì')).toBeVisible();
 
-    // Check facility cards count: must be exactly 19
+    // Check facility cards count: must be exactly 16
     const facilityArticles = page.locator('article').filter({ hasText: 'Mã cơ sở: #' });
-    await expect(facilityArticles).toHaveCount(19);
+    await expect(facilityArticles).toHaveCount(16);
 
-    // Locate Facility 8 card (Sân Cầu Lông Thảm Yonex) and Facility 12 card (Hồ Bơi - Làn S1)
-    const badmintonCard = page.locator('article').filter({ hasText: 'Sân Cầu Lông Thảm Yonex - Sân L1' });
+    // Locate Facility 16 card (Sân Cầu Lông Trong Nhà - Sân B1) and Facility 12 card (Hồ Bơi - Làn S1)
+    const badmintonCard = page.locator('article').filter({ hasText: 'Sân Cầu Lông Trong Nhà - Sân B1' });
     const poolCard = page.locator('article').filter({ hasText: 'Hồ Bơi - Làn S1' });
 
     await expect(badmintonCard).toBeVisible();

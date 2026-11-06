@@ -172,6 +172,9 @@ function SportPicker({ bookingType }) {
 
   const isCourt = bookingType === 'court';
   const isPt = bookingType === 'pt';
+  const displayedSports = isCourt
+    ? sports.filter((s) => (s.slug || s.code) !== 'gym-fitness' && (s.slug || s.code) !== 'yoga-pilates')
+    : sports;
   const getTargetUrl = (sId) => {
     if (isCourt) return `/member/book/courts/${sId}`;
     if (isPt) return `/member/book/coaches/${sId}`;
@@ -200,13 +203,13 @@ function SportPicker({ bookingType }) {
             </div>
           ))}
         </div>
-      ) : sports.length === 0 ? (
+      ) : displayedSports.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500">
           Hiện tại chưa có bộ môn nào đang mở dịch vụ. Vui lòng quay lại sau.
         </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {sports.map((sport) => {
+          {displayedSports.map((sport) => {
             const media = getSportMedia(sport.slug || sport.code);
             return (
               <button

@@ -10,7 +10,7 @@ test.describe('Swimming Lane Maintenance Synchronization', () => {
     ));
     const mgrAuthHeaders = { Authorization: `Bearer ${session.token}` };
 
-    await page.request.patch(`${apiBaseUrl}/manager/facilities/18/status`, {
+    await page.request.patch(`${apiBaseUrl}/manager/facilities/12/status`, {
       headers: mgrAuthHeaders,
       data: { status: 'AVAILABLE' },
     });

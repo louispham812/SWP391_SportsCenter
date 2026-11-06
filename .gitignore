@@ -45,3 +45,4 @@ replay_pid*
 **/.env
 !**/.env.example
 databaseSWP391.sql
+graphify-out/cache/
