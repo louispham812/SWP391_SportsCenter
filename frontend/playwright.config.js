@@ -18,61 +18,8 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'member-setup',
-      testMatch: /auth\.setup\.js/,
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'court-checkout',
-      testMatch: /court-booking\.spec\.js/,
-      dependencies: ['member-setup'],
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'schedule-readback',
-      testMatch: /schedule-persistence\.spec\.js/,
-      dependencies: ['court-checkout'],
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'class-options',
-      testMatch: /class-options\.spec\.js/,
-      dependencies: ['schedule-readback'],
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'comprehensive-roles',
-      testMatch: /comprehensive-roles\.spec\.js/,
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'demo-audit',
-      testMatch: /demo-audit\.spec\.js/,
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'maintenance-lock',
-      testMatch: /maintenance-lock\.spec\.js/,
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'swimming-lane-maintenance',
-      testMatch: /swimming-lane-maintenance\.spec\.js/,
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'facility-independence-sync',
-      testMatch: /facility-independence-sync\.spec\.js/,
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'final-audit',
-      testMatch: /final-audit-cross-role\.spec\.js/,
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'flow-e2e',
-      testMatch: /flow\d+.*\.spec\.js/,
+      name: 'domain-e2e',
+      testMatch: /\d{2}-.*\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },
     },
   ],

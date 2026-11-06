@@ -46,3 +46,4 @@ replay_pid*
 !**/.env.example
 databaseSWP391.sql
 graphify-out/cache/
+.playwright-cli/
