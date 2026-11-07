@@ -295,7 +295,15 @@ public class EngagementController {
             map.put("courtName", courts.getOrDefault(m.getCourtId(), "Sân #" + m.getCourtId()));
             map.put("startTime", m.getStartTime());
             map.put("endTime", m.getEndTime());
-            map.put("reason", m.getReason());
+            String cleanReason = m.getReason() != null
+                    ? m.getReason()
+                    .replace(" | [LOCKED_BY_MAINTENANCE]", "")
+                    .replace("[LOCKED_BY_MAINTENANCE]", "")
+                    .replace(" | [REOPENED]", "")
+                    .replace("[REOPENED]", "")
+                    .trim()
+                    : "";
+            map.put("reason", cleanReason.isEmpty() ? "Bảo dưỡng định kỳ" : cleanReason);
             map.put("createdBy", m.getCreatedBy());
             map.put("createdAt", m.getCreatedAt());
             String status = m.getEndTime().isBefore(now) ? "COMPLETED" : (m.getStartTime().isAfter(now) ? "SCHEDULED" : "IN_PROGRESS");

@@ -99,6 +99,272 @@ class CourtMaintenanceFlowTest {
     }
 
     @Test
+    void testManuallyDeactivatedCourtIsNotReopenedWhenNoMaintenance() {
+        Long courtId = 2L;
+        SportsCourt court = new SportsCourt();
+        court.setCourtId(courtId);
+        court.setCourtName("Pickleball Court 02");
+        court.setSportId(1L);
+        court.setActive(false); // Manually deactivated by admin
+
+        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(false);
+
+        syncService.syncCourtMaintenanceStatus(courtId);
+
+        assertFalse(court.isActive(), "Court manually deactivated by Admin must NOT be reopened by maintenance sync");
+        verify(courtRepository, never()).save(court);
+    }
+
+    @Test
+    void testFacilityDrivenMaintenanceReopensCourtAfterWindowEnds() {
+        Long courtId = 1L;
+        Long facilityId = 1L;
+        SportsCourt court = new SportsCourt();
+        court.setCourtId(courtId);
+        court.setCourtName("Pickleball Court 01");
+        court.setSportId(1L);
+        court.setActive(true);
+
+        Facility facility = new Facility();
+        facility.setFacilityId(facilityId);
+        facility.setSportId(1L);
+        facility.setFacilityName("Pickleball Court 01");
+        facility.setStatus("AVAILABLE");
+
+        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        when(facilityRepository.findById(facilityId)).thenReturn(Optional.of(facility));
+
+        // Facility marked as MAINTENANCE (deactivates court and tracks maintenance)
+        syncService.syncFromFacility(facilityId, "MAINTENANCE");
+        assertFalse(court.isActive(), "Court should be inactive when facility is in maintenance");
+        assertTrue(syncService.isCourtLockedByMaintenance(courtId), "Court should be tracked as locked by maintenance");
+
+        // Maintenance window ends, sync is triggered
+        when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(false);
+        syncService.syncCourtMaintenanceStatus(courtId);
+        assertTrue(court.isActive(), "Court must be restored to active after facility maintenance window ends");
+    }
+
+    @Test
+    void testMaintenanceWindowEndedDuringRestartReconstructsFromDurableStateAndReopens() {
+        Long courtId = 1L;
+        Long facilityId = 1L;
+        LocalDateTime now = LocalDateTime.now();
+
+        SportsCourt court = new SportsCourt();
+        court.setCourtId(courtId);
+        court.setCourtName("Pickleball Court 01");
+        court.setSportId(1L);
+        court.setActive(false); // Inactive from maintenance before restart
+
+        Facility facility = new Facility();
+        facility.setFacilityId(facilityId);
+        facility.setSportId(1L);
+        facility.setFacilityName("Pickleball Court 01");
+        facility.setStatus("MAINTENANCE"); // Still in MAINTENANCE in DB
+
+        CourtMaintenance pastMaintenance = CourtMaintenance.builder()
+                .maintenanceId(999L)
+                .courtId(courtId)
+                .startTime(now.minusHours(2))
+                .endTime(now.minusMinutes(30))
+                .reason("Bảo trì định kỳ | [LOCKED_BY_MAINTENANCE]")
+                .build();
+
+        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        when(facilityRepository.findById(facilityId)).thenReturn(Optional.of(facility));
+        when(maintenanceRepository.findByCourtId(courtId)).thenReturn(List.of(pastMaintenance));
+        when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(false);
+
+        // syncCourtMaintenanceStatus runs without courtId in in-memory set (simulating application restart)
+        syncService.syncCourtMaintenanceStatus(courtId);
+
+        assertTrue(court.isActive(), "Court must be reconstructed from durable state and reopened across restarts");
+        assertEquals("AVAILABLE", facility.getStatus(), "Linked facility should be restored to AVAILABLE");
+        assertTrue(pastMaintenance.getReason().contains("[REOPENED]"), "Maintenance record must be durable-marked as reopened");
+    }
+
+    @Test
+    void testLegacyExpiredRecordWithoutLockMarkerDoesNotOverrideAdminManualDeactivation() {
+        Long courtId = 2L;
+        LocalDateTime now = LocalDateTime.now();
+
+        SportsCourt court = new SportsCourt();
+        court.setCourtId(courtId);
+        court.setCourtName("Pickleball Court 02");
+        court.setSportId(1L);
+        court.setActive(false); // Inactive from admin manual deactivation
+
+        // Legacy record from weeks ago without any lock marker
+        CourtMaintenance legacyRecord = CourtMaintenance.builder()
+                .maintenanceId(888L)
+                .courtId(courtId)
+                .startTime(now.minusDays(10))
+                .endTime(now.minusDays(9))
+                .reason("Bảo dưỡng định kỳ tháng trước")
+                .build();
+
+        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        when(maintenanceRepository.findByCourtId(courtId)).thenReturn(List.of(legacyRecord));
+        when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(false);
+
+        syncService.syncCourtMaintenanceStatus(courtId);
+
+        assertFalse(court.isActive(), "Legacy expired record without lock marker must NOT reopen court");
+        verify(courtRepository, never()).save(court);
+    }
+
+    @Test
+    void testManualDeactivationShortlyAfterMaintenanceEndsIsNotOverridden() {
+        Long courtId = 1L;
+        Long facilityId = 1L;
+        LocalDateTime now = LocalDateTime.now();
+
+        SportsCourt court = new SportsCourt();
+        court.setCourtId(courtId);
+        court.setCourtName("Pickleball Court 01");
+        court.setSportId(1L);
+        court.setActive(true);
+
+        Facility facility = new Facility();
+        facility.setFacilityId(facilityId);
+        facility.setSportId(1L);
+        facility.setFacilityName("Pickleball Court 01");
+        facility.setStatus("AVAILABLE");
+
+        // Expired maintenance that already concluded and was marked [REOPENED]
+        CourtMaintenance pastMaintenance = CourtMaintenance.builder()
+                .maintenanceId(999L)
+                .courtId(courtId)
+                .startTime(now.minusHours(2))
+                .endTime(now.minusMinutes(30))
+                .reason("Bảo dưỡng định kỳ | [REOPENED]")
+                .build();
+
+        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        when(facilityRepository.findById(facilityId)).thenReturn(Optional.of(facility));
+        when(maintenanceRepository.findByCourtId(courtId)).thenReturn(List.of(pastMaintenance));
+        when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(false);
+
+        // Admin manually deactivates the court shortly after
+        syncService.syncFromCourt(courtId, false);
+        assertFalse(court.isActive(), "Court should be deactivated by admin");
+
+        // Maintenance scheduler runs
+        syncService.syncCourtMaintenanceStatus(courtId);
+
+        assertFalse(court.isActive(), "Manual deactivation by Admin must NOT be overridden by expired maintenance records");
+    }
+
+    @Test
+    void testFacilityMaintenanceWithFutureScheduleCreatesActiveWindowAndStaysClosed() {
+        Long courtId = 1L;
+        Long facilityId = 1L;
+        LocalDateTime now = LocalDateTime.now();
+
+        SportsCourt court = new SportsCourt();
+        court.setCourtId(courtId);
+        court.setCourtName("Pickleball Court 01");
+        court.setSportId(1L);
+        court.setActive(true);
+
+        Facility facility = new Facility();
+        facility.setFacilityId(facilityId);
+        facility.setSportId(1L);
+        facility.setFacilityName("Pickleball Court 01");
+        facility.setStatus("AVAILABLE");
+
+        // Future maintenance schedule 10 days from now
+        CourtMaintenance futureMaintenance = CourtMaintenance.builder()
+                .maintenanceId(777L)
+                .courtId(courtId)
+                .startTime(now.plusDays(10))
+                .endTime(now.plusDays(11))
+                .reason("Bảo dưỡng định kỳ tương lai")
+                .build();
+
+        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        when(facilityRepository.findById(facilityId)).thenReturn(Optional.of(facility));
+        when(maintenanceRepository.findByCourtId(courtId)).thenReturn(List.of(futureMaintenance));
+        when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(false);
+
+        // Facility set to MAINTENANCE
+        syncService.syncFromFacility(facilityId, "MAINTENANCE");
+
+        // Verify court is inactive
+        assertFalse(court.isActive(), "Court must be inactive when facility is set to MAINTENANCE");
+        // Verify a new active maintenance record covering now was saved
+        verify(maintenanceRepository).save(argThat(m ->
+                m.getReason() != null && m.getReason().contains("Bảo trì cơ sở bãi theo chỉ định Ban Quản Lý")
+        ));
+    }
+
+    @Test
+    void testPreExistingInactiveCourtIsNotReopenedWhenMaintenanceEnds() {
+        Long courtId = 4L;
+        SportsCourt court = new SportsCourt();
+        court.setCourtId(courtId);
+        court.setCourtName("Sân Bóng Đá 01");
+        court.setSportId(5L);
+        court.setActive(false); // Inactive from admin manual action prior to maintenance
+
+        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+
+        // Maintenance window is active
+        when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(true);
+        syncService.syncCourtMaintenanceStatus(courtId);
+        assertFalse(court.isActive());
+
+        // Maintenance window expires
+        when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(false);
+        syncService.syncCourtMaintenanceStatus(courtId);
+
+        assertFalse(court.isActive(), "Court that was already inactive before maintenance must NOT be reopened");
+        verify(courtRepository, never()).save(court);
+    }
+
+    @Test
+    void testManualDeactivationDuringActiveMaintenancePreventsLaterReopen() {
+        Long courtId = 1L;
+        LocalDateTime now = LocalDateTime.now();
+
+        SportsCourt court = new SportsCourt();
+        court.setCourtId(courtId);
+        court.setCourtName("Pickleball Court 01");
+        court.setSportId(1L);
+        court.setActive(true);
+
+        CourtMaintenance activeMaintenance = CourtMaintenance.builder()
+                .maintenanceId(111L)
+                .courtId(courtId)
+                .startTime(now.minusHours(1))
+                .endTime(now.plusHours(1))
+                .reason("Sơn lại sân | [LOCKED_BY_MAINTENANCE]")
+                .build();
+
+        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        when(maintenanceRepository.findByCourtId(courtId)).thenReturn(List.of(activeMaintenance));
+        when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(true);
+
+        // Maintenance is active
+        syncService.syncCourtMaintenanceStatus(courtId);
+        assertFalse(court.isActive());
+
+        // Admin explicitly disables the court during active maintenance
+        syncService.syncFromCourt(courtId, false);
+        assertFalse(court.isActive());
+        assertFalse(activeMaintenance.getReason().contains("[LOCKED_BY_MAINTENANCE]"), "Lock marker must be cleared on manual deactivation");
+
+        // Maintenance expires later
+        activeMaintenance.setEndTime(now.minusMinutes(1));
+        when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(false);
+        syncService.syncCourtMaintenanceStatus(courtId);
+
+        assertFalse(court.isActive(), "Manual deactivation during maintenance must NOT be reopened when maintenance ends");
+    }
+
+    @Test
     void testExtendMaintenanceNotifiesConflictingBookings() {
         Long courtId = 1L;
         Long maintenanceId = 100L;
