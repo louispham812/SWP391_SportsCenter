@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { getPublicFacilities, getPublicSports } from '../services/publicContentApi';
-import { getSportMedia, getFacilityMedia } from '../utils/mediaMap';
+import { getSportMedia, getFacilityMedia, DEFAULT_SPORT_IMG } from '../utils/mediaMap';
 
 export default function LandingPage() {
   const [sports, setSports] = useState([]);
@@ -79,10 +79,18 @@ export default function LandingPage() {
                   F Sport Center · Trung Tâm Thể Thao Đa Năng
                 </div>
 
-                <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black uppercase tracking-tight text-slate-900 leading-none">
+                <h1
+                  className="text-3xl sm:text-5xl lg:text-6xl font-black uppercase tracking-normal text-slate-900 leading-[1.35] sm:leading-[1.35] lg:leading-[1.35]"
+                  style={{ lineHeight: 1.35 }}
+                >
                   Tổ Hợp Thể Thao <br />
-                  <span className="text-orange-500">Đẳng Cấp &amp; Đa Năng</span> <br />
-                  Chuẩn Quốc Tế
+                  <span className="inline-block pt-3.5 -mt-3.5 pb-1.5 -mb-1.5 bg-gradient-to-r from-[#FF6B00] via-[#FFA04D] to-[#FF3D00] bg-clip-text text-transparent drop-shadow-[0_2px_18px_rgba(255,107,0,0.25)]">
+                    Đẳng Cấp &amp; Đa Năng
+                  </span> <br />
+                  <span className="relative inline-block pb-3">
+                    Chuẩn Quốc Tế
+                    <span className="absolute bottom-0 left-0 w-28 sm:w-36 h-1.5 rounded-full bg-gradient-to-r from-[#FF6B00] to-[#FFA04D] shadow-xs"></span>
+                  </span>
                 </h1>
 
                 <p className="text-slate-600 text-xs sm:text-sm font-medium leading-relaxed max-w-xl">
@@ -116,6 +124,9 @@ export default function LandingPage() {
                     src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=800&auto=format&fit=crop"
                     alt="F Sport Sanctuary"
                     className="w-full h-[400px] object-cover group-hover:scale-105 transition-transform duration-700"
+                    onError={(e) => {
+                      e.currentTarget.src = DEFAULT_SPORT_IMG;
+                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
                   <div className="absolute bottom-6 left-6 right-6 text-white space-y-1">
@@ -130,18 +141,18 @@ export default function LandingPage() {
             </div>
 
             {/* 4 Thẻ KPI Chỉ Số */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 pt-8">
               {metrics.map((m, idx) => (
                 <div
                   key={idx}
-                  className="p-5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex items-center gap-4 hover:border-orange-300 transition-all"
+                  className="p-3.5 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex items-center gap-3 sm:gap-4 hover:border-orange-300 transition-all"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0 font-bold">
-                    <span className="material-symbols-outlined text-[24px]">{m.icon}</span>
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0 font-bold">
+                    <span className="material-symbols-outlined text-[20px] sm:text-[24px]">{m.icon}</span>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xl font-black text-slate-900 font-mono">{m.value}</div>
-                    <div className="text-xs text-slate-500 truncate font-bold">{m.label}</div>
+                    <div className="text-lg sm:text-xl font-black text-slate-900 font-mono leading-tight">{m.value}</div>
+                    <div className="text-[11px] sm:text-xs text-slate-500 truncate font-bold mt-0.5">{m.label}</div>
                   </div>
                 </div>
               ))}
@@ -158,8 +169,11 @@ export default function LandingPage() {
               <span className="text-[11px] font-black uppercase tracking-wider text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200">
                 CHƯƠNG TRÌNH HUẤN LUYỆN
               </span>
-              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight mt-2">
-                Khám Phá Các Bộ Môn Thể Thao
+              <h2
+                className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-normal leading-[1.32] sm:leading-[1.32] mt-2"
+                style={{ lineHeight: 1.32 }}
+              >
+                Khám Phá Các <span className="inline-block pt-2 -mt-2 pb-1 -mb-1 bg-gradient-to-r from-[#FF6B00] to-[#FF8533] bg-clip-text text-transparent">Bộ Môn Thể Thao</span>
               </h2>
             </div>
 
@@ -217,12 +231,15 @@ export default function LandingPage() {
                           alt={sport.name}
                           loading="lazy"
                           className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                          onError={(e) => {
+                            e.currentTarget.src = DEFAULT_SPORT_IMG;
+                          }}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent"></div>
                         
                         {/* Tag góc trên */}
                         <div className="absolute top-3 left-3">
-                          <span className="px-2.5 py-0.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-wider border border-white/20">
+                          <span className="px-2.5 py-0.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-wider border border-white/20">
                             {sport.tag || 'HOT'}
                           </span>
                         </div>
@@ -268,7 +285,7 @@ export default function LandingPage() {
 
                       <Link
                         to="/member/book"
-                        className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-orange-500 hover:text-white text-slate-700 text-[10px] font-black uppercase tracking-wider transition-colors"
+                        className="px-3.5 py-2 min-h-[36px] inline-flex items-center rounded-lg bg-slate-100 hover:bg-orange-500 hover:text-white text-slate-700 text-[10px] font-black uppercase tracking-wider transition-colors"
                       >
                         Đặt Sân
                       </Link>
@@ -289,8 +306,11 @@ export default function LandingPage() {
                 <span className="text-[11px] font-black uppercase tracking-wider text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200">
                   CƠ SỞ VẬT CHẤT TIÊU CHUẨN 5 SAO
                 </span>
-                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight mt-2">
-                  Hệ Thống Tiện Ích &amp; Sân Bãi
+                <h2
+                  className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-normal leading-[1.32] sm:leading-[1.32] mt-2"
+                  style={{ lineHeight: 1.32 }}
+                >
+                  Hệ Thống <span className="inline-block pt-2 -mt-2 pb-1 -mb-1 bg-gradient-to-r from-[#FF6B00] to-[#FF8533] bg-clip-text text-transparent">Tiện Ích &amp; Sân Bãi</span>
                 </h2>
               </div>
 
@@ -314,6 +334,13 @@ export default function LandingPage() {
                     <div className="h-3 skeleton-shimmer rounded w-full"></div>
                   </div>
                 ))}
+              </div>
+            ) : facilities.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-8 text-center space-y-2">
+                <span className="material-symbols-outlined text-[36px] text-slate-400">stadium</span>
+                <p className="text-xs font-bold text-slate-600">
+                  Hệ thống đang đồng bộ danh mục cơ sở vật chất. Vui lòng quay lại sau ít phút.
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -368,8 +395,11 @@ export default function LandingPage() {
             <span className="text-[11px] font-black uppercase tracking-wider text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200">
               GIÁ TRỊ VƯỢT TRỘI
             </span>
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight">
-              Tại Sao Chọn F Sport Center?
+            <h2
+              className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-normal leading-[1.32] sm:leading-[1.32]"
+              style={{ lineHeight: 1.32 }}
+            >
+              Tại Sao Chọn <span className="inline-block pt-2 -mt-2 pb-1 -mb-1 bg-gradient-to-r from-[#FF6B00] to-[#FF8533] bg-clip-text text-transparent">F Sport Center</span>?
             </h2>
           </div>
 
@@ -398,8 +428,11 @@ export default function LandingPage() {
                 <span className="text-[10px] font-black uppercase tracking-widest text-orange-400 bg-orange-500/20 px-3 py-1 rounded-full border border-orange-500/30">
                   ĐẶC QUYỀN HỘI VIÊN
                 </span>
-                <h2 className="text-2xl sm:text-4xl font-black uppercase text-white tracking-tight">
-                  Sẵn Sàng Rèn Luyện Cùng F Sport Center?
+                <h2
+                  className="text-2xl sm:text-4xl font-black uppercase text-white tracking-normal leading-[1.32] sm:leading-[1.32]"
+                  style={{ lineHeight: 1.32 }}
+                >
+                  Sẵn Sàng Rèn Luyện Cùng <span className="inline-block pt-2 -mt-2 pb-1 -mb-1 bg-gradient-to-r from-orange-400 via-amber-400 to-orange-500 bg-clip-text text-transparent">F Sport Center</span>?
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-300 font-medium">
                   Đăng ký gói tập ngay hôm nay để nhận ưu đãi đặc quyền cho hội viên mới và lượt đo InBody 770 miễn phí!

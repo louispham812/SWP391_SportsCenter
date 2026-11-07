@@ -140,9 +140,9 @@ export default function MemberDashboardPage() {
                 Khu vực Hội viên
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight">
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight">
                 Xin chào, <span className="text-orange-400">{currentUser?.name || 'Hội viên'}</span>
-              </h1>
+              </h2>
 
               <p className="text-xs sm:text-sm text-slate-300 font-normal leading-relaxed">
                 Chào mừng bạn quay trở lại. Hãy kiểm tra lịch tập hôm nay hoặc đặt sân mới bên dưới.

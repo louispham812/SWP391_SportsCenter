@@ -117,9 +117,18 @@ export default function AboutPage() {
                 VỀ CHÚNG TÔI • F SPORT CENTER
               </div>
 
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight leading-tight text-white">
+              <h1
+                className="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-normal leading-[1.35] sm:leading-[1.35] lg:leading-[1.35] text-white"
+                style={{ lineHeight: 1.35 }}
+              >
                 Kiến Tạo Không Gian <br />
-                <span className="text-orange-500">Thể Thao Đỉnh Cao</span> Cho Mọi Người
+                <span className="inline-block pt-3.5 -mt-3.5 pb-1.5 -mb-1.5 bg-gradient-to-r from-[#FF6B00] via-[#FFA04D] to-[#FF3D00] bg-clip-text text-transparent drop-shadow-[0_2px_18px_rgba(255,107,0,0.3)]">
+                  Thể Thao Đỉnh Cao
+                </span> <br />
+                <span className="relative inline-block pb-3">
+                  Dành Cho Mọi Người
+                  <span className="absolute bottom-0 left-0 w-28 sm:w-36 h-1.5 rounded-full bg-gradient-to-r from-[#FF6B00] to-[#FFA04D] shadow-xs"></span>
+                </span>
               </h1>
 
               <p className="text-sm sm:text-base text-slate-300 font-medium leading-relaxed max-w-2xl">
@@ -200,8 +209,11 @@ export default function AboutPage() {
                 <span className="text-[11px] font-black uppercase tracking-wider text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200">
                   OUR MISSION &amp; VISION
                 </span>
-                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight">
-                  Sứ Mệnh Nâng Tầm Thể Lực &amp; Phong Độ Thi Đấu
+                <h2
+                  className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-normal leading-[1.32] sm:leading-[1.32]"
+                  style={{ lineHeight: 1.32 }}
+                >
+                  Sứ Mệnh <span className="inline-block pt-2 -mt-2 pb-1 -mb-1 bg-gradient-to-r from-[#FF6B00] to-[#FF8533] bg-clip-text text-transparent">Nâng Tầm Thể Lực</span> &amp; Phong Độ Thi Đấu
                 </h2>
               </div>
 
@@ -297,8 +309,11 @@ export default function AboutPage() {
               <span className="text-[11px] font-black uppercase tracking-widest text-orange-400 bg-orange-500/20 px-3 py-1 rounded-full border border-orange-500/30">
                 CORE VALUES
               </span>
-              <h2 className="text-2xl sm:text-4xl font-black uppercase text-white">
-                4 Giá Trị Cốt Lõi Tại F Sport Center
+              <h2
+                className="text-2xl sm:text-4xl font-black uppercase text-white tracking-normal leading-[1.32] sm:leading-[1.32]"
+                style={{ lineHeight: 1.32 }}
+              >
+                4 Giá Trị Cốt Lõi Tại <span className="inline-block pt-2 -mt-2 pb-1 -mb-1 bg-gradient-to-r from-orange-400 via-amber-400 to-orange-500 bg-clip-text text-transparent">F Sport Center</span>
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 font-medium">
                 Những định hướng chiến lược cam kết trải nghiệm huấn luyện xuất sắc nhất cho hội viên.
@@ -341,8 +356,11 @@ export default function AboutPage() {
               <span className="text-[11px] font-black uppercase tracking-wider text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200">
                 EXPERT COACHES
               </span>
-              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight mt-2">
-                Đội Ngũ Huấn Luyện Viên Đỉnh Cao
+              <h2
+                className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-normal leading-[1.32] sm:leading-[1.32] mt-2"
+                style={{ lineHeight: 1.32 }}
+              >
+                Đội Ngũ <span className="inline-block pt-2 -mt-2 pb-1 -mb-1 bg-gradient-to-r from-[#FF6B00] to-[#FF8533] bg-clip-text text-transparent">Huấn Luyện Viên Đỉnh Cao</span>
               </h2>
             </div>
             <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-md">
@@ -392,8 +410,11 @@ export default function AboutPage() {
         {/* BANNER CTA ĐĂNG KÝ */}
         <section className="bg-slate-900 text-white py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-            <h2 className="text-2xl sm:text-4xl font-black uppercase tracking-tight">
-              Sẵn Sàng Bứt Phá Phong Độ Thể Thao?
+            <h2
+              className="text-2xl sm:text-4xl font-black uppercase tracking-normal leading-[1.32] sm:leading-[1.32]"
+              style={{ lineHeight: 1.32 }}
+            >
+              Sẵn Sàng <span className="inline-block pt-2 -mt-2 pb-1 -mb-1 bg-gradient-to-r from-orange-400 via-amber-400 to-orange-500 bg-clip-text text-transparent">Bứt Phá Phong Độ</span> Thể Thao?
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-xl mx-auto">
               Đăng ký ngay gói tập F Sport Center để nhận đặc quyền trải nghiệm trọn bộ cụm sân Pickleball, Tennis, Gym &amp; Studio chuẩn 5 sao!

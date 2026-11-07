@@ -117,7 +117,10 @@ export default function PublicContentPage({ contentType }) {
                     )}
                   </div>
 
-                  <h1 className="text-3xl sm:text-5xl font-black uppercase tracking-tight text-white">
+                  <h1
+                    className="text-3xl sm:text-5xl font-black uppercase tracking-normal leading-[1.32] sm:leading-[1.32] text-white"
+                    style={{ lineHeight: 1.35 }}
+                  >
                     {selectedItem.name}
                   </h1>
 
@@ -245,7 +248,10 @@ export default function PublicContentPage({ contentType }) {
                     <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
                     HỆ THỐNG ĐẲNG CẤP • F SPORT CENTER
                   </div>
-                  <h1 className="text-2xl sm:text-4xl font-black uppercase tracking-tight text-slate-900">
+                  <h1
+                    className="text-2xl sm:text-4xl font-black uppercase tracking-normal leading-[1.32] sm:leading-[1.32] text-slate-900"
+                    style={{ lineHeight: 1.35 }}
+                  >
                     {title}
                   </h1>
                   <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
