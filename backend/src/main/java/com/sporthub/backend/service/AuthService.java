@@ -70,7 +70,7 @@ public class AuthService {
     /**
      * LOGIN - với check requirePasswordChange
      */
-    @Transactional
+    @Transactional(noRollbackFor = PendingVerificationException.class)
     public AuthResponse login(LoginRequest request) {
         String identifier = request.getEmail() == null ? "" : request.getEmail().trim();
         String password = request.getPassword();
@@ -202,12 +202,7 @@ public class AuthService {
             }
         }
 
-        String targetRole = request.getRole() != null && !request.getRole().isBlank()
-                ? request.getRole().trim().toUpperCase(Locale.ROOT)
-                : MEMBER_ROLE;
-        if (!List.of("MEMBER", "COACH", "RECEPTIONIST").contains(targetRole)) {
-            targetRole = MEMBER_ROLE;
-        }
+        String targetRole = MEMBER_ROLE;
 
         // Rule: Member tự đăng ký phải verify OTP qua email trước khi ACTIVE; Nhân viên đăng ký chờ Manager duyệt
         User user = User.builder()
@@ -222,20 +217,6 @@ public class AuthService {
 
         User savedUser = userRepository.save(user);
 
-        if ("COACH".equals(targetRole) || "RECEPTIONIST".equals(targetRole)) {
-            auditLogService.logSuccess("REGISTER_STAFF", email, savedUser.getUserId(),
-                    "Staff registration (" + targetRole + ") | Status: PENDING | Awaiting Manager approval");
-            return AuthResponse.builder()
-                    .userId(savedUser.getUserId())
-                    .email(savedUser.getEmail())
-                    .fullName(savedUser.getFullName())
-                    .role(savedUser.getRole())
-                    .status(savedUser.getStatus())
-                    .requirePasswordChange(false)
-                    .message("Đăng ký tài khoản nhân sự thành công! Tài khoản đang chờ Quản trị viên phê duyệt.")
-                    .build();
-        }
-        
         // Generate và gửi OTP qua email để verify account
         String otp = generateOTP();
         String otpHash = hashOTP(otp);
@@ -378,7 +359,7 @@ public class AuthService {
      * STEP 1: FORGOT PASSWORD - Gửi OTP
      * Rule: Tạo OTP 6 số, TTL 10 phút, cooldown 60s, hash SHA-256, lưu vào DB
      */
-    @Transactional
+    @Transactional(noRollbackFor = PendingVerificationException.class)
     public String forgotPassword(ForgotPasswordRequest request) {
         String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase(Locale.ROOT);
         
@@ -480,7 +461,7 @@ public class AuthService {
      * STEP 2: VERIFY CODE - Xác thực OTP, trả về resetToken
      * Rule: Sai tối đa 5 lần thì khóa, trả về resetToken TTL 10 phút
      */
-    @Transactional
+    @Transactional(noRollbackFor = IllegalArgumentException.class)
     public VerifyCodeResponse verifyCode(VerifyCodeRequest request) {
         String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase(Locale.ROOT);
         String otp = request.getOtp() == null ? "" : request.getOtp().trim();
@@ -701,7 +682,7 @@ public class AuthService {
     /**
      * VERIFY EMAIL - Placeholder (nếu cần)
      */
-    @Transactional
+    @Transactional(noRollbackFor = OtpVerificationException.class)
     public AuthResponse verifyEmail(VerifyOtpRequest request) {
         String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase(Locale.ROOT);
         String otp = request.getOtp() == null ? "" : request.getOtp().trim();
@@ -742,7 +723,7 @@ public class AuthService {
         if (token.getFailedAttempts() >= MAX_FAILED_ATTEMPTS) {
             auditLogService.logFailure("VERIFY_REGISTRATION_OTP", email, user.getUserId(), 
                     "Email verification attempt", "Max failed attempts exceeded");
-            throw new RuntimeException("Bạn đã nhập sai mã OTP quá " + MAX_FAILED_ATTEMPTS + " lần. Vui lòng yêu cầu gửi lại mã.");
+            throw new OtpVerificationException("Bạn đã nhập sai mã OTP quá " + MAX_FAILED_ATTEMPTS + " lần. Vui lòng yêu cầu gửi lại mã.");
         }
 
         // Verify OTP
@@ -757,12 +738,15 @@ public class AuthService {
                     "Email verification attempt", "Invalid OTP | Remaining attempts: " + remainingAttempts);
             
             if (remainingAttempts <= 0) {
-                throw new RuntimeException("Bạn đã nhập sai mã OTP quá " + MAX_FAILED_ATTEMPTS + " lần. Vui lòng yêu cầu gửi lại mã.");
+                throw new OtpVerificationException("Bạn đã nhập sai mã OTP quá " + MAX_FAILED_ATTEMPTS + " lần. Vui lòng yêu cầu gửi lại mã.");
             }
-            throw new RuntimeException("Mã OTP không chính xác. Còn lại " + remainingAttempts + " lần thử.");
+            throw new OtpVerificationException("Mã OTP không chính xác. Còn lại " + remainingAttempts + " lần thử.");
         }
 
         // OTP hợp lệ → Kích hoạt tài khoản
+        if (!MEMBER_ROLE.equalsIgnoreCase(user.getRole())) {
+            throw new IllegalArgumentException("Tài khoản nhân sự phải được Quản lý phê duyệt.");
+        }
         user.setStatus("ACTIVE");
         User savedUser = userRepository.save(user);
 
@@ -792,6 +776,9 @@ public class AuthService {
                     auditLogService.logFailure("RESEND_REGISTRATION_OTP", email, null, "Resend OTP attempt", "User not found");
                     return new RuntimeException("Không tìm thấy tài khoản với email: " + email);
                 });
+        if (!MEMBER_ROLE.equalsIgnoreCase(user.getRole())) {
+            throw new IllegalArgumentException("Tài khoản nhân sự phải được Quản lý phê duyệt.");
+        }
         
         // Chỉ resend nếu user đang ở trạng thái PENDING
         if (!"PENDING".equals(user.getStatus())) {
@@ -853,6 +840,10 @@ public class AuthService {
         return String.valueOf(otp);
     }
 
+    public static class OtpVerificationException extends IllegalArgumentException {
+        public OtpVerificationException(String message) { super(message); }
+    }
+
     /**
      * Helper: Hash OTP using SHA-256
      */
@@ -869,6 +860,8 @@ public class AuthService {
      * 3. Throw PendingVerificationException để frontend redirect đến trang verify OTP
      */
     private void handlePendingAccountLogin(User user) {
+        if (!MEMBER_ROLE.equalsIgnoreCase(user.getRole())) throw new IllegalArgumentException("Tài khoản nhân sự đang chờ Quản lý phê duyệt.");
+
         String email = user.getEmail();
         
         // Tìm OTP token còn hiệu lực (chưa dùng, chưa hết hạn)
