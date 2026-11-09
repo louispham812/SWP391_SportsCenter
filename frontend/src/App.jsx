@@ -60,6 +60,7 @@ import MemberReviewsPage from './pages/member/MemberReviewsPage';
 import AdminBroadcastPage from './pages/admin/AdminBroadcastPage';
 import AdminAuditLogPage from './pages/admin/AdminAuditLogPage';
 import AdminMaintenancePage from './pages/admin/AdminMaintenancePage';
+import AdminPaymentReconciliationPage from './pages/admin/AdminPaymentReconciliationPage';
 import ToastContainer from './components/ToastContainer';
 
 import { AppProvider, useApp } from './context/AppContext';
@@ -154,6 +155,7 @@ function App() {
 
           <Route path="/admin/broadcast" element={<RequireRole role="admin"><AdminBroadcastPage /></RequireRole>} />
           <Route path="/admin/audit-logs" element={<RequireRole role="admin"><AdminAuditLogPage /></RequireRole>} />
+          <Route path="/admin/payment-reconciliation" element={<RequireRole role="admin"><AdminPaymentReconciliationPage /></RequireRole>} />
           <Route path="/admin/maintenance" element={<RequireRole role="admin"><AdminMaintenancePage /></RequireRole>} />
 
           {/* Convenient Aliases for Cross-Role / Root Navigation */}

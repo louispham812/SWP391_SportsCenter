@@ -33,10 +33,10 @@ export const getBookingQuote = (bookingType, itemId, startTime, endTime) => {
   if (endTime) query.set('endTime', endTime);
   return apiRequest(`/booking-flow/quote?${query}`);
 };
-export const checkoutBooking = (bookingType, itemId, startTime, endTime, paymentMethod = 'VNPAY', useQuota = false) =>
+export const checkoutBooking = (bookingType, itemId, startTime, endTime, paymentMethod = 'VNPAY', useQuota = false, voucherCode = null) =>
   apiRequest('/booking-flow/checkout', {
     method: 'POST',
-    body: JSON.stringify({ bookingType, itemId, startTime, endTime, paymentMethod, useQuota }),
+    body: JSON.stringify({ bookingType, itemId, startTime, endTime, paymentMethod, useQuota, voucherCode }),
   });
 export const getMemberBookingSchedule = () => apiRequest('/booking-flow/schedule');
 export const cancelMemberBooking = (bookingType, bookingId) =>

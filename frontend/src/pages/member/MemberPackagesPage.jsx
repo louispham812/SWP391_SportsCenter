@@ -137,7 +137,7 @@ export default function MemberPackagesPage() {
       const result = await purchaseMembership(selectedPackage.packageId, paymentMethod);
 
       // Redirect to VNPay payment page
-      if (paymentMethod === 'VNPAY' && result.paymentId) {
+      if (paymentMethod === 'VNPAY' && result.paymentId && result.paymentStatus !== 'PAID') {
         try {
           const vnpayResult = await generatePayment(result.paymentId, 'VNPAY');
           

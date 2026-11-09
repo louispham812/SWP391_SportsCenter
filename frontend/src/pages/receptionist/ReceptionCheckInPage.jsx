@@ -103,13 +103,13 @@ export default function ReceptionCheckInPage() {
   };
 
   // Perform Check-in
-  const executeCheckIn = async (targetMemberId) => {
+  const executeCheckIn = async (targetMemberId, bookingId = null) => {
     if (!targetMemberId) return;
     setSubmitting(true);
     setError('');
     setResultMessage('');
     try {
-      const result = await checkInReceptionMember({ memberId: Number(targetMemberId) });
+      const result = await checkInReceptionMember({ memberId: Number(targetMemberId), bookingId });
       setResultMessage(result.result === 'VALID'
         ? `ĐIỂM DANH THÀNH CÔNG: Hội viên ${result.memberName} đủ điều kiện vào tập.`
         : `TỪ CHỐI VÀO TẬP: Hội viên ${result.memberName} không đủ điều kiện (hết hạn hoặc chưa kích hoạt gói). Lượt kiểm tra đã được lưu.`);
@@ -331,9 +331,12 @@ export default function ReceptionCheckInPage() {
                       <span>Lịch Đặt Chỗ Hôm Nay:</span>
                     </div>
                     {cardProfile.todayBookings.map((b) => (
-                      <div key={b.bookingId} className="flex justify-between items-center text-[11px] bg-white p-2 rounded-lg border border-blue-100">
-                        <span><strong>{b.courtName || b.activity}</strong> ({b.startTime} - {b.endTime})</span>
+                      <div key={`${b.bookingType || "CLASS"}-${b.bookingId}`} className="flex justify-between items-center text-[11px] bg-white p-2 rounded-lg border border-blue-100">
+                        <span><strong>{b.courtName || b.title || b.activity}</strong> ({b.startTime} - {b.endTime})</span>
                         <span className="font-bold text-blue-700 uppercase">{b.status}</span>
+                        {b.bookingType === 'COURT' && b.status === 'CONFIRMED' && (
+                          <button type="button" disabled={submitting} className="font-bold text-emerald-700 underline" onClick={() => executeCheckIn(cardProfile.userId, b.bookingId)}>Check-in sân này</button>
+                        )}
                       </div>
                     ))}
                   </div>

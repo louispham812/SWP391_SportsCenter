@@ -77,7 +77,7 @@ export default function VNPayReturnPage() {
         
         if (response.ok && data.success) {
           setStatus('success');
-          setMessage('Thanh toán thành công! Đơn hàng của bạn đã được xác nhận.');
+          setMessage(data.message || 'Đã nhận thanh toán. Vui lòng xem trạng thái đơn hàng.');
         } else {
           setStatus('error');
           setMessage(data.message || 'Không thể xác thực giao dịch. Vui lòng liên hệ hỗ trợ.');
@@ -114,10 +114,7 @@ export default function VNPayReturnPage() {
     // Show toast success message
     if (status === 'success') {
     showToast('Thanh toán thành công', message, 'success');
-    // Delay navigate để user thấy toast
-    setTimeout(() => {
-        navigate('/receptionist/pos', { replace: true });
-    }, 1500);
+
 }
     
     // Determine target page based on user role and booking type

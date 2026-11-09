@@ -13,6 +13,7 @@ export default function AdminLayout({ children }) {
     { label: 'Quản lý Hội viên', path: '/admin/members', icon: 'shield_person' },
     { label: 'Cài đặt & Phân quyền', path: '/admin/settings', icon: 'settings' },
     { label: 'Thông báo hàng loạt', path: '/admin/broadcast', icon: 'campaign' },
+    { label: 'Đối soát thanh toán dư', path: '/admin/payment-reconciliation', icon: 'payments' },
     { label: 'Nhật ký hệ thống', path: '/admin/audit-logs', icon: 'history' },
     { label: 'Bảo trì sân bãi', path: '/admin/maintenance', icon: 'build' },
   ];

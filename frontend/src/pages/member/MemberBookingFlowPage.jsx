@@ -874,7 +874,8 @@ function CheckoutPage({ bookingType, itemId }) {
     const fetchQuota = async () => {
       try {
         setQuotaLoading(true);
-        const data = await apiRequest('/members/me/quota');
+        const hours = startTime && endTime ? Math.max(1, Math.ceil((new Date(endTime) - new Date(startTime)) / 3600000)) : 1;
+        const data = await apiRequest(`/members/me/quota?bookingType=${encodeURIComponent(bookingType.toUpperCase())}&itemId=${encodeURIComponent(itemId)}&requiredHours=${hours}`);
         setMemberQuota({
           packageName: data.packageName || 'Chưa có gói tập',
           initialQuota: data.initialQuota || 0,
@@ -910,7 +911,7 @@ function CheckoutPage({ bookingType, itemId }) {
     };
     
     fetchQuota();
-  }, []); // Chỉ gọi 1 lần khi mount
+  }, [bookingType, itemId, startTime, endTime]);
 
   // Voucher Code State
   const [voucherCode, setVoucherCode] = useState('');
@@ -959,7 +960,7 @@ function CheckoutPage({ bookingType, itemId }) {
     try {
       const res = await apiRequest('/vouchers/validate', {
         method: 'POST',
-        body: JSON.stringify({ code, amount: originalPrice }),
+        body: JSON.stringify({ code, amount: originalPrice, appliesTo: 'BOOKING_ONLY' }),
       });
       if (res && res.valid && res.voucher) {
         setAppliedVoucher(res.voucher);
@@ -1047,11 +1048,13 @@ function CheckoutPage({ bookingType, itemId }) {
         itemId,
         startTime,
         endTime,
-        paymentMethod
+        paymentMethod,
+        false,
+        appliedVoucher?.code ?? null
       );
 
       // Redirect to VNPay payment page
-      if (paymentMethod === 'VNPAY') {
+      if (paymentMethod === 'VNPAY' && confirmation.paymentStatus !== 'PAID') {
         try {
           const vnpayResult = await generatePayment(confirmation.paymentId, 'VNPAY');
           
