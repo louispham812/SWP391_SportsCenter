@@ -1,0 +1,16 @@
+Audit probes — 2026-11-09
+Tests: 11; failures: 0; errors: 0
+These probes assert observed faulty behavior. Passing confirms reproduction, not correctness.
+HTTP probes use MockMvc with the real SecurityConfig and mocked repositories. Gateway calls are mocked.
+
+REPRODUCED: arbitraryPaymentMethodIsRecordedAsPaidWithoutCashier
+REPRODUCED: failedGatewayRefundIsStillMarkedRefunded
+REPRODUCED: duplicateQuotaReleaseProducesNegativeHeldButFormulaPasses
+REPRODUCED: memberCanReadAllManagerRefundsOverActualSecurityChain
+REPRODUCED: memberCanDecideManagerRefundOverActualSecurityChain
+REPRODUCED: refundForAnotherMembersPaymentIsAccepted
+REPRODUCED: lastValidMembershipDayIsRejectedByQuotaSelection
+REPRODUCED: memberCanCallLegacyStaffCheckInEndpoint
+REPRODUCED: renewalDeactivatesCurrentMembershipBeforePayment
+REPRODUCED: rescheduleExtendsOneHourQuotaBookingToThreeHoursWithoutMoreQuota
+REPRODUCED: overdueEquipmentCannotBeReturned

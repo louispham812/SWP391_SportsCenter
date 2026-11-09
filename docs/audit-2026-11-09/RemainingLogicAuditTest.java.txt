@@ -1,0 +1,62 @@
+package com.sporthub.backend.service;
+
+import com.sporthub.backend.controller.VNPayWebhookController;
+import com.sporthub.backend.entity.*;
+import com.sporthub.backend.repository.*;
+import com.sporthub.backend.service.gateway.VNPayGateway;
+import com.sporthub.backend.service.payment.BookingPaymentHandler;
+import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.server.ResponseStatusException;
+import java.math.BigDecimal;
+import java.time.*;
+import java.util.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
+
+// Audit-only probes: PASS confirms the remaining defect, not correct behavior.
+class RemainingLogicAuditTest {
+    @Test void expiryDropsHoldOfMaintenanceBookingThatWasNotConvertedOrCancelled() {
+        var courts = mock(CourtBookingRepository.class); var memberships = mock(UserMembershipRepository.class);
+        var maintenance = mock(CourtMaintenanceRepository.class); var quota = mock(MembershipService.class);
+        UserMembership m = new UserMembership(); m.setMembershipId(1L); m.setUserId(9L); m.setStatus("EXPIRED"); m.setEndDate(LocalDate.now().minusDays(1));
+        m.setInitialQuotaCourts(10); m.setRemainingQuotaCourts(9); m.setHeldQuotaCourts(1);
+        CourtBooking b = new CourtBooking(); b.setCourtBookingId(2L); b.setCourtId(3L); b.setMemberId(9L); b.setStatus("CONFIRMED");
+        b.setMembershipId(1L); b.setUsesMembershipQuota(true); b.setQuotaHoursUsed(BigDecimal.ONE);
+        b.setStartTime(LocalDateTime.now().minusDays(1).minusHours(1)); b.setEndTime(b.getStartTime().plusHours(1));
+        when(courts.findByStatus("CONFIRMED")).thenReturn(List.of(b)); when(courts.findByIdForUpdate(2L)).thenReturn(Optional.of(b));
+        when(courts.findByMemberIdOrderByStartTimeAsc(9L)).thenReturn(List.of(b));
+        when(maintenance.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(eq(3L), any(), any())).thenReturn(true);
+        when(memberships.findByStatusIgnoreCase("EXPIRED")).thenReturn(List.of(m)); when(memberships.findByIdForUpdate(1L)).thenReturn(Optional.of(m));
+        var service = new BookingLifecycleService(mock(BookingRepository.class), courts, mock(ClassSessionRepository.class), mock(SportsCourtRepository.class), memberships, quota, mock(PaymentService.class), mock(EngagementService.class));
+        ReflectionTestUtils.setField(service, "maintenance", maintenance); service.reconcile();
+        assertEquals("CONFIRMED", b.getStatus()); assertTrue(b.getUsesMembershipQuota());
+        assertEquals(0, m.getHeldQuotaCourts()); assertEquals(10, m.getRemainingQuotaCourts());
+        verifyNoInteractions(quota);
+    }
+
+    @Test void expiredAttendanceCannotBeCorrectedBackAfterExcusedCorrection() {
+        var memberships = mock(UserMembershipRepository.class);
+        UserMembership m = new UserMembership(); m.setMembershipId(1L); m.setStatus("EXPIRED");
+        m.setStartDate(LocalDate.now().minusDays(30)); m.setEndDate(LocalDate.now().minusDays(1));
+        m.setInitialQuotaSessions(1); m.setUsedQuotaSessions(1); m.setRemainingQuotaSessions(0);
+        when(memberships.findByIdForUpdate(1L)).thenReturn(Optional.of(m));
+        var service = new MembershipService(memberships, mock(MembershipPackageRepository.class), null, null, null);
+        service.refundUsedQuotaForExcusedAbsence(1L, 1, LocalDateTime.now().minusDays(2));
+        assertEquals(1, m.getUsedQuotaSessions()); // No refund because the term expired.
+        assertThrows(ResponseStatusException.class, () -> service.consumeQuotaFromRemaining(1L, 1));
+    }
+
+    @Test void secondDistinctSuccessfulGatewayTransactionIsAcknowledgedWithoutReconciliation() {
+        var payments = mock(PaymentTransactionRepository.class); var gateway = mock(VNPayGateway.class); var handler = mock(BookingPaymentHandler.class);
+        PaymentTransaction p = new PaymentTransaction(); p.setPaymentId(2L); p.setMemberId(9L); p.setAmount(BigDecimal.TEN);
+        p.setPaymentStatus("PAID"); p.setGatewayReference("2_attempt_one"); p.setReferenceCode("gateway_transaction_one");
+        when(payments.findByIdForUpdate(2L)).thenReturn(Optional.of(p)); when(gateway.verifySignature(anyMap(), anyString())).thenReturn(true);
+        var c = new VNPayWebhookController(gateway, payments, List.of(handler));
+        var response = c.handleIPN(Map.of("vnp_SecureHash", "mock-valid", "vnp_TxnRef", "2_attempt_two", "vnp_TransactionNo", "gateway_transaction_two", "vnp_ResponseCode", "00", "vnp_Amount", "1000"));
+        assertEquals("00", ((Map<?, ?>) response.getBody()).get("RspCode"));
+        assertEquals("gateway_transaction_one", p.getReferenceCode());
+        verifyNoInteractions(handler); verify(payments, never()).save(any());
+    }
+}
