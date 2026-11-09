@@ -956,3 +956,42 @@ IF OBJECT_ID(N'dbo.user_memberships', N'U') IS NOT NULL
 
 
 
+
+-- Explicit payment links; never match a purchase by timestamp.
+IF COL_LENGTH('dbo.payment_transactions', 'membership_id') IS NULL
+    ALTER TABLE dbo.payment_transactions ADD membership_id BIGINT NULL;
+IF COL_LENGTH('dbo.payment_transactions', 'voucher_id') IS NULL
+    ALTER TABLE dbo.payment_transactions ADD voucher_id BIGINT NULL;
+
+IF COL_LENGTH('dbo.payment_transactions', 'gateway_reference') IS NULL
+    ALTER TABLE dbo.payment_transactions ADD gateway_reference VARCHAR(100) NULL;
+
+-- R01: payment attempts and immutable gateway receipts are separate from the order payment.
+IF OBJECT_ID(N'dbo.payment_attempts', N'U') IS NULL
+BEGIN
+ CREATE TABLE dbo.payment_attempts (
+  attempt_id BIGINT IDENTITY PRIMARY KEY, payment_id BIGINT NOT NULL,
+  gateway_reference VARCHAR(100) NOT NULL UNIQUE, amount DECIMAL(12,2) NOT NULL,
+  status VARCHAR(20) NOT NULL, payment_url NVARCHAR(MAX) NULL,
+  created_at DATETIME2 NOT NULL, expires_at DATETIME2 NOT NULL, merchant_date VARCHAR(14) NULL,
+  CONSTRAINT FK_payment_attempt_order FOREIGN KEY(payment_id) REFERENCES dbo.payment_transactions(payment_id)
+ )
+ CREATE INDEX IX_payment_attempt_order ON dbo.payment_attempts(payment_id, status, created_at)
+END;
+IF OBJECT_ID(N'dbo.gateway_receipts', N'U') IS NULL
+BEGIN
+ CREATE TABLE dbo.gateway_receipts (
+  receipt_id BIGINT IDENTITY PRIMARY KEY, payment_id BIGINT NOT NULL, attempt_id BIGINT NOT NULL,
+  gateway_transaction_no VARCHAR(100) NOT NULL UNIQUE, gateway_reference VARCHAR(100) NOT NULL,
+  amount DECIMAL(12,2) NOT NULL, transaction_date VARCHAR(14) NULL, status VARCHAR(24) NOT NULL,
+  reconciliation_note NVARCHAR(500) NULL, created_at DATETIME2 NOT NULL, resolved_at DATETIME2 NULL,
+  CONSTRAINT FK_gateway_receipt_order FOREIGN KEY(payment_id) REFERENCES dbo.payment_transactions(payment_id),
+  CONSTRAINT FK_gateway_receipt_attempt FOREIGN KEY(attempt_id) REFERENCES dbo.payment_attempts(attempt_id)
+ )
+ CREATE INDEX IX_gateway_receipt_review ON dbo.gateway_receipts(status, created_at)
+END;
+-- Existing rows stay NULL until their actual accounting state can be established.
+IF COL_LENGTH('dbo.bookings', 'quota_state') IS NULL ALTER TABLE dbo.bookings ADD quota_state VARCHAR(24) NULL;
+IF COL_LENGTH('dbo.court_bookings', 'quota_state') IS NULL ALTER TABLE dbo.court_bookings ADD quota_state VARCHAR(24) NULL;
+
+IF COL_LENGTH('dbo.payment_attempts', 'merchant_date') IS NULL ALTER TABLE dbo.payment_attempts ADD merchant_date VARCHAR(14) NULL;

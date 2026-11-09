@@ -12,6 +12,9 @@ import org.springframework.data.repository.query.Param;
 import com.sporthub.backend.entity.User;
 
 public interface UserRepository extends JpaRepository<User, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.userId = :id")
+    Optional<User> findByIdForUpdate(@Param("id") Long id);
     Optional<User> findByEmailIgnoreCase(String email);
     Optional<User> findByPhone(String phone);
     Optional<User> findByRfidCode(String rfidCode);

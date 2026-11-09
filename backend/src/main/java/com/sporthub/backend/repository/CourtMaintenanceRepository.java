@@ -8,6 +8,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface CourtMaintenanceRepository extends JpaRepository<CourtMaintenance, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select m from CourtMaintenance m where m.maintenanceId = :id")
+    java.util.Optional<CourtMaintenance> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") Long id);
     List<CourtMaintenance> findAllByOrderByStartTimeDesc();
     List<CourtMaintenance> findByCourtId(Long courtId);
     List<CourtMaintenance> findByCourtIdAndEndTimeAfter(Long courtId, LocalDateTime now);

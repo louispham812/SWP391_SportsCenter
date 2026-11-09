@@ -29,6 +29,11 @@ public interface PaymentGateway {
         String description,
         String ipAddress
     );
+
+    default Map<String, Object> generatePaymentAttempt(Long paymentId, BigDecimal amount, String description,
+            String ipAddress, String reference, java.time.LocalDateTime expiresAt) {
+        throw new UnsupportedOperationException("Gateway không hỗ trợ payment attempt.");
+    }
     
     /**
      * Get gateway name

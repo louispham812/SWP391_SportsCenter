@@ -190,7 +190,7 @@ class VNPayPaymentTest {
     }
 
     @Test
-    void testCashPayment_InitialStatusPaid() {
+    void testCashPayment_PendingUntilCashierConfirms() {
         // Cash payments should start with PAID status
         when(paymentTransactionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
         
@@ -201,7 +201,7 @@ class VNPayPaymentTest {
                 PaymentConstants.METHOD_CASH_COUNTER
         );
         
-        assertEquals(PaymentConstants.PAYMENT_STATUS_PAID, payment.getPaymentStatus());
+        assertEquals(PaymentConstants.PAYMENT_STATUS_PENDING, payment.getPaymentStatus());
     }
 
     @Test

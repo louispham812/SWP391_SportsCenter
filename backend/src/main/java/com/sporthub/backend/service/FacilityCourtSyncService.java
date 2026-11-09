@@ -226,7 +226,7 @@ public class FacilityCourtSyncService {
                         pf.setActive(isAvailable);
                         publicFacilityRepository.save(pf);
                     });
-            sportsCourtRepository.findById(16L).ifPresent(c16 -> {
+            sportsCourtRepository.findByIdForUpdate(16L).ifPresent(c16 -> {
                 c16.setActive(isAvailable);
                 sportsCourtRepository.save(c16);
             });
@@ -245,7 +245,7 @@ public class FacilityCourtSyncService {
         List<Long> courtIds = getCourtIdsForFacility(facilityId, facility.getSportId(), facility.getFacilityName());
         LocalDateTime now = LocalDateTime.now();
         for (Long courtId : courtIds) {
-            sportsCourtRepository.findById(courtId).ifPresent(court -> {
+            sportsCourtRepository.findByIdForUpdate(courtId).ifPresent(court -> {
                 court.setActive(isAvailable);
                 sportsCourtRepository.save(court);
 
@@ -284,7 +284,7 @@ public class FacilityCourtSyncService {
      */
     @Transactional
     public void syncFromCourt(Long courtId, boolean active) {
-        SportsCourt court = sportsCourtRepository.findById(courtId).orElse(null);
+        SportsCourt court = sportsCourtRepository.findByIdForUpdate(courtId).orElse(null);
         if (court == null) return;
         if (!active) {
             courtsLockedByMaintenance.remove(courtId);
@@ -331,7 +331,7 @@ public class FacilityCourtSyncService {
     @Transactional
     public void syncCourtMaintenanceStatus(Long courtId) {
         if (courtId == null) return;
-        SportsCourt court = sportsCourtRepository.findById(courtId).orElse(null);
+        SportsCourt court = sportsCourtRepository.findByIdForUpdate(courtId).orElse(null);
         if (court == null) return;
 
         LocalDateTime now = LocalDateTime.now();
@@ -472,7 +472,7 @@ public class FacilityCourtSyncService {
      */
     @Transactional
     public void syncFromMaintenanceCreate(Long courtId, LocalDateTime start, LocalDateTime end, String reason) {
-        SportsCourt court = sportsCourtRepository.findById(courtId).orElse(null);
+        SportsCourt court = sportsCourtRepository.findByIdForUpdate(courtId).orElse(null);
         if (court == null) return;
 
         syncCourtMaintenanceStatus(courtId);

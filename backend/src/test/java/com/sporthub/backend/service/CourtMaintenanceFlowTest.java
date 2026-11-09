@@ -1,5 +1,6 @@
 package com.sporthub.backend.service;
 
+import static org.mockito.Mockito.lenient;
 import com.sporthub.backend.controller.EngagementController;
 import com.sporthub.backend.entity.*;
 import com.sporthub.backend.repository.*;
@@ -79,10 +80,13 @@ class CourtMaintenanceFlowTest {
         SportsCourt court = new SportsCourt();
         court.setCourtId(courtId);
         court.setCourtName("Pickleball Court 01");
+        court.setActive(true); court.setHourlyRate(BigDecimal.valueOf(150000));
         court.setSportId(1L);
         court.setActive(true);
 
-        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        lenient().when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+
+        lenient().when(courtRepository.findByIdForUpdate(courtId)).thenReturn(Optional.of(court));
 
         // Case 1: Currently in maintenance (startTime <= now <= endTime)
         when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(true);
@@ -107,7 +111,9 @@ class CourtMaintenanceFlowTest {
         court.setSportId(1L);
         court.setActive(false); // Manually deactivated by admin
 
-        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        lenient().when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+
+        lenient().when(courtRepository.findByIdForUpdate(courtId)).thenReturn(Optional.of(court));
         when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(false);
 
         syncService.syncCourtMaintenanceStatus(courtId);
@@ -123,6 +129,7 @@ class CourtMaintenanceFlowTest {
         SportsCourt court = new SportsCourt();
         court.setCourtId(courtId);
         court.setCourtName("Pickleball Court 01");
+        court.setActive(true); court.setHourlyRate(BigDecimal.valueOf(150000));
         court.setSportId(1L);
         court.setActive(true);
 
@@ -132,7 +139,9 @@ class CourtMaintenanceFlowTest {
         facility.setFacilityName("Pickleball Court 01");
         facility.setStatus("AVAILABLE");
 
-        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        lenient().when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+
+        lenient().when(courtRepository.findByIdForUpdate(courtId)).thenReturn(Optional.of(court));
         when(facilityRepository.findById(facilityId)).thenReturn(Optional.of(facility));
 
         // Facility marked as MAINTENANCE (deactivates court and tracks maintenance)
@@ -155,6 +164,7 @@ class CourtMaintenanceFlowTest {
         SportsCourt court = new SportsCourt();
         court.setCourtId(courtId);
         court.setCourtName("Pickleball Court 01");
+        court.setActive(true); court.setHourlyRate(BigDecimal.valueOf(150000));
         court.setSportId(1L);
         court.setActive(false); // Inactive from maintenance before restart
 
@@ -172,7 +182,9 @@ class CourtMaintenanceFlowTest {
                 .reason("Bảo trì định kỳ | [LOCKED_BY_MAINTENANCE]")
                 .build();
 
-        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        lenient().when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+
+        lenient().when(courtRepository.findByIdForUpdate(courtId)).thenReturn(Optional.of(court));
         when(facilityRepository.findById(facilityId)).thenReturn(Optional.of(facility));
         when(maintenanceRepository.findByCourtId(courtId)).thenReturn(List.of(pastMaintenance));
         when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(false);
@@ -205,7 +217,9 @@ class CourtMaintenanceFlowTest {
                 .reason("Bảo dưỡng định kỳ tháng trước")
                 .build();
 
-        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        lenient().when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+
+        lenient().when(courtRepository.findByIdForUpdate(courtId)).thenReturn(Optional.of(court));
         when(maintenanceRepository.findByCourtId(courtId)).thenReturn(List.of(legacyRecord));
         when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(false);
 
@@ -224,6 +238,7 @@ class CourtMaintenanceFlowTest {
         SportsCourt court = new SportsCourt();
         court.setCourtId(courtId);
         court.setCourtName("Pickleball Court 01");
+        court.setActive(true); court.setHourlyRate(BigDecimal.valueOf(150000));
         court.setSportId(1L);
         court.setActive(true);
 
@@ -242,7 +257,9 @@ class CourtMaintenanceFlowTest {
                 .reason("Bảo dưỡng định kỳ | [REOPENED]")
                 .build();
 
-        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        lenient().when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+
+        lenient().when(courtRepository.findByIdForUpdate(courtId)).thenReturn(Optional.of(court));
         when(facilityRepository.findById(facilityId)).thenReturn(Optional.of(facility));
         when(maintenanceRepository.findByCourtId(courtId)).thenReturn(List.of(pastMaintenance));
         when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(false);
@@ -266,6 +283,7 @@ class CourtMaintenanceFlowTest {
         SportsCourt court = new SportsCourt();
         court.setCourtId(courtId);
         court.setCourtName("Pickleball Court 01");
+        court.setActive(true); court.setHourlyRate(BigDecimal.valueOf(150000));
         court.setSportId(1L);
         court.setActive(true);
 
@@ -284,7 +302,9 @@ class CourtMaintenanceFlowTest {
                 .reason("Bảo dưỡng định kỳ tương lai")
                 .build();
 
-        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        lenient().when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+
+        lenient().when(courtRepository.findByIdForUpdate(courtId)).thenReturn(Optional.of(court));
         when(facilityRepository.findById(facilityId)).thenReturn(Optional.of(facility));
         when(maintenanceRepository.findByCourtId(courtId)).thenReturn(List.of(futureMaintenance));
         when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(false);
@@ -309,7 +329,9 @@ class CourtMaintenanceFlowTest {
         court.setSportId(5L);
         court.setActive(false); // Inactive from admin manual action prior to maintenance
 
-        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        lenient().when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+
+        lenient().when(courtRepository.findByIdForUpdate(courtId)).thenReturn(Optional.of(court));
 
         // Maintenance window is active
         when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(true);
@@ -332,6 +354,7 @@ class CourtMaintenanceFlowTest {
         SportsCourt court = new SportsCourt();
         court.setCourtId(courtId);
         court.setCourtName("Pickleball Court 01");
+        court.setActive(true); court.setHourlyRate(BigDecimal.valueOf(150000));
         court.setSportId(1L);
         court.setActive(true);
 
@@ -343,7 +366,9 @@ class CourtMaintenanceFlowTest {
                 .reason("Sơn lại sân | [LOCKED_BY_MAINTENANCE]")
                 .build();
 
-        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        lenient().when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+
+        lenient().when(courtRepository.findByIdForUpdate(courtId)).thenReturn(Optional.of(court));
         when(maintenanceRepository.findByCourtId(courtId)).thenReturn(List.of(activeMaintenance));
         when(maintenanceRepository.existsByCourtIdAndActiveAtTime(eq(courtId), any(LocalDateTime.class))).thenReturn(true);
 
@@ -378,14 +403,17 @@ class CourtMaintenanceFlowTest {
                 .reason("Bảo dưỡng đèn")
                 .build();
 
-        when(maintenanceRepository.findById(maintenanceId)).thenReturn(Optional.of(existing));
+        lenient().when(maintenanceRepository.findById(maintenanceId)).thenReturn(Optional.of(existing));
+        lenient().when(maintenanceRepository.findByIdForUpdate(maintenanceId)).thenReturn(Optional.of(existing));
         when(maintenanceRepository.save(any(CourtMaintenance.class))).thenAnswer(i -> i.getArgument(0));
 
         SportsCourt court = new SportsCourt();
         court.setCourtId(courtId);
         court.setCourtName("Pickleball Court 01");
+        court.setActive(true); court.setHourlyRate(BigDecimal.valueOf(150000));
         court.setActive(false);
-        when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        lenient().when(courtRepository.findById(courtId)).thenReturn(Optional.of(court));
+        lenient().when(courtRepository.findByIdForUpdate(courtId)).thenReturn(Optional.of(court));
 
         // Conflicting booking
         CourtBooking conflictingBooking = new CourtBooking();
@@ -435,6 +463,7 @@ class CourtMaintenanceFlowTest {
         SportsCourt court = new SportsCourt();
         court.setCourtId(1L);
         court.setCourtName("Pickleball Court 01");
+        court.setActive(true); court.setHourlyRate(BigDecimal.valueOf(150000));
         court.setOpensAt(LocalTime.of(6, 0));
         court.setClosesAt(LocalTime.of(22, 0));
 
@@ -442,6 +471,7 @@ class CourtMaintenanceFlowTest {
         payment.setPaymentId(12L);
         payment.setAmount(BigDecimal.valueOf(150000));
         payment.setPaymentMethod("VNPAY");
+        payment.setPaymentStatus("PAID");
 
         User user = User.builder().userId(memberId).fullName("Nguyen Van A").email("a@test.com").build();
 
@@ -449,10 +479,14 @@ class CourtMaintenanceFlowTest {
         PaymentTransactionRepository paymentTransactionRepository = mock(PaymentTransactionRepository.class);
 
         when(courtBookingRepository.findByIdForUpdate(courtBookingId)).thenReturn(Optional.of(booking));
-        when(courtBookingRepository.findById(courtBookingId)).thenReturn(Optional.of(booking));
-        when(courtRepository.findById(1L)).thenReturn(Optional.of(court));
-        when(userRepository.findById(memberId)).thenReturn(Optional.of(user));
-        when(paymentTransactionRepository.findById(12L)).thenReturn(Optional.of(payment));
+        lenient().when(courtBookingRepository.findById(courtBookingId)).thenReturn(Optional.of(booking));
+        lenient().when(courtBookingRepository.findByIdForUpdate(courtBookingId)).thenReturn(Optional.of(booking));
+        lenient().when(courtRepository.findById(1L)).thenReturn(Optional.of(court));
+        lenient().when(courtRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(court));
+        lenient().when(userRepository.findById(memberId)).thenReturn(Optional.of(user));
+        lenient().when(userRepository.findByIdForUpdate(memberId)).thenReturn(Optional.of(user));
+        lenient().when(paymentTransactionRepository.findById(12L)).thenReturn(Optional.of(payment));
+        lenient().when(paymentTransactionRepository.findByIdForUpdate(12L)).thenReturn(Optional.of(payment));
         when(refundRequestRepository.save(any(RefundRequest.class))).thenAnswer(i -> {
             RefundRequest r = i.getArgument(0);
             r.setRefundId(777L);
@@ -508,11 +542,13 @@ class CourtMaintenanceFlowTest {
         SportsCourt court = new SportsCourt();
         court.setCourtId(1L);
         court.setCourtName("Pickleball Court 01");
+        court.setActive(true); court.setHourlyRate(BigDecimal.valueOf(150000));
         court.setOpensAt(LocalTime.of(6, 0));
         court.setClosesAt(LocalTime.of(22, 0));
 
         when(courtBookingRepository.findByIdForUpdate(courtBookingId)).thenReturn(Optional.of(booking));
-        when(courtRepository.findById(1L)).thenReturn(Optional.of(court));
+        lenient().when(courtRepository.findById(1L)).thenReturn(Optional.of(court));
+        lenient().when(courtRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(court));
         when(courtBookingRepository.save(any(CourtBooking.class))).thenAnswer(i -> i.getArgument(0));
 
         // No maintenance and no other booking at new time

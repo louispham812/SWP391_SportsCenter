@@ -28,6 +28,15 @@ public class PaymentTransaction {
     @Column(name = "member_id", nullable = false)
     private Long memberId;
 
+    @Column(name = "membership_id")
+    private Long membershipId;
+
+    @Column(name = "voucher_id")
+    private Long voucherId;
+
+    @Column(name = "gateway_reference", length = 100)
+    private String gatewayReference;
+
     @Column(name = "booking_type", nullable = false, length = 20)
     private String bookingType;
 
@@ -50,7 +59,7 @@ public class PaymentTransaction {
     private String referenceCode;
 
     @Column(name = "transaction_date", length = 14)
-    private String transactionDate; // VNPay's vnp_PayDate (yyyyMMddHHmmss format) - Used for refund API
+    private String transactionDate; // Original merchant vnp_CreateDate, required by VNPay refund (not vnp_PayDate). Legacy values need reconciliation.
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

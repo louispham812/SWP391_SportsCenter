@@ -14,6 +14,15 @@ import com.sporthub.backend.entity.CourtBooking;
 import jakarta.persistence.LockModeType;
 
 public interface CourtBookingRepository extends JpaRepository<CourtBooking, Long> {
+    @Query("""
+            select b from CourtBooking b where b.memberId = :memberId and b.status = 'CONFIRMED'
+              and b.startTime >= :dayStart and b.startTime < :dayEnd and b.startTime <= :now and b.endTime > :now
+            order by b.startTime, b.courtBookingId
+            """)
+    List<CourtBooking> findCheckInEligibleBookings(@Param("memberId") Long memberId,
+            @Param("dayStart") LocalDateTime dayStart, @Param("dayEnd") LocalDateTime dayEnd,
+            @Param("now") LocalDateTime now);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select booking from CourtBooking booking where booking.courtBookingId = :bookingId")
     Optional<CourtBooking> findByIdForUpdate(@Param("bookingId") Long bookingId);
@@ -22,11 +31,10 @@ public interface CourtBookingRepository extends JpaRepository<CourtBooking, Long
             select count(booking) > 0
             from CourtBooking booking
             where booking.courtId = :courtId
-              and booking.status = 'CONFIRMED'
+              and booking.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN')
               and booking.startTime < :endTime
               and booking.endTime > :startTime
             """)
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
     boolean existsConfirmedOverlap(
             @Param("courtId") Long courtId,
             @Param("startTime") LocalDateTime startTime,
@@ -36,8 +44,14 @@ public interface CourtBookingRepository extends JpaRepository<CourtBooking, Long
     List<CourtBooking> findByMemberIdOrderByStartTimeAsc(Long memberId);
     List<CourtBooking> findByStatus(String status);
 
+    @Query("""
+            select b from CourtBooking b where b.courtId = :courtId
+              and (b.status = :status or (:status = 'CONFIRMED' and b.status = 'CHECKED_IN'))
+              and b.startTime between :from and :to
+            """)
     List<CourtBooking> findByCourtIdAndStatusAndStartTimeBetween(
-            Long courtId, String status, LocalDateTime from, LocalDateTime to);
+            @Param("courtId") Long courtId, @Param("status") String status,
+            @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
     List<CourtBooking> findByStatusIgnoreCaseAndCreatedAtBefore(String status, LocalDateTime before);
     
     // Find court booking by payment_id (for webhook lookup)
@@ -47,11 +61,10 @@ public interface CourtBookingRepository extends JpaRepository<CourtBooking, Long
             select count(booking) > 0
             from CourtBooking booking
             where booking.memberId = :memberId
-              and booking.status = 'CONFIRMED'
+              and booking.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN')
               and booking.startTime < :endTime
               and booking.endTime > :startTime
             """)
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
     boolean existsConfirmedOverlapForMember(
             @Param("memberId") Long memberId,
             @Param("startTime") LocalDateTime startTime,
@@ -70,7 +83,7 @@ public interface CourtBookingRepository extends JpaRepository<CourtBooking, Long
             SELECT COUNT(DISTINCT booking.courtId)
             FROM CourtBooking booking
             WHERE booking.memberId = :memberId
-              AND booking.status IN ('PENDING', 'CONFIRMED')
+              AND booking.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN')
               AND booking.startTime < :endTime
               AND booking.endTime > :startTime
             """)
@@ -82,7 +95,7 @@ public interface CourtBookingRepository extends JpaRepository<CourtBooking, Long
     @Query("""
             SELECT cb FROM CourtBooking cb
             WHERE cb.courtId = :courtId
-              AND cb.status IN ('PENDING', 'CONFIRMED')
+              AND cb.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN')
               AND cb.startTime < :endTime
               AND cb.endTime > :startTime
             """)
@@ -96,7 +109,7 @@ public interface CourtBookingRepository extends JpaRepository<CourtBooking, Long
             FROM CourtBooking cb
             WHERE cb.courtId = :courtId
               AND cb.courtBookingId <> :excludeBookingId
-              AND cb.status = 'CONFIRMED'
+              AND cb.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN')
               AND cb.startTime < :endTime
               AND cb.endTime > :startTime
             """)

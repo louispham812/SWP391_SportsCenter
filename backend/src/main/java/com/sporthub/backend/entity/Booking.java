@@ -52,4 +52,7 @@ public class Booking {
 
     @Column(name = "membership_id")
     private Long membershipId;
+    @Column(name = "quota_state", length = 24)
+    private String quotaState; // HELD, USED, RELEASED, FORFEITED; NULL legacy state must be established first.
+
 }

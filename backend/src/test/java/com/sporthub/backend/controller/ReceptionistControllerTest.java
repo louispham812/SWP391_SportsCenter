@@ -1,5 +1,6 @@
 package com.sporthub.backend.controller;
 
+import static org.mockito.Mockito.lenient;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -53,6 +54,26 @@ class ReceptionistControllerTest {
     private final UsernamePasswordAuthenticationToken receptionist =
             new UsernamePasswordAuthenticationToken(
                     "3", "", List.of(new SimpleGrantedAuthority("ROLE_RECEPTIONIST")));
+
+    @Test
+    void receptionEndpointRejectsCheckInWhenBookingValidationFails() {
+        var checkInService = mock(com.sporthub.backend.service.CheckInService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "checkInService", checkInService);
+        User member = User.builder().userId(9L).role("MEMBER").status("ACTIVE").build();
+        var membership = new com.sporthub.backend.entity.UserMembership();
+        membership.setStatus("ACTIVE");
+        membership.setStartDate(LocalDate.now().minusDays(1));
+        membership.setEndDate(LocalDate.now().plusDays(10));
+        lenient().when(userRepository.findById(9L)).thenReturn(java.util.Optional.of(member));
+        lenient().when(userRepository.findByIdForUpdate(9L)).thenReturn(java.util.Optional.of(member));
+        when(membershipRepository.findByUserIdOrderByEndDateDesc(9L)).thenReturn(List.of(membership));
+        org.mockito.Mockito.doThrow(new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT, "No valid booking"))
+                .when(checkInService).checkInBooking(9L, null);
+        org.junit.jupiter.api.Assertions.assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> controller.recordCheckIn(new com.sporthub.backend.dto.ReceptionistCheckInRequest(9L), receptionist));
+        org.mockito.Mockito.verify(checkInRepository, org.mockito.Mockito.never()).save(any());
+    }
 
     @Test
     void memberSearchReturnsPaginatedMemberSummaries() {
@@ -132,7 +153,8 @@ class ReceptionistControllerTest {
                 .role("RECEPTIONIST")
                 .status("ACTIVE")
                 .build();
-        when(userRepository.findById(3L)).thenReturn(java.util.Optional.of(staff));
+        lenient().when(userRepository.findById(3L)).thenReturn(java.util.Optional.of(staff));
+        lenient().when(userRepository.findByIdForUpdate(3L)).thenReturn(java.util.Optional.of(staff));
         when(checkInRepository.countByRecordedBy(3L)).thenReturn(42L);
 
         var res = controller.getMyProfile(receptionist);
@@ -153,7 +175,8 @@ class ReceptionistControllerTest {
                 .role("RECEPTIONIST")
                 .status("ACTIVE")
                 .build();
-        when(userRepository.findById(3L)).thenReturn(java.util.Optional.of(staff));
+        lenient().when(userRepository.findById(3L)).thenReturn(java.util.Optional.of(staff));
+        lenient().when(userRepository.findByIdForUpdate(3L)).thenReturn(java.util.Optional.of(staff));
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var req = new com.sporthub.backend.dto.ReceptionistProfileUpdateRequest(
@@ -180,7 +203,8 @@ class ReceptionistControllerTest {
                 .role("RECEPTIONIST")
                 .status("ACTIVE")
                 .build();
-        when(userRepository.findById(3L)).thenReturn(java.util.Optional.of(staff));
+        lenient().when(userRepository.findById(3L)).thenReturn(java.util.Optional.of(staff));
+        lenient().when(userRepository.findByIdForUpdate(3L)).thenReturn(java.util.Optional.of(staff));
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var res = controller.updateMyAvatar(new ReceptionistController.AvatarUpdateRequest("data:image/jpeg;base64,newavatar"), receptionist);

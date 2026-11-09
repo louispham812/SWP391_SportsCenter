@@ -319,7 +319,7 @@ public class EngagementController {
             @RequestBody Map<String, Object> body,
             Authentication auth) {
         requireRole(auth, "MANAGER", "ADMIN");
-        var court = courtRepository.findById(id)
+        var court = courtRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sân."));
         boolean active = body != null && body.containsKey("active") ? Boolean.TRUE.equals(body.get("active")) : court.isActive();
         if (syncService != null) {
@@ -344,7 +344,7 @@ public class EngagementController {
         if (!request.endTime().isAfter(request.startTime())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời gian kết thúc phải sau thời gian bắt đầu.");
         }
-        if (courtRepository.findById(request.courtId()).isEmpty()) {
+        if (courtRepository.findByIdForUpdate(request.courtId()).isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sân.");
         }
         CourtMaintenance saved = maintenanceRepository.save(CourtMaintenance.builder()
@@ -384,6 +384,8 @@ public class EngagementController {
         CourtMaintenance existing = maintenanceRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy lịch bảo trì."));
 
+        courtRepository.findByIdForUpdate(existing.getCourtId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sân."));
+        existing = maintenanceRepository.findByIdForUpdate(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy bảo trì."));
         if (!request.newEndTime().isAfter(existing.getStartTime())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời gian gia hạn phải sau thời gian bắt đầu bảo trì.");
         }
@@ -426,6 +428,8 @@ public class EngagementController {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy lịch bảo trì.");
         }
         Long courtId = existing.getCourtId();
+        courtRepository.findByIdForUpdate(courtId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sân."));
+        maintenanceRepository.findByIdForUpdate(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy bảo trì."));
         maintenanceRepository.deleteById(id);
         if (syncService != null) {
             syncService.syncFromMaintenanceDelete(courtId);

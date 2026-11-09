@@ -52,6 +52,8 @@ public class RefundRequestController {
 
     @Autowired(required = false)
     private com.sporthub.backend.repository.CourtBookingRepository courtBookingRepository;
+    @Autowired(required = false)
+    private com.sporthub.backend.repository.GatewayReceiptRepository gatewayReceipts;
 
     @Autowired
     public RefundRequestController(
@@ -121,43 +123,18 @@ public class RefundRequestController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số tiền hoàn phải lớn hơn 0 (BR-20).");
         }
 
-        if (req.transactionId() != null) {
-            boolean alreadyProcessedOrPending = refundRepository.findByMemberIdOrderByCreatedAtDesc(memberId).stream()
-                    .anyMatch(r -> req.transactionId().equals(r.getTransactionId())
-                            && ("PENDING_APPROVAL".equalsIgnoreCase(r.getStatus()) || "APPROVED".equalsIgnoreCase(r.getStatus())));
-            if (alreadyProcessedOrPending) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Giao dịch này đang có một yêu cầu hoàn tiền đang xử lý hoặc đã được duyệt (BR-20).");
-            }
+        PaymentTransaction origTx = req.transactionId() == null ? null
+            : paymentTransactionRepository.findByIdForUpdate(req.transactionId()).orElse(null);
+        if (origTx == null && req.referenceCode() != null) {
+            PaymentTransaction candidate = paymentTransactionRepository.findByReferenceCodeIgnoreCase(req.referenceCode()).orElse(null);
+            if (candidate != null) origTx = paymentTransactionRepository.findByIdForUpdate(candidate.getPaymentId()).orElse(null);
         }
-        if (req.referenceCode() != null && !req.referenceCode().isBlank()) {
-            boolean alreadyProcessedOrPending = refundRepository.findByMemberIdOrderByCreatedAtDesc(memberId).stream()
-                    .anyMatch(r -> req.referenceCode().equalsIgnoreCase(r.getReferenceCode())
-                            && ("PENDING_APPROVAL".equalsIgnoreCase(r.getStatus()) || "APPROVED".equalsIgnoreCase(r.getStatus())));
-            if (alreadyProcessedOrPending) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Mã giao dịch này đang có một yêu cầu hoàn tiền đang xử lý hoặc đã được duyệt (BR-20).");
-            }
-        }
-
-        // Kiểm tra đối chiếu với giao dịch gốc
-        PaymentTransaction origTx = null;
-        if (paymentTransactionRepository != null) {
-            if (req.transactionId() != null) {
-                origTx = paymentTransactionRepository.findById(req.transactionId()).orElse(null);
-            }
-            if (origTx == null && req.referenceCode() != null && !req.referenceCode().isBlank()) {
-                origTx = paymentTransactionRepository.findAll().stream()
-                        .filter(tx -> req.referenceCode().equalsIgnoreCase(tx.getReferenceCode()))
-                        .findFirst()
-                        .orElse(null);
-            }
-        }
-        if (origTx != null) {
-            if ("REFUNDED".equalsIgnoreCase(origTx.getPaymentStatus())) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Giao dịch này đã được hoàn tiền trước đó (BR-20).");
-            }
-            if (origTx.getAmount() != null && req.refundAmount().compareTo(origTx.getAmount()) > 0) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số tiền hoàn không được vượt quá số tiền đã thanh toán (BR-20).");
-            }
+        if (origTx == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy giao dịch gốc.");
+        if (!memberId.equals(origTx.getMemberId())) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Giao dịch không thuộc tài khoản của bạn.");
+        if (!"PAID".equals(origTx.getPaymentStatus())) throw new ResponseStatusException(HttpStatus.CONFLICT, "Giao dịch chưa thu tiền hoặc đã hoàn tiền.");
+        if (req.refundAmount().compareTo(origTx.getAmount()) != 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ hỗ trợ hoàn toàn bộ giao dịch đủ điều kiện.");
+        if (refundRepository.existsByTransactionIdAndStatusIn(origTx.getPaymentId(), List.of("PENDING", "PENDING_APPROVAL", "APPROVED"))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Giao dịch đã có yêu cầu hoàn tiền.");
         }
 
         Long bookingId = null;
@@ -165,7 +142,7 @@ public class RefundRequestController {
         if (origTx != null) {
             bookingType = origTx.getBookingType();
             Long txPaymentId = origTx.getPaymentId();
-            if ("CLASS".equalsIgnoreCase(bookingType) && bookingRepository != null) {
+            if (("CLASS".equalsIgnoreCase(bookingType) || "PT".equalsIgnoreCase(bookingType)) && bookingRepository != null) {
                 com.sporthub.backend.entity.Booking b = bookingRepository.findByPaymentId(txPaymentId);
                 if (b != null) bookingId = b.getBookingId();
             } else if ("COURT".equalsIgnoreCase(bookingType) && courtBookingRepository != null) {
@@ -174,6 +151,12 @@ public class RefundRequestController {
             }
         }
 
+        if ("MEMBERSHIP_PACKAGE".equals(bookingType)) {
+            bookingId = origTx.getMembershipId(); bookingType = "MEMBERSHIP";
+        }
+        if (bookingService == null || !bookingService.isRefundEligible(origTx)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Giao dịch không đủ điều kiện hoàn tiền theo chính sách hủy.");
+        }
         RefundRequest refund = RefundRequest.builder()
                 .memberId(memberId)
                 .memberName(user.getFullName())
@@ -207,175 +190,54 @@ public class RefundRequestController {
             @PathVariable Long id,
             @RequestBody RefundDecisionRequest decision,
             Authentication auth) {
-        RefundRequest refund = refundRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu hoàn tiền."));
-
-        if (!"PENDING_APPROVAL".equalsIgnoreCase(refund.getStatus()) && !"PENDING".equalsIgnoreCase(refund.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Yêu cầu hoàn tiền này đã được xử lý trước đó.");
-        }
-
-        if (!decision.approved() && (decision.decisionNote() == null || decision.decisionNote().isBlank())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Từ chối hoàn tiền phải ghi rõ lý do (BR-20)");
-        }
-
+        if (auth == null || auth.getAuthorities().stream().noneMatch(a -> List.of("ROLE_MANAGER", "ROLE_ADMIN").contains(a.getAuthority())))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        RefundRequest refund = refundRepository.findByIdForUpdate(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu hoàn tiền."));
+        if (!List.of("PENDING_APPROVAL", "PENDING").contains(refund.getStatus()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Yêu cầu đã được xử lý.");
+        if (!decision.approved() && (decision.decisionNote() == null || decision.decisionNote().isBlank()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng ghi lý do từ chối.");
         Long managerId = getUserId(auth);
-        refund.setStatus(decision.approved() ? "APPROVED" : "REJECTED");
-        refund.setApprovedBy(managerId);
-        if (decision.decisionNote() != null) {
-            refund.setDecisionNote(decision.decisionNote().trim());
-        }
-
-        if (decision.approved()) {
-            logger.info("🟢 REFUND APPROVED - Starting process...");
-            logger.info("  Refund ID: {}", refund.getRefundId());
-            logger.info("  Transaction ID: {}", refund.getTransactionId());
-            logger.info("  Reference Code: {}", refund.getReferenceCode());
-            logger.info("  paymentTransactionRepository null? {}", paymentTransactionRepository == null);
-            logger.info("  vnpayGateway null? {}", vnpayGateway == null);
-            
-            PaymentTransaction tx = null;
-            if (paymentTransactionRepository != null) {
-                if (refund.getTransactionId() != null) {
-                    tx = paymentTransactionRepository.findById(refund.getTransactionId()).orElse(null);
-                }
-                if (tx == null && refund.getReferenceCode() != null && !refund.getReferenceCode().isBlank()) {
-                    tx = paymentTransactionRepository.findAll().stream()
-                            .filter(t -> refund.getReferenceCode().equalsIgnoreCase(t.getReferenceCode()))
-                            .findFirst()
-                            .orElse(null);
+        if (!decision.approved()) {
+            refund.setStatus("REJECTED"); refund.setDecisionNote(decision.decisionNote()); refund.setApprovedBy(managerId);
+        } else {
+            PaymentTransaction tx = paymentTransactionRepository.findByIdForUpdate(refund.getTransactionId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Thiếu giao dịch gốc, cần đối soát."));
+            if (!refund.getMemberId().equals(tx.getMemberId()) || !"PAID".equals(tx.getPaymentStatus())
+                    || refund.getRefundAmount().compareTo(tx.getAmount()) != 0)
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Giao dịch hoàn tiền không hợp lệ.");
+            if (bookingService != null) bookingService.prepareRefund(tx);
+            if ("VNPAY".equals(tx.getPaymentMethod())) {
+                Map<String, Object> result;
+                try { result = vnpayGateway.refundPayment(tx, refund.getRefundAmount(), refund.getReason()); }
+                catch (Exception e) { result = Map.of("vnp_ResponseCode", "99"); }
+                if (result == null || !"00".equals(result.get("vnp_ResponseCode"))) {
+                    refund.setDecisionNote("Hoàn tiền chưa thành công; cần đối soát cổng thanh toán trước khi thử lại.");
+                    return ResponseEntity.ok(toDTO(refundRepository.save(refund)));
                 }
             }
-
-            if (tx != null) {
-                if (refund.getTransactionId() == null) {
-                    refund.setTransactionId(tx.getPaymentId());
-                }
-                if (refund.getBookingType() == null) {
-                    refund.setBookingType(tx.getBookingType());
-                }
-                if (refund.getBookingId() == null) {
-                    if ("CLASS".equalsIgnoreCase(tx.getBookingType()) && bookingRepository != null) {
-                        com.sporthub.backend.entity.Booking b = bookingRepository.findByPaymentId(tx.getPaymentId());
-                        if (b != null) refund.setBookingId(b.getBookingId());
-                    } else if ("COURT".equalsIgnoreCase(tx.getBookingType()) && courtBookingRepository != null) {
-                        com.sporthub.backend.entity.CourtBooking cb = courtBookingRepository.findByPaymentId(tx.getPaymentId());
-                        if (cb != null) refund.setBookingId(cb.getCourtBookingId());
-                    }
-                }
-
-                // ✅ Call VNPay Refund API if original payment was via VNPay
-                if (com.sporthub.backend.constants.PaymentConstants.METHOD_VNPAY.equals(tx.getPaymentMethod()) && vnpayGateway != null) {
-                    logger.info(">>> ✅ CALLING VNPAY REFUND API <<<");
-                    try {
-                        Map<String, Object> refundResult = vnpayGateway.refundPayment(
-                                tx,
-                                refund.getRefundAmount(),
-                                refund.getReason()
-                        );
-                        String responseCode = (String) refundResult.get("vnp_ResponseCode");
-                        if ("00".equals(responseCode)) {
-                            logger.info("✅ VNPay refund SUCCESS");
-                        } else {
-                            refund.setDecisionNote((refund.getDecisionNote() != null ? refund.getDecisionNote() : "") 
-                                    + " | VNPay refund failed: " + refundResult.get("vnp_Message"));
-                            logger.warn("❌ VNPay refund FAILED: {}", responseCode);
-                        }
-                    } catch (Exception e) {
-                        logger.error("❌ VNPay refund ERROR: ", e);
-                        refund.setDecisionNote((refund.getDecisionNote() != null ? refund.getDecisionNote() : "") 
-                                + " | VNPay refund error: " + e.getMessage());
-                    }
-                } else {
-                    logger.info("Payment method is not VNPay or gateway is null. Direct refund update.");
-                }
-
-                tx.setPaymentStatus("REFUNDED");
-                paymentTransactionRepository.save(tx);
-            } else {
-                logger.warn("⚠️ Transaction not found for ID: {} or Ref: {}", refund.getTransactionId(), refund.getReferenceCode());
+            tx.setPaymentStatus("REFUNDED"); paymentTransactionRepository.save(tx);
+            if (gatewayReceipts != null && "VNPAY".equals(tx.getPaymentMethod()))
+                gatewayReceipts.findByGatewayTransactionNo(tx.getReferenceCode())
+                    .filter(r -> tx.getPaymentId().equals(r.getPaymentId()) && "APPLIED".equals(r.getStatus()))
+                    .ifPresent(r -> { r.setStatus("REFUNDED"); r.setResolvedAt(LocalDateTime.now()); gatewayReceipts.save(r); });
+            if (tx.getMembershipId() != null && paymentRepository != null) {
+                Long membershipId = tx.getMembershipId();
+                paymentRepository.findByMemberIdOrderByCreatedAtDesc(Math.toIntExact(tx.getMemberId())).stream()
+                    .filter(receipt -> receipt.getMembershipId() != null && receipt.getMembershipId().longValue() == membershipId)
+                    .forEach(receipt -> { receipt.setPaymentStatus("REFUNDED"); paymentRepository.save(receipt); });
             }
-
-            if (paymentRepository != null && refund.getTransactionId() != null) {
-                try {
-                    paymentRepository.findById(Math.toIntExact(refund.getTransactionId())).ifPresent(rp -> {
-                        rp.setPaymentStatus("REFUNDED");
-                        paymentRepository.save(rp);
-                    });
-                } catch (Exception ignored) {
-                }
-            }
-
-            // 🔥 When Manager approves refund -> Cancel Booking/Membership
+            refund.setStatus("APPROVED"); refund.setApprovedBy(managerId); refund.setDecisionNote(decision.decisionNote());
             if (refund.getBookingId() != null && refund.getBookingType() != null) {
-                String bookingType = refund.getBookingType();
-
-                // LUỒNG 1: Cancel CLASS/COURT booking
-                if (("CLASS".equalsIgnoreCase(bookingType) || "COURT".equalsIgnoreCase(bookingType)) 
-                    && bookingService != null) {
-                    try {
-                        logger.info("🔥 Calling cancelBookingAfterRefund - bookingId: {}, bookingType: {}", 
-                            refund.getBookingId(), bookingType);
-                        bookingService.cancelBookingAfterRefund(
-                            refund.getBookingId(), 
-                            bookingType, 
-                            refund.getRefundId()
-                        );
-                    } catch (Exception e) {
-                        logger.error("❌ Cancel booking error: ", e);
-                        refund.setDecisionNote((refund.getDecisionNote() != null ? refund.getDecisionNote() : "") 
-                                + " | Cancel booking error: " + e.getMessage());
-                    }
-                }
-                
-                // LUỒNG 2: Cancel MEMBERSHIP
-                else if ("MEMBERSHIP".equalsIgnoreCase(bookingType) && membershipService != null) {
-                    try {
-                        logger.info("🔥 Calling cancelMembershipAfterRefund - membershipId: {}", 
-                            refund.getBookingId());
-                        membershipService.cancelMembershipAfterRefund(
-                            refund.getBookingId(),  // bookingId contains membershipId
-                            refund.getRefundId()
-                        );
-                    } catch (Exception e) {
-                        logger.error("❌ Cancel membership error: ", e);
-                        refund.setDecisionNote((refund.getDecisionNote() != null ? refund.getDecisionNote() : "") 
-                                + " | Cancel membership error: " + e.getMessage());
-                    }
-                }
-            } else {
-                logger.warn("⚠️ Missing bookingId or bookingType - Cannot cancel booking");
+                if ("MEMBERSHIP".equals(refund.getBookingType())) membershipService.cancelMembershipAfterRefund(refund.getBookingId(), id);
+                else bookingService.cancelBookingAfterRefund(refund.getBookingId(), refund.getBookingType(), id);
             }
         }
-
         if (engagementService != null) {
-            // Send notification to member
-            String notificationTitle = decision.approved() 
-                    ? "Yêu cầu hoàn tiền đã được duyệt" 
-                    : "Yêu cầu hoàn tiền bị từ chối";
-            
-            String notificationMessage = decision.approved()
-                    ? String.format("Yêu cầu hoàn tiền %,.0f VNĐ đã được duyệt. " +
-                            "Tiền sẽ được chuyển về tài khoản trong 3-5 ngày làm việc.",
-                            refund.getRefundAmount().doubleValue())
-                    : String.format("Yêu cầu hoàn tiền %,.0f VNĐ đã bị từ chối. Lý do: %s",
-                            refund.getRefundAmount().doubleValue(),
-                            decision.decisionNote() != null ? decision.decisionNote().trim() : "Không đủ điều kiện");
-            
-            engagementService.notifyUser(
-                    refund.getMemberId(),
-                    notificationTitle,
-                    notificationMessage,
-                    "REFUND"
-            );
-
-            // Audit log
-            engagementService.audit(managerId, "MANAGER", "REFUND_DECIDED",
-                    "refundId=" + id + ", status=" + refund.getStatus() +
-                    ", amount=" + refund.getRefundAmount() +
-                    ", memberId=" + refund.getMemberId() +
-                    ", note=" + (decision.decisionNote() != null ? decision.decisionNote().trim() : ""));
+            engagementService.audit(managerId, "MANAGER", "REFUND_DECIDED", "refundId=" + id + ", status=" + refund.getStatus());
+            engagementService.notifyUser(refund.getMemberId(), "Kết quả yêu cầu hoàn tiền", "Yêu cầu #" + id + ": " + refund.getStatus(), "REFUND");
         }
-
         return ResponseEntity.ok(toDTO(refundRepository.save(refund)));
     }
 

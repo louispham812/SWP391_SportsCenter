@@ -37,6 +37,7 @@ public class PaymentController {
 
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PaymentGateway vnpayGateway;
+    @Autowired private com.sporthub.backend.service.PaymentAttemptService attempts;
 
     @Autowired
     public PaymentController(
@@ -56,11 +57,12 @@ public class PaymentController {
      * @return Payment URL
      */
     @GetMapping("/generate")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> generatePayment(
             @RequestParam Long paymentId,
             @RequestParam(required = false) Double amount,
             @RequestParam(defaultValue = "VNPAY") String gateway,
-            jakarta.servlet.http.HttpServletRequest request) {
+            jakarta.servlet.http.HttpServletRequest request, org.springframework.security.core.Authentication auth) {
         
         // Only VNPAY gateway supported
         if (!"VNPAY".equalsIgnoreCase(gateway)) {
@@ -68,27 +70,10 @@ public class PaymentController {
                 HttpStatus.BAD_REQUEST, "Only VNPAY gateway is supported");
         }
         
-        PaymentTransaction payment = paymentTransactionRepository
-            .findById(paymentId)
-            .orElseThrow(() -> new ResponseStatusException(
-                HttpStatus.NOT_FOUND, "Payment not found"));
-        
-        String description = "Thanh toan " + payment.getBookingType() + " #" + payment.getReferenceCode();
-        
-        // Extract client IP address
-        String ipAddress = getClientIpAddress(request);
-        
-        Map<String, Object> response = vnpayGateway.generatePayment(
-            paymentId, 
-            payment.getAmount(), 
-            description,
-            ipAddress
-        );
-        
-        // Add bookingType to response for frontend navigation
-        response.put("bookingType", payment.getBookingType());
-        
-        return ResponseEntity.ok(response);
+        PaymentTransaction payment = paymentTransactionRepository.findByIdForUpdate(paymentId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
+        authorize(payment, auth); requirePayable(payment);
+        return ResponseEntity.ok(attempts.generate(payment, vnpayGateway, getClientIpAddress(request)));
     }
     
     /**
@@ -126,12 +111,13 @@ public class PaymentController {
      * @return Payment status details
      */
     @GetMapping("/{paymentId}")
-    public ResponseEntity<?> getPaymentStatus(@PathVariable Long paymentId) {
+    public ResponseEntity<?> getPaymentStatus(@PathVariable Long paymentId, org.springframework.security.core.Authentication auth) {
         PaymentTransaction payment = paymentTransactionRepository
             .findById(paymentId)
             .orElseThrow(() -> new ResponseStatusException(
                 HttpStatus.NOT_FOUND, "Payment not found"));
         
+        authorize(payment, auth);
         Map<String, Object> response = new HashMap<>();
         response.put("paymentId", payment.getPaymentId());
         response.put("paymentStatus", payment.getPaymentStatus());
@@ -142,4 +128,17 @@ public class PaymentController {
         
         return ResponseEntity.ok(response);
     }
+    private void authorize(PaymentTransaction payment, org.springframework.security.core.Authentication auth) {
+        if (auth == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        boolean staff = auth.getAuthorities().stream().anyMatch(a -> java.util.Set.of("ROLE_RECEPTIONIST", "ROLE_MANAGER", "ROLE_ADMIN").contains(a.getAuthority()));
+        if (!staff && !payment.getMemberId().toString().equals(auth.getName())) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+    }
+
+    private void requirePayable(PaymentTransaction payment) {
+        if (!"PENDING".equals(payment.getPaymentStatus()) || payment.getAmount().signum() <= 0
+                || payment.getCreatedAt() == null || !payment.getCreatedAt().plusMinutes(10).isAfter(java.time.LocalDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Giao dịch không còn trong thời hạn thanh toán.");
+        }
+    }
+
 }

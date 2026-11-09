@@ -111,6 +111,8 @@ public class WorkoutProgressController {
         Long currentId = actorId(auth);
         String currentRole = actorRole(auth);
 
+        requireStudentAccess(currentId, currentRole, memberId);
+
         if (!"COACH".equalsIgnoreCase(currentRole) &&
             !"MANAGER".equalsIgnoreCase(currentRole) &&
             !"ADMIN".equalsIgnoreCase(currentRole) &&
@@ -154,6 +156,7 @@ public class WorkoutProgressController {
         if ("AI".equals(source)) {
             // Member tự lưu kế hoạch gợi ý AI
             targetMemberId = req.memberId() != null ? req.memberId() : actorId;
+            requireStudentAccess(actorId, role, targetMemberId);
             coachName = "Trợ lý AI FitGenius";
         } else {
             // Coach soạn giáo án cho học viên
@@ -164,6 +167,7 @@ public class WorkoutProgressController {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng chọn học viên nhận giáo án.");
             }
             targetMemberId = req.memberId();
+            requireStudentAccess(actorId, role, targetMemberId);
             coachId = actorId;
             coachName = userRepository.findById(actorId).map(User::getFullName).orElse("Huấn luyện viên");
         }
@@ -220,6 +224,8 @@ public class WorkoutProgressController {
 
         WorkoutPlan plan = workoutPlanRepository.findById(planId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy kế hoạch tập."));
+
+        requireStudentAccess(currentId, currentRole, plan.getMemberId());
 
         if (!currentId.equals(plan.getMemberId()) &&
             !"COACH".equalsIgnoreCase(currentRole) &&
@@ -343,6 +349,7 @@ public class WorkoutProgressController {
         String role = actorRole(auth);
 
         Long targetMemberId = (req != null && req.memberId() != null) ? req.memberId() : actorId;
+        requireStudentAccess(actorId, role, targetMemberId);
         if (!actorId.equals(targetMemberId) &&
             !"COACH".equalsIgnoreCase(role) &&
             !"MANAGER".equalsIgnoreCase(role) &&
@@ -410,6 +417,13 @@ public class WorkoutProgressController {
     }
 
     // ------------------------------------------------------------------- Helpers
+
+    private void requireStudentAccess(Long actor, String role, Long memberId) {
+        if (actor.equals(memberId) || "MANAGER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role)) return;
+        if ("COACH".equalsIgnoreCase(role) && bookingRepository != null
+                && bookingRepository.isAssignedStudent(actor, memberId)) return;
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không được phân công phụ trách hội viên này.");
+    }
 
     private Long actorId(Authentication auth) {
         if (auth == null || auth.getName() == null) {

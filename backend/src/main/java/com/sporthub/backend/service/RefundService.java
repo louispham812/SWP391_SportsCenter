@@ -26,6 +26,7 @@ public class RefundService {
     private final UserRepository userRepository;
     private final MembershipPackageRepository membershipPackageRepository;
     private final EngagementService engagementService;
+    @org.springframework.beans.factory.annotation.Autowired private com.sporthub.backend.repository.PaymentTransactionRepository payments;
 
     public RefundService(
             RefundRequestRepository refundRequestRepository,
@@ -84,7 +85,7 @@ public class RefundService {
                 .referenceCode(referenceCode)
                 .refundAmount(amount)
                 .reason(reason.trim())
-                .status("APPROVED")  // Auto-approve
+                .status("PENDING_APPROVAL") // Money movement is confirmed separately; never report an unexecuted refund as complete.
                 .approvedBy(approvedBy)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -95,8 +96,8 @@ public class RefundService {
         if (engagementService != null) {
             engagementService.notifyUser(
                 memberId,
-                "Yêu cầu hoàn tiền đã được duyệt",
-                String.format("Yêu cầu hoàn tiền %,.0f VNĐ đã được duyệt tự động. Lý do: %s. " +
+                "Đã tạo yêu cầu hoàn tiền",
+                String.format("Yêu cầu hoàn tiền %,.0f VNĐ đã được tạo để xử lý. Lý do: %s. " +
                         "Tiền sẽ được chuyển về tài khoản trong 3-5 ngày làm việc.",
                         amount, reason),
                 "REFUND"
@@ -133,14 +134,10 @@ public class RefundService {
                 rejectReason
         );
 
-        // Create auto-approved refund
-        return createAutoApprovedRefund(
-                membership.getUserId(),
-                pkg.getPrice(),
-                refundReason,
-                managerId,
-                null,  // transactionId - có thể link sau nếu cần
-                String.format("MBR-%d", membership.getMembershipId())  // referenceCode
-        );
+        com.sporthub.backend.entity.PaymentTransaction payment = payments.findFirstByMembershipIdOrderByCreatedAtDesc(membership.getMembershipId())
+            .filter(p -> "PAID".equals(p.getPaymentStatus())).orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Gói chưa thanh toán."));
+        RefundRequest refund = createAutoApprovedRefund(membership.getUserId(), payment.getAmount(), refundReason, managerId, payment.getPaymentId(), payment.getReferenceCode());
+        refund.setBookingId(membership.getMembershipId()); refund.setBookingType("MEMBERSHIP");
+        return refundRequestRepository.save(refund);
     }
 }

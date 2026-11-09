@@ -31,6 +31,8 @@ import java.util.List;
  */
 @Service
 public class SystemAutomationScheduler {
+    @org.springframework.beans.factory.annotation.Value("${sporthub.scheduling.enabled:true}")
+    private boolean schedulingEnabled;
 
     private static final Logger log = LoggerFactory.getLogger(SystemAutomationScheduler.class);
     private static final List<String> ACTIVE_STATUSES = List.of("BOOKED", "CONFIRMED");
@@ -74,6 +76,7 @@ public class SystemAutomationScheduler {
 
     @PostConstruct
     public void onStartup() {
+        if (!schedulingEnabled) return;
         log.info("SystemAutomationScheduler initialized. Performing startup checks...");
         try {
             if (facilityCourtSyncService != null) {
@@ -105,18 +108,8 @@ public class SystemAutomationScheduler {
     @Scheduled(fixedDelay = 60000)
     @Transactional
     public void autoCancelExpiredPendingHolds() {
-        LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(10);
+        // PaymentTimeoutScheduler owns cancellation and releases linked resources atomically.
 
-        // Chỉ quét đặt sân (Court Bookings) - Class bookings track via payment_status only
-
-        List<CourtBooking> expiredCourtHolds = courtBookingRepository
-                .findByStatusIgnoreCaseAndCreatedAtBefore("PENDING", tenMinutesAgo);
-
-        for (CourtBooking cb : expiredCourtHolds) {
-            cb.setStatus("CANCELLED");
-            courtBookingRepository.save(cb);
-            log.info("BR-07: Auto-cancelled expired pending court booking #{} (memberId={})", cb.getCourtBookingId(), cb.getMemberId());
-        }
     }
 
     /**

@@ -23,6 +23,11 @@ public class MembershipService {
 
     private final UserMembershipRepository userMembershipRepository;
     private final MembershipPackageRepository membershipPackageRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.sporthub.backend.repository.PaymentTransactionRepository payments;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.sporthub.backend.repository.UserRepository users;
+    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
     private final RefundService refundService;
     private final EngagementService engagementService;
     private final AuditLogService auditLogService;
@@ -47,15 +52,18 @@ public class MembershipService {
      */
     @Transactional
     public void approveMembership(Long membershipId, Long managerId) {
-        UserMembership membership = userMembershipRepository.findById(membershipId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
-                    "Membership không tồn tại"));
+        if (users != null) {
+            UserMembership candidate = userMembershipRepository.findById(membershipId).orElseThrow();
+            users.findByIdForUpdate(candidate.getUserId()).orElseThrow();
+        }
+        UserMembership membership = lockMembership(membershipId);
 
         if (!"PENDING".equals(membership.getStatus()) && !"PENDING_APPROVAL".equals(membership.getStatus())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
                 "Chỉ có thể duyệt gói ở trạng thái PENDING hoặc PENDING_APPROVAL");
         }
 
+        requirePaid(membership);
         // Lấy thông tin package để set quota
         MembershipPackage pkg = membershipPackageRepository.findById(membership.getPackageId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
@@ -66,8 +74,14 @@ public class MembershipService {
         
         // Set thời hạn
         LocalDate now = LocalDate.now();
-        membership.setStartDate(now);
-        membership.setEndDate(now.plusDays(pkg.getDurationDays()));
+        LocalDate start = now;
+        for (UserMembership old : userMembershipRepository.findByUserIdAndStatus(membership.getUserId(), "ACTIVE")) {
+            if (old.getMembershipId().equals(membershipId) || old.getEndDate() == null || old.getEndDate().isBefore(now)) continue;
+            MembershipPackage oldPackage = membershipPackageRepository.findById(old.getPackageId()).orElse(null);
+            if (sameRenewalGroup(pkg, oldPackage) && !old.getEndDate().isBefore(start)) start = old.getEndDate().plusDays(1);
+        }
+        membership.setStartDate(start);
+        membership.setEndDate(start.plusDays(Math.max(1, pkg.getDurationDays()) - 1));
 
         // Set quota ban đầu theo package
         Integer quotaSessions = pkg.getQuotaSessions() != null ? pkg.getQuotaSessions() : 0;
@@ -75,6 +89,12 @@ public class MembershipService {
         membership.setRemainingQuotaSessions(quotaSessions);
         membership.setHeldQuotaSessions(0);
         membership.setUsedQuotaSessions(0);
+
+        int quotaCourts = pkg.getQuotaCourts() != null ? pkg.getQuotaCourts() : 0;
+        membership.setInitialQuotaCourts(quotaCourts);
+        membership.setRemainingQuotaCourts(quotaCourts);
+        membership.setHeldQuotaCourts(0);
+        membership.setUsedQuotaCourts(0);
 
         userMembershipRepository.save(membership);
 
@@ -113,9 +133,7 @@ public class MembershipService {
      */
     @Transactional
     public void rejectMembership(Long membershipId, String reason, Long managerId) {
-        UserMembership membership = userMembershipRepository.findById(membershipId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
-                    "Membership không tồn tại"));
+        UserMembership membership = lockMembership(membershipId);
 
         if (!"PENDING".equals(membership.getStatus()) && !"PENDING_APPROVAL".equals(membership.getStatus())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
@@ -127,6 +145,7 @@ public class MembershipService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
                     "Package không tồn tại"));
 
+        requirePaid(membership);
         membership.setStatus("REJECTED");
         userMembershipRepository.save(membership);
 
@@ -172,13 +191,114 @@ public class MembershipService {
      */
     @Transactional(readOnly = true)
     public UserMembership getActiveMembershipWithQuota(Long userId, int requiredQuota) {
-        List<UserMembership> memberships = userMembershipRepository.findByUserIdAndStatus(userId, "ACTIVE");
+        return getActiveMembershipWithQuota(userId, requiredQuota, "CLASS", null);
+    }
 
-        return memberships.stream()
-                .filter(m -> m.getEndDate() != null && m.getEndDate().isAfter(LocalDate.now())) // Chưa hết hạn
-                .filter(m -> m.getRemainingQuotaSessions() != null && m.getRemainingQuotaSessions() >= requiredQuota) // Đủ quota
-                .findFirst()
-                .orElse(null);
+    @Transactional(readOnly = true)
+    public UserMembership getActiveMembershipWithQuota(Long userId, int requiredQuota, String type, Long sportId) {
+        return userMembershipRepository.findByUserIdAndStatus(userId, "ACTIVE").stream()
+            .filter(this::isEffective)
+            .filter(m -> m.getRemainingQuotaSessions() != null && m.getRemainingQuotaSessions() >= requiredQuota)
+            .filter(m -> {
+                MembershipPackage p = membershipPackageRepository.findById(m.getPackageId()).orElse(null);
+                if (p == null) return false;
+                if (p.getPackageType() == com.sporthub.backend.enums.PackageType.VIP) return true;
+                return type.equals(p.getPackageType().name()) && sportId != null && sportId.equals(p.getSportId());
+            })
+            .sorted(java.util.Comparator.<UserMembership, Integer>comparing(m -> {
+                MembershipPackage p = membershipPackageRepository.findById(m.getPackageId()).orElseThrow();
+                return p.getPackageType() == com.sporthub.backend.enums.PackageType.VIP ? 0 : 1;
+            }).thenComparing(UserMembership::getEndDate).thenComparing(UserMembership::getMembershipId))
+            .findFirst().orElse(null);
+    }
+
+    public boolean isEffective(UserMembership m) {
+        LocalDate today = LocalDate.now();
+        return "ACTIVE".equals(m.getStatus()) && m.getStartDate() != null && !m.getStartDate().isAfter(today)
+            && m.getEndDate() != null && !m.getEndDate().isBefore(today);
+    }
+
+    private boolean sameRenewalGroup(MembershipPackage a, MembershipPackage b) {
+        return b != null && a.getPackageType() == b.getPackageType()
+            && (a.getPackageType() == com.sporthub.backend.enums.PackageType.VIP || java.util.Objects.equals(a.getSportId(), b.getSportId()));
+    }
+
+    private UserMembership lockMembership(Long id) {
+        UserMembership m = userMembershipRepository.findByIdForUpdate(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Membership không tồn tại"));
+        // Quota selectors may already have loaded this row into the persistence context.
+        if (entityManager != null) entityManager.refresh(m, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (m.getRemainingQuotaSessions() == null) m.setRemainingQuotaSessions(0);
+        if (m.getHeldQuotaSessions() == null) m.setHeldQuotaSessions(0);
+        if (m.getUsedQuotaSessions() == null) m.setUsedQuotaSessions(0);
+        if (m.getInitialQuotaSessions() == null) m.setInitialQuotaSessions(0);
+        if (m.getRemainingQuotaCourts() == null) m.setRemainingQuotaCourts(0);
+        if (m.getHeldQuotaCourts() == null) m.setHeldQuotaCourts(0);
+        if (m.getUsedQuotaCourts() == null) m.setUsedQuotaCourts(0);
+        if (m.getInitialQuotaCourts() == null) m.setInitialQuotaCourts(0);
+        return m;
+    }
+
+    private void requirePaid(UserMembership membership) {
+        if (payments == null || payments.findFirstByMembershipIdOrderByCreatedAtDesc(membership.getMembershipId())
+                .filter(p -> "PAID".equals(p.getPaymentStatus()) && membership.getUserId().equals(p.getMemberId())).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Gói tập chưa có giao dịch đã thanh toán hợp lệ.");
+        }
+    }
+
+    public String sessionQuotaState(com.sporthub.backend.entity.Booking booking, com.sporthub.backend.enums.AttendanceStatus previous) {
+        if (booking.getQuotaState() != null) return booking.getQuotaState();
+        if (previous == null || previous == com.sporthub.backend.enums.AttendanceStatus.PENDING) return "HELD";
+        if (previous == com.sporthub.backend.enums.AttendanceStatus.PRESENT || previous == com.sporthub.backend.enums.AttendanceStatus.UNEXCUSED_ABSENCE) return "USED";
+        // A legacy EXCUSED label cannot prove whether quota was returned before or after expiry.
+        return "REVIEW_REQUIRED";
+    }
+
+    @Transactional
+    public void settleAttendanceQuota(com.sporthub.backend.entity.Booking booking,
+            com.sporthub.backend.enums.AttendanceStatus previous, com.sporthub.backend.enums.AttendanceStatus next,
+            LocalDateTime sessionStart) {
+        UserMembership m = lockMembership(booking.getMembershipId());
+        String state = sessionQuotaState(booking, previous);
+        if (!List.of("HELD", "USED", "RELEASED", "FORFEITED").contains(state))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Quota lịch sử chưa xác định đã hoàn hay đã dùng; cần đối soát trước khi sửa điểm danh.");
+        boolean excused = next == com.sporthub.backend.enums.AttendanceStatus.EXCUSED_ABSENCE;
+        boolean refundable = isBookingWithinMembershipPeriod(m, sessionStart);
+        if ("USED".equals(state) && m.getUsedQuotaSessions() < 1)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Quota lịch sử không khớp trạng thái đã dùng; cần đối soát.");
+        if ("HELD".equals(state)) {
+            if (m.getHeldQuotaSessions() < 1) throw new ResponseStatusException(HttpStatus.CONFLICT, "Booking không còn quota đang giữ.");
+            m.setHeldQuotaSessions(m.getHeldQuotaSessions() - 1);
+            if (excused) {
+                m.setRemainingQuotaSessions(m.getRemainingQuotaSessions() + 1);
+                state = refundable ? "RELEASED" : "FORFEITED";
+            } else { m.setUsedQuotaSessions(m.getUsedQuotaSessions() + 1); state = "USED"; }
+        } else if ("USED".equals(state) && excused && refundable) {
+            if (m.getUsedQuotaSessions() < 1) throw new ResponseStatusException(HttpStatus.CONFLICT, "Booking thiếu quota đã dùng.");
+            m.setUsedQuotaSessions(m.getUsedQuotaSessions() - 1); m.setRemainingQuotaSessions(m.getRemainingQuotaSessions() + 1); state = "RELEASED";
+        } else if ("RELEASED".equals(state) && !excused) {
+            if (refundable) {
+                if (m.getRemainingQuotaSessions() < 1) throw new ResponseStatusException(HttpStatus.CONFLICT, "Quota đã hoàn được dùng cho booking khác; cần đối soát trước khi sửa.");
+                m.setRemainingQuotaSessions(m.getRemainingQuotaSessions() - 1); m.setUsedQuotaSessions(m.getUsedQuotaSessions() + 1); state = "USED";
+            } else state = "FORFEITED";
+        }
+        // USED remains USED when an expired term cannot refund it; reversing the label is a no-op.
+        validateQuotaFormula(m); booking.setQuotaState(state); userMembershipRepository.save(m);
+    }
+
+    @Transactional
+    public void requireCourtCheckIn(Long membershipId, double hours) {
+        UserMembership m = lockMembership(membershipId);
+        if (!Double.isFinite(hours) || hours <= 0 || !isEffective(m) || m.getHeldQuotaCourts() < Math.ceil(hours))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Gói sân hết hiệu lực hoặc thiếu quota đang giữ; cần chuyển sang thanh toán lẻ.");
+        validateCourtQuotaFormula(m);
+    }
+
+    @Transactional
+    public void requireSessionCheckIn(Long membershipId) {
+        UserMembership m = lockMembership(membershipId);
+        if (!isEffective(m) || m.getHeldQuotaSessions() < 1)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Gói buổi học hết hiệu lực hoặc thiếu quota đang giữ.");
+        validateQuotaFormula(m);
     }
 
     /**
@@ -194,7 +314,7 @@ public class MembershipService {
         int initial = membership.getInitialQuotaSessions() != null ? membership.getInitialQuotaSessions() : 0;
 
         int total = remaining + held + used;
-        if (total != initial) {
+        if (remaining < 0 || held < 0 || used < 0 || initial < 0 || total != initial) {
             throw new IllegalStateException(String.format(
                     "Quota formula broken for membership %d! remaining(%d) + held(%d) + used(%d) = %d != initial(%d)",
                     membership.getMembershipId(), remaining, held, used, total, initial));
@@ -207,11 +327,9 @@ public class MembershipService {
      */
     @Transactional
     public void holdQuota(Long membershipId, int quotaAmount) {
-        UserMembership membership = userMembershipRepository.findById(membershipId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
-                    "Membership không tồn tại"));
+        UserMembership membership = lockMembership(membershipId);
 
-        if (membership.getRemainingQuotaSessions() < quotaAmount) {
+        if (!isEffective(membership) || quotaAmount <= 0 || membership.getRemainingQuotaSessions() < quotaAmount) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
                     String.format("Không đủ quota. Còn lại: %d, cần: %d",
                             membership.getRemainingQuotaSessions(), quotaAmount));
@@ -220,8 +338,8 @@ public class MembershipService {
         membership.setRemainingQuotaSessions(membership.getRemainingQuotaSessions() - quotaAmount);
         membership.setHeldQuotaSessions(membership.getHeldQuotaSessions() + quotaAmount);
 
-        userMembershipRepository.save(membership);
         validateQuotaFormula(membership);
+        userMembershipRepository.save(membership);
     }
 
     /**
@@ -230,15 +348,15 @@ public class MembershipService {
      */
     @Transactional
     public void releaseQuota(Long membershipId, int quotaAmount) {
-        UserMembership membership = userMembershipRepository.findById(membershipId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
-                    "Membership không tồn tại"));
+        UserMembership membership = lockMembership(membershipId);
 
+        if (quotaAmount <= 0 || membership.getHeldQuotaSessions() < quotaAmount) throw new ResponseStatusException(HttpStatus.CONFLICT, "Quota đang giữ không đủ.");
         membership.setHeldQuotaSessions(membership.getHeldQuotaSessions() - quotaAmount);
-        membership.setRemainingQuotaSessions(membership.getRemainingQuotaSessions() + quotaAmount);
+        if (isEffective(membership)) membership.setRemainingQuotaSessions(membership.getRemainingQuotaSessions() + quotaAmount);
+        else membership.setUsedQuotaSessions(membership.getUsedQuotaSessions() + quotaAmount);
 
-        userMembershipRepository.save(membership);
         validateQuotaFormula(membership);
+        userMembershipRepository.save(membership);
     }
 
     /**
@@ -247,15 +365,14 @@ public class MembershipService {
      */
     @Transactional
     public void consumeQuota(Long membershipId, int quotaAmount) {
-        UserMembership membership = userMembershipRepository.findById(membershipId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
-                    "Membership không tồn tại"));
+        UserMembership membership = lockMembership(membershipId);
 
+        if (quotaAmount <= 0 || membership.getHeldQuotaSessions() < quotaAmount) throw new ResponseStatusException(HttpStatus.CONFLICT, "Quota đang giữ không đủ.");
         membership.setHeldQuotaSessions(membership.getHeldQuotaSessions() - quotaAmount);
         membership.setUsedQuotaSessions(membership.getUsedQuotaSessions() + quotaAmount);
 
-        userMembershipRepository.save(membership);
         validateQuotaFormula(membership);
+        userMembershipRepository.save(membership);
     }
 
     /**
@@ -273,10 +390,9 @@ public class MembershipService {
      */
     @Transactional
     public void refundQuotaForExcusedAbsence(Long membershipId, int quotaAmount, LocalDateTime bookingStartTime) {
-        UserMembership membership = userMembershipRepository.findById(membershipId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
-                    "Membership không tồn tại"));
+        UserMembership membership = lockMembership(membershipId);
 
+        if (quotaAmount <= 0 || membership.getHeldQuotaSessions() < quotaAmount) throw new ResponseStatusException(HttpStatus.CONFLICT, "Quota đang giữ không đủ.");
         membership.setHeldQuotaSessions(membership.getHeldQuotaSessions() - quotaAmount);
 
         // Kiểm tra booking có trong thời hạn gói không
@@ -290,8 +406,8 @@ public class MembershipService {
             membership.setUsedQuotaSessions(membership.getUsedQuotaSessions() + quotaAmount);
         }
 
-        userMembershipRepository.save(membership);
         validateQuotaFormula(membership);
+        userMembershipRepository.save(membership);
     }
     
     /**
@@ -305,7 +421,7 @@ public class MembershipService {
         if (membership.getEndDate() == null || bookingStartTime == null) {
             return false;
         }
-        return !bookingStartTime.toLocalDate().isAfter(membership.getEndDate());
+        return isEffective(membership) && !bookingStartTime.toLocalDate().isAfter(membership.getEndDate());
     }
 
     /**
@@ -322,22 +438,21 @@ public class MembershipService {
      */
     @Transactional
     public void refundUsedQuotaForExcusedAbsence(Long membershipId, int quotaAmount, LocalDateTime bookingStartTime) {
-        UserMembership membership = userMembershipRepository.findById(membershipId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
-                    "Membership không tồn tại"));
+        UserMembership membership = lockMembership(membershipId);
 
         // Kiểm tra booking có trong thời hạn gói không
         boolean isWithinPeriod = isBookingWithinMembershipPeriod(membership, bookingStartTime);
         
         if (isWithinPeriod) {
             // Booking trong thời hạn → Hoàn quota
+            if (quotaAmount <= 0 || membership.getUsedQuotaSessions() < quotaAmount) throw new ResponseStatusException(HttpStatus.CONFLICT, "Quota đã dùng không đủ.");
             membership.setUsedQuotaSessions(membership.getUsedQuotaSessions() - quotaAmount);
             membership.setRemainingQuotaSessions(membership.getRemainingQuotaSessions() + quotaAmount);
         }
         // Nếu booking ngoài thời hạn: Không làm gì (used và remaining giữ nguyên, quota mất)
 
-        userMembershipRepository.save(membership);
         validateQuotaFormula(membership);
+        userMembershipRepository.save(membership);
     }
 
     /**
@@ -352,11 +467,9 @@ public class MembershipService {
      */
     @Transactional
     public void consumeQuotaFromRemaining(Long membershipId, int quotaAmount) {
-        UserMembership membership = userMembershipRepository.findById(membershipId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
-                    "Membership không tồn tại"));
+        UserMembership membership = lockMembership(membershipId);
 
-        if (membership.getRemainingQuotaSessions() < quotaAmount) {
+        if (!isEffective(membership) || quotaAmount <= 0 || membership.getRemainingQuotaSessions() < quotaAmount) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     String.format("⚠️ Không thể sửa điểm danh. Quota còn lại không đủ. Cần: %d, còn: %d",
                             quotaAmount, membership.getRemainingQuotaSessions()));
@@ -365,8 +478,8 @@ public class MembershipService {
         membership.setRemainingQuotaSessions(membership.getRemainingQuotaSessions() - quotaAmount);
         membership.setUsedQuotaSessions(membership.getUsedQuotaSessions() + quotaAmount);
 
-        userMembershipRepository.save(membership);
         validateQuotaFormula(membership);
+        userMembershipRepository.save(membership);
     }
 
     /**
@@ -378,12 +491,11 @@ public class MembershipService {
      */
     @Transactional
     public void cancelMembershipAfterRefund(Long membershipId, Long refundId) {
-        UserMembership membership = userMembershipRepository.findById(membershipId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
-                    "Membership không tồn tại"));
+        UserMembership membership = lockMembership(membershipId);
 
         // Chỉ cancel membership đang ACTIVE
-        if (!"ACTIVE".equals(membership.getStatus())) {
+        if ("CANCELLED".equals(membership.getStatus())) return;
+        if (!List.of("ACTIVE", "PENDING_APPROVAL", "REJECTED").contains(membership.getStatus())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     String.format("Chỉ có thể hủy membership ở trạng thái ACTIVE. Hiện tại: %s", 
                             membership.getStatus()));
@@ -399,6 +511,8 @@ public class MembershipService {
         // Xóa hết quota - revoke all privileges
         membership.setRemainingQuotaSessions(0);
         membership.setHeldQuotaSessions(0);
+        membership.setRemainingQuotaCourts(0);
+        membership.setHeldQuotaCourts(0);
         // used giữ nguyên (đã dùng thì đã dùng)
         
         // Hết hiệu lực ngay
@@ -452,8 +566,10 @@ public class MembershipService {
         List<UserMembership> memberships = userMembershipRepository.findByUserIdAndStatus(userId, "ACTIVE");
 
         return memberships.stream()
-                .filter(m -> m.getEndDate() != null && m.getEndDate().isAfter(LocalDate.now()))
+                .filter(this::isEffective)
+                .filter(m -> membershipPackageRepository.findById(m.getPackageId()).map(p -> p.getPackageType() == com.sporthub.backend.enums.PackageType.VIP).orElse(false))
                 .filter(m -> m.getRemainingQuotaCourts() != null && m.getRemainingQuotaCourts() >= requiredHours)
+                .sorted(java.util.Comparator.comparing(UserMembership::getEndDate).thenComparing(UserMembership::getMembershipId))
                 .findFirst()
                 .orElse(null);
     }
@@ -467,7 +583,7 @@ public class MembershipService {
         int used = membership.getUsedQuotaCourts() != null ? membership.getUsedQuotaCourts() : 0;
         int initial = membership.getInitialQuotaCourts() != null ? membership.getInitialQuotaCourts() : 0;
 
-        if (remaining + held + used != initial) {
+        if (remaining < 0 || held < 0 || used < 0 || initial < 0 || remaining + held + used != initial) {
             throw new IllegalStateException(String.format(
                 "Court quota formula mismatch for membership %d: remaining=%d + held=%d + used=%d != initial=%d",
                 membership.getMembershipId(), remaining, held, used, initial
@@ -480,13 +596,14 @@ public class MembershipService {
      */
     @Transactional
     public void holdCourtQuota(Long membershipId, double hours) {
-        UserMembership membership = userMembershipRepository.findById(membershipId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Membership không tồn tại"));
+        UserMembership membership = lockMembership(membershipId);
+        if (!Double.isFinite(hours) || hours <= 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số giờ phải lớn hơn 0.");
         int hoursInt = (int) Math.ceil(hours);
+        if (!isEffective(membership) || membership.getRemainingQuotaCourts() < hoursInt) throw new ResponseStatusException(HttpStatus.CONFLICT, "Gói không đủ quota còn hiệu lực.");
         membership.setRemainingQuotaCourts(membership.getRemainingQuotaCourts() - hoursInt);
         membership.setHeldQuotaCourts(membership.getHeldQuotaCourts() + hoursInt);
-        userMembershipRepository.save(membership);
         validateCourtQuotaFormula(membership);
+        userMembershipRepository.save(membership);
     }
 
     /**
@@ -494,13 +611,15 @@ public class MembershipService {
      */
     @Transactional
     public void releaseCourtQuota(Long membershipId, double hours) {
-        UserMembership membership = userMembershipRepository.findById(membershipId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Membership không tồn tại"));
+        UserMembership membership = lockMembership(membershipId);
+        if (!Double.isFinite(hours) || hours <= 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số giờ phải lớn hơn 0.");
         int hoursInt = (int) Math.ceil(hours);
+        if (membership.getHeldQuotaCourts() < hoursInt) throw new ResponseStatusException(HttpStatus.CONFLICT, "Quota sân đang giữ không đủ.");
         membership.setHeldQuotaCourts(membership.getHeldQuotaCourts() - hoursInt);
-        membership.setRemainingQuotaCourts(membership.getRemainingQuotaCourts() + hoursInt);
-        userMembershipRepository.save(membership);
+        if (isEffective(membership)) membership.setRemainingQuotaCourts(membership.getRemainingQuotaCourts() + hoursInt);
+        else membership.setUsedQuotaCourts(membership.getUsedQuotaCourts() + hoursInt);
         validateCourtQuotaFormula(membership);
+        userMembershipRepository.save(membership);
     }
 
     /**
@@ -508,12 +627,13 @@ public class MembershipService {
      */
     @Transactional
     public void consumeCourtQuota(Long membershipId, double hours) {
-        UserMembership membership = userMembershipRepository.findById(membershipId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Membership không tồn tại"));
+        UserMembership membership = lockMembership(membershipId);
+        if (!Double.isFinite(hours) || hours <= 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số giờ phải lớn hơn 0.");
         int hoursInt = (int) Math.ceil(hours);
+        if (membership.getHeldQuotaCourts() < hoursInt) throw new ResponseStatusException(HttpStatus.CONFLICT, "Quota sân đang giữ không đủ.");
         membership.setHeldQuotaCourts(membership.getHeldQuotaCourts() - hoursInt);
         membership.setUsedQuotaCourts(membership.getUsedQuotaCourts() + hoursInt);
-        userMembershipRepository.save(membership);
         validateCourtQuotaFormula(membership);
+        userMembershipRepository.save(membership);
     }
 }

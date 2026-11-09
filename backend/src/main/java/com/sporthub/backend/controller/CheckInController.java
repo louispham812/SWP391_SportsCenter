@@ -16,7 +16,9 @@ public class CheckInController {
     private CheckInService checkInService;
 
     @PostMapping("/check-in")
-    public ResponseEntity<CheckInResponse> checkIn(@RequestBody CheckInRequest request) {
+    public ResponseEntity<CheckInResponse> checkIn(@RequestBody CheckInRequest request,
+            org.springframework.security.core.Authentication authentication) {
+        request.setReceptionistId(Math.toIntExact(Long.parseLong(authentication.getName())));
         CheckInResponse response = checkInService.processCheckIn(request);
         return ResponseEntity.ok(response);
     }

@@ -1,5 +1,6 @@
 package com.sporthub.backend.service;
 
+import static org.mockito.Mockito.lenient;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -67,6 +68,8 @@ class BookingServiceTest {
 
     @BeforeEach
     void setUp() {
+        when(paymentService.createPayment(any(), any(), org.mockito.ArgumentMatchers.nullable(String.class), any(), any()))
+            .thenAnswer(i -> new PaymentService(paymentTransactionRepository).createPayment(i.getArgument(0), i.getArgument(1), i.getArgument(2), i.getArgument(3), i.getArgument(4)));
         bookingService = new BookingService(
                 bookingRepository,
                 classSessionRepository,
@@ -91,14 +94,16 @@ class BookingServiceTest {
         PublicSport sport = sport(4L, "Pickleball");
         PublicFacility facility = facility(5L, "Court hall");
         User coach = User.builder().userId(8L).fullName("Coach").build();
-        when(userRepository.findById(11L)).thenReturn(Optional.of(member));
+        lenient().when(userRepository.findById(11L)).thenReturn(Optional.of(member));
+        lenient().when(userRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(member));
         when(classSessionRepository.findByIdForUpdate(22L)).thenReturn(Optional.of(session));
         when(bookingRepository.existsByMemberIdAndSessionIdAndStatusIn(eq(11L), eq(22L), anyList()))
                 .thenReturn(false);
         when(bookingRepository.countBySessionIdAndStatusIn(eq(22L), anyList())).thenReturn(0L, 1L);
         when(publicSportRepository.findById(4L)).thenReturn(Optional.of(sport));
         when(publicFacilityRepository.findById(5L)).thenReturn(Optional.of(facility));
-        when(userRepository.findById(8L)).thenReturn(Optional.of(coach));
+        lenient().when(userRepository.findById(8L)).thenReturn(Optional.of(coach));
+        lenient().when(userRepository.findByIdForUpdate(8L)).thenReturn(Optional.of(coach));
         when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(invocation -> {
             PaymentTransaction payment = invocation.getArgument(0);
             payment.setPaymentId(77L);
@@ -117,7 +122,7 @@ class BookingServiceTest {
         assertEquals("CLASS", response.bookingType());
         assertEquals(88L, response.bookingId());
         assertEquals(new BigDecimal("275000"), response.amountPaid());
-        assertEquals("PAID", response.paymentStatus());
+        assertEquals("PENDING", response.paymentStatus());
         verify(classSessionRepository).save(session);
         verify(paymentTransactionRepository).save(any(PaymentTransaction.class));
     }
@@ -125,8 +130,8 @@ class BookingServiceTest {
     @Test
     void classCheckoutRejectsFullClassWithoutCreatingPayment() {
         ClassSession session = session(1);
-        when(userRepository.findById(11L))
-                .thenReturn(Optional.of(User.builder().userId(11L).role("MEMBER").status("ACTIVE").build()));
+        lenient().when(userRepository.findById(11L)).thenReturn(Optional.of(User.builder().userId(11L).role("MEMBER").status("ACTIVE").build()));
+        lenient().when(userRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(User.builder().userId(11L).role("MEMBER").status("ACTIVE").build()));
         when(classSessionRepository.findByIdForUpdate(22L)).thenReturn(Optional.of(session));
         when(bookingRepository.countBySessionIdAndStatusIn(eq(22L), anyList())).thenReturn(1L);
 
@@ -238,7 +243,8 @@ class BookingServiceTest {
         User member = User.builder().userId(11L).role("MEMBER").status("ACTIVE").build();
         LocalDateTime start = LocalDate.now().plusDays(1).atTime(10, 0);
         LocalDateTime end = start.plusHours(1);
-        when(userRepository.findById(11L)).thenReturn(Optional.of(member));
+        lenient().when(userRepository.findById(11L)).thenReturn(Optional.of(member));
+        lenient().when(userRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(member));
         when(sportsCourtRepository.findByIdForUpdate(33L)).thenReturn(Optional.of(court));
         when(courtBookingRepository.existsConfirmedOverlap(33L, start, end)).thenReturn(false);
         when(publicSportRepository.findById(4L)).thenReturn(Optional.of(sport(4L, "Pickleball")));
@@ -259,7 +265,7 @@ class BookingServiceTest {
 
         assertEquals(99L, response.bookingId());
         assertEquals(new BigDecimal("180000"), response.amountPaid());
-        assertEquals("PAID", response.paymentStatus());
+        assertEquals("PENDING", response.paymentStatus());
     }
 
     @Test
@@ -268,7 +274,8 @@ class BookingServiceTest {
         User member = User.builder().userId(11L).role("MEMBER").status("ACTIVE").build();
         LocalDateTime start = LocalDate.now().plusDays(1).atTime(10, 0);
         LocalDateTime end = start.plusHours(3);
-        when(userRepository.findById(11L)).thenReturn(Optional.of(member));
+        lenient().when(userRepository.findById(11L)).thenReturn(Optional.of(member));
+        lenient().when(userRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(member));
         when(sportsCourtRepository.findByIdForUpdate(33L)).thenReturn(Optional.of(court));
         when(courtBookingRepository.existsConfirmedOverlap(33L, start, end)).thenReturn(false);
         when(publicSportRepository.findById(4L)).thenReturn(Optional.of(sport(4L, "Pickleball")));
@@ -289,13 +296,14 @@ class BookingServiceTest {
 
         assertEquals(100L, response.bookingId());
         assertEquals(new BigDecimal("540000"), response.amountPaid());
-        assertEquals("PAID", response.paymentStatus());
+        assertEquals("PENDING", response.paymentStatus());
     }
 
     @Test
     void quoteRejectsCourtSlotThatIsNotOneHour() {
         SportsCourt court = court();
-        when(sportsCourtRepository.findById(33L)).thenReturn(Optional.of(court));
+        lenient().when(sportsCourtRepository.findById(33L)).thenReturn(Optional.of(court));
+        lenient().when(sportsCourtRepository.findByIdForUpdate(33L)).thenReturn(Optional.of(court));
         LocalDateTime start = LocalDate.now().plusDays(1).atTime(10, 0);
 
         assertThrows(ResponseStatusException.class, () -> bookingService.getQuote(
@@ -324,12 +332,13 @@ class BookingServiceTest {
     }
 
     @Test
-    void memberCannotCancelCourtBookingWithinTwoHoursOfStart() {
+    void memberCanCancelLateCourtBookingWithoutRefund() {
         CourtBooking booking = courtBooking(11L, LocalDateTime.now().plusMinutes(90));
         when(courtBookingRepository.findByIdForUpdate(99L)).thenReturn(Optional.of(booking));
-
-        assertThrows(ResponseStatusException.class, () -> bookingService.cancelCourtBooking(99L, 11L));
-        verify(courtBookingRepository, never()).save(any(CourtBooking.class));
+        CancelBookingResponse result = bookingService.cancelCourtBooking(99L, 11L);
+        assertEquals("CANCELLED", result.getStatus());
+        assertEquals(BigDecimal.ZERO, result.getRefundAmount());
+        verify(courtBookingRepository).save(booking);
     }
 
     @Test
@@ -342,7 +351,8 @@ class BookingServiceTest {
                 .status("CONFIRMED")
                 .build();
         ClassSession session = session(5);
-        when(bookingRepository.findById(101L)).thenReturn(Optional.of(booking));
+        lenient().when(bookingRepository.findById(101L)).thenReturn(Optional.of(booking));
+        lenient().when(bookingRepository.findByIdForUpdate(101L)).thenReturn(Optional.of(booking));
         when(classSessionRepository.findByIdForUpdate(22L)).thenReturn(Optional.of(session));
         when(bookingRepository.save(booking)).thenReturn(booking);
         when(classSessionRepository.save(session)).thenReturn(session);
@@ -366,7 +376,8 @@ class BookingServiceTest {
                 .status("CONFIRMED")
                 .build();
         ClassSession session = session(5);
-        when(bookingRepository.findById(102L)).thenReturn(Optional.of(booking));
+        lenient().when(bookingRepository.findById(102L)).thenReturn(Optional.of(booking));
+        lenient().when(bookingRepository.findByIdForUpdate(102L)).thenReturn(Optional.of(booking));
         when(classSessionRepository.findByIdForUpdate(22L)).thenReturn(Optional.of(session));
         when(bookingRepository.save(booking)).thenReturn(booking);
         when(classSessionRepository.save(session)).thenReturn(session);
@@ -374,7 +385,7 @@ class BookingServiceTest {
         CancelBookingResponse cancelled = bookingService.cancelClassBooking(102L, 11L);
 
         assertEquals("CANCELLED", cancelled.getStatus());
-        verify(membershipService).releaseQuota(55L, 1);
+        verify(membershipService).refundQuotaForExcusedAbsence(55L, 1, session.getStartTime());
         verify(bookingRepository).save(booking);
     }
 
@@ -388,7 +399,8 @@ class BookingServiceTest {
                 .build();
         ClassSession pastSession = session(5);
         pastSession.setStartTime(LocalDateTime.now().minusMinutes(30));
-        when(bookingRepository.findById(103L)).thenReturn(Optional.of(booking));
+        lenient().when(bookingRepository.findById(103L)).thenReturn(Optional.of(booking));
+        lenient().when(bookingRepository.findByIdForUpdate(103L)).thenReturn(Optional.of(booking));
         when(classSessionRepository.findByIdForUpdate(22L)).thenReturn(Optional.of(pastSession));
 
         assertThrows(ResponseStatusException.class, () -> bookingService.cancelClassBooking(103L, 11L));
@@ -408,7 +420,7 @@ class BookingServiceTest {
         CancelBookingResponse cancelled = bookingService.cancelCourtBooking(99L, 11L);
 
         assertEquals("CANCELLED", cancelled.getStatus());
-        verify(membershipService).releaseQuota(77L, 1);
+        verify(membershipService).releaseCourtQuota(77L, 1.0);
         verify(courtBookingRepository).save(booking);
     }
 
@@ -457,7 +469,8 @@ class BookingServiceTest {
     @Test
     void courtSlotQuoteRejectsWhenCourtUnderMaintenance() {
         SportsCourt court = court();
-        when(sportsCourtRepository.findById(33L)).thenReturn(Optional.of(court));
+        lenient().when(sportsCourtRepository.findById(33L)).thenReturn(Optional.of(court));
+        lenient().when(sportsCourtRepository.findByIdForUpdate(33L)).thenReturn(Optional.of(court));
         when(publicSportRepository.findById(4L)).thenReturn(Optional.of(sport(4L, "Pickleball")));
         LocalDateTime start = LocalDate.now().plusDays(1).atTime(8, 0);
         LocalDateTime end = start.plusHours(1);
@@ -474,7 +487,8 @@ class BookingServiceTest {
     void courtCheckoutRejectsWhenCourtUnderMaintenance() {
         SportsCourt court = court();
         User member = User.builder().userId(11L).role("MEMBER").status("ACTIVE").build();
-        when(userRepository.findById(11L)).thenReturn(Optional.of(member));
+        lenient().when(userRepository.findById(11L)).thenReturn(Optional.of(member));
+        lenient().when(userRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(member));
         when(sportsCourtRepository.findByIdForUpdate(33L)).thenReturn(Optional.of(court));
         LocalDateTime start = LocalDate.now().plusDays(1).atTime(9, 0);
         LocalDateTime end = start.plusHours(1);

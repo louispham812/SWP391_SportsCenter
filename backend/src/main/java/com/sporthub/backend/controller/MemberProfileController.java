@@ -14,6 +14,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -75,6 +77,7 @@ public class MemberProfileController {
     private final MemberCheckInRepository memberCheckInRepository;
     private final PublicSportRepository publicSportRepository;
     private final PaymentService paymentService;
+    @Autowired private com.sporthub.backend.service.MembershipService entitlementService;
 
     public MemberProfileController(
             UserRepository userRepository,
@@ -229,15 +232,19 @@ public class MemberProfileController {
 
     @GetMapping("/quota")
     @Transactional(readOnly = true)
-    public MembershipQuotaResponse getQuota(Authentication authentication) {
+    public MembershipQuotaResponse getQuota(Authentication authentication,
+            @RequestParam(defaultValue = "CLASS") String bookingType,
+            @RequestParam(required = false) Long itemId,
+            @RequestParam(defaultValue = "1") double requiredHours) {
         Long userId = memberId(authentication);
         
-        // Tìm membership ACTIVE và chưa hết hạn
-        List<UserMembership> activeMemberships = membershipRepository.findByUserIdAndStatus(userId, "ACTIVE")
-                .stream()
-                .filter(m -> m.getEndDate() != null && m.getEndDate().isAfter(LocalDate.now()))
-                .toList();
-        
+        Long sportId = null;
+        if ("CLASS".equalsIgnoreCase(bookingType) && itemId != null) sportId = classSessionRepository.findById(itemId).map(ClassSession::getSportId).orElse(null);
+        if ("PT".equalsIgnoreCase(bookingType) && itemId != null) sportId = classSessionRepository.findByCoachIdOrderByStartTimeAsc(itemId).stream().map(ClassSession::getSportId).filter(java.util.Objects::nonNull).findFirst().orElse(null);
+        UserMembership chosen = "COURT".equalsIgnoreCase(bookingType)
+            ? entitlementService.getActiveMembershipWithCourtQuota(userId, requiredHours)
+            : entitlementService.getActiveMembershipWithQuota(userId, 1, bookingType.toUpperCase(Locale.ROOT), sportId);
+        List<UserMembership> activeMemberships = chosen == null ? List.of() : List.of(chosen);
         if (activeMemberships.isEmpty()) {
             // Không có gói tập nào đang active
             return new MembershipQuotaResponse(
@@ -275,8 +282,8 @@ public class MemberProfileController {
         int usedCourts = membership.getUsedQuotaCourts() != null ? membership.getUsedQuotaCourts() : 0;
         int initialCourts = membership.getInitialQuotaCourts() != null ? membership.getInitialQuotaCourts() : 0;
         
-        boolean canUse = remaining > 0 && membership.getEndDate().isAfter(LocalDate.now());
-        boolean canUseCourts = remainingCourts > 0 && membership.getEndDate().isAfter(LocalDate.now());
+        boolean canUse = remaining > 0 && !membership.getEndDate().isBefore(LocalDate.now());
+        boolean canUseCourts = remainingCourts > 0 && !membership.getEndDate().isBefore(LocalDate.now());
         
         String message = String.format("Còn %d/%d buổi (đã dùng: %d, đang giữ: %d)", 
                 remaining, initial, used, held);
@@ -308,7 +315,7 @@ public class MemberProfileController {
         User user = findMember(userId);
 
         List<UserMembership> activeMemberships = membershipRepository.findByUserIdOrderByEndDateDesc(userId).stream()
-                .filter(m -> "ACTIVE".equalsIgnoreCase(m.getStatus()) && (m.getEndDate() == null || !m.getEndDate().isBefore(LocalDate.now())))
+                .filter(m -> "ACTIVE".equalsIgnoreCase(m.getStatus()) && m.getStartDate() != null && !m.getStartDate().isAfter(LocalDate.now()) && m.getEndDate() != null && !m.getEndDate().isBefore(LocalDate.now()))
                 .toList();
 
         List<Map<String, Object>> activePackageList = new ArrayList<>();
@@ -317,7 +324,7 @@ public class MemberProfileController {
         for (UserMembership m : activeMemberships) {
             MembershipPackage pkg = packageRepository.findById(m.getPackageId()).orElse(null);
             String pkgName = pkg != null ? pkg.getName() : "Gói tập";
-            if (pkgName.toUpperCase().contains("VIP")) {
+            if (pkg != null && pkg.getPackageType() == com.sporthub.backend.enums.PackageType.VIP) {
                 isVip = true;
             }
             long remainingDays = m.getEndDate() != null ? Math.max(0, ChronoUnit.DAYS.between(LocalDate.now(), m.getEndDate())) : 30;
@@ -393,64 +400,16 @@ public class MemberProfileController {
                 .filter(item -> "ACTIVE".equalsIgnoreCase(item.getStatus()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Gói tập không còn được mở bán."));
 
-        List<UserMembership> activeMemberships = membershipRepository.findByUserIdOrderByEndDateDesc(userId).stream()
-                .filter(m -> "ACTIVE".equalsIgnoreCase(m.getStatus()) && (m.getEndDate() == null || !m.getEndDate().isBefore(LocalDate.now())))
-                .toList();
-
-        UserMembership targetMembership;
-        if (!activeMemberships.isEmpty()) {
-            UserMembership currentMembership = activeMemberships.get(0);
-            MembershipPackage currentPackage = packageRepository.findById(currentMembership.getPackageId()).orElse(null);
-
-            if (currentPackage != null) {
-                if (membershipPackage.getPackageId().equals(currentPackage.getPackageId())) {
-                    // Gia hạn gói đang dùng
-                    LocalDate currentEnd = currentMembership.getEndDate() != null && !currentMembership.getEndDate().isBefore(LocalDate.now())
-                            ? currentMembership.getEndDate()
-                            : LocalDate.now();
-                    currentMembership.setEndDate(currentEnd.plusDays(membershipPackage.getDurationDays()));
-                    currentMembership.setStatus("PENDING_APPROVAL");
-                    targetMembership = membershipRepository.save(currentMembership);
-                } else if (membershipPackage.getPrice().compareTo(currentPackage.getPrice()) < 0) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Bạn đang sử dụng gói " + currentPackage.getName() + ". Không thể đăng ký gói thấp hơn gói hiện tại.");
-                } else if (membershipPackage.getPrice().compareTo(currentPackage.getPrice()) == 0) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Bạn đang có gói " + currentPackage.getName() + " đang kích hoạt. Bạn chỉ có thể gia hạn gói này hoặc nâng cấp lên gói cao hơn.");
-                } else {
-                    // Nâng cấp lên gói cao hơn (hết hạn gói cũ)
-                    currentMembership.setStatus("EXPIRED");
-                    membershipRepository.save(currentMembership);
-
-                    UserMembership newMembership = new UserMembership();
-                    newMembership.setUserId(userId);
-                    newMembership.setPackageId(membershipPackage.getPackageId());
-                    newMembership.setStartDate(LocalDate.now());
-                    newMembership.setEndDate(LocalDate.now().plusDays(membershipPackage.getDurationDays()));
-                    newMembership.setStatus("PENDING_APPROVAL");
-                    targetMembership = membershipRepository.save(newMembership);
-                }
-            } else {
-                currentMembership.setPackageId(membershipPackage.getPackageId());
-                currentMembership.setStartDate(LocalDate.now());
-                currentMembership.setEndDate(LocalDate.now().plusDays(membershipPackage.getDurationDays()));
-                currentMembership.setStatus("PENDING_APPROVAL");
-                targetMembership = membershipRepository.save(currentMembership);
-            }
-        } else {
-            // Đăng ký mới
-            UserMembership newMembership = new UserMembership();
-            newMembership.setUserId(userId);
-            newMembership.setPackageId(membershipPackage.getPackageId());
-            newMembership.setStartDate(LocalDate.now());
-            newMembership.setEndDate(LocalDate.now().plusDays(membershipPackage.getDurationDays()));
-            newMembership.setStatus("PENDING_APPROVAL");
-            targetMembership = membershipRepository.save(newMembership);
-        }
+        // Each purchase is independent; the currently active term is never overwritten.
+        UserMembership targetMembership = new UserMembership();
+        targetMembership.setUserId(userId);
+        targetMembership.setPackageId(membershipPackage.getPackageId());
+        targetMembership.setStatus("PENDING_PAYMENT");
+        targetMembership = membershipRepository.save(targetMembership);
 
         // Tạo bản ghi thanh toán
         String method = (request.paymentMethod() == null || request.paymentMethod().isBlank())
-                ? "SANDBOX"
+                ? "VNPAY"
                 : request.paymentMethod().toUpperCase(Locale.ROOT);
 
         String receptionPaymentMethod = switch (method) {
@@ -459,7 +418,7 @@ public class MemberProfileController {
             default -> "ONLINE";
         };
 
-        boolean isInstantPaid = true; // Member payment always instant (CASH) or redirect to VNPAY
+        boolean isInstantPaid = membershipPackage.getPrice().signum() == 0; // Member payment always instant (CASH) or redirect to VNPAY
 
         // ✅ Giữ nguyên ReceptionPayment (old system - legacy compatibility)
         ReceptionPayment payment = new ReceptionPayment();
@@ -477,6 +436,13 @@ public class MemberProfileController {
                 "MEMBERSHIP_PACKAGE", 
                 membershipPackage.getPrice(), 
                 method);
+        savedTransaction.setMembershipId(targetMembership.getMembershipId());
+        paymentTransactionRepository.save(savedTransaction);
+        if ("PAID".equals(savedTransaction.getPaymentStatus())) {
+            targetMembership.setStatus("PENDING_APPROVAL");
+            membershipRepository.save(targetMembership);
+        }
+
 
         return new MemberPackagePurchaseResponse(
                 savedTransaction.getPaymentId(), // ← Trả về PaymentTransaction.paymentId để frontend dùng cho QR polling

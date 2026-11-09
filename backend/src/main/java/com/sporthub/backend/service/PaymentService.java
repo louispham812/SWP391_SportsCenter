@@ -41,6 +41,9 @@ public class PaymentService {
         
         // Normalize payment method
         String normalizedMethod = normalizePaymentMethod(paymentMethod);
+        if (amount == null || amount.signum() < 0 || ("MEMBERSHIP_QUOTA".equals(normalizedMethod) && amount.signum() != 0)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Số tiền thanh toán không hợp lệ.");
+        }
         
         PaymentTransaction payment = new PaymentTransaction();
         payment.setMemberId(memberId);
@@ -49,9 +52,10 @@ public class PaymentService {
         payment.setItemDescription(null); // Will be set by caller if needed
         payment.setAmount(amount);
         payment.setPaymentMethod(normalizedMethod);
-        payment.setPaymentStatus(determineInitialStatus(normalizedMethod));
+        payment.setPaymentStatus(amount.signum() == 0 ? "PAID" : "PENDING");
         payment.setReferenceCode(generateReferenceCode(bookingType));
         payment.setCreatedAt(LocalDateTime.now());
+        if ("PAID".equals(payment.getPaymentStatus())) payment.setPaymentCompletedAt(LocalDateTime.now());
         
         return paymentTransactionRepository.save(payment);
     }
@@ -75,6 +79,9 @@ public class PaymentService {
         
         // Normalize payment method
         String normalizedMethod = normalizePaymentMethod(paymentMethod);
+        if (amount == null || amount.signum() < 0 || ("MEMBERSHIP_QUOTA".equals(normalizedMethod) && amount.signum() != 0)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Số tiền thanh toán không hợp lệ.");
+        }
         
         PaymentTransaction payment = new PaymentTransaction();
         payment.setMemberId(memberId);
@@ -83,9 +90,10 @@ public class PaymentService {
         payment.setItemDescription(itemDescription); // Store detail for history
         payment.setAmount(amount);
         payment.setPaymentMethod(normalizedMethod);
-        payment.setPaymentStatus(determineInitialStatus(normalizedMethod));
+        payment.setPaymentStatus(amount.signum() == 0 ? "PAID" : "PENDING");
         payment.setReferenceCode(generateReferenceCode(bookingType));
         payment.setCreatedAt(LocalDateTime.now());
+        if ("PAID".equals(payment.getPaymentStatus())) payment.setPaymentCompletedAt(LocalDateTime.now());
         
         return paymentTransactionRepository.save(payment);
     }
@@ -124,21 +132,9 @@ public class PaymentService {
         // Handle aliases
         return switch (normalized) {
             case "CASH" -> PaymentConstants.METHOD_CASH_COUNTER;
-            default -> normalized;
+            case "VNPAY", "CASH_COUNTER", "MEMBERSHIP_QUOTA" -> normalized;
+            default -> throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Phương thức thanh toán không được hỗ trợ.");
         };
-    }
-    
-    /**
-     * Determine initial payment status based on method
-     * 
-     * Rule: VNPAY → PENDING (chờ VNPay IPN)
-     *       CASH_COUNTER → PAID (thanh toán ngay)
-     */
-    private String determineInitialStatus(String normalizedMethod) {
-        if (PaymentConstants.METHOD_VNPAY.equals(normalizedMethod)) {
-            return PaymentConstants.PAYMENT_STATUS_PENDING;
-        }
-        return PaymentConstants.PAYMENT_STATUS_PAID;
     }
     
     /**

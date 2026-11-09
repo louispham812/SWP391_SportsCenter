@@ -16,7 +16,8 @@ import java.util.Locale;
 
 /**
  * Ghi thông báo in-app (MEM-25, COA-16, MGR-20) và nhật ký hệ thống (MGR-14).
- * Mọi lỗi ghi log/thông báo đều được nuốt để không làm hỏng nghiệp vụ chính.
+ * Success notifications/audits join the business transaction so they do not
+ * read an uncommitted member through a second connection or survive a rollback.
  */
 @Service
 public class EngagementService {
@@ -34,7 +35,7 @@ public class EngagementService {
         this.userRepository = userRepository;
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRED)
     public void notifyUser(Long userId, String title, String message, String type) {
         if (userId == null) {
             return;
@@ -65,7 +66,7 @@ public class EngagementService {
         return recipients.size();
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRED)
     public void audit(Long actorId, String actorRole, String action, String detail) {
         try {
             String name = actorId == null ? null

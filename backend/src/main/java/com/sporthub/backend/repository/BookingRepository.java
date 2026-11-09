@@ -13,6 +13,24 @@ import com.sporthub.backend.entity.Booking;
 import jakarta.persistence.LockModeType;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
+    @Query("select b from Booking b join ClassSession s on b.sessionId = s.sessionId where b.memberId = :memberId and b.status = 'CONFIRMED' and s.status in ('SCHEDULED', 'IN_PROGRESS') and s.startTime <= :now and s.endTime > :now order by s.startTime, b.bookingId")
+    List<Booking> findCheckInEligibleClasses(@Param("memberId") Long memberId, @Param("now") LocalDateTime now);
+    @Query("select count(b) > 0 from Booking b join ClassSession s on b.sessionId = s.sessionId where b.memberId = :memberId and s.coachId = :coachId and b.status = 'CONFIRMED' and s.status <> 'CANCELLED'")
+    boolean isAssignedStudent(@Param("coachId") Long coachId, @Param("memberId") Long memberId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select b from Booking b where b.bookingId = :id")
+    java.util.Optional<Booking> findByIdForUpdate(@Param("id") Long id);
+    @Query("""
+            select count(b) > 0 from Booking b join ClassSession s on b.sessionId = s.sessionId
+            where b.memberId = :memberId and b.status = 'CONFIRMED'
+              and s.status in ('SCHEDULED', 'IN_PROGRESS')
+              and s.startTime >= :dayStart and s.startTime < :dayEnd and s.startTime <= :now and s.endTime > :now
+            """)
+    boolean existsCheckInEligibleClass(@Param("memberId") Long memberId,
+            @Param("dayStart") LocalDateTime dayStart, @Param("dayEnd") LocalDateTime dayEnd,
+            @Param("now") LocalDateTime now);
+
     List<Booking> findByMemberId(Long memberId);
     List<Booking> findBySessionId(Long sessionId);
     List<Booking> findBySessionIdInAndStatusIn(List<Long> sessionIds, List<String> statuses);
@@ -31,7 +49,6 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
      * @return Number of active bookings for this session
      */
     @Query("SELECT COUNT(b) FROM Booking b WHERE b.sessionId = :sessionId AND b.status IN :statuses")
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
     long countActiveBookingsWithLock(@Param("sessionId") Long sessionId, @Param("statuses") List<String> statuses);
     
     List<Booking> findByStatusIgnoreCaseAndBookingTimeBefore(String status, LocalDateTime before);
@@ -49,7 +66,6 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
               AND s.startTime < :endTime
               AND s.endTime > :startTime
             """)
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
     boolean existsOverlappingBookingForMember(
             @Param("memberId") Long memberId,
             @Param("statuses") List<String> statuses,

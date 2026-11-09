@@ -29,7 +29,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
+@SpringBootTest(properties = "sporthub.scheduling.enabled=false")
 @Import(TestMailConfig.class)
 class DatabaseConnectionTest {
 
