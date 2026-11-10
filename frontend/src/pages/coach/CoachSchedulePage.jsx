@@ -973,7 +973,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
 
       {/* Leave Request Modal (COA-12) */}
       {isLeaveModalOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto !m-0">
           <div className="relative w-full max-w-lg my-auto overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
@@ -1066,7 +1066,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
       )}
       {/* Edit Profile Modal (COA-01) */}
       {isEditingProfile && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto !m-0">
           <div className="relative w-full max-w-lg my-auto overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">

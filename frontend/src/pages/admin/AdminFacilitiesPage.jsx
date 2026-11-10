@@ -826,10 +826,11 @@ export default function AdminFacilitiesPage() {
             </div>
           </section>
         )}
+      </main>
 
-        {/* Modal Lên Lịch Bảo Trì (MGR-19) */}
-        {isMaintenanceModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+      {/* Modal Lên Lịch Bảo Trì (MGR-19) */}
+      {isMaintenanceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
             <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="text-base font-bold text-slate-900">
@@ -930,9 +931,9 @@ export default function AdminFacilitiesPage() {
           </div>
         )}
 
-        {/* Modal Gia Hạn Bảo Trì */}
-        {isExtendModalOpen && extendingMaintenance && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+      {/* Modal Gia Hạn Bảo Trì */}
+      {isExtendModalOpen && extendingMaintenance && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
             <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
@@ -1036,9 +1037,9 @@ export default function AdminFacilitiesPage() {
           </div>
         )}
 
-        {/* Modal Tạo Lịch Lớp */}
-        {showAddClassModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
+      {/* Modal Tạo Lịch Lớp */}
+      {showAddClassModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs !m-0">
             <form onSubmit={handleCreateSession}
               className="w-full max-w-xl space-y-4 rounded-2xl bg-white p-6 shadow-xl">
               <h2 className="text-lg font-bold text-slate-900">Tạo lịch lớp học mới</h2>
@@ -1135,9 +1136,9 @@ export default function AdminFacilitiesPage() {
           </div>
         )}
 
-        {/* Modal Sửa Giờ / Đổi HLV / Đổi Sân (MGR-08) */}
-        {isEditSessionModalOpen && selectedSession && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+      {/* Modal Sửa Giờ / Đổi HLV / Đổi Sân (MGR-08) */}
+      {isEditSessionModalOpen && selectedSession && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
             <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
@@ -1241,64 +1242,63 @@ export default function AdminFacilitiesPage() {
           </div>
         )}
 
-        {/* Modal Hủy Ca Học & Gửi Thông Báo (MGR-08) */}
-        {isCancelModalOpen && sessionToCancel && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-            <div className="relative w-full max-w-md overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold">
-                    <span className="material-symbols-outlined text-[20px]">warning</span>
-                  </span>
-                  <h3 className="text-base font-bold text-slate-900">Xác Nhận Hủy Ca Học</h3>
-                </div>
+      {/* Modal Hủy Ca Học & Gửi Thông Báo (MGR-08) */}
+      {isCancelModalOpen && sessionToCancel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
+          <div className="relative w-full max-w-md overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold">
+                  <span className="material-symbols-outlined text-[20px]">warning</span>
+                </span>
+                <h3 className="text-base font-bold text-slate-900">Xác Nhận Hủy Ca Học</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCancelModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmCancelSession} className="space-y-4">
+              <div className="p-3 bg-red-50/70 border border-red-200 rounded-xl text-xs text-red-900 leading-relaxed">
+                ⚠️ <strong>Cảnh báo:</strong> Ca học <strong>{sessionToCancel.className}</strong> (SES-{sessionToCancel.sessionId}) sẽ được đánh dấu <code>CANCELLED</code>. Hệ thống sẽ tự động gửi thông báo in-app thông tri tới HLV <strong>{sessionToCancel.coachName || 'HLV'}</strong> và toàn bộ học viên đã đăng ký kèm lý do hủy dưới đây.
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold uppercase text-slate-700">Lý do hủy ca học *</label>
+                <textarea
+                  required
+                  rows={3}
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Nhập lý do hủy ca học gửi đến học viên..."
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-red-500 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsCancelModalOpen(false)}
-                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[20px]">close</span>
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  disabled={processingAction}
+                  className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {processingAction ? 'Đang xử lý...' : 'Xác Nhận Hủy Ca'}
                 </button>
               </div>
-
-              <form onSubmit={handleConfirmCancelSession} className="space-y-4">
-                <div className="p-3 bg-red-50/70 border border-red-200 rounded-xl text-xs text-red-900 leading-relaxed">
-                  ⚠️ <strong>Cảnh báo:</strong> Ca học <strong>{sessionToCancel.className}</strong> (SES-{sessionToCancel.sessionId}) sẽ được đánh dấu <code>CANCELLED</code>. Hệ thống sẽ tự động gửi thông báo in-app thông tri tới HLV <strong>{sessionToCancel.coachName || 'HLV'}</strong> và toàn bộ học viên đã đăng ký kèm lý do hủy dưới đây.
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-bold uppercase text-slate-700">Lý do hủy ca học *</label>
-                  <textarea
-                    required
-                    rows={3}
-                    value={cancelReason}
-                    onChange={(e) => setCancelReason(e.target.value)}
-                    placeholder="Nhập lý do hủy ca học gửi đến học viên..."
-                    className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-red-500 resize-none"
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setIsCancelModalOpen(false)}
-                    className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
-                  >
-                    Đóng
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={processingAction}
-                    className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    {processingAction ? 'Đang xử lý...' : 'Xác Nhận Hủy Ca'}
-                  </button>
-                </div>
-              </form>
-            </div>
+            </form>
           </div>
-        )}
-      </main>
+        </div>
+      )}
     </AdminLayout>
   );
 }

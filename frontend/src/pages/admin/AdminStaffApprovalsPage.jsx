@@ -691,7 +691,7 @@ export default function AdminStaffApprovalsPage() {
 
       {/* Rejection Modal for Membership Packages */}
       {rejectMembershipModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
           <div className="relative w-full max-w-md overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
             <h3 className="text-base font-bold text-slate-900">Từ chối gói thành viên &amp; Hoàn tiền 100%</h3>
             <p className="text-xs text-slate-500">
@@ -729,7 +729,7 @@ export default function AdminStaffApprovalsPage() {
 
       {/* MGR-24 Coach Leave Approval & Reassignment Modal */}
       {approveLeaveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
           <div className="relative w-full max-w-xl overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4 max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>

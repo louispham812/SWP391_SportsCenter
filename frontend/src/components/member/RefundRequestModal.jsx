@@ -147,7 +147,7 @@ export default function RefundRequestModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 !m-0"
     >
       <div
         onClick={(e) => e.stopPropagation()}

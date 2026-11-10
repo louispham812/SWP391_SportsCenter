@@ -318,10 +318,11 @@ export default function MemberAIAssistantPage() {
             Không gửi tên hoặc số điện thoại. Gợi ý không thay thế tư vấn y tế.
           </p>
         </section>
+      </div>
 
-        {/* Modal ghi nhận chỉ số cơ thể & 1RM */}
-        {isLogModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
+      {/* Modal ghi nhận chỉ số cơ thể & 1RM */}
+      {isLogModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 !m-0">
             <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in duration-150">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div>
@@ -449,7 +450,6 @@ export default function MemberAIAssistantPage() {
             </div>
           </div>
         )}
-      </div>
     </MemberLayout>
   );
 }

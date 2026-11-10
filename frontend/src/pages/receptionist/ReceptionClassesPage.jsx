@@ -186,7 +186,7 @@ export default function ReceptionClassesPage() {
 
         {/* Modal Danh sách học viên & Sửa điểm danh (REC-26) */}
         {selectedSession && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto !m-0">
             <div className="relative w-full max-w-2xl my-auto overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4 max-h-[90vh] flex flex-col">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div>

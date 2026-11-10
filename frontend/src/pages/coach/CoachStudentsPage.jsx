@@ -851,7 +851,7 @@ export default function CoachStudentsPage() {
 
         {/* MODAL: SOẠN GIÁO ÁN & ĐÁNH GIÁ (CÁ NHÂN HOẶC CẢ LỚP) */}
         {(selectedStudentForPlan || planScope === 'class') && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto !m-0">
             <div className="relative w-full max-w-3xl max-h-[92vh] my-auto overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl space-y-5">
               {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
@@ -1417,7 +1417,7 @@ export default function CoachStudentsPage() {
 
         {/* ITEM 7: MODAL GỬI THÔNG BÁO / NHẮC NHỞ CHO HỌC VIÊN HOẶC CẢ LỚP */}
         {noticeModalOpen && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto !m-0">
             <div className="relative w-full max-w-xl max-h-[90vh] my-auto overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">

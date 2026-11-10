@@ -979,7 +979,7 @@ export default function MemberSchedulePage() {
         {selectedCoach && createPortal(
           <div
             onClick={() => setSelectedCoach(null)}
-            className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+            className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto !m-0"
           >
             <div
               onClick={(e) => e.stopPropagation()}
@@ -1071,7 +1071,7 @@ export default function MemberSchedulePage() {
         {cancelingBooking && createPortal(
           <div
             onClick={() => setCancelingBooking(null)}
-            className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+            className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto !m-0"
           >
             <div
               onClick={(e) => e.stopPropagation()}
@@ -1158,7 +1158,7 @@ export default function MemberSchedulePage() {
         {reschedulingBooking && createPortal(
           <div
             onClick={() => setReschedulingBooking(null)}
-            className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+            className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto !m-0"
           >
             <div
               onClick={(e) => e.stopPropagation()}

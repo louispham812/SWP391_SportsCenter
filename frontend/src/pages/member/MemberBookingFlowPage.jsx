@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import {
@@ -1413,9 +1414,9 @@ function CheckoutPage({ bookingType, itemId }) {
       ) : null}
 
       {/* QR Payment Modal */}
-      {showQrModal && (
+      {showQrModal && createPortal(
         qrData ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 !m-0">
           <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl transform animate-in slide-in-from-bottom-4 duration-300">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-orange-100 mb-4">
               <span className="material-symbols-outlined text-3xl text-orange-600">qr_code_scanner</span>
@@ -1484,7 +1485,7 @@ function CheckoutPage({ bookingType, itemId }) {
           </div>
         </div>
         ) : (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 !m-0">
             <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
                 <span className="material-symbols-outlined text-3xl text-red-600">error</span>
@@ -1499,7 +1500,8 @@ function CheckoutPage({ bookingType, itemId }) {
               </button>
             </div>
           </div>
-        )
+        ),
+        document.body
       )}
     </PageFrame>
   );

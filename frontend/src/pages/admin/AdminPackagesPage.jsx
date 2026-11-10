@@ -736,7 +736,7 @@ export default function AdminPackagesPage() {
       {/* Package Drawer */}
       {isDrawerOpen && (
         <div 
-          className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-xs !m-0"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsDrawerOpen(false);
           }}
@@ -880,7 +880,7 @@ export default function AdminPackagesPage() {
 
       {/* Voucher Modal (MGR-18) */}
       {isVoucherModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
           <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900">
@@ -1032,7 +1032,7 @@ export default function AdminPackagesPage() {
 
       {/* PT Package Modal (MGR-04) */}
       {isPtModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
           <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900">
