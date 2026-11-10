@@ -21,6 +21,9 @@ public class CourtBookingPaymentHandler implements BookingPaymentHandler {
     
     private final CourtBookingRepository courtBookingRepository;
     private final EngagementService engagementService;
+    @org.springframework.beans.factory.annotation.Autowired private com.sporthub.backend.repository.SportsCourtRepository courts;
+    @org.springframework.beans.factory.annotation.Autowired private com.sporthub.backend.repository.CourtMaintenanceRepository maintenance;
+    @org.springframework.beans.factory.annotation.Autowired private com.sporthub.backend.service.LatePaymentService latePayments;
     
     public CourtBookingPaymentHandler(
             CourtBookingRepository courtBookingRepository,
@@ -44,38 +47,29 @@ public class CourtBookingPaymentHandler implements BookingPaymentHandler {
             return null; // Not our booking type
         }
         
-        // Rule 9: Check if booking already CANCELLED (late payment)
-        if ("CANCELLED".equalsIgnoreCase(courtBooking.getStatus())) {
-            logger.warn("COURT Booking #{} already CANCELLED (late payment)", courtBooking.getCourtBookingId());
-            if (engagementService != null) {
-                engagementService.notifyUser(
-                    courtBooking.getMemberId(), "Thanh toán đến muộn",
-                    "Đặt sân #" + courtBooking.getCourtBookingId() + " đã bị hủy do quá hạn. Vui lòng liên hệ quầy để được hoàn tiền.", "PAYMENT"
-                );
-            }
-        } else {
-            // Update court booking status to CONFIRMED
-            courtBooking.setStatus("CONFIRMED");
-            courtBookingRepository.save(courtBooking);
-            logger.info("COURT Booking #{} confirmed", courtBooking.getCourtBookingId());
-            
-            // Send success notification
-            if (engagementService != null) {
-                engagementService.audit(
-                    courtBooking.getMemberId(), "MEMBER", "PAYMENT_CONFIRMED",
-                    "courtBookingId=" + courtBooking.getCourtBookingId() + ", paymentId=" + paymentId +
-                    ", amount=" + transferAmount
-                );
-                engagementService.notifyUser(
-                    courtBooking.getMemberId(), "Thanh toán thành công",
-                    "Đã nhận thanh toán cho đặt sân #" + courtBooking.getCourtBookingId(), "PAYMENT"
-                );
-            }
+        if (courts != null) courts.findByIdForUpdate(courtBooking.getCourtId()).orElseThrow();
+        courtBooking = courtBookingRepository.findByIdForUpdate(courtBooking.getCourtBookingId()).orElseThrow();
+        if ("CONFIRMED".equals(courtBooking.getStatus()) || "CHECKED_IN".equals(courtBooking.getStatus())) return confirmation(payment, courtBooking);
+        boolean unavailable = !"PENDING".equals(courtBooking.getStatus()) || courtBooking.getCreatedAt() == null
+            || !courtBooking.getCreatedAt().plusMinutes(10).isAfter(java.time.LocalDateTime.now())
+            || courtBookingRepository.existsConfirmedOverlapExcluding(courtBooking.getCourtId(), courtBooking.getCourtBookingId(), courtBooking.getStartTime(), courtBooking.getEndTime())
+            || (maintenance != null && maintenance.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(courtBooking.getCourtId(), courtBooking.getEndTime(), courtBooking.getStartTime()));
+        if (unavailable) {
+            courtBooking.setStatus("CANCELLED"); courtBookingRepository.save(courtBooking);
+            if (latePayments != null) latePayments.requestRefund(payment, courtBooking.getCourtBookingId(), "COURT");
+            return confirmation(payment, courtBooking);
         }
-        
+        courtBooking.setStatus("CONFIRMED"); courtBookingRepository.save(courtBooking);
+        if (engagementService != null) {
+            engagementService.audit(courtBooking.getMemberId(), "MEMBER", "PAYMENT_CONFIRMED", "courtBookingId=" + courtBooking.getCourtBookingId() + ", paymentId=" + paymentId);
+            engagementService.notifyUser(courtBooking.getMemberId(), "Thanh toán thành công", "Đặt sân đã được xác nhận.", "PAYMENT");
+        }
+        return confirmation(payment, courtBooking);
+    }
+    private PaymentConfirmationResult confirmation(PaymentTransaction payment, CourtBooking courtBooking) {
         PaymentConfirmationResult result = new PaymentConfirmationResult();
-        result.setSuccess(true);
-        result.setPaymentId(paymentId);
+        result.setSuccess(!"CANCELLED".equals(courtBooking.getStatus()));
+        result.setPaymentId(payment.getPaymentId());
         result.setBookingType("COURT");
         result.setBookingId(courtBooking.getCourtBookingId());
         result.setStatus(courtBooking.getStatus());

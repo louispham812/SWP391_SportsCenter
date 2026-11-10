@@ -70,4 +70,8 @@ export async function logoutMember(page) {
   }
 }
 
+export function getLocalDateStr(d = new Date()) {
+  return d.toLocaleDateString('en-CA');
+}
+
 export { apiBaseUrl };

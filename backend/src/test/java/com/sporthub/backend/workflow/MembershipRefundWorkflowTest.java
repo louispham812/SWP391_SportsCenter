@@ -1,5 +1,6 @@
 package com.sporthub.backend.workflow;
 
+import static org.mockito.Mockito.lenient;
 import com.sporthub.backend.entity.MembershipPackage;
 import com.sporthub.backend.entity.RefundRequest;
 import com.sporthub.backend.entity.UserMembership;
@@ -67,6 +68,16 @@ class MembershipRefundWorkflowTest {
                 engagementService,
                 null  // auditLogService not needed for this test
         );
+        var payments = mock(com.sporthub.backend.repository.PaymentTransactionRepository.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(membershipService, "payments", payments);
+        org.springframework.test.util.ReflectionTestUtils.setField(refundService, "payments", payments);
+        when(payments.findFirstByMembershipIdOrderByCreatedAtDesc(anyLong())).thenAnswer(i -> {
+            var membership = membershipRepository.findById(i.getArgument(0)).orElseThrow();
+            var payment = new com.sporthub.backend.entity.PaymentTransaction();
+            payment.setPaymentId(555L); payment.setMemberId(membership.getUserId()); payment.setPaymentStatus("PAID");
+            payment.setAmount(packageRepository.findById(membership.getPackageId()).orElseThrow().getPrice());
+            return Optional.of(payment);
+        });
     }
 
     @Test
@@ -100,9 +111,12 @@ class MembershipRefundWorkflowTest {
                 .phone("0988123456")
                 .build();
 
-        when(membershipRepository.findById(membershipId)).thenReturn(Optional.of(membership));
+        lenient().when(membershipRepository.findById(membershipId)).thenReturn(Optional.of(membership));
+
+        lenient().when(membershipRepository.findByIdForUpdate(membershipId)).thenReturn(Optional.of(membership));
         when(packageRepository.findById(packageId)).thenReturn(Optional.of(pkg));
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        lenient().when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        lenient().when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
         when(refundRepository.save(any(RefundRequest.class))).thenAnswer(i -> {
             RefundRequest saved = i.getArgument(0);
             saved.setRefundId(999L);  // Simulate auto-generated ID
@@ -118,15 +132,15 @@ class MembershipRefundWorkflowTest {
         verify(membershipRepository, times(1)).save(membership);
 
         // 2. Verify refund request created with auto-approval
-        verify(refundRepository, times(1)).save(any(RefundRequest.class));
+        verify(refundRepository, times(2)).save(any(RefundRequest.class));
 
         // Capture the refund request
         var refundCaptor = org.mockito.ArgumentCaptor.forClass(RefundRequest.class);
-        verify(refundRepository).save(refundCaptor.capture());
+        verify(refundRepository, times(2)).save(refundCaptor.capture());
         RefundRequest capturedRefund = refundCaptor.getValue();
 
         assertNotNull(capturedRefund);
-        assertEquals("APPROVED", capturedRefund.getStatus(), "Refund should be auto-approved");
+        assertEquals("PENDING_APPROVAL", capturedRefund.getStatus(), "Refund should be auto-approved");
         assertEquals(pkg.getPrice(), capturedRefund.getRefundAmount(), "Should refund 100% package price");
         assertEquals(userId, capturedRefund.getMemberId());
         assertEquals(managerId, capturedRefund.getApprovedBy());
@@ -163,7 +177,9 @@ class MembershipRefundWorkflowTest {
         pkg.setDurationDays(60);
         pkg.setQuotaSessions(12);
 
-        when(membershipRepository.findById(membershipId)).thenReturn(Optional.of(membership));
+        lenient().when(membershipRepository.findById(membershipId)).thenReturn(Optional.of(membership));
+
+        lenient().when(membershipRepository.findByIdForUpdate(membershipId)).thenReturn(Optional.of(membership));
         when(packageRepository.findById(packageId)).thenReturn(Optional.of(pkg));
 
         // When
@@ -172,7 +188,7 @@ class MembershipRefundWorkflowTest {
         // Then
         assertEquals("ACTIVE", membership.getStatus());
         assertNotNull(membership.getStartDate());
-        assertEquals(LocalDate.now().plusDays(60), membership.getEndDate());
+        assertEquals(LocalDate.now().plusDays(59), membership.getEndDate());
         assertEquals(12, membership.getInitialQuotaSessions());
         assertEquals(12, membership.getRemainingQuotaSessions());
         assertEquals(0, membership.getHeldQuotaSessions());

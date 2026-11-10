@@ -38,4 +38,17 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
             @Param("coachId") Long coachId,
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime);
+
+    @Query("""
+            SELECT s
+            FROM ClassSession s
+            WHERE s.facilityId = :facilityId
+              AND s.status <> 'CANCELLED'
+              AND s.startTime < :endTime
+              AND s.endTime > :startTime
+            """)
+    List<ClassSession> findActiveOverlappingSessions(
+            @Param("facilityId") Long facilityId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime);
 }

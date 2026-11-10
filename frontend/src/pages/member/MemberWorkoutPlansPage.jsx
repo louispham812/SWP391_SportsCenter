@@ -1025,7 +1025,7 @@ export default function MemberWorkoutPlansPage() {
 
         {/* MODAL: THÊM MỐC ĐO TIẾN ĐỘ MỚI (MEM-21) */}
         {showAddLogModal && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto !m-0">
             <div className="relative w-full max-w-lg my-auto rounded-3xl bg-white p-6 shadow-2xl space-y-5">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">

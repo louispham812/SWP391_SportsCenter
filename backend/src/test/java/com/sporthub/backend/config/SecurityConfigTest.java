@@ -21,6 +21,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(SecurityConfig.class)
 class SecurityConfigTest {
 
+    @Test
+    void memberCannotInvokeStaffOrManagerOperations() throws Exception {
+        var member = org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("9").roles("MEMBER");
+        mockMvc.perform(get("/api/v1/manager/refunds").with(member)).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/manager/refunds/1/decision").with(member)).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/reception/check-in").with(member)).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/receptionist/payments/1/confirm-cash").with(member)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/coach/profile").with(member)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void receptionistCannotApproveRefundsOrChangeVouchers() throws Exception {
+        var staff = org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("3").roles("RECEPTIONIST");
+        mockMvc.perform(post("/api/v1/manager/refunds/1/decision").with(staff)).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/manager/vouchers").with(staff)).andExpect(status().isForbidden());
+    }
+
     @Autowired
     private MockMvc mockMvc;
 

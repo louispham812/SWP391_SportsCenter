@@ -58,4 +58,7 @@ public class CourtBooking {
 
     @Column(name = "quota_hours_used", precision = 4, scale = 2)
     private BigDecimal quotaHoursUsed = BigDecimal.ZERO;
+    @Column(name = "quota_state", length = 24)
+    private String quotaState; // HELD, USED, RELEASED, FORFEITED; NULL legacy state must be established first.
+
 }

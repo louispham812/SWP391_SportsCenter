@@ -6,4 +6,5 @@ import lombok.Data;
 public class CheckInRequest {
     private Integer memberId;
     private Integer receptionistId;
+    private Long bookingId;
 }

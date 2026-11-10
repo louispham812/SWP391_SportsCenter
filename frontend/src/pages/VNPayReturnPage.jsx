@@ -41,12 +41,13 @@ export default function VNPayReturnPage() {
       }
       
       const vnpResponseCode = searchParams.get('vnp_ResponseCode');
-      const vnpTxnRef = searchParams.get('vnp_TxnRef');
+      const rawTxnRef = searchParams.get('vnp_TxnRef');
+      const vnpTxnRef = rawTxnRef && rawTxnRef.includes('_') ? rawTxnRef.split('_')[0] : rawTxnRef;
       const vnpSecureHash = searchParams.get('vnp_SecureHash');
       
       setPaymentId(vnpTxnRef);
       
-      if (!vnpResponseCode || !vnpTxnRef) {
+      if (!vnpResponseCode || !rawTxnRef) {
         setStatus('error');
         setMessage('Thiếu thông tin giao dịch');
         return;
@@ -76,7 +77,7 @@ export default function VNPayReturnPage() {
         
         if (response.ok && data.success) {
           setStatus('success');
-          setMessage('Thanh toán thành công! Đơn hàng của bạn đã được xác nhận.');
+          setMessage(data.message || 'Đã nhận thanh toán. Vui lòng xem trạng thái đơn hàng.');
         } else {
           setStatus('error');
           setMessage(data.message || 'Không thể xác thực giao dịch. Vui lòng liên hệ hỗ trợ.');
@@ -113,10 +114,7 @@ export default function VNPayReturnPage() {
     // Show toast success message
     if (status === 'success') {
     showToast('Thanh toán thành công', message, 'success');
-    // Delay navigate để user thấy toast
-    setTimeout(() => {
-        navigate('/receptionist/pos', { replace: true });
-    }, 1500);
+
 }
     
     // Determine target page based on user role and booking type

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import {
@@ -172,6 +173,9 @@ function SportPicker({ bookingType }) {
 
   const isCourt = bookingType === 'court';
   const isPt = bookingType === 'pt';
+  const displayedSports = isCourt
+    ? sports.filter((s) => (s.slug || s.code) !== 'gym-fitness' && (s.slug || s.code) !== 'yoga-pilates')
+    : sports;
   const getTargetUrl = (sId) => {
     if (isCourt) return `/member/book/courts/${sId}`;
     if (isPt) return `/member/book/coaches/${sId}`;
@@ -200,13 +204,13 @@ function SportPicker({ bookingType }) {
             </div>
           ))}
         </div>
-      ) : sports.length === 0 ? (
+      ) : displayedSports.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500">
           Hiện tại chưa có bộ môn nào đang mở dịch vụ. Vui lòng quay lại sau.
         </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {sports.map((sport) => {
+          {displayedSports.map((sport) => {
             const media = getSportMedia(sport.slug || sport.code);
             return (
               <button
@@ -871,7 +875,8 @@ function CheckoutPage({ bookingType, itemId }) {
     const fetchQuota = async () => {
       try {
         setQuotaLoading(true);
-        const data = await apiRequest('/members/me/quota');
+        const hours = startTime && endTime ? Math.max(1, Math.ceil((new Date(endTime) - new Date(startTime)) / 3600000)) : 1;
+        const data = await apiRequest(`/members/me/quota?bookingType=${encodeURIComponent(bookingType.toUpperCase())}&itemId=${encodeURIComponent(itemId)}&requiredHours=${hours}`);
         setMemberQuota({
           packageName: data.packageName || 'Chưa có gói tập',
           initialQuota: data.initialQuota || 0,
@@ -907,7 +912,7 @@ function CheckoutPage({ bookingType, itemId }) {
     };
     
     fetchQuota();
-  }, []); // Chỉ gọi 1 lần khi mount
+  }, [bookingType, itemId, startTime, endTime]);
 
   // Voucher Code State
   const [voucherCode, setVoucherCode] = useState('');
@@ -956,7 +961,7 @@ function CheckoutPage({ bookingType, itemId }) {
     try {
       const res = await apiRequest('/vouchers/validate', {
         method: 'POST',
-        body: JSON.stringify({ code, amount: originalPrice }),
+        body: JSON.stringify({ code, amount: originalPrice, appliesTo: 'BOOKING_ONLY' }),
       });
       if (res && res.valid && res.voucher) {
         setAppliedVoucher(res.voucher);
@@ -1044,11 +1049,13 @@ function CheckoutPage({ bookingType, itemId }) {
         itemId,
         startTime,
         endTime,
-        paymentMethod
+        paymentMethod,
+        false,
+        appliedVoucher?.code ?? null
       );
 
       // Redirect to VNPay payment page
-      if (paymentMethod === 'VNPAY') {
+      if (paymentMethod === 'VNPAY' && confirmation.paymentStatus !== 'PAID') {
         try {
           const vnpayResult = await generatePayment(confirmation.paymentId, 'VNPAY');
           
@@ -1407,9 +1414,9 @@ function CheckoutPage({ bookingType, itemId }) {
       ) : null}
 
       {/* QR Payment Modal */}
-      {showQrModal && (
+      {showQrModal && createPortal(
         qrData ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 !m-0">
           <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl transform animate-in slide-in-from-bottom-4 duration-300">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-orange-100 mb-4">
               <span className="material-symbols-outlined text-3xl text-orange-600">qr_code_scanner</span>
@@ -1478,7 +1485,7 @@ function CheckoutPage({ bookingType, itemId }) {
           </div>
         </div>
         ) : (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 !m-0">
             <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
                 <span className="material-symbols-outlined text-3xl text-red-600">error</span>
@@ -1493,7 +1500,8 @@ function CheckoutPage({ bookingType, itemId }) {
               </button>
             </div>
           </div>
-        )
+        ),
+        document.body
       )}
     </PageFrame>
   );

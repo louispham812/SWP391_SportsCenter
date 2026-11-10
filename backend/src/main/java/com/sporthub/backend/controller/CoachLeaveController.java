@@ -32,6 +32,8 @@ public class CoachLeaveController {
     private final ClassSessionRepository classSessionRepository;
     private final BookingRepository bookingRepository;
     private final EngagementService engagementService;
+    @Autowired private com.sporthub.backend.service.CoachAvailabilityService availability;
+    @Autowired private com.sporthub.backend.repository.PublicSportRepository sports;
 
     @Autowired
     public CoachLeaveController(
@@ -141,9 +143,15 @@ public class CoachLeaveController {
             @PathVariable Long id,
             @RequestBody LeaveDecisionRequest decision,
             Authentication auth) {
-        CoachLeaveRequest req = leaveRepository.findById(id)
+        CoachLeaveRequest req = leaveRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu nghỉ."));
 
+        if (!"PENDING".equals(req.getStatus())) throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn nghỉ đã được xử lý.");
+        if (decision.approved() && decision.reassignedCoachId() == null) {
+            boolean hasSessions = classSessionRepository.findByCoachIdOrderByStartTimeAsc(req.getCoachId()).stream()
+                .anyMatch(s -> !"CANCELLED".equals(s.getStatus()) && !s.getStartTime().toLocalDate().isBefore(req.getStartDate()) && !s.getStartTime().toLocalDate().isAfter(req.getEndDate()));
+            if (hasSessions) throw new ResponseStatusException(HttpStatus.CONFLICT, "Cần chọn HLV thay thế cho các ca bị ảnh hưởng.");
+        }
         if (!decision.approved() && (decision.decisionNote() == null || decision.decisionNote().isBlank())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Từ chối yêu cầu nghỉ phép phải ghi rõ lý do (BR-16)");
         }
@@ -153,8 +161,8 @@ public class CoachLeaveController {
         req.setApprovedBy(managerId);
 
         if (decision.approved() && decision.reassignedCoachId() != null) {
-            User replacementCoach = userRepository.findById(decision.reassignedCoachId())
-                    .filter(u -> "COACH".equalsIgnoreCase(u.getRole()))
+            User replacementCoach = userRepository.findByIdForUpdate(decision.reassignedCoachId())
+                    .filter(u -> "COACH".equalsIgnoreCase(u.getRole()) && "ACTIVE".equalsIgnoreCase(u.getStatus()) && !u.getUserId().equals(req.getCoachId()))
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Huấn luyện viên thay thế không hợp lệ."));
             req.setReassignedCoachId(replacementCoach.getUserId());
 
@@ -166,6 +174,13 @@ public class CoachLeaveController {
                     .filter(s -> s.getStartTime() != null && !s.getStartTime().isBefore(startDt) && s.getStartTime().isBefore(endDt))
                     .toList();
             for (ClassSession s : sessionsToReassign) {
+                if (classSessionRepository.existsOverlappingSessionForCoach(replacementCoach.getUserId(), s.getStartTime(), s.getEndTime()))
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "HLV thay thế đã có lịch trùng giờ.");
+                if (availability != null) availability.requireAvailable(replacementCoach, s.getStartTime(), s.getEndTime());
+                boolean taughtSport = classSessionRepository.findByCoachIdOrderByStartTimeAsc(replacementCoach.getUserId()).stream().anyMatch(old -> java.util.Objects.equals(old.getSportId(), s.getSportId()));
+                String sportName = sports == null ? "" : sports.findById(s.getSportId()).map(com.sporthub.backend.entity.PublicSport::getName).orElse("");
+                boolean specialty = !sportName.isBlank() && replacementCoach.getSpecialty() != null && replacementCoach.getSpecialty().toLowerCase(Locale.ROOT).contains(sportName.toLowerCase(Locale.ROOT));
+                if (!taughtSport && !specialty) throw new ResponseStatusException(HttpStatus.CONFLICT, "HLV thay thế chưa có chuyên môn phù hợp bộ môn.");
                 s.setCoachId(replacementCoach.getUserId());
             }
             classSessionRepository.saveAll(sessionsToReassign);

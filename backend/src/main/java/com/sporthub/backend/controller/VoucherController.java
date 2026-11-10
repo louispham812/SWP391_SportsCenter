@@ -74,24 +74,13 @@ public class VoucherController {
                     toResponse(voucher)));
         }
 
-        BigDecimal discount = BigDecimal.ZERO;
-        String type = voucher.getDiscountType() == null ? "PERCENT" : voucher.getDiscountType().toUpperCase(Locale.ROOT);
-
-        if ("FIXED".equals(type)) {
-            discount = voucher.getDiscountValue() != null ? voucher.getDiscountValue()
-                    : (voucher.getDiscountAmount() != null ? voucher.getDiscountAmount() : BigDecimal.ZERO);
-            if (discount.compareTo(amount) > 0) {
-                discount = amount;
-            }
-        } else if ("PERCENT".equals(type)) {
-            BigDecimal percent = voucher.getDiscountValue() != null ? voucher.getDiscountValue()
-                    : (voucher.getDiscountPercent() != null ? BigDecimal.valueOf(voucher.getDiscountPercent()) : BigDecimal.ZERO);
-            discount = amount.multiply(percent).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
-            if (voucher.getDiscountAmount() != null && voucher.getDiscountAmount().signum() > 0 && discount.compareTo(voucher.getDiscountAmount()) > 0) {
-                discount = voucher.getDiscountAmount();
-            }
+        BigDecimal discount;
+        try {
+            discount = new com.sporthub.backend.service.VoucherService(voucherRepository, null).discount(voucher, amount,
+                request.appliesTo() == null ? "BOOKING_ONLY" : request.appliesTo());
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.ok(new ValidateVoucherResponse(false, e.getReason(), BigDecimal.ZERO, amount, null));
         }
-
         BigDecimal finalAmount = amount.subtract(discount);
         if (finalAmount.signum() < 0) finalAmount = BigDecimal.ZERO;
 

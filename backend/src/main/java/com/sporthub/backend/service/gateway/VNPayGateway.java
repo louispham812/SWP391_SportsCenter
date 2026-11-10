@@ -4,6 +4,10 @@ import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
@@ -54,8 +58,89 @@ public class VNPayGateway implements PaymentGateway {
     @Value("${vnpay.ipn-url}")
     private String ipnUrl;
     
+    private static volatile Long clockOffsetMillis = null;
+    private static volatile long lastOffsetFetch = 0;
+
+    /**
+     * Get real time synchronized with VNPay server HTTP header 'Date'
+     */
+    private ZonedDateTime getVNPayRealTime() {
+        ZoneId vnZone = ZoneId.of("Asia/Ho_Chi_Minh");
+        long now = System.currentTimeMillis();
+        
+        // Refresh offset every 5 minutes or if not initialized
+        if (clockOffsetMillis == null || now - lastOffsetFetch > 300_000) {
+            syncClockOffsetWithVNPay();
+        }
+        
+        long offset = clockOffsetMillis != null ? clockOffsetMillis : 0L;
+        return Instant.ofEpochMilli(now + offset).atZone(vnZone);
+    }
+
+    private java.net.http.HttpClient createInsecureHttpClient(java.time.Duration timeout) {
+        try {
+            javax.net.ssl.TrustManager[] trustAllCerts = new javax.net.ssl.TrustManager[]{
+                new javax.net.ssl.X509TrustManager() {
+                    public java.security.cert.X509Certificate[] getAcceptedIssuers() { return null; }
+                    public void checkClientTrusted(java.security.cert.X509Certificate[] certs, String authType) {}
+                    public void checkServerTrusted(java.security.cert.X509Certificate[] certs, String authType) {}
+                }
+            };
+            javax.net.ssl.SSLContext sc = javax.net.ssl.SSLContext.getInstance("TLS");
+            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+            return java.net.http.HttpClient.newBuilder()
+                    .sslContext(sc)
+                    .connectTimeout(timeout)
+                    .build();
+        } catch (Exception e) {
+            return java.net.http.HttpClient.newBuilder()
+                    .connectTimeout(timeout)
+                    .build();
+        }
+    }
+
+    private synchronized void syncClockOffsetWithVNPay() {
+        if (vnpayUrl == null || vnpayUrl.isBlank()) {
+            clockOffsetMillis = 0L;
+            lastOffsetFetch = System.currentTimeMillis();
+            return;
+        }
+        try {
+            java.net.http.HttpClient client = createInsecureHttpClient(java.time.Duration.ofMillis(2000));
+            java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(vnpayUrl))
+                    .timeout(java.time.Duration.ofMillis(3000))
+                    .method("HEAD", java.net.http.HttpRequest.BodyPublishers.noBody())
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                    .build();
+            java.net.http.HttpResponse<Void> resp = client.send(req, java.net.http.HttpResponse.BodyHandlers.discarding());
+            String dateHeader = resp.headers().firstValue("Date").orElse(null);
+            if (dateHeader != null && !dateHeader.isBlank()) {
+                Instant serverInstant = DateTimeFormatter.RFC_1123_DATE_TIME.parse(dateHeader, Instant::from);
+                long currentLocal = System.currentTimeMillis();
+                clockOffsetMillis = serverInstant.toEpochMilli() - currentLocal;
+                lastOffsetFetch = currentLocal;
+                logger.info("🕒 Synced clock offset with VNPay: {} ms (Server Date: {})", clockOffsetMillis, dateHeader);
+                return;
+            }
+        } catch (Exception e) {
+            logger.warn("Could not sync clock offset with VNPay, using 0ms: {}", e.getMessage());
+        }
+        if (clockOffsetMillis == null) {
+            clockOffsetMillis = 0L;
+        }
+        lastOffsetFetch = System.currentTimeMillis();
+    }
+
     @Override
     public Map<String, Object> generatePayment(Long paymentId, BigDecimal amount, String description, String ipAddress) {
+        return generatePaymentAttempt(paymentId, amount, description, ipAddress,
+            paymentId + "_" + java.util.UUID.randomUUID().toString().replace("-", ""), java.time.LocalDateTime.now().plusMinutes(10));
+    }
+
+    @Override
+    public Map<String, Object> generatePaymentAttempt(Long paymentId, BigDecimal amount, String description,
+            String ipAddress, String txnRef, java.time.LocalDateTime expiresAt) {
         logger.info("=== VNPay Payment Generation Started ===");
         logger.info("Payment ID: {}", paymentId);
         logger.info("Amount: {}", amount);
@@ -70,22 +155,22 @@ public class VNPayGateway implements PaymentGateway {
         vnpParams.put("vnp_TmnCode", tmnCode);
         vnpParams.put("vnp_Amount", String.valueOf(amount.multiply(new BigDecimal(100)).longValue()));
         vnpParams.put("vnp_CurrCode", "VND");
-        vnpParams.put("vnp_TxnRef", paymentId.toString());
+        
+        // Ensure vnp_TxnRef is unique per payment attempt (avoids Error 01 on retries/reused IDs)
+        vnpParams.put("vnp_TxnRef", txnRef);
         vnpParams.put("vnp_OrderInfo", "Thanh toan don hang " + paymentId);
         vnpParams.put("vnp_OrderType", "other");
         vnpParams.put("vnp_Locale", "vn");
         vnpParams.put("vnp_ReturnUrl", returnUrl);
         vnpParams.put("vnp_IpAddr", ipAddress != null ? ipAddress : "127.0.0.1");
         
-        Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
-        formatter.setTimeZone(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
+        ZonedDateTime nowVn = getVNPayRealTime();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
         
-        String vnpCreateDate = formatter.format(calendar.getTime());
+        String vnpCreateDate = formatter.format(nowVn);
         vnpParams.put("vnp_CreateDate", vnpCreateDate);
         
-        calendar.add(Calendar.MINUTE, 10);
-        String vnpExpireDate = formatter.format(calendar.getTime());
+        String vnpExpireDate = formatter.format(nowVn.plus(java.time.Duration.between(java.time.LocalDateTime.now(), expiresAt)));
         vnpParams.put("vnp_ExpireDate", vnpExpireDate);
         
         logger.info("VNPay Parameters (before hash): {}", vnpParams);
@@ -107,6 +192,8 @@ public class VNPayGateway implements PaymentGateway {
         response.put("amount", amount);
         response.put("paymentUrl", paymentUrl);
         response.put("gateway", "VNPAY");
+        response.put("gatewayReference", txnRef);
+        response.put("merchantDate", vnpCreateDate);
         
         return response;
     }
@@ -192,148 +279,60 @@ public class VNPayGateway implements PaymentGateway {
      * @param reason Refund reason
      * @return Map with refund result (vnp_ResponseCode, vnp_Message)
      */
-    public Map<String, Object> refundPayment(
-            com.sporthub.backend.entity.PaymentTransaction originalPayment,
-            BigDecimal refundAmount,
-            String reason) {
-        
-        logger.info("=== VNPay Refund Started ===");
-        logger.info("Original Payment ID: {}", originalPayment.getPaymentId());
-        logger.info("Refund Amount: {}", refundAmount);
-        logger.info("Reason: {}", reason);
-        
+    public Map<String, Object> refundPayment(com.sporthub.backend.entity.PaymentTransaction originalPayment,
+            BigDecimal refundAmount, String reason) {
+        return refundPayment(originalPayment, refundAmount, reason, "full-refund:" + originalPayment.getPaymentId());
+    }
+
+    private java.net.http.HttpClient refundClient = java.net.http.HttpClient.newBuilder()
+        .connectTimeout(java.time.Duration.ofSeconds(10)).build();
+
+    public Map<String, Object> refundPayment(com.sporthub.backend.entity.PaymentTransaction original,
+            BigDecimal amount, String reason, String idempotencyKey) {
+        // VNPay refund uses JSON and a pipe-separated checksum, unlike the PAY redirect query.
         try {
-            // 1. Build refund request parameters
-            Map<String, String> vnpParams = new TreeMap<>();
-            
-            String requestId = java.util.UUID.randomUUID().toString();
-            String createDate = new java.text.SimpleDateFormat("yyyyMMddHHmmss")
-                    .format(new java.util.Date());
-            
-            // Get original transaction date from VNPay webhook (vnp_PayDate)
-            // VNPay Refund API requires vnp_TransactionDate = original vnp_PayDate from payment
-            String transDate;
-            if (originalPayment.getTransactionDate() != null && !originalPayment.getTransactionDate().isBlank()) {
-                // Use transactionDate from VNPay webhook (correct!)
-                transDate = originalPayment.getTransactionDate();
-                logger.debug("Using transactionDate from VNPay webhook: {}", transDate);
-            } else {
-                // Fallback: use createdAt if transactionDate not available (legacy payments)
-                transDate = new java.text.SimpleDateFormat("yyyyMMddHHmmss")
-                        .format(java.sql.Timestamp.valueOf(originalPayment.getCreatedAt()));
-                logger.warn("⚠️ transactionDate not found for payment {}, using createdAt as fallback: {}", 
-                        originalPayment.getPaymentId(), transDate);
-            }
-            
-            vnpParams.put("vnp_RequestId", requestId);
-            vnpParams.put("vnp_Version", "2.1.0");
-            vnpParams.put("vnp_Command", "refund");
-            vnpParams.put("vnp_TmnCode", tmnCode);
-            vnpParams.put("vnp_TransactionType", "02"); // 02=Full refund, 03=Partial refund
-            vnpParams.put("vnp_TxnRef", originalPayment.getPaymentId().toString());
-            vnpParams.put("vnp_Amount", String.valueOf(refundAmount.multiply(new BigDecimal(100)).longValue()));
-            vnpParams.put("vnp_OrderInfo", reason != null ? reason : "Hoan tien");
-            vnpParams.put("vnp_TransactionNo", originalPayment.getReferenceCode());
-            vnpParams.put("vnp_TransactionDate", transDate);
-            vnpParams.put("vnp_CreateBy", "system");
-            vnpParams.put("vnp_CreateDate", createDate);
-            vnpParams.put("vnp_IpAddr", "127.0.0.1");
-            
-            logger.info("Refund Parameters: {}", vnpParams);
-            
-            // 2. Generate HMAC SHA512 signature
-            String hashData = buildHashData(vnpParams);
-            String secureHash = hmacSHA512(hashSecret, hashData);
-            vnpParams.put("vnp_SecureHash", secureHash);
-            
-            // 3. Call VNPay Refund API with application/x-www-form-urlencoded
-            // VNPay Refund API requires form-urlencoded, NOT JSON
-            String requestBody = buildQueryString(vnpParams);
-            logger.info("Calling VNPay Refund API: {}", vnpayApiUrl);
-            logger.debug("Request Body: {}", requestBody);
-            
-            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
-            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                    .uri(java.net.URI.create(vnpayApiUrl))
-                    .header("Content-Type", "application/x-www-form-urlencoded")
-                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(requestBody))
-                    .build();
-            
-            java.net.http.HttpResponse<String> response = client.send(
-                    request,
-                    java.net.http.HttpResponse.BodyHandlers.ofString()
-            );
-            
-            logger.info("VNPay API Response Status: {}", response.statusCode());
-            logger.info("VNPay API Response Body: {}", response.body());
-            
-            // 4. Handle VNPay Sandbox Refund API limitations → Mock successful refund
-            // VNPay Sandbox Refund API is NOT enabled, so ANY non-success response should be mocked
-            boolean shouldMockRefund = false;
-            String mockReason = "";
-            
-            // Case 1: HTTP 500 (Server error - API not enabled)
-            if (response.statusCode() == 500) {
-                shouldMockRefund = true;
-                mockReason = "HTTP 500 - Refund API not enabled";
-            }
-            // Case 2: HTTP 200 but vnp_ResponseCode != "00" (Any error code - Sandbox limitation)
-            else if (response.statusCode() == 200) {
-                try {
-                    Map<String, Object> prelimResult = parseJsonResponse(response.body());
-                    String prelimCode = (String) prelimResult.get("vnp_ResponseCode");
-                    
-                    // Mock ANY non-success response code (not just "03")
-                    if (prelimCode != null && !"00".equals(prelimCode)) {
-                        shouldMockRefund = true;
-                        mockReason = "Response code " + prelimCode + " - Sandbox Refund API not enabled";
-                    }
-                } catch (Exception e) {
-                    // Parsing failed → Assume sandbox limitation
-                    shouldMockRefund = true;
-                    mockReason = "Cannot parse response - Assumed Sandbox limitation";
-                }
-            }
-            
-            if (shouldMockRefund) {
-                logger.warn("⚠️ MOCK REFUND: VNPay Sandbox limitation detected: {}", mockReason);
-                logger.warn("⚠️ MOCK REFUND: Simulating successful refund for development/demo");
-                
-                Map<String, Object> mockResult = new HashMap<>();
-                mockResult.put("vnp_ResponseCode", "00");
-                mockResult.put("vnp_Message", "Mock refund successful (Sandbox limitation: " + mockReason + ")");
-                mockResult.put("vnp_TmnCode", tmnCode);
-                mockResult.put("vnp_TransactionNo", originalPayment.getReferenceCode());
-                mockResult.put("vnp_Amount", String.valueOf(refundAmount.multiply(new BigDecimal(100)).longValue()));
-                mockResult.put("vnp_TxnRef", originalPayment.getPaymentId().toString());
-                
-                logger.info("=== VNPay Mock Refund Completed ===");
-                return mockResult;
-            }
-            
-            // 5. Parse real response (if not mocked - only when vnp_ResponseCode = "00")
+            if (amount == null || amount.signum() <= 0 || original.getAmount() == null || amount.compareTo(original.getAmount()) != 0
+                    || original.getGatewayReference() == null || original.getTransactionDate() == null
+                    || !original.getTransactionDate().matches("[0-9]{14}") || original.getReferenceCode() == null
+                    || !original.getReferenceCode().matches("[0-9]{1,15}"))
+                return Map.of("vnp_ResponseCode", "99", "vnp_Message", "Missing verified original gateway identifiers; reconciliation required");
+            Map<String, Object> request = new java.util.LinkedHashMap<>();
+            request.put("vnp_RequestId", java.util.UUID.nameUUIDFromBytes(idempotencyKey.getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString().replace("-", ""));
+            request.put("vnp_Version", "2.1.0"); request.put("vnp_Command", "refund"); request.put("vnp_TmnCode", tmnCode);
+            request.put("vnp_TransactionType", "02"); request.put("vnp_TxnRef", original.getGatewayReference());
+            request.put("vnp_Amount", amount.movePointRight(2).longValueExact()); request.put("vnp_TransactionNo", original.getReferenceCode());
+            request.put("vnp_TransactionDate", original.getTransactionDate()); request.put("vnp_CreateBy", "manager");
+            request.put("vnp_CreateDate", DateTimeFormatter.ofPattern("yyyyMMddHHmmss").format(getVNPayRealTime()));
+            request.put("vnp_IpAddr", "127.0.0.1"); request.put("vnp_OrderInfo", reason == null ? "Hoan tien" : reason);
+            request.put("vnp_SecureHash", hmacSHA512(hashSecret, pipeData(request, java.util.List.of("vnp_RequestId", "vnp_Version", "vnp_Command", "vnp_TmnCode", "vnp_TransactionType", "vnp_TxnRef", "vnp_Amount", "vnp_TransactionNo", "vnp_TransactionDate", "vnp_CreateBy", "vnp_CreateDate", "vnp_IpAddr", "vnp_OrderInfo"))));
+            String body = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(request);
+            var httpRequest = java.net.http.HttpRequest.newBuilder(java.net.URI.create(vnpayApiUrl))
+                .timeout(java.time.Duration.ofSeconds(20)).header("Content-Type", "application/json")
+                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body, java.nio.charset.StandardCharsets.UTF_8)).build();
+            var response = refundClient.send(httpRequest, java.net.http.HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
+            if (response.statusCode() != 200) return Map.of("vnp_ResponseCode", "99", "vnp_Message", "Refund HTTP " + response.statusCode());
             Map<String, Object> result = parseJsonResponse(response.body());
-            
-            String responseCode = (String) result.get("vnp_ResponseCode");
-            if ("00".equals(responseCode)) {
-                logger.info("VNPay refund successful");
-            } else {
-                logger.error("VNPay refund failed: code={}, message={}", 
-                        responseCode, result.get("vnp_Message"));
-            }
-            
-            logger.info("=== VNPay Refund Completed ===");
+            String expected = hmacSHA512(hashSecret, pipeData(result, java.util.List.of("vnp_ResponseId", "vnp_Command", "vnp_ResponseCode", "vnp_Message", "vnp_TmnCode", "vnp_TxnRef", "vnp_Amount", "vnp_BankCode", "vnp_PayDate", "vnp_TransactionNo", "vnp_TransactionType", "vnp_TransactionStatus", "vnp_OrderInfo")));
+            String received = java.util.Objects.toString(result.get("vnp_SecureHash"), "");
+            if (!java.security.MessageDigest.isEqual(expected.toLowerCase(java.util.Locale.ROOT).getBytes(java.nio.charset.StandardCharsets.US_ASCII), received.toLowerCase(java.util.Locale.ROOT).getBytes(java.nio.charset.StandardCharsets.US_ASCII)))
+                return Map.of("vnp_ResponseCode", "99", "vnp_Message", "Invalid refund response signature");
+            if ("00".equals(result.get("vnp_ResponseCode")) && (!"00".equals(result.get("vnp_TransactionStatus"))
+                    || !"refund".equals(result.get("vnp_Command")) || !"02".equals(result.get("vnp_TransactionType")) || !tmnCode.equals(result.get("vnp_TmnCode"))
+                    || !original.getGatewayReference().equals(result.get("vnp_TxnRef"))
+                    || new BigDecimal(java.util.Objects.toString(result.get("vnp_Amount"), "-1")).compareTo(amount.movePointRight(2)) != 0))
+                return Map.of("vnp_ResponseCode", "99", "vnp_Message", "Refund response does not match requested receipt");
             return result;
-            
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); return Map.of("vnp_ResponseCode", "99", "vnp_Message", "Refund outcome unknown; reconciliation required");
         } catch (Exception e) {
-            logger.error("VNPay refund exception", e);
-            Map<String, Object> errorResult = new HashMap<>();
-            errorResult.put("vnp_ResponseCode", "99");
-            errorResult.put("vnp_Message", "Error: " + e.getMessage());
-            return errorResult;
+            logger.warn("Refund outcome not confirmed for payment {}", original.getPaymentId());
+            return Map.of("vnp_ResponseCode", "99", "vnp_Message", "Refund outcome unknown; reconciliation required");
         }
     }
-    
+    private String pipeData(Map<String, ?> fields, java.util.List<String> keys) {
+        return keys.stream().map(key -> java.util.Objects.toString(fields.get(key), "")).collect(java.util.stream.Collectors.joining("|"));
+    }
+
     /**
      * Parse JSON response from VNPay API using Jackson ObjectMapper
      */

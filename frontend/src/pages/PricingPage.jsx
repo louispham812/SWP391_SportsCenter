@@ -93,7 +93,10 @@ export default function PricingPage() {
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
               Bảng giá hội viên
             </span>
-            <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">
+            <h1
+              className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-normal leading-[1.32] sm:leading-[1.32]"
+              style={{ lineHeight: 1.35 }}
+            >
               Chọn gói tập <span className="text-orange-500">phù hợp với bạn</span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 font-normal leading-relaxed max-w-2xl mx-auto">
@@ -176,7 +179,7 @@ export default function PricingPage() {
                         <span className={`inline-block px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border ${badgeInfo.color}`}>
                           {badgeInfo.label}
                         </span>
-                        <h2 className={`mt-3 text-xl sm:text-2xl font-black uppercase tracking-tight ${isFeatured ? 'text-white' : 'text-slate-900'}`}>
+                        <h2 className={`mt-3 text-xl sm:text-2xl font-black uppercase tracking-normal leading-snug ${isFeatured ? 'text-white' : 'text-slate-900'}`}>
                           {pkg.name}
                         </h2>
                       </div>

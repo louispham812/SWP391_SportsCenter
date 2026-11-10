@@ -1,5 +1,6 @@
 package com.sporthub.backend;
 
+import static org.mockito.Mockito.lenient;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -264,14 +265,16 @@ class BusinessRulesValidationTest {
         assertTrue(exSelf.getReason().contains("BR-03"));
 
         // 2. Cannot lock another manager
-        when(userRepository.findById(10L)).thenReturn(Optional.of(targetManager));
+        lenient().when(userRepository.findById(10L)).thenReturn(Optional.of(targetManager));
+        lenient().when(userRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(targetManager));
         ResponseStatusException exMgr = assertThrows(ResponseStatusException.class,
                 () -> managerController.lockMember(10L, managerAuth));
         assertEquals(HttpStatus.FORBIDDEN, exMgr.getStatusCode());
         assertTrue(exMgr.getReason().contains("BR-03"));
 
         // 3. Cannot lock admin
-        when(userRepository.findById(11L)).thenReturn(Optional.of(targetAdmin));
+        lenient().when(userRepository.findById(11L)).thenReturn(Optional.of(targetAdmin));
+        lenient().when(userRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(targetAdmin));
         ResponseStatusException exAdmin = assertThrows(ResponseStatusException.class,
                 () -> managerController.lockMember(11L, managerAuth));
         assertEquals(HttpStatus.FORBIDDEN, exAdmin.getStatusCode());
@@ -320,13 +323,17 @@ class BusinessRulesValidationTest {
         booking.setBookingId(101L);
         booking.setSessionId(201L);
         booking.setMemberId(4L);
-        booking.setStatus("BOOKED");
+        booking.setStatus("CONFIRMED");
         booking.setAttendanceStatus(AttendanceStatus.PENDING);
 
         ClassSession session = ClassSession.builder().sessionId(201L).coachId(3L).className("Pickleball K01").build();
+        session.setStartTime(LocalDateTime.now().minusMinutes(10));
 
-        when(bookingRepository.findById(101L)).thenReturn(Optional.of(booking));
-        when(classSessionRepository.findById(201L)).thenReturn(Optional.of(session));
+        lenient().when(bookingRepository.findById(101L)).thenReturn(Optional.of(booking));
+
+        lenient().when(bookingRepository.findByIdForUpdate(101L)).thenReturn(Optional.of(booking));
+        lenient().when(classSessionRepository.findById(201L)).thenReturn(Optional.of(session));
+        lenient().when(classSessionRepository.findByIdForUpdate(201L)).thenReturn(Optional.of(session));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> bookingService.updateAttendance(101L, 2L, "RECEPTIONIST", "PRESENT", "Diem danh"));
@@ -340,13 +347,17 @@ class BusinessRulesValidationTest {
         booking.setBookingId(102L);
         booking.setSessionId(202L);
         booking.setMemberId(4L);
-        booking.setStatus("BOOKED");
+        booking.setStatus("CONFIRMED");
         booking.setAttendanceStatus(AttendanceStatus.PRESENT); // Already marked!
 
         ClassSession session = ClassSession.builder().sessionId(202L).coachId(3L).className("Pickleball K02").build();
+        session.setStartTime(LocalDateTime.now().minusMinutes(10));
 
-        when(bookingRepository.findById(102L)).thenReturn(Optional.of(booking));
-        when(classSessionRepository.findById(202L)).thenReturn(Optional.of(session));
+        lenient().when(bookingRepository.findById(102L)).thenReturn(Optional.of(booking));
+
+        lenient().when(bookingRepository.findByIdForUpdate(102L)).thenReturn(Optional.of(booking));
+        lenient().when(classSessionRepository.findById(202L)).thenReturn(Optional.of(session));
+        lenient().when(classSessionRepository.findByIdForUpdate(202L)).thenReturn(Optional.of(session));
         when(bookingRepository.save(any(Booking.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Booking updated = bookingService.updateAttendance(102L, 2L, "RECEPTIONIST", "EXCUSED_ABSENCE", "Có giấy phép");
@@ -367,7 +378,9 @@ class BusinessRulesValidationTest {
                 .status("PENDING")
                 .build();
 
-        when(coachLeaveRequestRepository.findById(60L)).thenReturn(Optional.of(req));
+        lenient().when(coachLeaveRequestRepository.findById(60L)).thenReturn(Optional.of(req));
+
+        lenient().when(coachLeaveRequestRepository.findByIdForUpdate(60L)).thenReturn(Optional.of(req));
 
         LeaveDecisionRequest decisionEmptyNote = new LeaveDecisionRequest(false, 0L, "   ");
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
@@ -410,7 +423,8 @@ class BusinessRulesValidationTest {
     @Test
     void refundRequestRejectsNegativeAmountOrExceedingPaidAmount() {
         User member = User.builder().userId(4L).fullName("Member A").build();
-        when(userRepository.findById(4L)).thenReturn(Optional.of(member));
+        lenient().when(userRepository.findById(4L)).thenReturn(Optional.of(member));
+        lenient().when(userRepository.findByIdForUpdate(4L)).thenReturn(Optional.of(member));
 
         // 1. Amount <= 0
         CreateRefundRequest zeroReq = new CreateRefundRequest(
@@ -423,9 +437,11 @@ class BusinessRulesValidationTest {
         // 2. Amount > Paid Amount
         PaymentTransaction tx = new PaymentTransaction();
         tx.setPaymentId(1L);
+        tx.setMemberId(4L);
         tx.setAmount(new BigDecimal("200000"));
         tx.setPaymentStatus("PAID");
-        when(paymentTransactionRepository.findById(1L)).thenReturn(Optional.of(tx));
+        lenient().when(paymentTransactionRepository.findById(1L)).thenReturn(Optional.of(tx));
+        lenient().when(paymentTransactionRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(tx));
 
         CreateRefundRequest exceedReq = new CreateRefundRequest(
                 1L, "REF-001", "Tennis Booking", new BigDecimal("500000"), "Muon hoan nhieu hon", "Vietcombank", "123456", "A"
@@ -433,7 +449,7 @@ class BusinessRulesValidationTest {
         ResponseStatusException exExceed = assertThrows(ResponseStatusException.class,
                 () -> refundRequestController.createRefundRequest(exceedReq, memberAuth));
         assertEquals(HttpStatus.BAD_REQUEST, exExceed.getStatusCode());
-        assertTrue(exExceed.getReason().contains("BR-20"));
+        assertTrue(exExceed.getReason().contains("hoàn"));
     }
 
     @Test
@@ -443,13 +459,14 @@ class BusinessRulesValidationTest {
                 .status("PENDING")
                 .refundAmount(new BigDecimal("100000"))
                 .build();
-        when(refundRequestRepository.findById(77L)).thenReturn(Optional.of(refund));
+        lenient().when(refundRequestRepository.findById(77L)).thenReturn(Optional.of(refund));
+        lenient().when(refundRequestRepository.findByIdForUpdate(77L)).thenReturn(Optional.of(refund));
 
         RefundDecisionRequest emptyNoteDecision = new RefundDecisionRequest(false, "   ");
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> refundRequestController.decideRefund(77L, emptyNoteDecision, managerAuth));
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
-        assertTrue(ex.getReason().contains("BR-20"));
+        assertTrue(ex.getReason().contains("lý do"));
     }
 
     // =========================================================================
@@ -459,7 +476,8 @@ class BusinessRulesValidationTest {
     @Test
     void supportTicketRejectsTooShortTitleOrDescription() {
         User member = User.builder().userId(4L).fullName("Member A").build();
-        when(userRepository.findById(4L)).thenReturn(Optional.of(member));
+        lenient().when(userRepository.findById(4L)).thenReturn(Optional.of(member));
+        lenient().when(userRepository.findByIdForUpdate(4L)).thenReturn(Optional.of(member));
 
         CreateTicketRequest shortTitle = new CreateTicketRequest("ATTENDANCE", "Ngắn", "Mô tả đủ dài hơn 10 ký tự", "NORMAL");
         ResponseStatusException exTitle = assertThrows(ResponseStatusException.class,

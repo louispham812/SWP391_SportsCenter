@@ -137,7 +137,7 @@ export default function MemberPackagesPage() {
       const result = await purchaseMembership(selectedPackage.packageId, paymentMethod);
 
       // Redirect to VNPay payment page
-      if (paymentMethod === 'VNPAY' && result.paymentId) {
+      if (paymentMethod === 'VNPAY' && result.paymentId && result.paymentStatus !== 'PAID') {
         try {
           const vnpayResult = await generatePayment(result.paymentId, 'VNPAY');
           
@@ -418,10 +418,11 @@ export default function MemberPackagesPage() {
             </div>
           )}
         </section>
+      </div>
 
-        {/* Modal Confirm Checkout */}
-        {selectedPackage && !showQrModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      {/* Modal Confirm Checkout */}
+      {selectedPackage && !showQrModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 !m-0">
             <div className="w-full max-w-xl max-h-[92vh] flex flex-col rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
               <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-2">
@@ -528,9 +529,9 @@ export default function MemberPackagesPage() {
           </div>
         )}
 
-        {/* QR Payment Modal */}
-        {showQrModal && qrData && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      {/* QR Payment Modal */}
+      {showQrModal && qrData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 !m-0">
             <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl transform animate-in slide-in-from-bottom-4 duration-300">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-orange-100 mb-4">
                 <span className="material-symbols-outlined text-3xl text-orange-600">qr_code_scanner</span>
@@ -600,7 +601,6 @@ export default function MemberPackagesPage() {
             </div>
           </div>
         )}
-      </div>
     </MemberLayout>
   );
 }

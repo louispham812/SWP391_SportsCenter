@@ -254,7 +254,7 @@ export default function PortalLayout({
       {mobileMenuOpen && (
         <div
           onClick={() => setMobileMenuOpen(false)}
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden !m-0"
         ></div>
       )}
 
@@ -497,9 +497,7 @@ export default function PortalLayout({
             3. MAIN CONTENT CANVAS
            ========================================= */}
         <main className="p-3 sm:p-4 lg:p-6 pb-20 lg:pb-6 flex-1 bg-[#f7f9fb]">
-          <div className="space-y-4">
-            {children}
-          </div>
+          {children}
         </main>
       </div>
 
@@ -555,7 +553,7 @@ export default function PortalLayout({
       {searchOpen && (
         <div
           onClick={() => setSearchOpen(false)}
-          className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-sm flex items-start justify-center p-4 pt-16 sm:pt-24 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-sm flex items-start justify-center p-4 pt-16 sm:pt-24 animate-in fade-in duration-200 !m-0"
         >
           <div
             onClick={(e) => e.stopPropagation()}

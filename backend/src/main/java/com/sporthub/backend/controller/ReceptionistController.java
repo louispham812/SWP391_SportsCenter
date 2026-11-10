@@ -62,6 +62,9 @@ import com.sporthub.backend.dto.ReceptionistDashboardOverviewResponse;
 @CrossOrigin(origins = "*")
 public class ReceptionistController {
 
+    @Autowired
+    private com.sporthub.backend.service.CheckInService checkInService;
+
     private final UserRepository userRepository;
     private final ReceptionPaymentRepository paymentRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
@@ -109,6 +112,20 @@ public class ReceptionistController {
         this.emailService = emailService;
         this.auditLogService = auditLogService;
         this.authService = authService;
+    }
+
+    public ReceptionistController(
+            UserRepository userRepository,
+            ReceptionPaymentRepository paymentRepository,
+            PaymentTransactionRepository paymentTransactionRepository,
+            UserMembershipRepository membershipRepository,
+            MembershipPackageRepository packageRepository,
+            MemberCheckInRepository checkInRepository,
+            PasswordEncoder passwordEncoder,
+            com.sporthub.backend.service.EmailService emailService,
+            com.sporthub.backend.service.AuditLogService auditLogService,
+            com.sporthub.backend.service.AuthService authService) {
+        this(userRepository, paymentRepository, paymentTransactionRepository, membershipRepository, packageRepository, checkInRepository, passwordEncoder, emailService, auditLogService, authService, null);
     }
 
     @GetMapping("/members")
@@ -169,12 +186,8 @@ public class ReceptionistController {
         User member = userRepository.findById(request.memberId())
                 .filter(user -> "MEMBER".equalsIgnoreCase(user.getRole()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy hội viên."));
-        LocalDate today = LocalDate.now();
-        boolean hasActiveMembership = membershipRepository.findByUserIdOrderByEndDateDesc(member.getUserId()).stream()
-                .anyMatch(membership -> "ACTIVE".equalsIgnoreCase(membership.getStatus())
-                        && (membership.getStartDate() == null || !membership.getStartDate().isAfter(today))
-                        && (membership.getEndDate() == null || !membership.getEndDate().isBefore(today)));
-        boolean isValid = "ACTIVE".equalsIgnoreCase(member.getStatus()) && hasActiveMembership;
+        boolean isValid = "ACTIVE".equalsIgnoreCase(member.getStatus());
+        if (isValid) checkInService.checkInBooking(member.getUserId(), request.bookingId());
         MemberCheckIn entry = new MemberCheckIn();
         entry.setMemberId(member.getUserId());
         entry.setCheckedInAt(LocalDateTime.now());
@@ -216,7 +229,7 @@ public class ReceptionistController {
         membership.setPackageId(membershipPackage.getPackageId());
         membership.setStartDate(today);
         membership.setEndDate(today.plusDays(membershipPackage.getDurationDays()));
-        membership.setStatus("PENDING_APPROVAL");
+        membership.setStatus("PENDING_PAYMENT");
         UserMembership savedMembership = membershipRepository.save(membership);
 
         String method = request.paymentMethod().toUpperCase(Locale.ROOT);
@@ -228,6 +241,16 @@ public class ReceptionistController {
                 membershipPackage.getName(), // Store package name for transaction history
                 membershipPackage.getPrice(), 
                 method);
+        savedTransaction.setMembershipId(savedMembership.getMembershipId());
+        if ("CASH".equals(method)) {
+            savedTransaction.setPaymentStatus("PAID");
+            savedTransaction.setPaymentCompletedAt(LocalDateTime.now());
+        }
+        paymentTransactionRepository.save(savedTransaction);
+        if ("PAID".equals(savedTransaction.getPaymentStatus())) {
+            savedMembership.setStatus("PENDING_APPROVAL");
+            membershipRepository.save(savedMembership);
+        }
         
         // Legacy ReceptionPayment for backward compatibility
         String receptionPaymentMethod = "VNPAY".equals(method) ? "ONLINE" : "CASH";
@@ -294,7 +317,9 @@ public class ReceptionistController {
                 boolean nearTime = rp.getCreatedAt() != null && tx.getCreatedAt() != null
                         && java.time.Duration.between(rp.getCreatedAt(), tx.getCreatedAt()).abs().toMinutes() <= 10;
 
-                if (sameMember && sameAmount && nearTime) {
+                boolean sameMembership = tx.getMembershipId() != null && rp.getMembershipId() != null
+                        && tx.getMembershipId().longValue() == rp.getMembershipId().longValue();
+                if (sameMember && (sameMembership || (tx.getMembershipId() == null && sameAmount && nearTime))) {
                     matchedPaymentIds.add(rp.getPaymentId());
                     break;
                 }
@@ -647,6 +672,16 @@ public class ReceptionistController {
             }
         }
 
+        if (courtBookingRepository != null) {
+            for (com.sporthub.backend.entity.CourtBooking b : courtBookingRepository.findByMemberIdOrderByStartTimeAsc(uid)) {
+                if (b.getStartTime().toLocalDate().equals(today) && !"CANCELLED".equals(b.getStatus())) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("bookingId", b.getCourtBookingId()); row.put("bookingType", "COURT");
+                    row.put("courtName", "Sân #" + b.getCourtId()); row.put("startTime", b.getStartTime()); row.put("endTime", b.getEndTime());
+                    row.put("status", b.getStatus()); todayBookings.add(row);
+                }
+            }
+        }
         String tierBadge = "VIP".equals(tier) ? "HỘI VIÊN VIP" : "STANDARD".equals(tier) ? "HỘI VIÊN STANDARD" : "HỘI VIÊN MỚI";
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("userId", user.getUserId());

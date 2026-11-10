@@ -1,143 +1,38 @@
 package com.sporthub.backend.service.payment;
 
-import java.time.Duration;
-import java.util.List;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.sporthub.backend.dto.PaymentConfirmationResult;
 import com.sporthub.backend.entity.PaymentTransaction;
-import com.sporthub.backend.entity.ReceptionPayment;
 import com.sporthub.backend.entity.UserMembership;
 import com.sporthub.backend.repository.ReceptionPaymentRepository;
 import com.sporthub.backend.repository.UserMembershipRepository;
 import com.sporthub.backend.service.EngagementService;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Handle MEMBERSHIP_PACKAGE payment confirmation
- * 
- * NEW FLOW (PENDING_APPROVAL):
- * 1. User mua package → status = PENDING_PAYMENT
- * 2. Thanh toán thành công (VNPay/Cash) → status = PENDING_APPROVAL (GIỮ NGUYÊN, chờ Manager duyệt)
- * 3. Manager approve → MembershipService.approveMembership() → status = ACTIVE + Cấp quota
- * 4. Manager reject → MembershipService.rejectMembership() → status = REJECTED + Refund 100%
- * 
- * KHÔNG TỰ ĐỘNG KÍCH HOẠT (No auto-activation)
- */
 @Component
 public class MembershipPaymentHandler implements BookingPaymentHandler {
-    
-    private static final Logger logger = LoggerFactory.getLogger(MembershipPaymentHandler.class);
-    
-    private final ReceptionPaymentRepository receptionPaymentRepository;
-    private final UserMembershipRepository userMembershipRepository;
-    private final EngagementService engagementService;
-    
-    public MembershipPaymentHandler(
-            ReceptionPaymentRepository receptionPaymentRepository,
-            UserMembershipRepository userMembershipRepository,
-            EngagementService engagementService) {
-        this.receptionPaymentRepository = receptionPaymentRepository;
-        this.userMembershipRepository = userMembershipRepository;
-        this.engagementService = engagementService;
+    private final UserMembershipRepository memberships;
+    private final ReceptionPaymentRepository receipts;
+    private final EngagementService engagement;
+    public MembershipPaymentHandler(ReceptionPaymentRepository receipts, UserMembershipRepository memberships, EngagementService engagement) {
+        this.receipts = receipts; this.memberships = memberships; this.engagement = engagement;
     }
-    
-    @Override
-    public String getSupportedBookingType() {
-        return "MEMBERSHIP_PACKAGE";
-    }
-    
-    @Override
-    @Transactional
-    public PaymentConfirmationResult handlePaymentConfirmation(PaymentTransaction payment, Double transferAmount) {
-        Long paymentId = payment.getPaymentId();
-        
-        if (!"MEMBERSHIP_PACKAGE".equalsIgnoreCase(payment.getBookingType())) {
-            return null; // Not our booking type
+    @Override public String getSupportedBookingType() { return "MEMBERSHIP_PACKAGE"; }
+    @Override @Transactional
+    public PaymentConfirmationResult handlePaymentConfirmation(PaymentTransaction payment, Double amount) {
+        if (!"MEMBERSHIP_PACKAGE".equals(payment.getBookingType())) return null;
+        if (payment.getMembershipId() == null) throw new IllegalStateException("Giao dịch chưa liên kết gói tập; cần đối soát tại quầy.");
+        UserMembership membership = memberships.findByIdForUpdate(payment.getMembershipId()).orElseThrow();
+        if (!membership.getUserId().equals(payment.getMemberId())) throw new IllegalStateException("Sai chủ sở hữu gói tập.");
+        if ("PENDING_PAYMENT".equals(membership.getStatus()) && "PAID".equals(payment.getPaymentStatus())) {
+            membership.setStatus("PENDING_APPROVAL"); memberships.save(membership);
+            receipts.findByMemberIdOrderByCreatedAtDesc(Math.toIntExact(payment.getMemberId())).stream()
+                .filter(r -> r.getMembershipId() != null && r.getMembershipId().longValue() == membership.getMembershipId())
+                .forEach(r -> { r.setPaymentStatus("COMPLETED"); receipts.save(r); });
+            engagement.notifyUser(payment.getMemberId(), "Đã nhận thanh toán gói tập", "Gói tập đang chờ Quản lý phê duyệt.", "MEMBERSHIP");
         }
-        
-        logger.info("Processing MEMBERSHIP_PACKAGE payment #{}", paymentId);
-        
-        try {
-            // Find ReceptionPayment by memberId to get membershipId (um_id)
-            List<ReceptionPayment> receptionPayments = 
-                receptionPaymentRepository.findByMemberIdOrderByCreatedAtDesc(Math.toIntExact(payment.getMemberId()));
-            
-            ReceptionPayment matchingPayment = receptionPayments.stream()
-                .filter(rp -> rp.getMembershipId() != null)
-                .filter(rp -> rp.getCreatedAt() != null && payment.getCreatedAt() != null)
-                .filter(rp -> Duration.between(rp.getCreatedAt(), payment.getCreatedAt()).abs().toMinutes() < 5)
-                .findFirst()
-                .orElse(null);
-            
-            if (matchingPayment != null && matchingPayment.getMembershipId() != null) {
-                Long membershipId = Long.valueOf(matchingPayment.getMembershipId());
-                
-                // Find UserMembership
-                UserMembership membership = userMembershipRepository.findById(membershipId).orElse(null);
-                
-                if (membership != null) {
-                    // ✅ NEW FLOW FOR RECEPTION: Auto-activate membership (đã thanh toán xác thực)
-                    // Reception đã xác nhận member → Auto ACTIVE ngay khi payment success
-                    if ("PENDING_APPROVAL".equalsIgnoreCase(membership.getStatus())) {
-                        // Auto-activate membership
-                        membership.setStatus("ACTIVE");
-                        
-                        // Cấp quota nếu package có initial_quota_sessions
-                        if (membership.getInitialQuotaSessions() != null && membership.getInitialQuotaSessions() > 0) {
-                            membership.setUsedQuotaSessions(0);
-                            membership.setHeldQuotaSessions(0);
-                            membership.setRemainingQuotaSessions(membership.getInitialQuotaSessions());
-                        }
-                        
-                        userMembershipRepository.save(membership);
-                        
-                        // Update ReceptionPayment status to COMPLETED
-                        matchingPayment.setPaymentStatus("COMPLETED");
-                        receptionPaymentRepository.save(matchingPayment);
-                        
-                        logger.info("✅ MEMBERSHIP AUTO-ACTIVATED: Membership #{} status=ACTIVE, quota granted", membershipId);
-                        
-                        // Send notification: Membership activated
-                        if (engagementService != null) {
-                            engagementService.audit(
-                                payment.getMemberId(), "MEMBER", "MEMBERSHIP_ACTIVATED",
-                                "membershipId=" + membershipId + ", paymentId=" + paymentId +
-                                ", amount=" + transferAmount + ", status=ACTIVE"
-                            );
-                            engagementService.notifyUser(
-                                payment.getMemberId(), 
-                                "Gói hội viên đã được kích hoạt",
-                                "Gói hội viên #" + membershipId + " của bạn đã được kích hoạt thành công! " +
-                                "Bạn có thể bắt đầu đăng ký lớp học và sử dụng dịch vụ.", 
-                                "MEMBERSHIP"
-                            );
-                        }
-                        
-                        PaymentConfirmationResult result = new PaymentConfirmationResult();
-                        result.setSuccess(true);
-                        result.setPaymentId(paymentId);
-                        result.setBookingType("MEMBERSHIP_PACKAGE");
-                        result.setMembershipId(membershipId);
-                        result.setStatus("ACTIVE");
-                        result.setMessage("Gói hội viên đã được kích hoạt thành công.");
-                        return result;
-                    } else {
-                        logger.warn("UserMembership #{} already has status: {}", membershipId, membership.getStatus());
-                    }
-                } else {
-                    logger.warn("UserMembership #{} not found", membershipId);
-                }
-            } else {
-                logger.warn("No matching ReceptionPayment found for memberId: {}", payment.getMemberId());
-            }
-        } catch (Exception e) {
-            logger.error("Error processing MEMBERSHIP_PACKAGE payment #{}: {}", paymentId, e.getMessage(), e);
-        }
-        
-        return null; // Failed to process
+        PaymentConfirmationResult result = new PaymentConfirmationResult();
+        result.setSuccess(true); result.setPaymentId(payment.getPaymentId()); result.setMembershipId(membership.getMembershipId());
+        result.setBookingType("MEMBERSHIP_PACKAGE"); result.setStatus(membership.getStatus()); return result;
     }
 }

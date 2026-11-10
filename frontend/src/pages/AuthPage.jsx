@@ -313,7 +313,10 @@ export default function AuthPage() {
                   </span>
                 </div>
 
-                <h2 className="font-headline-lg text-2xl sm:text-3xl text-slate-900 tracking-tight leading-tight font-black uppercase">
+                <h2
+                  className="font-headline-lg text-2xl sm:text-3xl text-slate-900 tracking-normal font-black uppercase leading-[1.32] sm:leading-[1.32]"
+                  style={{ lineHeight: 1.35 }}
+                >
                   Bứt Phá Giới Hạn Cùng Hệ Sinh Thái Đẳng Cấp
                 </h2>
 
@@ -407,7 +410,10 @@ export default function AuthPage() {
 
               {/* Headline Context */}
               <div className="flex flex-col gap-1">
-                <h1 className="font-headline-xl text-3xl sm:text-4xl text-slate-900 font-black uppercase tracking-tight">
+                <h1
+                  className="font-headline-xl text-3xl sm:text-4xl text-slate-900 font-black uppercase tracking-normal leading-[1.32] sm:leading-[1.32]"
+                  style={{ lineHeight: 1.35 }}
+                >
                   {activeTab === 'login' ? 'Đăng Nhập Tài Khoản' : 'Chào Mừng Đến Với F Sport'}
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
@@ -797,7 +803,7 @@ export default function AuthPage() {
 
       {/* OTP Verification Modal Dialog (Workflow Đăng Ký - Section 2.1 & 2.2) */}
       {otpModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
           <div className="relative w-full max-w-md overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-5">
             <div className="text-center space-y-2">
               <div className="w-14 h-14 mx-auto rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center shadow-inner">

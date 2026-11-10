@@ -1,5 +1,6 @@
 package com.sporthub.backend.workflow;
 
+import static org.mockito.Mockito.lenient;
 import com.sporthub.backend.controller.CoachLeaveController;
 import com.sporthub.backend.dto.CoachLeaveRequestDTO;
 import com.sporthub.backend.dto.CreateLeaveRequest;
@@ -68,7 +69,8 @@ class CoachLeaveWorkflowTest {
         coach.setUserId(coachId);
         coach.setFullName("Coach Nguyễn Văn A");
         coach.setRole("COACH");
-        when(userRepository.findById(coachId)).thenReturn(Optional.of(coach));
+        lenient().when(userRepository.findById(coachId)).thenReturn(Optional.of(coach));
+        lenient().when(userRepository.findByIdForUpdate(coachId)).thenReturn(Optional.of(coach));
 
         User manager1 = new User();
         manager1.setUserId(100L);
@@ -164,27 +166,31 @@ class CoachLeaveWorkflowTest {
                 .affectedBookingsCount(2)
                 .createdAt(LocalDateTime.now())
                 .build();
-        when(leaveRepository.findById(requestId)).thenReturn(Optional.of(leaveRequest));
+        lenient().when(leaveRepository.findById(requestId)).thenReturn(Optional.of(leaveRequest));
+        lenient().when(leaveRepository.findByIdForUpdate(requestId)).thenReturn(Optional.of(leaveRequest));
 
         User replacementCoach = new User();
         replacementCoach.setUserId(reassignedCoachId);
         replacementCoach.setFullName("Coach Trần Văn B");
         replacementCoach.setRole("COACH");
-        when(userRepository.findById(reassignedCoachId)).thenReturn(Optional.of(replacementCoach));
+        replacementCoach.setStatus("ACTIVE");
+        lenient().when(userRepository.findById(reassignedCoachId)).thenReturn(Optional.of(replacementCoach));
+        lenient().when(userRepository.findByIdForUpdate(reassignedCoachId)).thenReturn(Optional.of(replacementCoach));
 
         ClassSession session1 = new ClassSession();
-        session1.setSessionId(10L);
+        session1.setSessionId(10L); session1.setSportId(1L);
         session1.setCoachId(coachId);
         session1.setStatus("SCHEDULED");
         session1.setStartTime(LocalDateTime.now().plusDays(8));
 
         ClassSession session2 = new ClassSession();
-        session2.setSessionId(11L);
+        session2.setSessionId(11L); session2.setSportId(1L);
         session2.setCoachId(coachId);
         session2.setStatus("SCHEDULED");
         session2.setStartTime(LocalDateTime.now().plusDays(9));
 
         when(classSessionRepository.findAll()).thenReturn(List.of(session1, session2));
+        when(classSessionRepository.findByCoachIdOrderByStartTimeAsc(reassignedCoachId)).thenReturn(List.of(session1));
         when(classSessionRepository.saveAll(anyList())).thenReturn(List.of(session1, session2));
 
         Booking booking1 = new Booking();
@@ -272,7 +278,8 @@ class CoachLeaveWorkflowTest {
                 .affectedBookingsCount(5)
                 .createdAt(LocalDateTime.now())
                 .build();
-        when(leaveRepository.findById(requestId)).thenReturn(Optional.of(leaveRequest));
+        lenient().when(leaveRepository.findById(requestId)).thenReturn(Optional.of(leaveRequest));
+        lenient().when(leaveRepository.findByIdForUpdate(requestId)).thenReturn(Optional.of(leaveRequest));
         when(leaveRepository.save(any(CoachLeaveRequest.class))).thenReturn(leaveRequest);
 
         LeaveDecisionRequest decision = new LeaveDecisionRequest(

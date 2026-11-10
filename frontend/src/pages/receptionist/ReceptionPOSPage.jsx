@@ -15,6 +15,21 @@ export default function ReceptionPOSPage() {
   const [search, setSearch] = useState('');
   const [memberId, setMemberId] = useState('');
   const [packageId, setPackageId] = useState('');
+  const [pendingCash, setPendingCash] = useState([]);
+  const [collectingPayment, setCollectingPayment] = useState(null);
+  const loadPendingCash = async () => {
+    try { setPendingCash(await apiRequest('/receptionist/payments/pending-cash')); }
+    catch (err) { setError(err.message || 'Không tải được giao dịch chờ thu.'); }
+  };
+  const collectCash = async (payment) => {
+    setCollectingPayment(payment.paymentId);
+    setError('');
+    try {
+      await apiRequest(`/receptionist/payments/${payment.paymentId}/confirm-cash`, { method: 'POST' });
+      await loadPendingCash();
+    } catch (err) { setError(err.message || 'Không xác nhận được giao dịch.'); }
+    finally { setCollectingPayment(null); }
+  };
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -123,6 +138,22 @@ export default function ReceptionPOSPage() {
   return (
     <ReceptionistLayout>
       <main className="mx-auto max-w-5xl space-y-6">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-bold text-slate-900">Giao dịch hội viên chờ trả tiền tại quầy</h2>
+            <button type="button" onClick={loadPendingCash} className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold">Tải danh sách chờ thu</button>
+          </div>
+          <p className="text-sm text-slate-500">Kiểm tra số tiền và hội viên, sau đó xác nhận khi đã nhận đủ tiền mặt.</p>
+          {pendingCash.map((payment) => (
+            <div key={payment.paymentId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-sm">
+              <span>Giao dịch #{payment.paymentId} · Hội viên #{payment.memberId} · {payment.itemDescription || payment.bookingType} · <strong>{formatPrice(payment.amount)}</strong></span>
+              <button type="button" disabled={collectingPayment !== null} onClick={() => collectCash(payment)} className="rounded-lg bg-emerald-700 px-3 py-2 font-bold text-white disabled:opacity-50">
+                {collectingPayment === payment.paymentId ? 'Đang xác nhận...' : 'Đã thu đủ tiền mặt'}
+              </button>
+            </div>
+          ))}
+        </section>
+
         <header>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold uppercase tracking-wider mb-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -308,116 +339,116 @@ export default function ReceptionPOSPage() {
             </button>
           </section>
         </form>
+      </main>
 
-        {/* Modal Xem & In Hóa Đơn Nhiệt 80mm Chuẩn POS (REC-19) */}
-        {showPrintModal && receipt && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static">
-            <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 space-y-4 print:shadow-none print:border-none print:max-w-none print:w-full print:p-0">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3 print:hidden">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-orange-500 text-[20px]">print</span>
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-800">Hóa Đơn Nhiệt POS (80mm)</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowPrintModal(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]">close</span>
-                </button>
+      {/* Modal Xem & In Hóa Đơn Nhiệt 80mm Chuẩn POS (REC-19) */}
+      {showPrintModal && receipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static !m-0">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 space-y-4 print:shadow-none print:border-none print:max-w-none print:w-full print:p-0">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 print:hidden">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-orange-500 text-[20px]">print</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-800">Hóa Đơn Nhiệt POS (80mm)</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPrintModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+
+            {/* Template Hóa Đơn Khổ 80mm */}
+            <div id="receipt-print-area" className="w-[80mm] max-w-full mx-auto p-4 bg-white text-slate-900 font-mono text-[11px] leading-tight space-y-3 border border-dashed border-slate-300 rounded-xl print:border-none print:p-0">
+              <div className="text-center space-y-1 pb-2 border-b border-dashed border-slate-400">
+                <div className="font-sans font-black text-sm tracking-wider uppercase text-slate-900">F SPORT CENTER</div>
+                <div className="text-[10px] text-slate-600">Trung Tâm Thể Thao Đa Năng Cao Cấp</div>
+                <div className="text-[9px] text-slate-500">Hotline: 1900 6868 · www.fsport.vn</div>
+                <div className="font-bold text-xs pt-1 uppercase">HÓA ĐƠN THANH TOÁN DỊCH VỤ</div>
+                <div className="text-[10px] text-slate-600">Số HĐ: #HD-{receipt.paymentId}</div>
+                <div className="text-[9px] text-slate-500">{receipt.createdAtFormatted}</div>
               </div>
 
-              {/* Template Hóa Đơn Khổ 80mm */}
-              <div id="receipt-print-area" className="w-[80mm] max-w-full mx-auto p-4 bg-white text-slate-900 font-mono text-[11px] leading-tight space-y-3 border border-dashed border-slate-300 rounded-xl print:border-none print:p-0">
-                <div className="text-center space-y-1 pb-2 border-b border-dashed border-slate-400">
-                  <div className="font-sans font-black text-sm tracking-wider uppercase text-slate-900">F SPORT CENTER</div>
-                  <div className="text-[10px] text-slate-600">Trung Tâm Thể Thao Đa Năng Cao Cấp</div>
-                  <div className="text-[9px] text-slate-500">Hotline: 1900 6868 · www.fsport.vn</div>
-                  <div className="font-bold text-xs pt-1 uppercase">HÓA ĐƠN THANH TOÁN DỊCH VỤ</div>
-                  <div className="text-[10px] text-slate-600">Số HĐ: #HD-{receipt.paymentId}</div>
-                  <div className="text-[9px] text-slate-500">{receipt.createdAtFormatted}</div>
+              <div className="space-y-1 text-[10px]">
+                <div className="flex justify-between">
+                  <span>Khách hàng:</span>
+                  <strong className="text-right">{receipt.member?.fullName || 'Hội viên F Sport'}</strong>
                 </div>
-
-                <div className="space-y-1 text-[10px]">
-                  <div className="flex justify-between">
-                    <span>Khách hàng:</span>
-                    <strong className="text-right">{receipt.member?.fullName || 'Hội viên F Sport'}</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Số điện thoại:</span>
-                    <span>{receipt.member?.phone || '—'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Mã hội viên:</span>
-                    <span>#{receipt.memberId}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Thu ngân:</span>
-                    <span>Lễ tân ca trực</span>
-                  </div>
+                <div className="flex justify-between">
+                  <span>Số điện thoại:</span>
+                  <span>{receipt.member?.phone || '—'}</span>
                 </div>
-
-                <div className="border-t border-b border-dashed border-slate-400 py-2 space-y-1.5">
-                  <div className="flex justify-between font-bold text-[10px] text-slate-700">
-                    <span>TÊN DỊCH VỤ</span>
-                    <span>THÀNH TIỀN</span>
-                  </div>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="font-bold">{receipt.packageName}</div>
-                      <div className="text-[9px] text-slate-500">Thời hạn: {receipt.pkg?.durationDays || '—'} ngày</div>
-                    </div>
-                    <strong className="text-right">{formatPrice(receipt.amount)}</strong>
-                  </div>
+                <div className="flex justify-between">
+                  <span>Mã hội viên:</span>
+                  <span>#{receipt.memberId}</span>
                 </div>
-
-                <div className="space-y-1 text-[11px]">
-                  <div className="flex justify-between font-bold text-xs">
-                    <span>TỔNG TIỀN:</span>
-                    <span className="text-orange-600">{formatPrice(receipt.amount)}</span>
-                  </div>
-                  <div className="flex justify-between text-[10px]">
-                    <span>Hình thức:</span>
-                    <span>{receipt.paymentMethodName}</span>
-                  </div>
-                  <div className="flex justify-between text-[10px]">
-                    <span>Trạng thái:</span>
-                    <strong className="uppercase text-emerald-700">ĐÃ THANH TOÁN</strong>
-                  </div>
-                </div>
-
-                {/* QR Code footer tra cứu */}
-                <div className="pt-2 border-t border-dashed border-slate-400 flex flex-col items-center justify-center text-center space-y-1">
-                  <QrCodeSvg text={`SPORTHUB-MEMBER-${receipt.memberId}`} size={90} />
-                  <div className="text-[8px] text-slate-500">Mã QR Check-in: SPORTHUB-MEMBER-{receipt.memberId}</div>
-                  <div className="text-[9px] text-slate-600 font-sans italic pt-1">
-                    Cảm ơn quý khách! Chúc quý khách buổi tập nhiều năng lượng!
-                  </div>
+                <div className="flex justify-between">
+                  <span>Thu ngân:</span>
+                  <span>Lễ tân ca trực</span>
                 </div>
               </div>
 
-              {/* Action buttons in Modal */}
-              <div className="pt-2 flex items-center gap-2 print:hidden">
-                <button
-                  type="button"
-                  onClick={handlePrintReceipt}
-                  className="flex-1 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-orange-500/25"
-                >
-                  <span className="material-symbols-outlined text-[16px]">print</span>
-                  <span>In Phiếu Thu (80mm)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowPrintModal(false)}
-                  className="py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
-                >
-                  Đóng
-                </button>
+              <div className="border-t border-b border-dashed border-slate-400 py-2 space-y-1.5">
+                <div className="flex justify-between font-bold text-[10px] text-slate-700">
+                  <span>TÊN DỊCH VỤ</span>
+                  <span>THÀNH TIỀN</span>
+                </div>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="font-bold">{receipt.packageName}</div>
+                    <div className="text-[9px] text-slate-500">Thời hạn: {receipt.pkg?.durationDays || '—'} ngày</div>
+                  </div>
+                  <strong className="text-right">{formatPrice(receipt.amount)}</strong>
+                </div>
+              </div>
+
+              <div className="space-y-1 text-[11px]">
+                <div className="flex justify-between font-bold text-xs">
+                  <span>TỔNG TIỀN:</span>
+                  <span className="text-orange-600">{formatPrice(receipt.amount)}</span>
+                </div>
+                <div className="flex justify-between text-[10px]">
+                  <span>Hình thức:</span>
+                  <span>{receipt.paymentMethodName}</span>
+                </div>
+                <div className="flex justify-between text-[10px]">
+                  <span>Trạng thái:</span>
+                  <strong className="uppercase text-emerald-700">ĐÃ THANH TOÁN</strong>
+                </div>
+              </div>
+
+              {/* QR Code footer tra cứu */}
+              <div className="pt-2 border-t border-dashed border-slate-400 flex flex-col items-center justify-center text-center space-y-1">
+                <QrCodeSvg text={`SPORTHUB-MEMBER-${receipt.memberId}`} size={90} />
+                <div className="text-[8px] text-slate-500">Mã QR Check-in: SPORTHUB-MEMBER-{receipt.memberId}</div>
+                <div className="text-[9px] text-slate-600 font-sans italic pt-1">
+                  Cảm ơn quý khách! Chúc quý khách buổi tập nhiều năng lượng!
+                </div>
               </div>
             </div>
+
+            {/* Action buttons in Modal */}
+            <div className="pt-2 flex items-center gap-2 print:hidden">
+              <button
+                type="button"
+                onClick={handlePrintReceipt}
+                className="flex-1 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-orange-500/25"
+              >
+                <span className="material-symbols-outlined text-[16px]">print</span>
+                <span>In Phiếu Thu (80mm)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPrintModal(false)}
+                className="py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
           </div>
-        )}
-      </main>
+        </div>
+      )}
     </ReceptionistLayout>
   );
 }

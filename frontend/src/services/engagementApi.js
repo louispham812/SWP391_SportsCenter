@@ -18,4 +18,6 @@ export const getAuditLogs = () => apiRequest('/manager/audit-logs');
 export const getMaintenanceList = () => apiRequest('/manager/maintenance');
 export const createMaintenance = (data) =>
   apiRequest('/manager/maintenance', { method: 'POST', body: JSON.stringify(data) });
+export const extendMaintenance = (id, data) =>
+  apiRequest(`/manager/maintenance/${id}/extend`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteMaintenance = (id) => apiRequest(`/manager/maintenance/${id}`, { method: 'DELETE' });

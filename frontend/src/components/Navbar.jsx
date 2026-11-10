@@ -134,10 +134,11 @@ export default function Navbar() {
 
           <button
             onClick={() => setMobileNavOpen(!mobileNavOpen)}
-            className="lg:hidden w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-800"
+            className="lg:hidden w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-800 hover:bg-slate-200 transition-colors cursor-pointer"
             type="button"
+            aria-label="Menu điều hướng"
           >
-            <span className="material-symbols-outlined text-[22px]">
+            <span className="material-symbols-outlined text-[24px]">
               {mobileNavOpen ? 'close' : 'menu'}
             </span>
           </button>
@@ -157,6 +158,32 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
+          {!isAuthenticated ? (
+            <Link
+              to="/login"
+              onClick={() => setMobileNavOpen(false)}
+              className="text-sm font-black text-orange-600 py-2 uppercase tracking-wider"
+            >
+              Đăng nhập tài khoản
+            </Link>
+          ) : (
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+              <Link
+                to={accountPath}
+                onClick={() => setMobileNavOpen(false)}
+                className="text-sm font-black text-orange-600 uppercase tracking-wider"
+              >
+                Vào khu vực {currentUser?.roleTitle || 'cá nhân'}
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="text-xs font-bold text-red-600 uppercase cursor-pointer"
+              >
+                Đăng xuất
+              </button>
+            </div>
+          )}
         </div>
       )}
     </header>

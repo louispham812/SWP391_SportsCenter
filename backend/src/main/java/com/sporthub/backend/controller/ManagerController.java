@@ -7,10 +7,12 @@ import com.sporthub.backend.dto.ManagerUserResponse;
 import com.sporthub.backend.dto.MembershipQuotaResponse;
 import com.sporthub.backend.dto.PendingStaffRegistrationResponse;
 import com.sporthub.backend.entity.MembershipPackage;
+import com.sporthub.backend.entity.PaymentTransaction;
 import com.sporthub.backend.entity.PublicSport;
 import com.sporthub.backend.entity.User;
 import com.sporthub.backend.entity.UserMembership;
 import com.sporthub.backend.repository.MembershipPackageRepository;
+import com.sporthub.backend.repository.PaymentTransactionRepository;
 import com.sporthub.backend.repository.PublicSportRepository;
 import com.sporthub.backend.repository.UserMembershipRepository;
 import com.sporthub.backend.repository.UserRepository;
@@ -28,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -52,6 +55,9 @@ public class ManagerController {
 
     @Autowired(required = false)
     private UserMembershipRepository userMembershipRepository;
+
+    @Autowired(required = false)
+    private PaymentTransactionRepository paymentTransactionRepository;
 
     @Autowired
     public ManagerController(
@@ -291,7 +297,33 @@ public class ManagerController {
             row.put("quotaClassSessions", pkg != null && pkg.getQuotaSessions() != null ? pkg.getQuotaSessions() : 0);
             row.put("quotaPtSessions", 0);
             row.put("status", um.getStatus());
-            row.put("createdAt", um.getStartDate() != null ? um.getStartDate().atStartOfDay().toString() : java.time.LocalDateTime.now().toString());
+
+            LocalDateTime createdTime = null;
+            if (paymentTransactionRepository != null) {
+                List<PaymentTransaction> txs = paymentTransactionRepository.findByMemberIdOrderByCreatedAtDesc(um.getUserId());
+                for (PaymentTransaction tx : txs) {
+                    if ("MEMBERSHIP".equalsIgnoreCase(tx.getBookingType()) || "MEMBERSHIP".equalsIgnoreCase(tx.getItemType())) {
+                        createdTime = tx.getCreatedAt();
+                        if (tx.getReferenceCode() != null && !tx.getReferenceCode().isBlank()) {
+                            row.put("referenceCode", tx.getReferenceCode());
+                        }
+                        if (tx.getPaymentMethod() != null && !tx.getPaymentMethod().isBlank()) {
+                            row.put("paymentMethod", tx.getPaymentMethod());
+                        }
+                        if (tx.getAmount() != null) {
+                            row.put("price", tx.getAmount());
+                        }
+                        break;
+                    }
+                }
+            }
+            if (createdTime == null && um.getStartDate() != null) {
+                createdTime = um.getStartDate().atStartOfDay();
+            }
+            if (createdTime == null) {
+                createdTime = LocalDateTime.now();
+            }
+            row.put("createdAt", createdTime.toString());
             row.put("startDate", um.getStartDate());
             row.put("endDate", um.getEndDate());
             return row;

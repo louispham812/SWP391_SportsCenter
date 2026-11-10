@@ -41,7 +41,7 @@ export default function ReceiptModal({ receipt, profile, onClose }) {
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200 !m-0"
     >
       <div
         onClick={(e) => e.stopPropagation()}

@@ -497,13 +497,14 @@ export default function MemberTransactionsPage() {
             )}
           </div>
         </div>
+      </div>
 
-        {/* Complaint Modal - INLINE */}
-        {showComplaintModal && (
-          <div
-            onClick={() => setShowComplaintModal(false)}
-            className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
-          >
+      {/* Complaint Modal - INLINE */}
+      {showComplaintModal && (
+        <div
+          onClick={() => setShowComplaintModal(false)}
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 !m-0"
+        >
             <div
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-5 relative"
@@ -614,7 +615,6 @@ export default function MemberTransactionsPage() {
           onSuccess={loadData}
           showToast={showToast}
         />
-      </div>
     </MemberLayout>
   );
 }

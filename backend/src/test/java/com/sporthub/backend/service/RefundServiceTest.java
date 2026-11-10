@@ -1,5 +1,6 @@
 package com.sporthub.backend.service;
 
+import static org.mockito.Mockito.lenient;
 import com.sporthub.backend.entity.MembershipPackage;
 import com.sporthub.backend.entity.RefundRequest;
 import com.sporthub.backend.entity.User;
@@ -64,7 +65,9 @@ class RefundServiceTest {
                 .phone("0912345678")
                 .build();
 
-        when(userRepository.findById(memberId)).thenReturn(Optional.of(user));
+        lenient().when(userRepository.findById(memberId)).thenReturn(Optional.of(user));
+
+        lenient().when(userRepository.findByIdForUpdate(memberId)).thenReturn(Optional.of(user));
         when(refundRequestRepository.save(any(RefundRequest.class))).thenAnswer(i -> i.getArgument(0));
 
         // When
@@ -74,7 +77,7 @@ class RefundServiceTest {
 
         // Then
         assertNotNull(result);
-        assertEquals("APPROVED", result.getStatus());
+        assertEquals("PENDING_APPROVAL", result.getStatus());
         assertEquals(amount, result.getRefundAmount());
         assertEquals(reason, result.getReason());
         assertEquals(managerId, result.getApprovedBy());
@@ -83,7 +86,7 @@ class RefundServiceTest {
         verify(refundRequestRepository, times(1)).save(any(RefundRequest.class));
         verify(engagementService, times(1)).notifyUser(
                 eq(memberId),
-                eq("Yêu cầu hoàn tiền đã được duyệt"),
+                eq("Đã tạo yêu cầu hoàn tiền"),
                 anyString(),
                 eq("REFUND")
         );
@@ -133,18 +136,25 @@ class RefundServiceTest {
         membership.setUserId(memberId);
         membership.setPackageId(packageId);
 
-        when(userRepository.findById(memberId)).thenReturn(Optional.of(user));
+        lenient().when(userRepository.findById(memberId)).thenReturn(Optional.of(user));
+
+        lenient().when(userRepository.findByIdForUpdate(memberId)).thenReturn(Optional.of(user));
         when(membershipPackageRepository.findById(packageId)).thenReturn(Optional.of(pkg));
         when(refundRequestRepository.save(any(RefundRequest.class))).thenAnswer(i -> i.getArgument(0));
 
         // When
+        var payments = mock(com.sporthub.backend.repository.PaymentTransactionRepository.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(refundService, "payments", payments);
+        var paid = new com.sporthub.backend.entity.PaymentTransaction();
+        paid.setPaymentId(5L); paid.setPaymentStatus("PAID"); paid.setAmount(pkg.getPrice()); paid.setReferenceCode("RFD-5");
+        when(payments.findFirstByMembershipIdOrderByCreatedAtDesc(membership.getMembershipId())).thenReturn(Optional.of(paid));
         RefundRequest result = refundService.createRefundForRejectedMembership(
                 membership, rejectReason, managerId
         );
 
         // Then
         assertNotNull(result);
-        assertEquals("APPROVED", result.getStatus());
+        assertEquals("PENDING_APPROVAL", result.getStatus());
         assertEquals(pkg.getPrice(), result.getRefundAmount());
         assertTrue(result.getReason().contains("Gói VIP 3 Tháng"));
         assertTrue(result.getReason().contains(rejectReason));

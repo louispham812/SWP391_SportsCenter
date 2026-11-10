@@ -66,7 +66,7 @@ public class EquipmentController {
     @PutMapping("/equipments/{id}")
     @Transactional
     public ResponseEntity<EquipmentResponse> updateEquipment(@PathVariable Long id, @RequestBody Equipment req) {
-        Equipment eq = equipmentRepository.findById(id)
+        Equipment eq = equipmentRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy dụng cụ."));
         if (req.getTotalQuantity() != null && req.getTotalQuantity() < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tổng số lượng không thể âm.");
@@ -115,7 +115,7 @@ public class EquipmentController {
         User member = userRepository.findById(req.memberId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy hội viên."));
 
-        Equipment item = equipmentRepository.findById(req.itemId())
+        Equipment item = equipmentRepository.findByIdForUpdate(req.itemId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy dụng cụ."));
 
         if (req.quantity() != null && req.quantity() <= 0) {
@@ -134,6 +134,8 @@ public class EquipmentController {
             }
         }
 
+        if (!"ACTIVE".equalsIgnoreCase(item.getStatus()) || !"ACTIVE".equalsIgnoreCase(member.getStatus()) || !"MEMBER".equalsIgnoreCase(member.getRole()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Hội viên hoặc dụng cụ không hoạt động.");
         // Deduct inventory
         item.setAvailableQuantity(item.getAvailableQuantity() - qty);
         equipmentRepository.save(item);
@@ -159,10 +161,10 @@ public class EquipmentController {
     public ResponseEntity<EquipmentLoanResponse> returnEquipment(
             @PathVariable Long id,
             @RequestBody(required = false) ReturnEquipmentRequest req) {
-        EquipmentLoan loan = loanRepository.findById(id)
+        EquipmentLoan loan = loanRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thông tin mượn đồ."));
 
-        if (!"BORROWED".equalsIgnoreCase(loan.getStatus())) {
+        if (!java.util.Set.of("BORROWED", "OVERDUE").contains(loan.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Dụng cụ này đã được trả trước đó.");
         }
 
@@ -187,7 +189,7 @@ public class EquipmentController {
         }
 
         // Return stock to equipment
-        equipmentRepository.findById(loan.getItemId()).ifPresent(item -> {
+        equipmentRepository.findByIdForUpdate(loan.getItemId()).ifPresent(item -> {
             int newAvailable = item.getAvailableQuantity() + loan.getQuantity();
             if (item.getTotalQuantity() != null && newAvailable > item.getTotalQuantity()) {
                 newAvailable = item.getTotalQuantity();

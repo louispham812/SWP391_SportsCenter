@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import { CardGridSkeleton, TableSkeleton } from '../../components/common/Skeleton';
 import {
@@ -13,6 +13,7 @@ import {
 } from '../../services/managerApi';
 import {
   createMaintenance,
+  extendMaintenance,
   deleteMaintenance,
   getMaintenanceList,
 } from '../../services/engagementApi';
@@ -31,6 +32,20 @@ const emptySession = {
   priceAmount: 0,
 };
 
+const getSportIcon = (sportName = '') => {
+  const s = String(sportName || '').toLowerCase();
+  if (s.includes('pickleball') || s.includes('tennis')) return 'sports_tennis';
+  if (s.includes('bóng đá') || s.includes('football') || s.includes('soccer')) return 'sports_soccer';
+  if (s.includes('cầu lông') || s.includes('badminton')) return 'sports_tennis';
+  if (s.includes('bóng chuyền') || s.includes('volleyball')) return 'sports_volleyball';
+  if (s.includes('bóng bàn') || s.includes('table tennis')) return 'table_restaurant';
+  if (s.includes('bơi') || s.includes('swimming') || s.includes('hồ bơi')) return 'pool';
+  if (s.includes('điền kinh') || s.includes('chạy') || s.includes('athletics')) return 'directions_run';
+  if (s.includes('gym') || s.includes('fitness')) return 'fitness_center';
+  if (s.includes('yoga') || s.includes('pilates')) return 'self_improvement';
+  return 'sports';
+};
+
 export default function AdminFacilitiesPage() {
   const { showToast } = useApp();
   const [activeTab, setActiveTab] = useState('facilities'); // 'facilities' | 'maintenance'
@@ -39,6 +54,7 @@ export default function AdminFacilitiesPage() {
   const [courts, setCourts] = useState([]);
   const [sports, setSports] = useState([]);
   const [coaches, setCoaches] = useState([]);
+  const [selectedSportFilter, setSelectedSportFilter] = useState('ALL');
   const [showAddClassModal, setShowAddClassModal] = useState(false);
   const [sessionForm, setSessionForm] = useState(emptySession);
   const [loading, setLoading] = useState(true);
@@ -53,6 +69,12 @@ export default function AdminFacilitiesPage() {
     courtId: '',
     startTime: '',
     endTime: '',
+    reason: '',
+  });
+  const [isExtendModalOpen, setIsExtendModalOpen] = useState(false);
+  const [extendingMaintenance, setExtendingMaintenance] = useState(null);
+  const [extendForm, setExtendForm] = useState({
+    newEndTime: '',
     reason: '',
   });
 
@@ -190,6 +212,42 @@ export default function AdminFacilitiesPage() {
       (!sessionForm.sportId || String(facility.sportId) === sessionForm.sportId),
   );
 
+  const groupedFacilities = useMemo(() => {
+    const groupsMap = new Map();
+
+    facilities.forEach((facility) => {
+      const sportKey = facility.sportId ? String(facility.sportId) : (facility.sportName || 'OTHER');
+      const sportName = facility.sportName || 'Cơ sở & Tiện ích chung';
+
+      if (!groupsMap.has(sportKey)) {
+        groupsMap.set(sportKey, {
+          sportKey,
+          sportId: facility.sportId,
+          sportName,
+          facilities: [],
+        });
+      }
+      groupsMap.get(sportKey).facilities.push(facility);
+    });
+
+    return Array.from(groupsMap.values()).map((group) => {
+      const availableCount = group.facilities.filter((f) => f.status === 'AVAILABLE').length;
+      const maintenanceCount = group.facilities.filter((f) => f.status !== 'AVAILABLE').length;
+      return {
+        ...group,
+        availableCount,
+        maintenanceCount,
+      };
+    });
+  }, [facilities]);
+
+  const filteredGroups = useMemo(() => {
+    if (selectedSportFilter === 'ALL') {
+      return groupedFacilities;
+    }
+    return groupedFacilities.filter((g) => g.sportKey === selectedSportFilter);
+  }, [groupedFacilities, selectedSportFilter]);
+
   const handleFacilityStatus = async (facility) => {
     setError('');
     try {
@@ -258,6 +316,43 @@ export default function AdminFacilitiesPage() {
       await loadFacilities();
     } catch (err) {
       showToast('Lỗi lên lịch bảo trì', err.message || 'Không thể tạo lịch bảo trì.', 'danger');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleOpenExtendModal = (m) => {
+    setExtendingMaintenance(m);
+    setExtendForm({
+      newEndTime: m.endTime ? m.endTime.substring(0, 16) : '',
+      reason: '',
+    });
+    setIsExtendModalOpen(true);
+  };
+
+  const handleExtendMaintenance = async (e) => {
+    e.preventDefault();
+    if (!extendingMaintenance || !extendForm.newEndTime) {
+      showToast('Lỗi', 'Vui lòng chọn thời gian kết thúc gia hạn mới.', 'warning');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await extendMaintenance(extendingMaintenance.maintenanceId, {
+        newEndTime: extendForm.newEndTime,
+        reason: extendForm.reason.trim() || 'Gia hạn hoàn thiện bảo dưỡng sân',
+      });
+      showToast(
+        'Gia hạn bảo trì thành công',
+        res.message || `Đã gia hạn bảo trì sân #${extendingMaintenance.courtId} đến ${extendForm.newEndTime}.`,
+        'success'
+      );
+      setIsExtendModalOpen(false);
+      setExtendingMaintenance(null);
+      await loadMaintenance();
+      await loadFacilities();
+    } catch (err) {
+      showToast('Lỗi gia hạn bảo trì', err.message || 'Không thể gia hạn lịch bảo trì.', 'danger');
     } finally {
       setSaving(false);
     }
@@ -344,7 +439,7 @@ export default function AdminFacilitiesPage() {
           </p>
         )}
 
-        {/* Tab 1: Facilities List */}
+        {/* Tab 1: Facilities List (Grouped by Sport) */}
         {activeTab === 'facilities' && (
           <div>
             {loading ? (
@@ -354,42 +449,146 @@ export default function AdminFacilitiesPage() {
                 Chưa có tiện ích hoặc cơ sở nào được tạo.
               </p>
             ) : (
-              <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {facilities.map((facility) => (
-                  <article key={facility.facilityId} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs card-hover">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold uppercase text-slate-700">
-                        {facility.sportName || 'Chung'}
-                      </span>
-                      <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
-                        facility.status === 'AVAILABLE'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-amber-50 text-amber-800 border border-amber-200'
-                      }`}>
-                        {facility.status === 'AVAILABLE' ? 'Sẵn sàng hoạt động' : 'Bảo trì tạm khóa'}
-                      </span>
-                    </div>
-                    <h2 className="text-lg font-bold text-slate-900">{facility.facilityName}</h2>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Sức chứa tối đa {facility.capacity} người · Trạng thái lưu trực tiếp trong bảng public_facilities.
-                    </p>
-                    <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
-                      <span className="text-xs text-slate-400">Mã cơ sở: #{facility.facilityId}</span>
+              <div className="space-y-6">
+                {/* Thanh điều hướng / lọc nhanh theo môn thể thao */}
+                <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 max-w-full">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSportFilter('ALL')}
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        selectedSportFilter === 'ALL'
+                          ? 'bg-slate-900 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[16px]">apps</span>
+                      <span>Tất cả các môn ({facilities.length})</span>
+                    </button>
+                    {groupedFacilities.map((group) => (
                       <button
+                        key={group.sportKey}
                         type="button"
-                        onClick={() => handleFacilityStatus(facility)}
-                        className={`rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                          facility.status === 'AVAILABLE'
-                            ? 'border border-amber-300 text-amber-800 hover:bg-amber-50'
-                            : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-2xs'
+                        onClick={() => setSelectedSportFilter(group.sportKey)}
+                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                          selectedSportFilter === group.sportKey
+                            ? 'bg-orange-500 text-white shadow-xs shadow-orange-500/20'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
                       >
-                        {facility.status === 'AVAILABLE' ? 'Tạm khóa bảo trì' : 'Mở lại hoạt động'}
+                        <span className="material-symbols-outlined text-[16px]">
+                          {getSportIcon(group.sportName)}
+                        </span>
+                        <span>{group.sportName} ({group.facilities.length})</span>
                       </button>
-                    </div>
-                  </article>
-                ))}
-              </section>
+                    ))}
+                  </div>
+
+                  <div className="text-xs text-slate-500 font-medium">
+                    Tổng cộng <strong className="text-slate-800">{facilities.length}</strong> cơ sở thuộc <strong className="text-slate-800">{groupedFacilities.length}</strong> bộ môn
+                  </div>
+                </div>
+
+                {/* Danh sách các nhóm mẹ (theo Tên môn thể thao) */}
+                <div className="space-y-6">
+                  {filteredGroups.map((group) => (
+                    <section
+                      key={group.sportKey}
+                      className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-5"
+                    >
+                      {/* Tiêu đề mục mẹ: Môn thể thao */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-2xl bg-orange-50 border border-orange-100 text-orange-600 flex items-center justify-center shrink-0 shadow-2xs">
+                            <span className="material-symbols-outlined text-[24px]">
+                              {getSportIcon(group.sportName)}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-orange-100 text-orange-800">
+                                Bộ Môn
+                              </span>
+                              <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                                {group.sportName}
+                              </h2>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Hệ thống sân thi đấu &amp; cụm cơ sở luyện tập môn {group.sportName}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Thống kê nhanh của môn */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 whitespace-nowrap">
+                            <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                            {group.facilities.length} sân/cơ sở
+                          </span>
+                          {group.availableCount > 0 && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              {group.availableCount} sẵn sàng
+                            </span>
+                          )}
+                          {group.maintenanceCount > 0 && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                              {group.maintenanceCount} bảo trì
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Danh sách cơ sở con thuộc bộ môn */}
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        {group.facilities.map((facility) => (
+                          <article
+                            key={facility.facilityId}
+                            className="rounded-2xl border border-slate-200/90 bg-slate-50/50 p-5 hover:bg-white hover:border-slate-300 transition-all shadow-2xs card-hover flex flex-col justify-between"
+                          >
+                            <div>
+                              <div className="mb-3 flex items-center justify-between gap-3">
+                                <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
+                                  <span className="material-symbols-outlined text-[16px] text-slate-400">group</span>
+                                  Sức chứa: {facility.capacity} người
+                                </span>
+                                <span
+                                  className={`inline-flex items-center justify-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+                                    facility.status === 'AVAILABLE'
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      : 'bg-amber-50 text-amber-800 border border-amber-200'
+                                  }`}
+                                >
+                                  {facility.status === 'AVAILABLE' ? 'Sẵn sàng hoạt động' : 'Bảo trì tạm khóa'}
+                                </span>
+                              </div>
+                              <h3 className="text-base font-bold text-slate-900">{facility.facilityName}</h3>
+                              <p className="mt-1 text-xs text-slate-500">
+                                Khu vực luyện tập &amp; thi đấu tiêu chuẩn của trung tâm F Sport.
+                              </p>
+                            </div>
+                            <div className="mt-5 flex items-center justify-between border-t border-slate-200/70 pt-3.5">
+                              <span className="text-xs text-slate-400 font-medium">Mã cơ sở: #{facility.facilityId}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleFacilityStatus(facility)}
+                                className={`rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                                  facility.status === 'AVAILABLE'
+                                    ? 'border border-amber-300 text-amber-800 hover:bg-amber-50'
+                                    : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-2xs'
+                                }`}
+                              >
+                                {facility.status === 'AVAILABLE' ? 'Tạm khóa bảo trì' : 'Mở lại hoạt động'}
+                              </button>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -592,13 +791,26 @@ export default function AdminFacilitiesPage() {
                         </span>
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteMaintenance(m.maintenanceId)}
-                          className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer"
-                        >
-                          Xóa / Mở sân
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          {m.status !== 'COMPLETED' && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenExtendModal(m)}
+                              className="px-3 py-1.5 rounded-lg border border-orange-200 text-orange-600 hover:bg-orange-50 text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                              title="Gia hạn thời gian bảo trì"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">more_time</span>
+                              <span>Gia hạn</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteMaintenance(m.maintenanceId)}
+                            className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold transition-all cursor-pointer"
+                          >
+                            Xóa / Mở sân
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -614,10 +826,11 @@ export default function AdminFacilitiesPage() {
             </div>
           </section>
         )}
+      </main>
 
-        {/* Modal Lên Lịch Bảo Trì (MGR-19) */}
-        {isMaintenanceModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+      {/* Modal Lên Lịch Bảo Trì (MGR-19) */}
+      {isMaintenanceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
             <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="text-base font-bold text-slate-900">
@@ -718,9 +931,115 @@ export default function AdminFacilitiesPage() {
           </div>
         )}
 
-        {/* Modal Tạo Lịch Lớp */}
-        {showAddClassModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
+      {/* Modal Gia Hạn Bảo Trì */}
+      {isExtendModalOpen && extendingMaintenance && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
+            <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-orange-600 text-[22px]">more_time</span>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Gia Hạn Tiến Độ Bảo Trì Sân
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsExtendModalOpen(false);
+                    setExtendingMaintenance(null);
+                  }}
+                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Sân bảo trì:</span>
+                  <strong className="text-slate-900">
+                    {extendingMaintenance.courtName || `Sân #${extendingMaintenance.courtId}`}
+                  </strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Bắt đầu bảo trì:</span>
+                  <span className="font-semibold text-slate-700">
+                    {new Date(extendingMaintenance.startTime).toLocaleString('vi-VN')}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Thời gian kết thúc hiện tại:</span>
+                  <span className="font-bold text-red-600">
+                    {new Date(extendingMaintenance.endTime).toLocaleString('vi-VN')}
+                  </span>
+                </div>
+              </div>
+
+              <form onSubmit={handleExtendMaintenance} className="space-y-3.5">
+                <div>
+                  <label className="text-xs font-bold uppercase text-slate-700">
+                    Thời gian kết thúc mới (Gia hạn đến) *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={extendForm.newEndTime}
+                    onChange={(e) => setExtendForm({ ...extendForm, newEndTime: e.target.value })}
+                    className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none"
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Lưu ý: Thời gian gia hạn mới phải sau thời gian kết thúc hiện tại.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase text-slate-700">
+                    Lý do gia hạn thêm thời gian *
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={extendForm.reason}
+                    onChange={(e) => setExtendForm({ ...extendForm, reason: e.target.value })}
+                    placeholder="VD: Tiến độ thi công sửa đèn chậm do thời tiết, chờ vật tư thay thế mặt sân..."
+                    className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs outline-none resize-none"
+                  />
+                </div>
+
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed space-y-1">
+                  <strong>Quy tắc nghiệp vụ gia hạn:</strong>
+                  <p>
+                    Hệ thống sẽ quét các booking bị trùng trong khung giờ kéo dài, gửi thông báo in-app cho khách hàng để họ tự chọn: <strong>Đổi lịch miễn phí</strong> hoặc <strong>Hủy không phạt (hoàn 100%)</strong>.
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsExtendModalOpen(false);
+                      setExtendingMaintenance(null);
+                    }}
+                    className="rounded-xl border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="rounded-xl bg-orange-500 hover:bg-orange-600 px-5 py-2 text-xs font-bold uppercase text-white shadow-sm cursor-pointer disabled:opacity-50"
+                  >
+                    {saving ? 'Đang lưu...' : 'Xác nhận gia hạn'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+      {/* Modal Tạo Lịch Lớp */}
+      {showAddClassModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs !m-0">
             <form onSubmit={handleCreateSession}
               className="w-full max-w-xl space-y-4 rounded-2xl bg-white p-6 shadow-xl">
               <h2 className="text-lg font-bold text-slate-900">Tạo lịch lớp học mới</h2>
@@ -817,9 +1136,9 @@ export default function AdminFacilitiesPage() {
           </div>
         )}
 
-        {/* Modal Sửa Giờ / Đổi HLV / Đổi Sân (MGR-08) */}
-        {isEditSessionModalOpen && selectedSession && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+      {/* Modal Sửa Giờ / Đổi HLV / Đổi Sân (MGR-08) */}
+      {isEditSessionModalOpen && selectedSession && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
             <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
@@ -923,64 +1242,63 @@ export default function AdminFacilitiesPage() {
           </div>
         )}
 
-        {/* Modal Hủy Ca Học & Gửi Thông Báo (MGR-08) */}
-        {isCancelModalOpen && sessionToCancel && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-            <div className="relative w-full max-w-md overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold">
-                    <span className="material-symbols-outlined text-[20px]">warning</span>
-                  </span>
-                  <h3 className="text-base font-bold text-slate-900">Xác Nhận Hủy Ca Học</h3>
-                </div>
+      {/* Modal Hủy Ca Học & Gửi Thông Báo (MGR-08) */}
+      {isCancelModalOpen && sessionToCancel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
+          <div className="relative w-full max-w-md overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold">
+                  <span className="material-symbols-outlined text-[20px]">warning</span>
+                </span>
+                <h3 className="text-base font-bold text-slate-900">Xác Nhận Hủy Ca Học</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCancelModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmCancelSession} className="space-y-4">
+              <div className="p-3 bg-red-50/70 border border-red-200 rounded-xl text-xs text-red-900 leading-relaxed">
+                ⚠️ <strong>Cảnh báo:</strong> Ca học <strong>{sessionToCancel.className}</strong> (SES-{sessionToCancel.sessionId}) sẽ được đánh dấu <code>CANCELLED</code>. Hệ thống sẽ tự động gửi thông báo in-app thông tri tới HLV <strong>{sessionToCancel.coachName || 'HLV'}</strong> và toàn bộ học viên đã đăng ký kèm lý do hủy dưới đây.
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold uppercase text-slate-700">Lý do hủy ca học *</label>
+                <textarea
+                  required
+                  rows={3}
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Nhập lý do hủy ca học gửi đến học viên..."
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-red-500 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsCancelModalOpen(false)}
-                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[20px]">close</span>
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  disabled={processingAction}
+                  className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {processingAction ? 'Đang xử lý...' : 'Xác Nhận Hủy Ca'}
                 </button>
               </div>
-
-              <form onSubmit={handleConfirmCancelSession} className="space-y-4">
-                <div className="p-3 bg-red-50/70 border border-red-200 rounded-xl text-xs text-red-900 leading-relaxed">
-                  ⚠️ <strong>Cảnh báo:</strong> Ca học <strong>{sessionToCancel.className}</strong> (SES-{sessionToCancel.sessionId}) sẽ được đánh dấu <code>CANCELLED</code>. Hệ thống sẽ tự động gửi thông báo in-app thông tri tới HLV <strong>{sessionToCancel.coachName || 'HLV'}</strong> và toàn bộ học viên đã đăng ký kèm lý do hủy dưới đây.
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-bold uppercase text-slate-700">Lý do hủy ca học *</label>
-                  <textarea
-                    required
-                    rows={3}
-                    value={cancelReason}
-                    onChange={(e) => setCancelReason(e.target.value)}
-                    placeholder="Nhập lý do hủy ca học gửi đến học viên..."
-                    className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-red-500 resize-none"
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setIsCancelModalOpen(false)}
-                    className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
-                  >
-                    Đóng
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={processingAction}
-                    className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    {processingAction ? 'Đang xử lý...' : 'Xác Nhận Hủy Ca'}
-                  </button>
-                </div>
-              </form>
-            </div>
+            </form>
           </div>
-        )}
-      </main>
+        </div>
+      )}
     </AdminLayout>
   );
 }

@@ -309,15 +309,6 @@ IF NOT EXISTS (SELECT 1 FROM dbo.sports_courts c JOIN dbo.public_sports s ON s.s
 IF NOT EXISTS (SELECT 1 FROM dbo.sports_courts c JOIN dbo.public_sports s ON s.sport_id = c.sport_id WHERE s.slug = N'tennis' AND c.court_name = N'Tennis Court 02')
     INSERT INTO dbo.sports_courts (sport_id, court_name, description, hourly_rate, opens_at, closes_at, active)
     SELECT sport_id, N'Tennis Court 02', N'Sân tennis có đèn chiếu sáng buổi tối.', 350000, '06:00', '22:00', 1 FROM dbo.public_sports WHERE slug = N'tennis';
-IF NOT EXISTS (SELECT 1 FROM dbo.sports_courts c JOIN dbo.public_sports s ON s.sport_id = c.sport_id WHERE s.slug = N'gym-fitness' AND c.court_name = N'Fitness Studio 01')
-    INSERT INTO dbo.sports_courts (sport_id, court_name, description, hourly_rate, opens_at, closes_at, active)
-    SELECT sport_id, N'Fitness Studio 01', N'Phòng tập nhóm và tập tự do.', 120000, '06:00', '22:00', 1 FROM dbo.public_sports WHERE slug = N'gym-fitness';
-IF NOT EXISTS (SELECT 1 FROM dbo.sports_courts c JOIN dbo.public_sports s ON s.sport_id = c.sport_id WHERE s.slug = N'gym-fitness' AND c.court_name = N'Fitness Studio 02')
-    INSERT INTO dbo.sports_courts (sport_id, court_name, description, hourly_rate, opens_at, closes_at, active)
-    SELECT sport_id, N'Fitness Studio 02', N'Studio riêng dành cho các buổi tập nhóm.', 150000, '06:00', '22:00', 1 FROM dbo.public_sports WHERE slug = N'gym-fitness';
-IF NOT EXISTS (SELECT 1 FROM dbo.sports_courts c JOIN dbo.public_sports s ON s.sport_id = c.sport_id WHERE s.slug = N'yoga-pilates' AND c.court_name = N'Yoga Studio 01')
-    INSERT INTO dbo.sports_courts (sport_id, court_name, description, hourly_rate, opens_at, closes_at, active)
-    SELECT sport_id, N'Yoga Studio 01', N'Phòng yoga và pilates yên tĩnh.', 160000, '06:00', '22:00', 1 FROM dbo.public_sports WHERE slug = N'yoga-pilates';
 
 INSERT INTO dbo.sports_courts (sport_id, court_name, description, hourly_rate, opens_at, closes_at, active)
 SELECT sport.sport_id, seed.court_name, seed.description, seed.hourly_rate,
@@ -351,8 +342,8 @@ IF OBJECT_ID(N'dbo.facilities', N'U') IS NOT NULL
     FROM (VALUES
         (5, N'Sân Bóng Đá 7 Người - Sân F1', 14),
         (5, N'Sân Bóng Đá 7 Người - Sân F2', 14),
-        (6, N'Sân Cầu Lông Thảm Yonex - Sân L1', 4),
-        (6, N'Sân Cầu Lông Thảm Yonex - Sân L2', 4),
+        (6, N'Sân Cầu Lông Trong Nhà - Sân B1', 4),
+        (6, N'Sân Cầu Lông Trong Nhà - Sân B2', 4),
         (7, N'Sân Bóng Chuyền - Sân V1', 12),
         (7, N'Sân Bóng Chuyền - Sân V2', 12),
         (8, N'Khu Bóng Bàn - Bàn T1', 4),
@@ -373,8 +364,8 @@ IF EXISTS (
     JOIN (VALUES
         (N'Sân Bóng Đá 7 Người - Sân F1', N'booking-football-01'),
         (N'Sân Bóng Đá 7 Người - Sân F2', N'booking-football-02'),
-        (N'Sân Cầu Lông Thảm Yonex - Sân L1', N'booking-badminton-l1'),
-        (N'Sân Cầu Lông Thảm Yonex - Sân L2', N'booking-badminton-l2'),
+        (N'Sân Cầu Lông Trong Nhà - Sân B1', N'booking-badminton-01'),
+        (N'Sân Cầu Lông Trong Nhà - Sân B2', N'booking-badminton-02'),
         (N'Sân Bóng Chuyền - Sân V1', N'booking-volleyball-01'),
         (N'Sân Bóng Chuyền - Sân V2', N'booking-volleyball-02'),
         (N'Khu Bóng Bàn - Bàn T1', N'booking-table-tennis-01'),
@@ -399,13 +390,8 @@ FROM dbo.facilities facility
 JOIN (VALUES
     (N''Cụm Sân Pickleball - Sân P1 (Indoor)'', N''booking-pickleball-01'', N''Cụm Sân Pickleball - Sân P1 (Indoor)'', N''Cụm sân Pickleball tiêu chuẩn trong nhà.'', N''sports_tennis'', N''Sân trong nhà''),
     (N''Cụm Sân Pickleball - Sân P2 (Indoor)'', N''booking-pickleball-02'', N''Cụm Sân Pickleball - Sân P2 (Indoor)'', N''Cụm sân Pickleball tiêu chuẩn trong nhà.'', N''sports_tennis'', N''Sân trong nhà''),
-    (N''Cụm Sân Pickleball - Sân P3 (Outdoor)'', N''booking-pickleball-03'', N''Cụm Sân Pickleball - Sân P3 (Outdoor)'', N''Cụm sân Pickleball ngoài trời thoáng đãng.'', N''sports_tennis'', N''Sân ngoài trời''),
     (N''Sân Tennis Đơn & Đôi - Sân T1'', N''booking-tennis-01'', N''Sân Tennis Đơn & Đôi - Sân T1'', N''Sân tennis mặt cứng tiêu chuẩn quốc tế ITF.'', N''sports_tennis'', N''Mặt sân ITF''),
     (N''Sân Tennis Đơn & Đôi - Sân T2'', N''booking-tennis-02'', N''Sân Tennis Đơn & Đôi - Sân T2'', N''Sân tennis có mái che và hệ thống đèn LED.'', N''sports_tennis'', N''Có mái che''),
-    (N''Sân Cỏ Nhân Tạo 7 Người - Sân A'', N''booking-football-a'', N''Sân Cỏ Nhân Tạo 7 Người - Sân A'', N''Sân cỏ nhân tạo chất lượng cao.'', N''sports_soccer'', N''Cỏ nhân tạo''),
-    (N''Sân Cỏ Nhân Tạo 7 Người - Sân B'', N''booking-football-b'', N''Sân Cỏ Nhân Tạo 7 Người - Sân B'', N''Sân cỏ nhân tạo tiêu chuẩn thi đấu.'', N''sports_soccer'', N''Cỏ nhân tạo''),
-    (N''Sân Cầu Lông Thảm Yonex - Sân L1'', N''booking-badminton-l1'', N''Sân Cầu Lông Thảm Yonex - Sân L1'', N''Thảm thi đấu Yonex chống trơn trượt.'', N''sports_tennis'', N''Thảm Yonex''),
-    (N''Sân Cầu Lông Thảm Yonex - Sân L2'', N''booking-badminton-l2'', N''Sân Cầu Lông Thảm Yonex - Sân L2'', N''Thảm thi đấu Yonex tiêu chuẩn BWF.'', N''sports_tennis'', N''Thảm Yonex''),
     (N''Sân Bóng Đá 7 Người - Sân F1'', N''booking-football-01'', N''Sân bóng đá 7 người - Sân F1'', N''Sân cỏ nhân tạo phục vụ lớp học và luyện tập.'', N''sports_soccer'', N''Sân cỏ nhân tạo''),
     (N''Sân Bóng Đá 7 Người - Sân F2'', N''booking-football-02'', N''Sân bóng đá 7 người - Sân F2'', N''Sân cỏ nhân tạo có đèn buổi tối.'', N''sports_soccer'', N''Sân cỏ nhân tạo''),
     (N''Sân Cầu Lông Trong Nhà - Sân B1'', N''booking-badminton-01'', N''Sân cầu lông - Sân B1'', N''Sân cầu lông trong nhà phục vụ lớp học và luyện tập.'', N''sports_tennis'', N''Sân trong nhà''),
@@ -437,7 +423,7 @@ WITH class_seed AS (
 
         -- Thứ Ba (day_offset = 1)
         (N'athletics', N'Lớp Điền Kinh Căn Bản', N'coach.phat@sporthub.com', N'Đường Chạy Điền Kinh - Khu A1', 1, 390, 90, 12, 110000),
-        (N'badminton', N'Lớp Cầu Lông Phản Xạ Nhanh', N'coach.thao@sporthub.com', N'Sân Cầu Lông Thảm Yonex - Sân L1', 1, 1080, 90, 8, 150000),
+        (N'badminton', N'Lớp Cầu Lông Phản Xạ Nhanh', N'coach.thao@sporthub.com', N'Sân Cầu Lông Trong Nhà - Sân B1', 1, 1080, 90, 8, 150000),
 
         -- Thứ Tư (day_offset = 2)
         (N'pickleball', N'Lớp Pickleball Nâng Cao K05', N'coach.nam@sporthub.com', N'Cụm Sân Pickleball - Sân P2 (Indoor)', 2, 1080, 90, 8, 180000),
@@ -448,7 +434,7 @@ WITH class_seed AS (
 
         -- Thứ Sáu (day_offset = 4)
         (N'swimming', N'Lớp Bơi Lội Căn Bản', N'coach.nam@sporthub.com', N'Hồ Bơi - Làn S1', 4, 990, 90, 8, 170000),
-        (N'badminton', N'Lớp Cầu Lông Căn Bản', N'coach.thao@sporthub.com', N'Sân Cầu Lông Thảm Yonex - Sân L2', 4, 1110, 90, 8, 140000),
+        (N'badminton', N'Lớp Cầu Lông Căn Bản', N'coach.thao@sporthub.com', N'Sân Cầu Lông Trong Nhà - Sân B2', 4, 1110, 90, 8, 140000),
 
         -- Thứ Bảy (day_offset = 5)
         (N'tennis', N'Lớp Tennis Chiến Thuật Đánh Đôi', N'coach.minh@sporthub.com', N'Sân Tennis Đơn & Đôi - Sân T2', 5, 480, 90, 6, 220000),
@@ -456,7 +442,7 @@ WITH class_seed AS (
 
         -- Chủ Nhật (day_offset = 6)
         (N'football', N'Lớp Bóng Đá Thể Lực & Phối Hợp', N'coach.phat@sporthub.com', N'Sân Bóng Đá 7 Người - Sân F1', 6, 480, 90, 14, 180000),
-        (N'badminton', N'Lớp Cầu Lông Đánh Đôi Nâng Cao', N'coach.thao@sporthub.com', N'Sân Cầu Lông Thảm Yonex - Sân L2', 6, 960, 90, 8, 160000)
+        (N'badminton', N'Lớp Cầu Lông Đánh Đôi Nâng Cao', N'coach.thao@sporthub.com', N'Sân Cầu Lông Trong Nhà - Sân B2', 6, 960, 90, 8, 160000)
     ) AS seed(sport_slug, class_name, coach_email, facility_name, day_offset, start_minute, duration_minute, max_slots, price_amount)
 ),
 week_offsets AS (
@@ -970,3 +956,42 @@ IF OBJECT_ID(N'dbo.user_memberships', N'U') IS NOT NULL
 
 
 
+
+-- Explicit payment links; never match a purchase by timestamp.
+IF COL_LENGTH('dbo.payment_transactions', 'membership_id') IS NULL
+    ALTER TABLE dbo.payment_transactions ADD membership_id BIGINT NULL;
+IF COL_LENGTH('dbo.payment_transactions', 'voucher_id') IS NULL
+    ALTER TABLE dbo.payment_transactions ADD voucher_id BIGINT NULL;
+
+IF COL_LENGTH('dbo.payment_transactions', 'gateway_reference') IS NULL
+    ALTER TABLE dbo.payment_transactions ADD gateway_reference VARCHAR(100) NULL;
+
+-- R01: payment attempts and immutable gateway receipts are separate from the order payment.
+IF OBJECT_ID(N'dbo.payment_attempts', N'U') IS NULL
+BEGIN
+ CREATE TABLE dbo.payment_attempts (
+  attempt_id BIGINT IDENTITY PRIMARY KEY, payment_id BIGINT NOT NULL,
+  gateway_reference VARCHAR(100) NOT NULL UNIQUE, amount DECIMAL(12,2) NOT NULL,
+  status VARCHAR(20) NOT NULL, payment_url NVARCHAR(MAX) NULL,
+  created_at DATETIME2 NOT NULL, expires_at DATETIME2 NOT NULL, merchant_date VARCHAR(14) NULL,
+  CONSTRAINT FK_payment_attempt_order FOREIGN KEY(payment_id) REFERENCES dbo.payment_transactions(payment_id)
+ )
+ CREATE INDEX IX_payment_attempt_order ON dbo.payment_attempts(payment_id, status, created_at)
+END;
+IF OBJECT_ID(N'dbo.gateway_receipts', N'U') IS NULL
+BEGIN
+ CREATE TABLE dbo.gateway_receipts (
+  receipt_id BIGINT IDENTITY PRIMARY KEY, payment_id BIGINT NOT NULL, attempt_id BIGINT NOT NULL,
+  gateway_transaction_no VARCHAR(100) NOT NULL UNIQUE, gateway_reference VARCHAR(100) NOT NULL,
+  amount DECIMAL(12,2) NOT NULL, transaction_date VARCHAR(14) NULL, status VARCHAR(24) NOT NULL,
+  reconciliation_note NVARCHAR(500) NULL, created_at DATETIME2 NOT NULL, resolved_at DATETIME2 NULL,
+  CONSTRAINT FK_gateway_receipt_order FOREIGN KEY(payment_id) REFERENCES dbo.payment_transactions(payment_id),
+  CONSTRAINT FK_gateway_receipt_attempt FOREIGN KEY(attempt_id) REFERENCES dbo.payment_attempts(attempt_id)
+ )
+ CREATE INDEX IX_gateway_receipt_review ON dbo.gateway_receipts(status, created_at)
+END;
+-- Existing rows stay NULL until their actual accounting state can be established.
+IF COL_LENGTH('dbo.bookings', 'quota_state') IS NULL ALTER TABLE dbo.bookings ADD quota_state VARCHAR(24) NULL;
+IF COL_LENGTH('dbo.court_bookings', 'quota_state') IS NULL ALTER TABLE dbo.court_bookings ADD quota_state VARCHAR(24) NULL;
+
+IF COL_LENGTH('dbo.payment_attempts', 'merchant_date') IS NULL ALTER TABLE dbo.payment_attempts ADD merchant_date VARCHAR(14) NULL;

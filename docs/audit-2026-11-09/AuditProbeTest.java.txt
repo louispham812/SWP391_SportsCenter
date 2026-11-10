@@ -1,0 +1,176 @@
+package com.sporthub.backend;
+
+import com.sporthub.backend.controller.*;
+import com.sporthub.backend.config.SecurityConfig;
+import com.sporthub.backend.dto.*;
+import com.sporthub.backend.entity.*;
+import com.sporthub.backend.repository.*;
+import com.sporthub.backend.service.*;
+import com.sporthub.backend.service.gateway.VNPayGateway;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import java.time.LocalDate;
+import java.math.BigDecimal;
+import java.util.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+
+// Temporary audit probes: assertions document observed defects, not desired behavior.
+@WebMvcTest({RefundRequestController.class, CheckInController.class})
+@Import(SecurityConfig.class)
+class AuditProbeTest {
+    @Autowired MockMvc mvc;
+    @MockitoBean RefundRequestRepository refunds;
+    @MockitoBean UserRepository users;
+    @MockitoBean PaymentTransactionRepository payments;
+    @MockitoBean ReceptionPaymentRepository receptionPayments;
+    @MockitoBean EngagementService engagement;
+    @MockitoBean VNPayGateway gateway;
+    @MockitoBean BookingService bookings;
+    @MockitoBean MembershipService memberships;
+    @MockitoBean BookingRepository bookingRepo;
+    @MockitoBean CourtBookingRepository courtRepo;
+    @MockitoBean AuthSessionRepository sessions;
+    @MockitoBean CheckInService checkIns;
+
+    private UsernamePasswordAuthenticationToken actor(String role) {
+        return new UsernamePasswordAuthenticationToken("9", "", List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+    }
+    private RefundRequest refund() {
+        return RefundRequest.builder().refundId(1L).memberId(9L).transactionId(2L)
+            .refundAmount(BigDecimal.TEN).status("PENDING_APPROVAL").reason("Audit").build();
+    }
+    @Test void memberCanReadAllManagerRefundsOverActualSecurityChain() throws Exception {
+        when(refunds.findAllByOrderByCreatedAtDesc()).thenReturn(List.of());
+        mvc.perform(get("/api/v1/manager/refunds").with(user("9").roles("MEMBER")))
+            .andExpect(status().isOk());
+        verify(refunds).findAllByOrderByCreatedAtDesc();
+    }
+    @Test void memberCanDecideManagerRefundOverActualSecurityChain() throws Exception {
+        RefundRequest r = refund();
+        when(refunds.findById(1L)).thenReturn(Optional.of(r));
+        when(refunds.save(any())).thenAnswer(i -> i.getArgument(0));
+        mvc.perform(post("/api/v1/manager/refunds/1/decision").with(user("9").roles("MEMBER"))
+            .contentType("application/json").content("{\"approved\":false,\"decisionNote\":\"Audit\"}"))
+            .andExpect(status().isOk());
+        assertEquals("REJECTED", r.getStatus());
+        assertEquals(9L, r.getApprovedBy());
+    }
+    @Test void memberCanCallLegacyStaffCheckInEndpoint() throws Exception {
+        when(checkIns.processCheckIn(any())).thenReturn(CheckInResponse.builder().status("VALID").build());
+        mvc.perform(post("/api/v1/reception/check-in").with(user("9").roles("MEMBER"))
+            .contentType("application/json").content("{\"memberId\":9,\"receptionistId\":123}"))
+            .andExpect(status().isOk());
+        verify(checkIns).processCheckIn(any());
+    }
+    @Test void failedGatewayRefundIsStillMarkedRefunded() {
+        RefundRequest r = refund();
+        PaymentTransaction tx = new PaymentTransaction();
+        tx.setPaymentId(2L); tx.setPaymentMethod("VNPAY"); tx.setPaymentStatus("PAID");
+        when(refunds.findById(1L)).thenReturn(Optional.of(r));
+        when(payments.findById(2L)).thenReturn(Optional.of(tx));
+        when(gateway.refundPayment(any(), any(), any())).thenReturn(Map.of("vnp_ResponseCode", "99", "vnp_Message", "Failed"));
+        when(refunds.save(any())).thenAnswer(i -> i.getArgument(0));
+        new RefundRequestController(refunds, users, payments, receptionPayments, null, gateway)
+            .decideRefund(1L, new RefundDecisionRequest(true, "Audit"), actor("MANAGER"));
+        assertEquals("REFUNDED", tx.getPaymentStatus());
+        assertEquals("APPROVED", r.getStatus());
+    }
+    @Test void refundForAnotherMembersPaymentIsAccepted() {
+        PaymentTransaction tx = new PaymentTransaction();
+        tx.setPaymentId(2L); tx.setMemberId(777L); tx.setAmount(BigDecimal.TEN); tx.setPaymentStatus("PAID");
+        when(payments.findById(2L)).thenReturn(Optional.of(tx));
+        when(users.findById(9L)).thenReturn(Optional.of(User.builder().userId(9L).build()));
+        when(refunds.save(any())).thenAnswer(i -> i.getArgument(0));
+        var result = new RefundRequestController(refunds, users, payments, receptionPayments)
+            .createRefundRequest(new CreateRefundRequest(2L, null, "Audit", BigDecimal.TEN, "Audit", null, null, null), actor("MEMBER"));
+        assertEquals(201, result.getStatusCode().value());
+        assertEquals(9L, result.getBody().memberId());
+        assertEquals(2L, result.getBody().transactionId());
+    }
+    @Test void lastValidMembershipDayIsRejectedByQuotaSelection() {
+        UserMembershipRepository repo = mock(UserMembershipRepository.class);
+        MembershipService service = new MembershipService(repo, mock(MembershipPackageRepository.class), null, null, null);
+        UserMembership m = new UserMembership();
+        m.setEndDate(LocalDate.now()); m.setRemainingQuotaSessions(5); m.setRemainingQuotaCourts(5);
+        when(repo.findByUserIdAndStatus(9L, "ACTIVE")).thenReturn(List.of(m));
+        assertNull(service.getActiveMembershipWithQuota(9L, 1));
+        assertNull(service.getActiveMembershipWithCourtQuota(9L, 1));
+    }
+    @Test void duplicateQuotaReleaseProducesNegativeHeldButFormulaPasses() {
+        UserMembershipRepository repo = mock(UserMembershipRepository.class);
+        MembershipService service = new MembershipService(repo, mock(MembershipPackageRepository.class), null, null, null);
+        UserMembership m = new UserMembership();
+        m.setInitialQuotaCourts(10); m.setRemainingQuotaCourts(9); m.setHeldQuotaCourts(1);
+        when(repo.findById(1L)).thenReturn(Optional.of(m));
+        service.releaseCourtQuota(1L, 1); service.releaseCourtQuota(1L, 1);
+        assertEquals(-1, m.getHeldQuotaCourts()); assertEquals(11, m.getRemainingQuotaCourts());
+        assertDoesNotThrow(() -> service.validateCourtQuotaFormula(m));
+    }
+    @Test void overdueEquipmentCannotBeReturned() {
+        EquipmentLoanRepository repo = mock(EquipmentLoanRepository.class);
+        EquipmentLoan loan = EquipmentLoan.builder().loanId(1L).status("OVERDUE").build();
+        when(repo.findById(1L)).thenReturn(Optional.of(loan));
+        var controller = new EquipmentController(mock(EquipmentRepository.class), repo, users);
+        var ex = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+            () -> controller.returnEquipment(1L, null));
+        assertEquals(409, ex.getStatusCode().value());
+    }
+
+    @Test void arbitraryPaymentMethodIsRecordedAsPaidWithoutCashier() {
+        when(payments.save(any())).thenAnswer(i -> i.getArgument(0));
+        var tx = new PaymentService(payments).createPayment(9L, "COURT", BigDecimal.TEN, "NOT_A_GATEWAY");
+        assertEquals("PAID", tx.getPaymentStatus());
+    }
+    @Test void renewalDeactivatesCurrentMembershipBeforePayment() {
+        UserMembershipRepository repo = mock(UserMembershipRepository.class);
+        MembershipPackageRepository packages = mock(MembershipPackageRepository.class);
+        MembershipPackage pkg = MembershipPackage.builder().packageId(1L).name("VIP").price(BigDecimal.TEN)
+            .durationDays(30).build();
+        UserMembership current = new UserMembership();
+        current.setMembershipId(1L); current.setPackageId(1L); current.setStatus("ACTIVE");
+        current.setEndDate(LocalDate.now().plusDays(10));
+        when(packages.findById(1L)).thenReturn(Optional.of(pkg));
+        when(repo.findByUserIdOrderByEndDateDesc(9L)).thenReturn(List.of(current));
+        when(repo.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(receptionPayments.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(payments.save(any())).thenAnswer(i -> { PaymentTransaction t = i.getArgument(0); t.setPaymentId(2L); return t; });
+        MemberProfileController controller = new MemberProfileController(users, mock(MemberHealthProfileRepository.class),
+            repo, packages, receptionPayments, payments, bookingRepo, mock(ClassSessionRepository.class),
+            mock(MemberCheckInRepository.class), mock(PublicSportRepository.class), new PaymentService(payments));
+        var response = controller.purchaseMembership(new MemberPackagePurchaseRequest(1L, "VNPAY"), actor("MEMBER"));
+        assertEquals("PENDING", response.paymentStatus());
+        assertEquals("PENDING_APPROVAL", current.getStatus());
+    }
+    @Test void rescheduleExtendsOneHourQuotaBookingToThreeHoursWithoutMoreQuota() {
+        CourtBooking cb = new CourtBooking();
+        cb.setCourtBookingId(1L); cb.setCourtId(2L); cb.setMemberId(9L); cb.setStatus("CONFIRMED");
+        var start = LocalDate.now().plusDays(1).atTime(9, 0);
+        cb.setStartTime(start); cb.setEndTime(start.plusHours(1));
+        cb.setUsesMembershipQuota(true); cb.setMembershipId(3L); cb.setQuotaHoursUsed(BigDecimal.ONE);
+        SportsCourt court = new SportsCourt(); court.setCourtId(2L); court.setCourtName("Audit");
+        court.setOpensAt(java.time.LocalTime.of(6,0)); court.setClosesAt(java.time.LocalTime.of(22,0)); court.setActive(true);
+        SportsCourtRepository courts = mock(SportsCourtRepository.class);
+        when(courtRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(cb));
+        when(courtRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(courts.findById(2L)).thenReturn(Optional.of(court));
+        BookingService service = new BookingService(bookingRepo, mock(ClassSessionRepository.class), users,
+            mock(PublicSportRepository.class), mock(PublicFacilityRepository.class), courts, courtRepo,
+            mock(CourtMaintenanceRepository.class), payments, mock(UserMembershipRepository.class),
+            mock(MembershipPackageRepository.class), memberships, mock(AuditLogService.class));
+        service.rescheduleCourtBooking(1L, 9L, 2L, start, start.plusHours(3));
+        assertEquals(start.plusHours(3), cb.getEndTime());
+        assertEquals(BigDecimal.ONE, cb.getQuotaHoursUsed());
+        verifyNoInteractions(memberships);
+    }
+}
