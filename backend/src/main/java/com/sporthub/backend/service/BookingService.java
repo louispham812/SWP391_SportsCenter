@@ -81,7 +81,6 @@ public class BookingService {
     private final MembershipPackageRepository membershipPackageRepository;
     private final MembershipService membershipService;
     private final AuditLogService auditLogService;
-    private final com.sporthub.backend.service.gateway.VNPayGateway vnpayGateway;
     private final PaymentService paymentService;
     private final com.sporthub.backend.repository.FacilityRepository facilityRepository;
     private final RefundRequestRepository refundRequestRepository;
@@ -213,7 +212,6 @@ public class BookingService {
         this.auditLogService = auditLogService;
         this.paymentService = paymentService;
         this.facilityRepository = facilityRepository;
-        this.vnpayGateway = vnpayGateway;
         this.refundRequestRepository = refundRequestRepository;
         this.engagementService = engagementService;
     }
