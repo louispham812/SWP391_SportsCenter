@@ -41,9 +41,13 @@ replay_pid*
 # Local configuration (do not commit)
 **/application-local.properties
 .env
+.env.*
 *.env
 **/.env
+**/.env.*
 !**/.env.example
+!**/.env.*.example
+!frontend/.env.production
 databaseSWP391.sql
 graphify-out/
 .playwright-cli/
@@ -53,3 +57,11 @@ graphify-out/
 **/playwright/.cache/
 backend/uploads/
 uploads/
+
+# Media & Large Video recordings
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.webm
+recordings_pure/

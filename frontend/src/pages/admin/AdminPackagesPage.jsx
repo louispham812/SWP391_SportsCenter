@@ -152,6 +152,18 @@ export default function AdminPackagesPage() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsDrawerOpen(false);
+        setIsVoucherModalOpen(false);
+        setIsPtModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const filteredPackages = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase('vi');
     return packages.filter((membershipPackage) => {
@@ -723,7 +735,12 @@ export default function AdminPackagesPage() {
 
       {/* Package Drawer */}
       {isDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-xs">
+        <div 
+          className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-xs"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsDrawerOpen(false);
+          }}
+        >
           <div className="h-full w-full max-w-lg overflow-y-auto bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <h2 className="text-lg font-bold text-slate-900">
@@ -739,13 +756,21 @@ export default function AdminPackagesPage() {
             </div>
 
             <form onSubmit={handleSave} className="mt-6 space-y-4">
+              {error && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600 font-semibold">
+                  {error}
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-700">Tên gói tập *</label>
                 <input
                   required
+                  id="packageName"
+                  name="name"
+                  aria-label="Tên gói tập"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Ví dụ: Gói Gold 3 Tháng"
+                  placeholder="Tên gói tập (Ví dụ: Gói VIP Diamond 2026)"
                   className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none focus:border-orange-500"
                 />
               </div>
@@ -753,6 +778,9 @@ export default function AdminPackagesPage() {
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-700">Bộ môn áp dụng</label>
                 <select
+                  id="packageSportId"
+                  name="sportId"
+                  aria-label="Bộ môn áp dụng"
                   value={form.sportId}
                   onChange={(e) => setForm({ ...form, sportId: e.target.value })}
                   className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none focus:border-orange-500 cursor-pointer"
@@ -773,8 +801,12 @@ export default function AdminPackagesPage() {
                     type="number"
                     required
                     min={0}
+                    id="packagePrice"
+                    name="price"
+                    aria-label="Giá niêm yết"
                     value={form.price}
                     onChange={(e) => setForm({ ...form, price: e.target.value })}
+                    placeholder="Giá niêm yết (VNĐ)"
                     className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none focus:border-orange-500"
                   />
                 </div>
@@ -784,8 +816,12 @@ export default function AdminPackagesPage() {
                     type="number"
                     required
                     min={1}
+                    id="packageDuration"
+                    name="durationDays"
+                    aria-label="Thời hạn ngày"
                     value={form.durationDays}
                     onChange={(e) => setForm({ ...form, durationDays: e.target.value })}
+                    placeholder="Thời hạn (ngày)"
                     className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none focus:border-orange-500"
                   />
                 </div>
@@ -794,6 +830,9 @@ export default function AdminPackagesPage() {
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-700">Khung giờ tập</label>
                 <select
+                  id="packageAccessType"
+                  name="accessType"
+                  aria-label="Khung giờ tập"
                   value={form.accessType}
                   onChange={(e) => setForm({ ...form, accessType: e.target.value })}
                   className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none focus:border-orange-500 cursor-pointer"
@@ -807,9 +846,13 @@ export default function AdminPackagesPage() {
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-700">Mô tả gói</label>
                 <textarea
+                  id="packageDescription"
+                  name="description"
+                  aria-label="Mô tả gói"
                   rows={3}
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="Mô tả quyền lợi gói..."
                   className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs outline-none focus:border-orange-500 resize-none"
                 />
               </div>
