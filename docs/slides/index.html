@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SportHub — Final Capstone Defense Presentation</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-main: #0B0F19;
+            --bg-card: #131D31;
+            --bg-card-hover: #1A2744;
+            --border-color: #1E293B;
+            --border-accent: #38BDF8;
+            --text-main: #F8FAFC;
+            --text-muted: #94A3B8;
+            --text-accent: #38BDF8;
+            --emerald: #10B981;
+            --emerald-bg: rgba(16, 185, 129, 0.12);
+            --blue: #3B82F6;
+            --blue-bg: rgba(59, 130, 246, 0.12);
+            --amber: #F59E0B;
+            --purple: #8B5CF6;
+            --rose: #F43F5E;
+            --font-heading: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            --font-body: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg-main);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            overflow: hidden;
+            user-select: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 16:9 Aspect Ratio Container */
+        .slide-deck {
+            position: absolute;
+            inset: 0;
+            margin: auto;
+            width: 100vw;
+            height: 100vh;
+            max-width: calc(100vh * 16 / 9);
+            max-height: calc(100vw * 9 / 16);
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            background: var(--bg-main);
+        }
+
+        .slide {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 40px 56px 64px 56px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.35s ease, transform 0.35s ease;
+            transform: scale(0.985);
+            background: var(--bg-main);
+            overflow: hidden;
+        }
+
+        .slide.active {
+            opacity: 1;
+            visibility: visible;
+            transform: scale(1);
+        }
+
+        /* Progress Bar */
+        .progress-bar-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            z-index: 9999;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #38BDF8, #10B981);
+            transition: width 0.3s ease;
+        }
+
+        /* Slide Headers */
+        .slide-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 14px;
+            flex-shrink: 0;
+        }
+
+        .slide-section-tag {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-accent);
+            font-weight: 700;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .slide-title {
+            font-size: 26px;
+            font-weight: 700;
+            color: #FFFFFF;
+            letter-spacing: -0.5px;
+        }
+
+        .slide-badge {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            background: rgba(56, 189, 248, 0.1);
+            color: #38BDF8;
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            font-weight: 600;
+        }
+
+        /* Slide Content Area */
+        .slide-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Card Layouts */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px 22px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .card:hover {
+            border-color: #334155;
+            background: var(--bg-card-hover);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .card-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #FFFFFF;
+        }
+
+        .card-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .card-desc {
+            font-size: 13px;
+            line-height: 1.55;
+            color: #CBD5E1;
+            margin-top: 4px;
+        }
+
+        .card-list {
+            list-style: none;
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .card-list li {
+            font-size: 12.5px;
+            line-height: 1.45;
+            color: #CBD5E1;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .card-list li::before {
+            content: "•";
+            color: var(--text-accent);
+            font-weight: bold;
+            font-size: 16px;
+            line-height: 12px;
+        }
+
+        /* Color Variations */
+        .c-blue { background: rgba(56, 189, 248, 0.15); color: #38BDF8; }
+        .c-emerald { background: rgba(16, 185, 129, 0.15); color: #10B981; }
+        .c-amber { background: rgba(245, 158, 11, 0.15); color: #F59E0B; }
+        .c-purple { background: rgba(139, 92, 246, 0.15); color: #A78BFA; }
+        .c-rose { background: rgba(244, 63, 94, 0.15); color: #FB7185; }
+
+        /* Metric Pill */
+        .metric-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            background: rgba(255, 255, 255, 0.06);
+            color: #E2E8F0;
+            width: fit-content;
+        }
+
+        /* Pipeline Flow */
+        .pipeline-container {
+            display: flex;
+            align-items: stretch;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .pipeline-step {
+            flex: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .step-num {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #0284C7;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+        }
+
+        .pipeline-arrow {
+            display: flex;
+            align-items: center;
+            color: #64748B;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        /* Stats Row */
+        .stats-banner {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 18px 24px;
+            margin-top: 16px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: #FFFFFF;
+            letter-spacing: -0.5px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Architecture Viewer */
+        .arch-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            background: #0F172A;
+        }
+
+        .arch-img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        /* Bottom Controls */
+        .nav-controls {
+            position: fixed;
+            bottom: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border-color);
+            padding: 6px 18px;
+            border-radius: 9999px;
+            z-index: 1000;
+        }
+
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            color: #F8FAFC;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover {
+            background: rgba(56, 189, 248, 0.3);
+            color: #38BDF8;
+        }
+
+        .slide-counter {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+        }
+
+        .btn-fullscreen {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 13px;
+            margin-left: 8px;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .btn-fullscreen:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
+        /* Cover Slide Specifics */
+        .cover-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            height: 100%;
+            max-width: 900px;
+        }
+
+        .cover-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(56, 189, 248, 0.12);
+            color: #38BDF8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+        }
+
+        .cover-title {
+            font-size: 52px;
+            font-weight: 900;
+            line-height: 1.1;
+            color: #FFFFFF;
+            letter-spacing: -1px;
+            margin-bottom: 14px;
+            background: linear-gradient(135deg, #FFFFFF 30%, #94A3B8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .cover-subtitle {
+            font-size: 20px;
+            color: #94A3B8;
+            line-height: 1.45;
+            margin-bottom: 36px;
+        }
+
+        .cover-meta {
+            display: grid;
+            grid-template-columns: auto auto auto;
+            gap: 32px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 24px;
+            width: 100%;
+        }
+
+        .meta-col-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .meta-col-val {
+            font-size: 14px;
+            font-weight: 600;
+            color: #F1F5F9;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .slide { padding: 30px 32px 56px 32px; }
+            .slide-title { font-size: 22px; }
+            .cover-title { font-size: 38px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Progress Indicator -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <!-- Presentation Deck Container (Locked to 16:9) -->
+    <div class="slide-deck">
+
+        <!-- ==================== SLIDE 1: TITLE & COVER ==================== -->
+        <div class="slide active">
+            <div class="cover-content">
+                <div class="cover-tag">Capstone Defense • SWP391</div>
+                <h1 class="cover-title">SportHub</h1>
+                <p class="cover-subtitle">Multi-Sport Center Operations & Management Platform with Intelligent Quotas, POS K80 Billing, and AI Fitness Coaching</p>
+                
+                <div class="cover-meta">
+                    <div>
+                        <div class="meta-col-title">Project Code</div>
+                        <div class="meta-col-val">SWP391_SportsCenter</div>
+                    </div>
+                    <div>
+                        <div class="meta-col-title">Project Team</div>
+                        <div class="meta-col-val">Tran Minh Quan • Pham Minh Hoang • Nguyen Huy Quang • Diep Khai</div>
+                    </div>
+                    <div>
+                        <div class="meta-col-title">Academic Advisor</div>
+                        <div class="meta-col-val">Mr. Truong Long</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 2: AGENDA & FRAMEWORK ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">Presentation Overview</span>
+                    <h2 class="slide-title">Agenda & Presentation Structure</h2>
+                </div>
+                <div class="slide-badge">6 Core Sections</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-3" style="gap: 16px;">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-blue">01</div>
+                            <div>
+                                <div class="card-title">Project Introduction</div>
+                                <div class="card-subtitle">Slides 3–5</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Operational dilemmas in sports centers</li>
+                            <li>SportHub unified solution & value proposition</li>
+                            <li>4 core actor personas & permissions</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-emerald">02</div>
+                            <div>
+                                <div class="card-title">System Design</div>
+                                <div class="card-subtitle">Slides 6–10</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>3-Tier Layered Architecture Diagram</li>
+                            <li>30 normalized SQL Server tables</li>
+                            <li>Concurrency, hold locks & quota precedence</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-amber">03</div>
+                            <div>
+                                <div class="card-title">Actors & Features</div>
+                                <div class="card-subtitle">Slides 11–14</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Member: Smart booking, VIP & AI Coach</li>
+                            <li>Receptionist: POS K80 & equipment loans</li>
+                            <li>Coach & Admin: Plans, maintenance locks</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-purple">04</div>
+                            <div>
+                                <div class="card-title">E2E Demo Scenario</div>
+                                <div class="card-subtitle">Slides 15–18</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>4-Tab simultaneous live defense setup</li>
+                            <li>Full continuous multi-role workflow</li>
+                            <li>Exceptions, maintenance & 100% refund</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-rose">05</div>
+                            <div>
+                                <div class="card-title">Verification & Testing</div>
+                                <div class="card-subtitle">Slides 19–20</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>84/84 Backend Unit/Integration PASS</li>
+                            <li>25/25 Playwright E2E Suite PASS</li>
+                            <li>Zero mock data in production stack</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-blue">06</div>
+                            <div>
+                                <div class="card-title">Conclusion & Q&A</div>
+                                <div class="card-subtitle">Slides 21–23</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Limitations & future engineering roadmap</li>
+                            <li>Anticipated defense questions & answers</li>
+                            <li>Open floor for Committee evaluation</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 3: PROBLEM STATEMENT ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">01 • Project Introduction</span>
+                    <h2 class="slide-title">Operational Dilemmas in Multi-Sport Centers</h2>
+                </div>
+                <div class="slide-badge">Industry Pain Points</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-3">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-rose">!</div>
+                            <div>
+                                <div class="card-title">Double Bookings & Slot Clashing</div>
+                                <div class="card-subtitle">Manual Scheduling Chaos</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            Facilities managing 10+ sports rely on phone calls, Zalo messages, or paper ledgers. Peak hours suffer from severe slot collisions, zero automated concurrency protection, and lack of real-time court availability.
+                        </div>
+                        <div class="metric-badge" style="margin-top: 14px; color: #FB7185;">38% Booking Conflict Rate</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-amber">$</div>
+                            <div>
+                                <div class="card-title">Financial Leakage & POS Latency</div>
+                                <div class="card-subtitle">Front-Desk Reconciliation Gaps</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            Over-the-counter payments (Cash, Transfer, POS) frequently fail to sync with online bookings. Cashiers struggle with manual receipts, unrecorded equipment rentals, and hours-long shift handover discrepancies.
+                        </div>
+                        <div class="metric-badge" style="margin-top: 14px; color: #F59E0B;">Disjointed Financial Audit</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-purple">⚡</div>
+                            <div>
+                                <div class="card-title">Disconnected Coaching & Health</div>
+                                <div class="card-subtitle">Low Retention & Retention Loss</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            Personal training sessions lack standardized digital tracking. Coaches cannot efficiently assign structured workout homework, track 1RM progression, or record member health metrics in a unified database.
+                        </div>
+                        <div class="metric-badge" style="margin-top: 14px; color: #A78BFA;">No Integrated Health Records</div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 18px; background: rgba(56, 189, 248, 0.05); border-color: rgba(56, 189, 248, 0.25);">
+                    <div style="font-size: 13.5px; color: #E2E8F0; display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 18px; color: #38BDF8;">💡</span>
+                        <strong>Core Demand:</strong> A centralized, high-concurrency web platform coordinating 4 key actors with automated slot locking, K80 thermal invoicing, quota precedence, and dedicated AI coaching.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 4: PROPOSED SOLUTION ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">01 • Project Introduction</span>
+                    <h2 class="slide-title">SportHub: The Unified Solution</h2>
+                </div>
+                <div class="slide-badge">Core Pillars</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-3">
+                    <div class="card" style="border-top: 3px solid #38BDF8;">
+                        <div class="card-header">
+                            <div class="card-icon c-blue">🏸</div>
+                            <div>
+                                <div class="card-title">Omni-Channel Booking</div>
+                                <div class="card-subtitle">10 Sports & 16 Court Facilities</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Real-time slot availability across 16 standard sports courts (Badminton, Tennis, Pickleball, Soccer, Swimming, Gym...)</li>
+                            <li>10-minute automated hold lock preventing simultaneous double-booking</li>
+                            <li>Automated 100% refund for cancellations > 2 hours prior to start time</li>
+                        </ul>
+                    </div>
+
+                    <div class="card" style="border-top: 3px solid #10B981;">
+                        <div class="card-header">
+                            <div class="card-icon c-emerald">🖨️</div>
+                            <div>
+                                <div class="card-title">Front-Desk & K80 POS</div>
+                                <div class="card-subtitle">Fast Check-in & Gear Rental</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Instant member check-in via QR Code or contactless RFID cards</li>
+                            <li>On-counter POS billing with native K80 (80mm) thermal receipt printing</li>
+                            <li>Automated hourly equipment loan fee calculations and inventory tracking</li>
+                        </ul>
+                    </div>
+
+                    <div class="card" style="border-top: 3px solid #8B5CF6;">
+                        <div class="card-header">
+                            <div class="card-icon c-purple">🤖</div>
+                            <div>
+                                <div class="card-title">Coaching & AI Assistant</div>
+                                <div class="card-subtitle">Integrated Gemini 2.5 Flash</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Coach digital class attendance, customized workout routines, and 1RM progress</li>
+                            <li>2-way sync: Members check off exercise items; coaches monitor live completion</li>
+                            <li>24/7 AI Sports Consultant analyzing user health profiles (BMI, SMM, PBF)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="stats-banner">
+                    <div class="stat-item">
+                        <div class="stat-value" style="color: #38BDF8;">16</div>
+                        <div class="stat-label">Courts & Facilities</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" style="color: #10B981;">10</div>
+                        <div class="stat-label">Supported Sports</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" style="color: #F59E0B;">30</div>
+                        <div class="stat-label">Relational Tables</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" style="color: #A78BFA;">100%</div>
+                        <div class="stat-label">Automated Test Pass</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 5: ACTORS & ROLES MATRIX ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">01 • Project Introduction</span>
+                    <h2 class="slide-title">Four User Personas & Permissions Matrix</h2>
+                </div>
+                <div class="slide-badge">RBAC Architecture</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-blue">M</div>
+                            <div>
+                                <div class="card-title">Member</div>
+                                <div class="card-subtitle">Customer Portal</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Book courts, classes & PT 1-1</li>
+                            <li>Quota deduction or VNPay/Sandbox</li>
+                            <li>Digital QR/RFID membership card</li>
+                            <li>Track 1RM & body health metrics</li>
+                            <li>Chat with AI Sports Coach</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-emerald">R</div>
+                            <div>
+                                <div class="card-title">Receptionist</div>
+                                <div class="card-subtitle">Front-Desk Terminal</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Fast QR/RFID check-in desk</li>
+                            <li>POS sales & K80 thermal receipt</li>
+                            <li>Equipment loan & hourly return</li>
+                            <li>Proxy attendance & SOS contact</li>
+                            <li>Shift handover CSV export</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-purple">C</div>
+                            <div>
+                                <div class="card-title">Coach</div>
+                                <div class="card-subtitle">Trainer Workspace</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Teaching schedule & attendance</li>
+                            <li>Compose tailored PT workout plans</li>
+                            <li>Record student 1RM & progress</li>
+                            <li>Submit leave & substitution requests</li>
+                            <li>Track earned commissions & reviews</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-amber">A</div>
+                            <div>
+                                <div class="card-title">Admin / Manager</div>
+                                <div class="card-subtitle">Control Center</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Revenue & operational BI charts</li>
+                            <li>Facility & maintenance lock</li>
+                            <li>Approve packages, refunds, staff</li>
+                            <li>System-wide broadcast alerts</li>
+                            <li>Tamper-proof audit logs</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 6: SYSTEM ARCHITECTURE DIAGRAM ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">02 • System Design</span>
+                    <h2 class="slide-title">System Architecture: 3-Tier Enterprise Design</h2>
+                </div>
+                <div class="slide-badge">High Availability & Scalability</div>
+            </div>
+            <div class="slide-body">
+                <div class="arch-container">
+                    <img src="./architecture_diagram.png" alt="SportHub Architecture Diagram" class="arch-img">
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 7: DATABASE ARCHITECTURE ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">02 • System Design</span>
+                    <h2 class="slide-title">Database Design: 30 Normalized Tables Across 5 Domains</h2>
+                </div>
+                <div class="slide-badge">Microsoft SQL Server 2022</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-3" style="gap: 16px;">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-blue">👤</div>
+                            <div>
+                                <div class="card-title">Auth & Identity</div>
+                                <div class="card-subtitle">7 Tables</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li><code>users</code>: Member, Reception, Coach, Admin</li>
+                            <li><code>verification_tokens</code>: 6-digit OTPs</li>
+                            <li><code>auth_sessions</code>, <code>audit_logs</code></li>
+                            <li><code>notifications</code>, <code>system_settings</code></li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-emerald">🏟️</div>
+                            <div>
+                                <div class="card-title">Facilities & Courts</div>
+                                <div class="card-subtitle">6 Tables</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li><code>sports</code>, <code>facilities</code>, <code>sports_courts</code></li>
+                            <li><code>court_maintenance</code> (Lock intervals)</li>
+                            <li><code>public_sports</code>, <code>public_facilities</code></li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-amber">💳</div>
+                            <div>
+                                <div class="card-title">Packages & Finance</div>
+                                <div class="card-subtitle">6 Tables</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li><code>membership_packages</code> (VIP, PT, CLASS)</li>
+                            <li><code>user_memberships</code> (Quota tracking)</li>
+                            <li><code>vouchers</code>, <code>payments</code>, <code>refund_requests</code></li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-purple">📅</div>
+                            <div>
+                                <div class="card-title">Operations & Bookings</div>
+                                <div class="card-subtitle">6 Tables</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li><code>bookings</code>, <code>court_bookings</code></li>
+                            <li><code>class_sessions</code>, <code>member_check_ins</code></li>
+                            <li><code>equipments</code>, <code>equipment_loans</code></li>
+                        </ul>
+                    </div>
+
+                    <div class="card" style="grid-column: span 2;">
+                        <div class="card-header">
+                            <div class="card-icon c-rose">💪</div>
+                            <div>
+                                <div class="card-title">Coaching, Health & Analytics</div>
+                                <div class="card-subtitle">5 Tables</div>
+                            </div>
+                        </div>
+                        <div class="grid-2" style="gap: 12px;">
+                            <ul class="card-list">
+                                <li><code>member_health_profiles</code> (BMI, SMM, PBF)</li>
+                                <li><code>body_progress_logs</code> & 1RM records</li>
+                            </ul>
+                            <ul class="card-list">
+                                <li><code>workout_plans</code> (Exercises & homework)</li>
+                                <li><code>coach_leave_requests</code>, <code>feedbacks</code></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 8: CONCURRENCY & BOOKING ENGINE ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">02 • System Design</span>
+                    <h2 class="slide-title">Concurrency Control & Double-Booking Protection</h2>
+                </div>
+                <div class="slide-badge">Zero Collision Guarantee</div>
+            </div>
+            <div class="slide-body">
+                <div class="pipeline-container" style="margin-bottom: 20px;">
+                    <div class="pipeline-step">
+                        <div class="step-num">1</div>
+                        <div style="font-size: 13.5px; font-weight: bold; color: #fff;">Slot Selection</div>
+                        <div style="font-size: 12px; color: #94A3B8; margin-top: 4px;">User picks court date and start/end time.</div>
+                    </div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-step">
+                        <div class="step-num">2</div>
+                        <div style="font-size: 13.5px; font-weight: bold; color: #fff;">Conflict & Lock Check</div>
+                        <div style="font-size: 12px; color: #94A3B8; margin-top: 4px;">DB checks existing bookings & maintenance.</div>
+                    </div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-step">
+                        <div class="step-num">3</div>
+                        <div style="font-size: 13.5px; font-weight: bold; color: #fff;">10-Min Reservation Hold</div>
+                        <div style="font-size: 12px; color: #94A3B8; margin-top: 4px;">Slot locked in PENDING status.</div>
+                    </div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-step">
+                        <div class="step-num">4</div>
+                        <div style="font-size: 13.5px; font-weight: bold; color: #fff;">Payment or Timeout</div>
+                        <div style="font-size: 12px; color: #94A3B8; margin-top: 4px;">PAID confirms; timeout releases slot.</div>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-rose">🔒</div>
+                            <div>
+                                <div class="card-title">HTTP 409 Conflict Rejection</div>
+                                <div class="card-subtitle">Real-Time Collision Guard</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            If two users click checkout simultaneously for the same court and timeframe, the backend transaction isolation immediately aborts the second attempt with <code>HTTP 409 Conflict</code>: <em>"Court slot is currently reserved or under maintenance."</em>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-emerald">🛡️</div>
+                            <div>
+                                <div class="card-title">Maintenance Interval Interception</div>
+                                <div class="card-subtitle">Instant Facility Lockdown</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            When an Admin schedules maintenance or locks a court, any active slot in that timeframe is instantly disabled across both public catalog and member booking views. Existing bookings trigger automated warning logs.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 9: QUOTA PRECEDENCE & VIP PRICING ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">02 • System Design</span>
+                    <h2 class="slide-title">Smart Quota Precedence & VIP Discount Engine</h2>
+                </div>
+                <div class="slide-badge">Automated Billing Logic</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2" style="gap: 20px;">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-blue">⚡</div>
+                            <div>
+                                <div class="card-title">Quota-First Deduction Rule</div>
+                                <div class="card-subtitle">Optimized Checkout Flow</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            When a member books a court or registers for a class/PT session:
+                        </div>
+                        <ul class="card-list" style="margin-top: 10px;">
+                            <li><strong>Step 1 (Check Active Package):</strong> Query <code>user_memberships</code> for valid VIP/PT/CLASS packages with remaining quota.</li>
+                            <li><strong>Step 2 (Quota Deduct):</strong> If quota > 0, system decrements 1 session quota and confirms booking with zero payment required ($0).</li>
+                            <li><strong>Step 3 (Gateway Fallback):</strong> If quota is exhausted (0), seamlessly route to VNPay / Sandbox payment checkout.</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-amber">👑</div>
+                            <div>
+                                <div class="card-title">Tiered VIP Pricing & Stackable Vouchers</div>
+                                <div class="card-subtitle">Dynamic Discount Evaluation</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            If paying via online payment, the pricing engine applies stacked discounts:
+                        </div>
+                        <ul class="card-list" style="margin-top: 10px;">
+                            <li><strong>Silver Member:</strong> 15% automatic discount on all court bookings.</li>
+                            <li><strong>Gold Member:</strong> 30% automatic discount on courts & classes.</li>
+                            <li><strong>Diamond Member:</strong> 50% discount on entire service catalog.</li>
+                            <li><strong>Voucher Code:</strong> Input promotional vouchers (e.g. <code>FINAL50K</code>) applied after tier discount.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 10: REFUND & IDEMPOTENCY ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">02 • System Design</span>
+                    <h2 class="slide-title">Automated 100% Refund & Financial Integrity</h2>
+                </div>
+                <div class="slide-badge">Zero Balance Discrepancy</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-3">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-emerald">⏱️</div>
+                            <div>
+                                <div class="card-title">> 2h Auto Refund</div>
+                                <div class="card-subtitle">Strict Business Rule</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            Members canceling a court booking <strong>more than 2 hours</strong> before the scheduled start time receive an instantaneous 100% automated refund, immediately releasing the slot to other users.
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-rose">🚫</div>
+                            <div>
+                                <div class="card-title">< 2h Non-Refundable</div>
+                                <div class="card-subtitle">Late Cancellation Lock</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            Within 2 hours of game time, cancellations are non-refundable to protect center operations and prevent last-minute abandoned reservations. The cancel button is disabled in UI and rejected by API.
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-blue">🔐</div>
+                            <div>
+                                <div class="card-title">Idempotent Webhooks</div>
+                                <div class="card-subtitle">HMAC SHA-512 Security</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            Payment callback handlers verify cryptographic signatures and enforce idempotency keys, guaranteeing that network retries or duplicate webhook signals never generate duplicate ledger entries.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 18px;">
+                    <div class="card-header">
+                        <div class="card-icon c-purple">📝</div>
+                        <div>
+                            <div class="card-title">Online Refund Request Workflow (Anti-Spam Protocol)</div>
+                            <div class="card-subtitle">Single-Entry Accounting Verification</div>
+                        </div>
+                    </div>
+                    <div class="card-desc">
+                        For complex transactions, members submit bank account details via <code>/member/transactions</code>. The system prevents duplicate <code>PENDING</code> submissions. Upon Admin approval, the original transaction updates directly to <code>REFUNDED</code>, preserving a pristine audit trail.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 11: MEMBER PORTAL DEEP-DIVE ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">03 • Actors & Features</span>
+                    <h2 class="slide-title">Member Portal: Self-Service & AI Engagement</h2>
+                </div>
+                <div class="slide-badge">Portal 1 • Customer Experience</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-3">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-blue">📅</div>
+                            <div>
+                                <div class="card-title">Smart Booking Experience</div>
+                                <div class="card-subtitle">Courts, Classes & PT 1-1</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Visual calendar filtering across 16 sports courts</li>
+                            <li>Instant price preview with auto-applied VIP discounts</li>
+                            <li>Dual payment: Seamless Quota deduction or VNPay Sandbox</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-emerald">📱</div>
+                            <div>
+                                <div class="card-title">Digital Pass & Health BI</div>
+                                <div class="card-subtitle">QR Code & RFID Integration</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Dynamic digital QR & RFID card for swift front-desk check-in</li>
+                            <li>Body metrics tracking: Weight, Height, BMI, SMM, PBF</li>
+                            <li>Historical 1RM Max Lift charts across compound lifts</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-purple">🤖</div>
+                            <div>
+                                <div class="card-title">Google Gemini AI Coach</div>
+                                <div class="card-subtitle">Personalized Sports Advisory</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Powered by <code>gemini-flash-lite-latest</code></li>
+                            <li>Custom prompt engineering injecting member fitness data</li>
+                            <li>Provides tailored nutrition advice and workout routine tips</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 12: RECEPTIONIST DESK & POS ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">03 • Actors & Features</span>
+                    <h2 class="slide-title">Receptionist Terminal: High-Velocity Front-Desk</h2>
+                </div>
+                <div class="slide-badge">Portal 2 • Operational Efficiency</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-3">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-blue">⚡</div>
+                            <div>
+                                <div class="card-title">Contactless Check-in</div>
+                                <div class="card-subtitle">Phone / QR / RFID Card</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Lookup by phone number or instant RFID scan (e.g. <code>RFID-SH-0009</code>)</li>
+                            <li>Displays member portrait, VIP status, and expiry verification</li>
+                            <li>One-click entrance confirmation logged to <code>member_check_ins</code></li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-emerald">🖨️</div>
+                            <div>
+                                <div class="card-title">POS Counter & K80 Printing</div>
+                                <div class="card-subtitle">Thermal Invoice Engine</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Over-the-counter package sales (Cash, Transfer, Card)</li>
+                            <li>Instant generation of standard 80mm thermal receipts</li>
+                            <li>Pre-formatted for direct printing on thermal ESC/POS hardware</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-amber">🎾</div>
+                            <div>
+                                <div class="card-title">Equipment Loans & Shift Report</div>
+                                <div class="card-subtitle">Automated Inventory Tracking</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Borrow/return rackets, balls, and shoes with automatic stock deduction</li>
+                            <li>Automated calculation of hourly rental fees upon return</li>
+                            <li>End-of-shift reconciliation dashboard with CSV revenue export</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 13: COACH & ADMIN PORTALS ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">03 • Actors & Features</span>
+                    <h2 class="slide-title">Coach Workspace & Admin Control Center</h2>
+                </div>
+                <div class="slide-badge">Portals 3 & 4 • Management & Delivery</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2" style="gap: 20px;">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-purple">🏋️</div>
+                            <div>
+                                <div class="card-title">Coach Workspace (Trainer Portal)</div>
+                                <div class="card-subtitle">Schedule, Attendance & Workout Plan Builder</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li><strong>Class Attendance:</strong> Mark students PRESENT / ABSENT with specific technical comments.</li>
+                            <li><strong>Workout Routine Builder:</strong> Create personalized exercises & homework assignments. Live 2-way progress sync as students complete sets.</li>
+                            <li><strong>Health Progression:</strong> Input 1RM max lifts and physical assessment data directly into student health records.</li>
+                            <li><strong>Leave & Commissions:</strong> Submit leave requests and track accumulated teaching commissions.</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-amber">🛡️</div>
+                            <div>
+                                <div class="card-title">Admin / Manager Hub (Control Center)</div>
+                                <div class="card-subtitle">Revenue BI, Maintenance Locks & Approvals</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li><strong>Revenue BI Analytics:</strong> Real-time charts breaking down revenue by sport, package, and front-desk POS.</li>
+                            <li><strong>Facility Maintenance Lock:</strong> One-click emergency or scheduled court lockout, rejecting bookings with HTTP 409.</li>
+                            <li><strong>Multi-Role Approval Hub:</strong> Review & activate packages, refund requests, new staff on-boarding, and coach leave.</li>
+                            <li><strong>Broadcast & Audit Logs:</strong> System-wide announcements and immutable audit trails for sensitive operations.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 14: VERIFICATION & TESTING METRICS ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">04 • Verification & Testing</span>
+                    <h2 class="slide-title">100% Real-Stack Automated Testing Results</h2>
+                </div>
+                <div class="slide-badge">109/109 Tests Passed (100%)</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2" style="gap: 20px;">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-emerald">☕</div>
+                            <div>
+                                <div class="card-title">Backend Unit & Integration Suite</div>
+                                <div class="card-subtitle">Spring Boot 4.1.2 • JUnit 5 • MockMvc</div>
+                            </div>
+                        </div>
+                        <div style="font-size: 36px; font-weight: 800; color: #10B981; margin: 8px 0;">84 / 84 PASS</div>
+                        <ul class="card-list">
+                            <li>100% execution against real SQL Server 2022 instance.</li>
+                            <li>Tests auth filters, JWT validation, and RBAC authorization.</li>
+                            <li>Verifies slot conflict isolation, quota deduction, and refund logic.</li>
+                            <li>Validates POS receipt calculations and equipment rental fees.</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-blue">🎭</div>
+                            <div>
+                                <div class="card-title">Frontend End-to-End Suite</div>
+                                <div class="card-subtitle">Playwright Test • Real Browser Engines</div>
+                            </div>
+                        </div>
+                        <div style="font-size: 36px; font-weight: 800; color: #38BDF8; margin: 8px 0;">25 / 25 PASS</div>
+                        <ul class="card-list">
+                            <li>Cross-role E2E tests covering 7 end-to-end business workflows.</li>
+                            <li>Real user interactions: clicks, modal forms, and token storage.</li>
+                            <li>Verifies multi-role data synchronization across browser tabs.</li>
+                            <li>Zero mock data used during final defense verification.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="stats-banner" style="margin-top: 16px;">
+                    <div class="stat-item">
+                        <div class="stat-value" style="color: #10B981;">100%</div>
+                        <div class="stat-label">Backend Pass Rate</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" style="color: #38BDF8;">100%</div>
+                        <div class="stat-label">E2E Pass Rate</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" style="color: #F59E0B;">0</div>
+                        <div class="stat-label">Oxlint Linter Errors</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" style="color: #A78BFA;">0</div>
+                        <div class="stat-label">Mock Fallbacks Used</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 15: LIVE DEMO OVERVIEW ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">05 • Live Demo Scenario</span>
+                    <h2 class="slide-title">Full-Stack Live Demo Strategy (4 Concurrent Tabs)</h2>
+                </div>
+                <div class="slide-badge">Real-Time Multi-Actor Sync</div>
+            </div>
+            <div class="slide-body">
+                <div class="card" style="margin-bottom: 16px; background: rgba(56, 189, 248, 0.06); border-color: rgba(56, 189, 248, 0.25);">
+                    <div style="font-size: 13.5px; color: #E2E8F0;">
+                        <strong>Demonstration Architecture:</strong> 4 concurrent browser windows open side-by-side to exhibit real-time multi-actor data synchronization without logging out.
+                    </div>
+                </div>
+
+                <div class="grid-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-amber">Tab 1</div>
+                            <div>
+                                <div class="card-title">Admin / Manager</div>
+                                <div class="card-subtitle">manager@sporthub.com</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            Revenue BI Dashboard, Package/Voucher Creation, Facility Maintenance Lock, Multi-Role Approvals.
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-emerald">Tab 2</div>
+                            <div>
+                                <div class="card-title">Receptionist</div>
+                                <div class="card-subtitle">reception.le@sporthub.com</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            RFID Check-in (<code>RFID-SH-0009</code>), Counter POS Sale & K80 Invoice Print, Equipment Loan & Shift Handover.
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-purple">Tab 3</div>
+                            <div>
+                                <div class="card-title">Coach</div>
+                                <div class="card-subtitle">coach.minh@sporthub.com</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            Teaching Schedule, Class Attendance, PT Workout Routine Assignment, Body Progress & 1RM Entry.
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-blue">Tab 4</div>
+                            <div>
+                                <div class="card-title">Member (VIP)</div>
+                                <div class="card-subtitle">khoa.member@gmail.com</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            Online Court Booking with VIP & Voucher, 100% Refund, Exercise Completion Sync, Gemini AI Chat.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 16: DEMO FLOWS 1 & 2 ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">05 • Live Demo Scenario</span>
+                    <h2 class="slide-title">Demo Stages 1 & 2: Packages, Booking & Refunds</h2>
+                </div>
+                <div class="slide-badge">Core Customer Lifecycle</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2" style="gap: 20px;">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-blue">1</div>
+                            <div>
+                                <div class="card-title">Stage 1: Package Creation & Approval</div>
+                                <div class="card-subtitle">Flow 1: Admin → Member → Instant Activation</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li><strong>[Tab 1 - Admin]</strong> Creates <code>Gói VIP Final Demo</code> (5.500.000đ, 60 days) and voucher <code>FINAL50K</code>.</li>
+                            <li><strong>[Tab 4 - Member]</strong> Opens <code>/pricing</code>; newly created package immediately reflects from database.</li>
+                            <li><strong>[Tab 4 - Member]</strong> Selects package → Submits payment transfer → Order enters pending state.</li>
+                            <li><strong>[Tab 1 - Admin]</strong> Navigates to Approvals → Clicks "Activate Package" → Membership activates instantly with quota credit!</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-emerald">2</div>
+                            <div>
+                                <div class="card-title">Stage 2: Booking, VIP Discounts & 100% Refund</div>
+                                <div class="card-subtitle">Flow 2: Online Booking & Automated Cancellation</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li><strong>[Tab 4 - Member]</strong> Selects Badminton Court for a slot > 3 hours away.</li>
+                            <li><strong>[Checkout]</strong> System applies VIP Silver (-15%) + Voucher <code>FINAL50K</code>. Completes Sandbox payment.</li>
+                            <li><strong>[Tab 4 - Member]</strong> Opens Schedule → Clicks "Cancel (100% Refund)".</li>
+                            <li><strong>[Automated Refund]</strong> Since cancellation is > 2h before game time, system refunds 100% and releases court slot immediately!</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 17: DEMO FLOWS 3 & 4 ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">05 • Live Demo Scenario</span>
+                    <h2 class="slide-title">Demo Stages 3 & 4: Receptionist Desk & Coaching</h2>
+                </div>
+                <div class="slide-badge">Operational Workflows</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2" style="gap: 20px;">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-amber">3</div>
+                            <div>
+                                <div class="card-title">Stage 3: Front-Desk POS & Equipment</div>
+                                <div class="card-subtitle">Flow 3: Fast Check-in & Thermal K80 Invoice</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li><strong>[Tab 2 - Reception]</strong> Scans RFID <code>RFID-SH-0009</code> → Verifies photo and confirms gym entrance.</li>
+                            <li><strong>[POS Desk]</strong> Sells package for cash → Generates authentic K80 80mm thermal receipt.</li>
+                            <li><strong>[Equipment]</strong> Loans tennis racket (stock auto-decrements) → Returns gear with automated hourly fee calculation.</li>
+                            <li><strong>[Reconciliation]</strong> Opens shift report → Confirms shift revenue matches Tab 1 Admin dashboard exactly to the penny.</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-purple">4</div>
+                            <div>
+                                <div class="card-title">Stage 4: Attendance & Workout Sync</div>
+                                <div class="card-subtitle">Flow 4: Trainer Delivery & Student Feedback</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li><strong>[Tab 3 - Coach]</strong> Marks member <code>PRESENT</code> with technical training notes.</li>
+                            <li><strong>[Workout Plan]</strong> Assigns tailored exercise routine with homework sets to member.</li>
+                            <li><strong>[Tab 4 - Member]</strong> Ticks completed exercises → Coach student view updates live percentage!</li>
+                            <li><strong>[5-Star Review]</strong> Member rates trainer 5 stars → Rating reflects instantly on Coach portal.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 18: DEMO FLOW 5 ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">05 • Live Demo Scenario</span>
+                    <h2 class="slide-title">Demo Stage 5: Maintenance Lockout (HTTP 409)</h2>
+                </div>
+                <div class="slide-badge">Defensive Engineering Demo</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2" style="gap: 20px;">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-rose">🔒</div>
+                            <div>
+                                <div class="card-title">Admin Maintenance Lockout Action</div>
+                                <div class="card-subtitle">[Tab 1] One-Click Facility Maintenance</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Admin opens <code>/admin/facilities</code>.</li>
+                            <li>Locks <code>Swimming Pool - Lane S1</code> or schedules court maintenance for Tennis Court 01.</li>
+                            <li>The system logs an immutable audit event and creates an active lock interval in <code>court_maintenance</code>.</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-amber">🛡️</div>
+                            <div>
+                                <div class="card-title">Real-Time Member Interception</div>
+                                <div class="card-subtitle">[Tab 4] Immediate Collision Shield</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li>Member viewing public facility page sees court immediately marked <em>"Under Maintenance"</em>.</li>
+                            <li>Any concurrent booking request or direct API call targeting that slot is blocked with <strong>HTTP 409 Conflict</strong>.</li>
+                            <li>When Admin deletes maintenance schedule, slots re-open instantly without server restarts.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 18px; border-left: 4px solid #10B981;">
+                    <div style="font-size: 13.5px; color: #E2E8F0;">
+                        <strong>Defense Key Takeaway:</strong> Demonstrates zero race conditions, fault-tolerant state handling, and resilient cross-portal synchronization across all 4 system roles.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 19: KNOWN LIMITATIONS & ROADMAP ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">06 • Conclusion & Future Work</span>
+                    <h2 class="slide-title">Current Limitations & Engineering Roadmap</h2>
+                </div>
+                <div class="slide-badge">Continuous Improvement</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2" style="gap: 20px;">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-amber">⚠️</div>
+                            <div>
+                                <div class="card-title">Current Known Limitations</div>
+                                <div class="card-subtitle">Scope Boundaries in Capstone Edition</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li><strong>Hardware Integration:</strong> RFID scanning currently relies on USB HID reader inputs rather than direct IoT TCP/IP turnstile gates.</li>
+                            <li><strong>Mobile Experience:</strong> Responsive Web SPA on modern browsers; native iOS/Android apps not yet compiled.</li>
+                            <li><strong>Banking Webhooks:</strong> VNPay operates in Sandbox mode with simulated digital signatures for defense stability.</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-emerald">🚀</div>
+                            <div>
+                                <div class="card-title">Future Engineering Roadmap</div>
+                                <div class="card-subtitle">Phase 2 Production Enhancements</div>
+                            </div>
+                        </div>
+                        <ul class="card-list">
+                            <li><strong>IoT Turnstile Controller:</strong> MQTT protocol integration with automated biometric barrier turnstiles.</li>
+                            <li><strong>React Native Mobile Apps:</strong> Dedicated Member & Coach apps with push notifications and offline mode.</li>
+                            <li><strong>Multi-Branch Architecture:</strong> Multi-tenant schema scaling to manage multiple franchise sports complexes.</li>
+                            <li><strong>Computer Vision:</strong> Automated court occupancy detection via RTSP security camera feeds.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 20: CONCLUSION & SUMMARY ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">06 • Conclusion & Future Work</span>
+                    <h2 class="slide-title">Project Summary & Key Achievements</h2>
+                </div>
+                <div class="slide-badge">Capstone Milestone Reached</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-3">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-blue">🏆</div>
+                            <div>
+                                <div class="card-title">Enterprise Readiness</div>
+                                <div class="card-subtitle">Full-Stack Real Architecture</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            Successfully engineered a production-grade sports center system: React 19 + Spring Boot 4.1.2 + SQL Server with 30 normalized tables and 150+ REST endpoints.
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-emerald">💎</div>
+                            <div>
+                                <div class="card-title">100% Test Verification</div>
+                                <div class="card-subtitle">Zero Flaky Assertions</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            Verified with 84 Backend JUnit integration tests and 25 Playwright multi-role E2E scenarios. 100% pass rate achieved with zero mock fallbacks.
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-purple">✨</div>
+                            <div>
+                                <div class="card-title">Modern Innovations</div>
+                                <div class="card-subtitle">AI & POS Invoicing</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            Combined Google Gemini AI sports advisory, K80 thermal invoice printing, RFID fast access, and smart quota deduction into one seamless platform.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-banner" style="margin-top: 18px;">
+                    <div class="stat-item">
+                        <div class="stat-value" style="color: #38BDF8;">4</div>
+                        <div class="stat-label">Unified Actor Portals</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" style="color: #10B981;">109</div>
+                        <div class="stat-label">Total Tests Passed</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" style="color: #F59E0B;">16</div>
+                        <div class="stat-label">Sports Courts Managed</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" style="color: #A78BFA;">0đ</div>
+                        <div class="stat-label">Financial Reconciliation Error</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 21: ANTICIPATED DEFENSE Q&A ==================== -->
+        <div class="slide">
+            <div class="slide-header">
+                <div>
+                    <span class="slide-section-tag">06 • Conclusion & Q&A</span>
+                    <h2 class="slide-title">Anticipated Committee Defense Questions & Answers</h2>
+                </div>
+                <div class="slide-badge">Architectural Defense</div>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2" style="gap: 16px;">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-rose">Q1</div>
+                            <div>
+                                <div class="card-title">How does the system handle booking race conditions?</div>
+                                <div class="card-subtitle">Concurrency & Peak Load Defense</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            <strong>Answer:</strong> We enforce an immediate 10-minute slot reservation hold inside a serializable database transaction. A secondary collision attempt immediately fails validation and returns <code>HTTP 409 Conflict</code>.
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-amber">Q2</div>
+                            <div>
+                                <div class="card-title">How do you ensure zero financial discrepancies at POS?</div>
+                                <div class="card-subtitle">Reconciliation Integrity Defense</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            <strong>Answer:</strong> Every cash, card, and quota transaction creates an immutable payment record tied to staff ID (<code>approvedBy</code>). Shift handover aggregates sum real-time payments, aligning with the admin ledger with zero delta.
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-blue">Q3</div>
+                            <div>
+                                <div class="card-title">Why choose Quota Precedence over flat discounts?</div>
+                                <div class="card-subtitle">Business Model Rationale</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            <strong>Answer:</strong> Multi-sport members purchase bundled credits in advance. Quota deduction reduces checkout friction to zero clicks ($0 gateway charge), significantly increasing member booking velocity.
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon c-purple">Q4</div>
+                            <div>
+                                <div class="card-title">How do you prevent AI Coach hallucinations?</div>
+                                <div class="card-subtitle">AI Safety & Guardrails</div>
+                            </div>
+                        </div>
+                        <div class="card-desc">
+                            <strong>Answer:</strong> The Gemini prompt is bounded by structured system instructions injecting validated member physiological data (BMI, SMM, 1RM) and includes medical disclaimers prohibiting clinical diagnosis.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 22: THANK YOU & Q&A OPEN FLOOR ==================== -->
+        <div class="slide">
+            <div class="cover-content" style="align-items: center; text-align: center; max-width: 800px; margin: auto;">
+                <div class="cover-tag" style="background: rgba(16, 185, 129, 0.15); color: #10B981; border-color: rgba(16, 185, 129, 0.3);">
+                    Defense Complete
+                </div>
+                <h1 class="cover-title" style="font-size: 56px; margin-bottom: 16px;">Thank You</h1>
+                <p class="cover-subtitle" style="font-size: 22px; margin-bottom: 32px;">
+                    We sincerely thank the Examination Committee for your time, guidance, and evaluation.
+                </p>
+
+                <div class="card" style="padding: 16px 36px; background: rgba(56, 189, 248, 0.08); border-color: rgba(56, 189, 248, 0.3);">
+                    <div style="font-size: 18px; font-weight: bold; color: #38BDF8;">
+                        Floor is now open for Q&A and Technical Discussion
+                    </div>
+                    <div style="font-size: 13px; color: #94A3B8; margin-top: 4px;">
+                        SportHub Development Team • SWP391 Final Defense
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /.slide-deck -->
+
+    <!-- Navigation Controls -->
+    <div class="nav-controls">
+        <button class="nav-btn" onclick="prevSlide()" title="Previous (←)">←</button>
+        <span class="slide-counter"><span id="current">1</span> / <span id="total">22</span></span>
+        <button class="nav-btn" onclick="nextSlide()" title="Next (→ / Space)">→</button>
+        <button class="btn-fullscreen" onclick="toggleFullscreen()" title="Toggle Fullscreen (F)">⛶ Fullscreen</button>
+    </div>
+
+    <!-- Navigation Script -->
+    <script>
+        let current = 1;
+        const slides = document.querySelectorAll('.slide');
+        const total = slides.length;
+        document.getElementById('total').textContent = total;
+
+        function showSlide(n) {
+            if (n < 1) n = 1;
+            if (n > total) n = total;
+            current = n;
+            slides.forEach((s, i) => {
+                s.classList.toggle('active', i === n - 1);
+            });
+            document.getElementById('current').textContent = n;
+            document.getElementById('progressBar').style.width = ((n - 1) / (total - 1) * 100) + '%';
+        }
+
+        function nextSlide() { showSlide(current + 1); }
+        function prevSlide() { showSlide(current - 1); }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+                e.preventDefault();
+                nextSlide();
+            } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+                e.preventDefault();
+                prevSlide();
+            } else if (e.key === 'Home') {
+                e.preventDefault();
+                showSlide(1);
+            } else if (e.key === 'End') {
+                e.preventDefault();
+                showSlide(total);
+            } else if (e.key.toLowerCase() === 'f') {
+                e.preventDefault();
+                toggleFullscreen();
+            }
+        });
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+
+        // Initialize first slide
+        showSlide(1);
+    </script>
+</body>
+</html>
