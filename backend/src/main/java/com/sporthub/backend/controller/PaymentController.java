@@ -135,7 +135,7 @@ public class PaymentController {
     }
 
     private void requirePayable(PaymentTransaction payment) {
-        if (!"PENDING".equals(payment.getPaymentStatus()) || payment.getAmount().signum() <= 0
+        if (!java.util.List.of("PENDING", "FAILED").contains(payment.getPaymentStatus()) || payment.getAmount().signum() <= 0
                 || payment.getCreatedAt() == null || !payment.getCreatedAt().plusMinutes(10).isAfter(java.time.LocalDateTime.now())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Giao dịch không còn trong thời hạn thanh toán.");
         }

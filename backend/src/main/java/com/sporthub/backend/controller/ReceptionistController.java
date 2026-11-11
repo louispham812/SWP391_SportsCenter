@@ -214,7 +214,7 @@ public class ReceptionistController {
                 || !Set.of("CASH", "VNPAY").contains(request.paymentMethod().toUpperCase(Locale.ROOT))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thông tin thanh toán không hợp lệ.");
         }
-        User member = userRepository.findById(request.memberId())
+        User member = userRepository.findByIdForUpdate(request.memberId())
                 .filter(user -> "MEMBER".equalsIgnoreCase(user.getRole()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy hội viên."));
         if (!"ACTIVE".equalsIgnoreCase(member.getStatus())) {
@@ -223,6 +223,10 @@ public class ReceptionistController {
         MembershipPackage membershipPackage = packageRepository.findById(request.packageId())
                 .filter(item -> "ACTIVE".equalsIgnoreCase(item.getStatus()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Gói tập không còn được mở bán."));
+        if (membershipRepository.existsByUserIdAndPackageIdAndStatusIn(member.getUserId(), request.packageId(),
+                List.of("PENDING_PAYMENT", "PENDING", "PENDING_APPROVAL"))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Gói tập này đang chờ thanh toán hoặc chờ duyệt.");
+        }
         LocalDate today = LocalDate.now();
         UserMembership membership = new UserMembership();
         membership.setUserId(member.getUserId());

@@ -7,5 +7,8 @@ public record MemberMembershipResponse(
         String packageName,
         LocalDate startDate,
         LocalDate endDate,
-        String status) {
+        String status,
+        Long packageId,
+        Long paymentId,
+        String paymentMethod) {
 }

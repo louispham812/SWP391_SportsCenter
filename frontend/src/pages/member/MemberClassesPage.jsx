@@ -229,16 +229,21 @@ export default function MemberClassesPage() {
   // Handle Voucher Application (MGR-18)
   const applyVoucher = async () => {
     setVoucherError('');
-    if (!voucherCode.trim()) return;
+    if (!voucherCode.trim() || !registeringSession || quoteLoading) return;
+    setAppliedVoucher(null);
 
     const code = voucherCode.trim().toUpperCase();
     try {
       const res = await apiRequest('/vouchers/validate', {
         method: 'POST',
-        body: JSON.stringify({ code, amount: selectedSession?.priceAmount || 0 }),
+        body: JSON.stringify({
+          code,
+          amount: sessionQuote?.amount ?? registeringSession.priceAmount ?? 0,
+          appliesTo: 'BOOKING_ONLY',
+        }),
       });
       if (res && res.valid && res.voucher) {
-        setAppliedVoucher(res.voucher);
+        setAppliedVoucher({ ...res.voucher, calculatedDiscount: res.discountAmount });
       } else {
         setVoucherError(res?.message || 'Mã ưu đãi không hợp lệ hoặc đã hết hạn.');
       }
@@ -305,11 +310,13 @@ export default function MemberClassesPage() {
         registeringSession.sessionId,
         registeringSession.startTime,
         registeringSession.endTime,
-        paymentMethod
+        paymentMethod,
+        false,
+        appliedVoucher?.code ?? null
       );
 
       // Redirect to VNPay payment page
-      if (paymentMethod === 'VNPAY') {
+      if (paymentMethod === 'VNPAY' && confirmation.paymentStatus !== 'PAID') {
         try {
           const vnpayResult = await generatePayment(confirmation.paymentId, 'VNPAY');
           
@@ -331,8 +338,10 @@ export default function MemberClassesPage() {
 
       // Các phương thức khác (CASH_COUNTER) → Show toast success
       showToast(
-        'Đăng ký thành công!',
-        `Mã xác nhận: ${confirmation.referenceCode || 'TXN-OK'}. Lớp "${registeringSession.className}" đã được thêm vào Thời khóa biểu!`,
+        confirmation.paymentStatus === 'PAID' ? 'Đã xác nhận lớp học' : 'Đang chờ thanh toán',
+        confirmation.paymentStatus === 'PAID'
+          ? `Lớp "${registeringSession.className}" đã được xác nhận.`
+          : `Chỗ được giữ trong 10 phút. Vui lòng thanh toán tại quầy để xác nhận lớp. Mã: ${confirmation.referenceCode}`,
         'success'
       );
       setRegisteringSession(null);
@@ -608,7 +617,7 @@ export default function MemberClassesPage() {
                               Đang bảo trì
                             </>
                           ) : alreadyBooked ? (
-                            'Đã đăng ký'
+                            cls.memberBookingStatus === 'BOOKED' ? 'Chờ thanh toán' : 'Đã đăng ký'
                           ) : remaining < 1 ? (
                             'Hết chỗ'
                           ) : (
@@ -683,7 +692,7 @@ export default function MemberClassesPage() {
                     ) : alreadyBooked ? (
                       <div className="space-y-2">
                         <div className="text-center text-[11px] font-bold text-emerald-700 bg-emerald-50 py-1.5 rounded-xl border border-emerald-200">
-                          ✓ Bạn đã đăng ký lớp học này
+                          {cls.memberBookingStatus === 'BOOKED' ? 'Chờ thanh toán · Chưa xác nhận lớp' : '✓ Bạn đã đăng ký lớp học này'}
                         </div>
                         {/* Show refund pending badge if refund request exists */}
                         {cls.refundStatus === 'PENDING_APPROVAL' || cls.refundStatus === 'APPROVED' ? (
@@ -813,15 +822,7 @@ export default function MemberClassesPage() {
           const originalPrice = sessionQuote?.originalAmount ?? registeringSession.priceAmount;
           const systemDiscount = sessionQuote?.discountAmount ?? 0;
 
-          // Calculate voucher discount (only for RETAIL mode)
-          let voucherDiscount = 0;
-          if (paymentMode === 'RETAIL' && appliedVoucher) {
-            if (appliedVoucher.discountType === 'PERCENT') {
-              voucherDiscount = Math.round((originalPrice * appliedVoucher.discountValue) / 100);
-            } else if (appliedVoucher.discountType === 'FIXED') {
-              voucherDiscount = Math.min(originalPrice, appliedVoucher.discountValue);
-            }
-          }
+          const voucherDiscount = paymentMode === 'RETAIL' ? Number(appliedVoucher?.calculatedDiscount || 0) : 0;
 
           const finalRetailPrice = Math.max(0, originalPrice - systemDiscount - voucherDiscount);
           const finalPrice = paymentMode === 'QUOTA' ? 0 : finalRetailPrice;

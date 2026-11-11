@@ -653,7 +653,9 @@ export default function MemberSchedulePage() {
                               {/* Status Badge */}
                               <div>
                                 {/* Check if refund request pending approval */}
-                                {entry.refundStatus === 'PENDING_APPROVAL' ? (
+                                {['BOOKED', 'PENDING'].includes(entry.status) ? (
+                                  <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">Chờ thanh toán · Chưa xác nhận</span>
+                                ) : entry.refundStatus === 'PENDING_APPROVAL' ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-800 border border-yellow-300">
                                     <span className="material-symbols-outlined text-[12px]">schedule</span>
                                     Chờ duyệt hoàn tiền
@@ -897,7 +899,9 @@ export default function MemberSchedulePage() {
                             {/* Bottom row: Attendance & Cancel Action */}
                             <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
                               <div>
-                                {isPast ? (
+                                {['BOOKED', 'PENDING'].includes(entry.status) ? (
+                                  <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">Chờ thanh toán · Chưa xác nhận</span>
+                                ) : isPast ? (
                                   isAttended ? (
                                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                                       <span className="material-symbols-outlined text-[14px]">check_circle</span>

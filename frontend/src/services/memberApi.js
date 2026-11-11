@@ -24,10 +24,10 @@ export const updateMemberHealthProfile = (profile) =>
 
 export const getMemberMemberships = () => apiRequest('/members/me/memberships');
 
-export const purchaseMembership = (packageId, paymentMethod = 'VNPAY') =>
+export const purchaseMembership = (packageId, paymentMethod = 'VNPAY', voucherCode = null) =>
   apiRequest('/members/me/memberships', {
     method: 'POST',
-    body: JSON.stringify({ packageId, paymentMethod }),
+    body: JSON.stringify({ packageId, paymentMethod, voucherCode }),
   });
 
 export const getMemberAttendance = () => apiRequest('/members/me/attendance');

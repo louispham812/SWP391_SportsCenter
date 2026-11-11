@@ -41,9 +41,11 @@ public class PaymentTimeoutScheduler {
             if (!"PENDING".equals(booking.getStatus()) || payment == null || !List.of("PENDING", "FAILED").contains(payment.getPaymentStatus())) continue;
             booking.setStatus("CANCELLED"); courts.save(booking); fail(payment);
         }
-        for (PaymentTransaction candidate : payments.findByBookingTypeAndPaymentStatusIgnoreCaseAndCreatedAtBefore("MEMBERSHIP_PACKAGE", "PENDING", cutoff)) {
+        for (PaymentTransaction candidate : java.util.stream.Stream.concat(
+                payments.findByBookingTypeAndPaymentStatusIgnoreCaseAndCreatedAtBefore("MEMBERSHIP_PACKAGE", "PENDING", cutoff).stream(),
+                payments.findByBookingTypeAndPaymentStatusIgnoreCaseAndCreatedAtBefore("MEMBERSHIP_PACKAGE", "FAILED", cutoff).stream()).toList()) {
             PaymentTransaction payment = payments.findByIdForUpdate(candidate.getPaymentId()).orElseThrow();
-            if (!"PENDING".equals(payment.getPaymentStatus())) continue;
+            if (!List.of("PENDING", "FAILED").contains(payment.getPaymentStatus())) continue;
             fail(payment);
             if (memberships != null && payment.getMembershipId() != null) memberships.findByIdForUpdate(payment.getMembershipId()).ifPresent(m -> {
                 if ("PENDING_PAYMENT".equals(m.getStatus())) { m.setStatus("CANCELLED"); memberships.save(m); }

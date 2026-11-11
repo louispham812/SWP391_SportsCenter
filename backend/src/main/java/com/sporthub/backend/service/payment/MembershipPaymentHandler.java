@@ -20,6 +20,7 @@ public class MembershipPaymentHandler implements BookingPaymentHandler {
     @Override public String getSupportedBookingType() { return "MEMBERSHIP_PACKAGE"; }
     @Override @Transactional
     public PaymentConfirmationResult handlePaymentConfirmation(PaymentTransaction payment, Double amount) {
+        if (!"PAID".equals(payment.getPaymentStatus())) throw new IllegalStateException("Giao dịch chưa được thanh toán.");
         if (!"MEMBERSHIP_PACKAGE".equals(payment.getBookingType())) return null;
         if (payment.getMembershipId() == null) throw new IllegalStateException("Giao dịch chưa liên kết gói tập; cần đối soát tại quầy.");
         UserMembership membership = memberships.findByIdForUpdate(payment.getMembershipId()).orElseThrow();

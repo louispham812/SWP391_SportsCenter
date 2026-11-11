@@ -99,7 +99,7 @@ export default function AdminPackagesPage() {
         getManagerPackages(),
         getManagerSports(),
         getManagerCoaches().catch(() => ({ content: [] })),
-        apiRequest('/manager/vouchers').catch(() => []),
+        apiRequest('/manager/vouchers'),
       ]);
       const pkgList = Array.isArray(packageData) ? packageData : [];
       const sptList = Array.isArray(sportData) ? sportData : [];
@@ -917,7 +917,7 @@ export default function AdminPackagesPage() {
                   >
                     <option value="PERCENT">Giảm theo % (PERCENT)</option>
                     <option value="FIXED">Giảm tiền mặt VNĐ (FIXED)</option>
-                    <option value="EXTEND_DURATION">Tặng tháng gia hạn (EXTEND_DURATION)</option>
+                    <option value="EXTEND_DURATION" disabled>Tặng tháng gia hạn (chưa hỗ trợ)</option>
                   </select>
                 </div>
               </div>
@@ -1006,7 +1006,7 @@ export default function AdminPackagesPage() {
                   <option value="ALL">Tất cả dịch vụ (ALL)</option>
                   <option value="MEMBERSHIP_ONLY">Chỉ áp dụng mua gói thẻ (MEMBERSHIP_ONLY)</option>
                   <option value="BOOKING_ONLY">Chỉ áp dụng đặt sân &amp; lớp (BOOKING_ONLY)</option>
-                  <option value="RETAIL_ONLY">Chỉ áp dụng mua dụng cụ bán lẻ (RETAIL_ONLY)</option>
+
                 </select>
               </div>
 

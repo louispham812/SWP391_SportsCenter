@@ -43,20 +43,12 @@ export default function VNPayReturnPage() {
       const vnpResponseCode = searchParams.get('vnp_ResponseCode');
       const rawTxnRef = searchParams.get('vnp_TxnRef');
       const vnpTxnRef = rawTxnRef && rawTxnRef.includes('_') ? rawTxnRef.split('_')[0] : rawTxnRef;
-      const vnpSecureHash = searchParams.get('vnp_SecureHash');
       
       setPaymentId(vnpTxnRef);
       
       if (!vnpResponseCode || !rawTxnRef) {
         setStatus('error');
         setMessage('Thiếu thông tin giao dịch');
-        return;
-      }
-      
-      // Check VNPay response code first
-      if (vnpResponseCode !== '00') {
-        setStatus('error');
-        setMessage(getErrorMessage(vnpResponseCode));
         return;
       }
       
@@ -91,24 +83,6 @@ export default function VNPayReturnPage() {
     
     verifyPayment();
   }, [searchParams, currentUser, currentRole, navigate]);
-  
-  const getErrorMessage = (code) => {
-    const messages = {
-      '07': 'Giao dịch bị nghi ngờ gian lận. Vui lòng liên hệ ngân hàng.',
-      '09': 'Thẻ/Tài khoản chưa đăng ký Internet Banking.',
-      '10': 'Xác thực thông tin không đúng quá 3 lần.',
-      '11': 'Đã hết hạn chờ thanh toán (15 phút).',
-      '12': 'Thẻ/Tài khoản bị khóa.',
-      '13': 'Nhập sai mật khẩu OTP.',
-      '24': 'Khách hàng hủy giao dịch.',
-      '51': 'Tài khoản không đủ số dư.',
-      '65': 'Vượt quá hạn mức giao dịch trong ngày.',
-      '75': 'Ngân hàng đang bảo trì.',
-      '79': 'Nhập sai mật khẩu quá số lần quy định.',
-      '99': 'Lỗi không xác định.',
-    };
-    return messages[code] || 'Giao dịch thất bại. Vui lòng thử lại.';
-  };
   
   const handleContinue = () => {
     // Show toast success message

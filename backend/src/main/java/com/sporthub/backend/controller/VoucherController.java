@@ -33,6 +33,7 @@ public class VoucherController {
     public ResponseEntity<List<VoucherResponse>> getActiveVouchers() {
         LocalDate today = LocalDate.now();
         List<VoucherResponse> vouchers = voucherRepository.findByStatusIgnoreCase("ACTIVE").stream()
+                .filter(v -> v.getValidFrom() == null || !v.getValidFrom().isAfter(today))
                 .filter(v -> v.getValidUntil() == null || !v.getValidUntil().isBefore(today))
                 .filter(v -> v.getUsedCount() < v.getUsageLimit())
                 .map(this::toResponse)
@@ -124,6 +125,7 @@ public class VoucherController {
                 .status(req.status() != null ? req.status().toUpperCase(Locale.ROOT) : "ACTIVE")
                 .build();
 
+        validateDefinition(v);
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(voucherRepository.save(v)));
     }
 
@@ -145,6 +147,7 @@ public class VoucherController {
             v.setDiscountValue(req.discountValue());
             if ("PERCENT".equalsIgnoreCase(v.getDiscountType())) {
                 v.setDiscountPercent(req.discountValue().intValue());
+                v.setDiscountAmount(null);
             } else {
                 v.setDiscountAmount(req.discountValue());
             }
@@ -156,6 +159,7 @@ public class VoucherController {
         if (req.appliesTo() != null) v.setAppliesTo(req.appliesTo());
         if (req.status() != null) v.setStatus(req.status().toUpperCase(Locale.ROOT));
 
+        validateDefinition(v);
         return ResponseEntity.ok(toResponse(voucherRepository.save(v)));
     }
 
@@ -175,6 +179,21 @@ public class VoucherController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy voucher."));
         voucherRepository.delete(v);
         return ResponseEntity.noContent().build();
+    }
+
+    private void validateDefinition(Voucher v) {
+        if (!List.of("PERCENT", "FIXED").contains(v.getDiscountType()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Hiện chỉ hỗ trợ voucher giảm phần trăm hoặc số tiền; voucher tặng tháng chưa được hỗ trợ.");
+        if (v.getDiscountValue() == null || v.getDiscountValue().signum() <= 0
+                || ("PERCENT".equals(v.getDiscountType()) && v.getDiscountValue().compareTo(BigDecimal.valueOf(100)) > 0))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mức giảm phải lớn hơn 0; phần trăm không được vượt quá 100.");
+        if (v.getMinPurchase().signum() < 0 || v.getUsageLimit() <= 0 || v.getUsageLimit() < v.getUsedCount())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giá trị tối thiểu hoặc số lượt sử dụng không hợp lệ.");
+        if (v.getValidFrom() != null && v.getValidUntil() != null && v.getValidUntil().isBefore(v.getValidFrom()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ngày hết hạn phải từ ngày bắt đầu trở đi.");
+        v.setAppliesTo(v.getAppliesTo().trim().toUpperCase(Locale.ROOT));
+        if (!List.of("ALL", "MEMBERSHIP_ONLY", "BOOKING_ONLY").contains(v.getAppliesTo()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phạm vi voucher chưa được hỗ trợ.");
     }
 
     private VoucherResponse toResponse(Voucher v) {
