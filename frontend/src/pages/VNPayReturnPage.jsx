@@ -1,189 +1,104 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { apiRequest } from '../services/apiClient';
+import { consumePaymentReturnPath, getPendingPayment } from '../services/paymentNavigation';
 
-/**
- * VNPay Return Page
- * 
- * VNPay redirects user back to this page after payment
- * Parse vnp_ResponseCode to determine success/failure
- * 
- * Response Codes:
- * 00: Success
- * 07: Trừ tiền thành công. Giao dịch bị nghi ngờ (liên quan tới lừa đảo, giao dịch bất thường).
- * 09: Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng chưa đăng ký dịch vụ InternetBanking tại ngân hàng.
- * 10: Giao dịch không thành công do: Khách hàng xác thực thông tin thẻ/tài khoản không đúng quá 3 lần
- * 11: Giao dịch không thành công do: Đã hết hạn chờ thanh toán. Xin quý khách vui lòng thực hiện lại giao dịch.
- * 12: Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng bị khóa.
- * 13: Giao dịch không thành công do Quý khách nhập sai mật khẩu xác thực giao dịch (OTP). Xin quý khách vui lòng thực hiện lại giao dịch.
- * 24: Giao dịch không thành công do: Khách hàng hủy giao dịch
- * 51: Giao dịch không thành công do: Tài khoản của quý khách không đủ số dư để thực hiện giao dịch.
- * 65: Giao dịch không thành công do: Tài khoản của Quý khách đã vượt quá hạn mức giao dịch trong ngày.
- * 75: Ngân hàng thanh toán đang bảo trì.
- * 79: Giao dịch không thành công do: KH nhập sai mật khẩu thanh toán quá số lần quy định. Xin quý khách vui lòng thực hiện lại giao dịch
- * 99: Các lỗi khác (lỗi còn lại, không có trong danh sách mã lỗi đã liệt kê)
- */
+async function verifyPayment(query) {
+  const params = new URLSearchParams(query);
+  // Cancelling an owned unpaid order is an authenticated action, independent of
+  // whether VNPay supplies a verifiable receipt for its Back/Cancel screen.
+  if (params.get('vnp_ResponseCode') === '24') {
+    const paymentId = getPendingPayment()?.paymentId || params.get('vnp_TxnRef')?.split('_')[0];
+    if (/^\d+$/.test(String(paymentId))) {
+      try {
+        const payment = await apiRequest(`/payments/${paymentId}/cancel-unpaid`, { method: 'POST' });
+        if (payment.paymentStatus === 'CANCELLED') {
+          return { paymentId, title: 'Đã hủy thanh toán', message: 'Chỗ giữ đã được trả lại. Bạn có thể đăng ký lớp lại ngay.', type: 'warning' };
+        }
+        if (payment.paymentStatus === 'PAID') {
+          return { paymentId, title: 'Thanh toán thành công', message: 'Thanh toán đã được ghi nhận; đăng ký của bạn được giữ nguyên.', type: 'success' };
+        }
+        if (payment.paymentStatus === 'REFUNDED') {
+          return { paymentId, title: 'Giao dịch đã hoàn tiền', message: 'Giao dịch này đã được hoàn tiền.', type: 'warning' };
+        }
+        throw new Error('Chưa xác nhận hủy');
+      } catch {
+        return { needsRetry: true, message: 'Chưa hủy được yêu cầu giữ chỗ. Bấm thử lại để hoàn tất hủy và đăng ký lại.' };
+      }
+    }
+  }
+  if (!params.get('vnp_ResponseCode') || !params.get('vnp_TxnRef')) {
+    return { title: 'Thanh toán thất bại', message: 'Thiếu thông tin giao dịch để xác thực.', type: 'error' };
+  }
+  try {
+    const result = await apiRequest(`/webhooks/vnpay/return?${query}`);
+    if (result.success === false && result.status === 'FAILED') {
+      const paymentId = params.get('vnp_TxnRef').split('_')[0];
+      await apiRequest(`/payments/${paymentId}/cancel-unpaid`, { method: 'POST' });
+    }
+    const successful = result.success === true && ['PAID', 'CONFIRMED', 'PENDING_APPROVAL', 'ACTIVE'].includes(result.status);
+    const review = result.success === true && ['CANCELLED', 'REFUNDED', 'EXCESS', 'REVIEW_REQUIRED'].includes(result.status);
+    return {
+      title: successful ? 'Thanh toán thành công' : review ? 'Cần kiểm tra giao dịch' : 'Thanh toán thất bại',
+      message: result.message || (successful ? 'Đã nhận thanh toán.' : 'Giao dịch chưa được thanh toán thành công.'),
+      type: successful ? 'success' : review ? 'warning' : 'error',
+      bookingType: result.bookingType,
+      paymentId: result.paymentId,
+    };
+  } catch {
+    return { title: 'Chưa xác minh được thanh toán', message: 'Không thể kết nối để xác minh. Vui lòng kiểm tra trạng thái giao dịch trước khi thanh toán lại.', type: 'warning' };
+  }
+}
+
 export default function VNPayReturnPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { currentUser, currentRole, showToast } = useApp();
-  const [status, setStatus] = useState('loading');
-  const [message, setMessage] = useState('');
-  const [paymentId, setPaymentId] = useState(null);
-  
-  useEffect(() => {
-    const verifyPayment = async () => {
-      // Check auth first - nếu không có auth thì redirect login
-      if (!currentUser || !currentRole) {
-        console.warn('No auth found, redirecting to login...');
-        navigate('/login', { replace: true });
-        return;
-      }
-      
-      const vnpResponseCode = searchParams.get('vnp_ResponseCode');
-      const rawTxnRef = searchParams.get('vnp_TxnRef');
-      const vnpTxnRef = rawTxnRef && rawTxnRef.includes('_') ? rawTxnRef.split('_')[0] : rawTxnRef;
-      
-      setPaymentId(vnpTxnRef);
-      
-      if (!vnpResponseCode || !rawTxnRef) {
-        setStatus('error');
-        setMessage('Thiếu thông tin giao dịch');
-        return;
-      }
-      
-      try {
-        // Call backend to verify signature and update payment status
-        const queryString = window.location.search.substring(1);
-        const response = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/v1/webhooks/vnpay/return?${queryString}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            }
-          }
-        );
-        
-        const data = await response.json();
-        
-        if (response.ok && data.success) {
-          setStatus('success');
-          setMessage(data.message || 'Đã nhận thanh toán. Vui lòng xem trạng thái đơn hàng.');
-        } else {
-          setStatus('error');
-          setMessage(data.message || 'Không thể xác thực giao dịch. Vui lòng liên hệ hỗ trợ.');
-        }
-      } catch (error) {
-        console.error('Error verifying payment:', error);
-        setStatus('error');
-        setMessage('Lỗi kết nối. Vui lòng kiểm tra lại trạng thái đơn hàng.');
-      }
-    };
-    
-    verifyPayment();
-  }, [searchParams, currentUser, currentRole, navigate]);
-  
-  const handleContinue = () => {
-    // Show toast success message
-    if (status === 'success') {
-    showToast('Thanh toán thành công', message, 'success');
+  const verification = useRef(null);
+  const [cancellationError, setCancellationError] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
+  const query = searchParams.toString();
 
-}
-    
-    // Determine target page based on user role and booking type
+  useEffect(() => {
     if (!currentUser || !currentRole) {
-      // User not logged in → go to login
       navigate('/login', { replace: true });
       return;
     }
-    
-    const bookingType = searchParams.get('bookingType');
-    
-    // Route based on role
-    if (currentRole === 'receptionist') {
-      // Receptionist always returns to POS dashboard
-      navigate('/receptionist/pos', { replace: true });
-    } else if (currentRole === 'member') {
-      // Member navigates based on booking type
-      const targetPage = bookingType === 'CLASS' ? '/member/classes' :
-                        bookingType === 'COURT' ? '/member/book' :
-                        bookingType === 'MEMBERSHIP_PACKAGE' ? '/member/packages' :
-                        '/member/dashboard';
-      navigate(targetPage, { replace: true });
-    } else {
-      // Other roles → go to their dashboard
-      navigate(`/${currentRole}`, { replace: true });
+    // Reuse the request across StrictMode effects; show the result exactly once.
+    if (!verification.current || verification.current.query !== query || verification.current.retryCount !== retryCount) {
+      verification.current = { query, retryCount, promise: verifyPayment(query), completed: false };
     }
-  };
-  
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent"></div>
-          <p className="mt-4 text-slate-600">Đang xử lý kết quả thanh toán...</p>
-        </div>
-      </div>
-    );
-  }
-  
+    const request = verification.current;
+    let active = true;
+    request.promise.then((result) => {
+      if (!active || request.completed) return;
+      request.completed = true;
+      if (result.needsRetry) {
+        setCancellationError(result.message);
+        return;
+      }
+      const params = new URLSearchParams(query);
+      const paymentId = result.paymentId || params.get('vnp_TxnRef')?.split('_')[0];
+      const destination = consumePaymentReturnPath(paymentId, currentRole, result.bookingType || params.get('bookingType'));
+      navigate(destination, { replace: true });
+      showToast(result.title, result.message, result.type);
+    });
+    return () => { active = false; };
+  }, [query, currentUser, currentRole, navigate, showToast, retryCount]);
+
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
-        {status === 'success' ? (
-          <>
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 mb-4">
-                <span className="material-symbols-outlined text-4xl text-emerald-600">check_circle</span>
-              </div>
-              <h1 className="text-2xl font-bold text-slate-900 mb-2">Thanh toán thành công!</h1>
-              <p className="text-slate-600 mb-6">{message}</p>
-              {paymentId && (
-                <div className="bg-slate-50 rounded-lg p-4 mb-6">
-                  <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-1">Mã giao dịch</p>
-                  <p className="text-lg font-mono text-slate-900">#{paymentId}</p>
-                </div>
-              )}
-            </div>
-            <button
-              onClick={handleContinue}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-xl transition"
-            >
-              Quay lại trang chủ
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
-                <span className="material-symbols-outlined text-4xl text-red-600">error</span>
-              </div>
-              <h1 className="text-2xl font-bold text-slate-900 mb-2">Thanh toán thất bại</h1>
-              <p className="text-slate-600 mb-6">{message}</p>
-              {paymentId && (
-                <div className="bg-slate-50 rounded-lg p-4 mb-6">
-                  <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-1">Mã giao dịch</p>
-                  <p className="text-lg font-mono text-slate-900">#{paymentId}</p>
-                </div>
-              )}
-            </div>
-            <div className="space-y-3">
-              <button
-                onClick={() => navigate(-1)}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-xl transition"
-              >
-                Thử lại
-              </button>
-              <button
-                onClick={handleContinue}
-                className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 px-6 rounded-xl transition"
-              >
-                Quay lại trang chủ
-              </button>
-            </div>
-          </>
-        )}
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center" role="status">
+      <div className="text-center">
+        {cancellationError ? (
+          <div className="max-w-md p-6 space-y-4">
+            <p>{cancellationError}</p>
+            <button type="button" onClick={() => { setCancellationError(''); setRetryCount((count) => count + 1); }} className="rounded-xl bg-orange-500 px-5 py-3 font-bold text-white">Thử hủy lại</button>
+          </div>
+        ) : <>
+        <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent" />
+        <p className="mt-4 text-slate-600">Đang xác thực thanh toán và quay lại trang trước...</p>
+        </>}
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import {
   getCoachPublicProfile,
 } from '../../services/bookingApi';
 import { apiRequest, generatePayment } from '../../services/apiClient';
+import { redirectToPayment } from '../../services/paymentNavigation';
 import PaymentMethodSelector from '../../components/common/PaymentMethodSelector';
 import { getSportMedia } from '../../utils/mediaMap';
 import Pagination from '../../components/common/Pagination';
@@ -320,13 +321,7 @@ export default function MemberClassesPage() {
         try {
           const vnpayResult = await generatePayment(confirmation.paymentId, 'VNPAY');
           
-          // Append bookingType to VNPay URL for return page navigation
-          const bookingType = vnpayResult.bookingType || 'CLASS';
-          const separator = vnpayResult.paymentUrl.includes('?') ? '&' : '?';
-          const paymentUrlWithType = `${vnpayResult.paymentUrl}${separator}bookingType=${encodeURIComponent(bookingType)}`;
-          
-          // Redirect to VNPay payment page
-          window.location.href = paymentUrlWithType;
+          redirectToPayment(confirmation.paymentId, vnpayResult.paymentUrl);
           return;
         } catch (vnpayError) {
           console.error('[VNPAY] Exception:', vnpayError);
@@ -413,7 +408,7 @@ export default function MemberClassesPage() {
       } else {
         // Fallback for other statuses
         showToast(
-          response.status === 'COMPLETED' ? 'Hủy đăng ký thành công' : 'Yêu cầu đã gửi',
+          ['COMPLETED', 'CANCELLED'].includes(response.status) ? 'Đã hủy yêu cầu' : 'Yêu cầu đã gửi',
           response.message || response.detailMessage || 'Yêu cầu của bạn đang được xử lý.',
           'success'
         );
@@ -466,7 +461,7 @@ export default function MemberClassesPage() {
           <div className="space-y-0.5">
             <div className="font-bold text-slate-900">Quy định đăng ký & Hoàn tiền khi hủy lớp:</div>
             <p className="text-amber-800 leading-relaxed">
-              Học viên được phép <strong>hủy đăng ký trước giờ học ít nhất 2 tiếng</strong> và nhận <strong>hoàn tiền 100%</strong> vào tài khoản sandbox. Khi hủy, lịch tương lai sẽ tự động được xóa khỏi thời khóa biểu và suất học được chuyển cho học viên danh sách chờ.
+              Yêu cầu chưa thanh toán có thể hủy để trả lại chỗ giữ. Với đơn đã thanh toán, hủy trước giờ học ít nhất 2 tiếng sẽ tạo yêu cầu hoàn tiền để Quản lý duyệt. Đơn dùng gói tập được xử lý quota theo quy định.
             </p>
           </div>
         </div>
@@ -704,10 +699,10 @@ export default function MemberClassesPage() {
                           <button
                             type="button"
                             disabled={submittingCancel || cancelingBooking?.bookingId === cls.memberBookingId}
-                            onClick={() => setCancelingBooking({ bookingId: cls.memberBookingId, className: cls.className })}
+                            onClick={() => setCancelingBooking({ bookingId: cls.memberBookingId, className: cls.className, status: cls.memberBookingStatus })}
                             className="w-full rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 py-2.5 text-xs font-bold text-red-700 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            Hủy đăng ký lớp này
+                            {cls.memberBookingStatus === 'BOOKED' ? 'Hủy yêu cầu' : 'Hủy đăng ký lớp này'}
                           </button>
                         )}
                       </div>
@@ -1106,7 +1101,7 @@ export default function MemberClassesPage() {
                       <div className="space-y-0.5">
                         <div className="font-bold text-slate-900">Quy định hủy lớp học:</div>
                         <p className="text-blue-800 leading-relaxed">
-                          Bạn được phép <strong>hủy đăng ký trước giờ học ít nhất 2 tiếng</strong> và nhận <strong>hoàn tiền 100%</strong> vào tài khoản sandbox. 
+                          Đơn chưa thanh toán có thể hủy để trả lại chỗ giữ. Với đơn đã thanh toán, hủy trước giờ học ít nhất 2 tiếng sẽ tạo yêu cầu hoàn tiền để Quản lý duyệt.
                           Lịch học sẽ tự động được đồng bộ vào Thời khóa biểu của bạn.
                         </p>
                       </div>
@@ -1156,25 +1151,23 @@ export default function MemberClassesPage() {
             <div className="w-full max-w-md my-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100 text-red-600">
                 <span className="material-symbols-outlined text-2xl">cancel</span>
-                <h3 className="text-lg font-bold text-slate-900">Hủy Đăng Ký Lớp Học</h3>
+                <h3 className="text-lg font-bold text-slate-900">{cancelingBooking.status === 'BOOKED' ? 'Hủy Yêu Cầu Giữ Chỗ' : 'Hủy Đăng Ký Lớp Học'}</h3>
               </div>
 
               <div className="my-5 space-y-3">
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Bạn có chắc chắn muốn hủy đăng ký lớp <strong>{cancelingBooking.className}</strong>?
+                  Bạn có chắc chắn muốn hủy {cancelingBooking.status === 'BOOKED' ? 'yêu cầu giữ chỗ' : 'đăng ký'} lớp <strong>{cancelingBooking.className}</strong>?
                 </p>
 
-                <div className="rounded-2xl bg-amber-50 p-4 border border-amber-200 space-y-2 text-xs text-amber-900">
-                  <div className="font-bold flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-sm">currency_exchange</span>
-                    <span>Quyền lợi hoàn tiền 100%:</span>
+                {cancelingBooking.status === 'BOOKED' ? (
+                  <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200 text-xs text-slate-700">
+                    Yêu cầu này chưa thanh toán. Hủy yêu cầu sẽ trả lại chỗ giữ và bạn có thể đăng ký lại.
                   </div>
-                  <ul className="list-disc list-inside space-y-1 text-[11px] text-amber-800">
-                    <li>Học phí đã thanh toán sẽ được hoàn 100% vào tài khoản ví sandbox.</li>
-                    <li>Lớp học này sẽ tự động xóa khỏi thời khóa biểu tương lai của bạn.</li>
-                    <li>Suất học được nhượng lại cho người kế tiếp trong danh sách chờ.</li>
-                  </ul>
-                </div>
+                ) : (
+                  <div className="rounded-2xl bg-amber-50 p-4 border border-amber-200 text-xs text-amber-900">
+                    Khi đủ điều kiện hủy, đơn đã trả tiền sẽ tạo yêu cầu hoàn tiền để Quản lý duyệt; đơn dùng gói tập sẽ xử lý hoàn quota theo quy định.
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3">
@@ -1192,7 +1185,7 @@ export default function MemberClassesPage() {
                   onClick={handleConfirmCancel}
                   className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-red-600/20 transition disabled:opacity-60 cursor-pointer"
                 >
-                  {submittingCancel ? 'Đang xử lý...' : 'Xác Nhận Hủy & Hoàn Tiền'}
+                  {submittingCancel ? 'Đang xử lý...' : cancelingBooking.status === 'BOOKED' ? 'Xác Nhận Hủy Yêu Cầu' : 'Xác Nhận Hủy Đăng Ký'}
                 </button>
               </div>
             </div>

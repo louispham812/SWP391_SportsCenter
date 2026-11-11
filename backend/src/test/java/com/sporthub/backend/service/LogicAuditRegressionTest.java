@@ -117,7 +117,7 @@ class LogicAuditRegressionTest {
         var payments = mock(PaymentTransactionRepository.class); var gateway = mock(VNPayGateway.class);
         PaymentTransaction p = new PaymentTransaction(); p.setPaymentId(2L); p.setPaymentStatus("REFUNDED"); p.setAmount(BigDecimal.TEN);
         when(payments.findByIdForUpdate(2L)).thenReturn(Optional.of(p)); when(gateway.verifySignature(anyMap(), anyString())).thenReturn(true);
-        new VNPayWebhookController(gateway, payments, List.of()).handleIPN(Map.of("vnp_TxnRef", "2_123", "vnp_SecureHash", "valid", "vnp_Amount", "1000", "vnp_ResponseCode", "00"));
+        new VNPayWebhookController(gateway, payments, List.of(), mock(UnpaidPaymentCancellationService.class)).handleIPN(Map.of("vnp_TxnRef", "2_123", "vnp_SecureHash", "valid", "vnp_Amount", "1000", "vnp_ResponseCode", "00"));
         assertEquals("REFUNDED", p.getPaymentStatus()); verify(payments, never()).save(any());
     }
     @Test void paymentStatusRequiresOwnerAndGeneratingPaidLinkIsRejected() {

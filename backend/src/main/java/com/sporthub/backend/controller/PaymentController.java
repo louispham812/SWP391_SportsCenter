@@ -38,6 +38,7 @@ public class PaymentController {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PaymentGateway vnpayGateway;
     @Autowired private com.sporthub.backend.service.PaymentAttemptService attempts;
+    @Autowired private com.sporthub.backend.service.UnpaidPaymentCancellationService unpaidPayments;
 
     @Autowired
     public PaymentController(
@@ -128,6 +129,16 @@ public class PaymentController {
         
         return ResponseEntity.ok(response);
     }
+    @org.springframework.web.bind.annotation.PostMapping("/{paymentId}/cancel-unpaid")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<?> cancelUnpaid(@PathVariable Long paymentId, org.springframework.security.core.Authentication auth) {
+        PaymentTransaction payment = paymentTransactionRepository.findByIdForUpdate(paymentId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy giao dịch."));
+        authorize(payment, auth);
+        unpaidPayments.cancelLocked(payment);
+        return ResponseEntity.ok(Map.of("paymentId", paymentId, "paymentStatus", payment.getPaymentStatus()));
+    }
+
     private void authorize(PaymentTransaction payment, org.springframework.security.core.Authentication auth) {
         if (auth == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         boolean staff = auth.getAuthorities().stream().anyMatch(a -> java.util.Set.of("ROLE_RECEPTIONIST", "ROLE_MANAGER", "ROLE_ADMIN").contains(a.getAuthority()));

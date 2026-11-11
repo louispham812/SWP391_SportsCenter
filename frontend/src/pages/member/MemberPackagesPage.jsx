@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext';
 import { apiRequest, generatePayment } from '../../services/apiClient';
 import { getPublicPackages } from '../../services/publicContentApi';
 import { getMemberMemberships, purchaseMembership } from '../../services/memberApi';
+import { redirectToPayment } from '../../services/paymentNavigation';
 import PaymentMethodSelector from '../../components/common/PaymentMethodSelector';
 
 const formatMoney = (amount) =>
@@ -46,7 +47,7 @@ export default function MemberPackagesPage() {
   const resumePayment = async (membership) => {
     try {
       const result = await generatePayment(membership.paymentId, 'VNPAY');
-      window.location.href = result.paymentUrl;
+      redirectToPayment(membership.paymentId, result.paymentUrl);
     } catch (err) { showToast('Không thể thanh toán', err.message, 'error'); }
   };
 
@@ -166,13 +167,7 @@ export default function MemberPackagesPage() {
         try {
           const vnpayResult = await generatePayment(result.paymentId, 'VNPAY');
           
-          // Append bookingType to VNPay URL for return page navigation
-          const bookingType = vnpayResult.bookingType || 'MEMBERSHIP_PACKAGE';
-          const separator = vnpayResult.paymentUrl.includes('?') ? '&' : '?';
-          const paymentUrlWithType = `${vnpayResult.paymentUrl}${separator}bookingType=${encodeURIComponent(bookingType)}`;
-          
-          // Redirect to VNPay payment page
-          window.location.href = paymentUrlWithType;
+          redirectToPayment(result.paymentId, vnpayResult.paymentUrl);
           return;
         } catch (vnpayError) {
           console.error('[VNPAY] Exception:', vnpayError);

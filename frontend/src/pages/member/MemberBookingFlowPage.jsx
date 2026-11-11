@@ -12,6 +12,7 @@ import {
   getMemberBookingSchedule,
 } from '../../services/bookingApi';
 import { apiRequest, generatePayment } from '../../services/apiClient';
+import { redirectToPayment } from '../../services/paymentNavigation';
 import PaymentMethodSelector from '../../components/common/PaymentMethodSelector';
 import { getSportMedia } from '../../utils/mediaMap';
 
@@ -1052,13 +1053,7 @@ function CheckoutPage({ bookingType, itemId }) {
         try {
           const vnpayResult = await generatePayment(confirmation.paymentId, 'VNPAY');
           
-          // Append bookingType to VNPay URL for return page navigation
-          const paymentBookingType = vnpayResult.bookingType || bookingType.toUpperCase();
-          const separator = vnpayResult.paymentUrl.includes('?') ? '&' : '?';
-          const paymentUrlWithType = `${vnpayResult.paymentUrl}${separator}bookingType=${encodeURIComponent(paymentBookingType)}`;
-          
-          // Redirect to VNPay payment page
-          window.location.href = paymentUrlWithType;
+          redirectToPayment(confirmation.paymentId, vnpayResult.paymentUrl);
           return;
         } catch (vnpayError) {
           console.error('[VNPAY] Exception:', vnpayError);

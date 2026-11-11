@@ -20,9 +20,10 @@ public class VNPayWebhookController {
     private final VNPayGateway gateway;
     private final PaymentTransactionRepository payments;
     private final List<BookingPaymentHandler> handlers;
+    private final com.sporthub.backend.service.UnpaidPaymentCancellationService unpaidPayments;
     @Autowired private PaymentAttemptService attempts;
-    public VNPayWebhookController(VNPayGateway gateway, PaymentTransactionRepository payments, List<BookingPaymentHandler> handlers) {
-        this.gateway = gateway; this.payments = payments; this.handlers = handlers;
+    public VNPayWebhookController(VNPayGateway gateway, PaymentTransactionRepository payments, List<BookingPaymentHandler> handlers, com.sporthub.backend.service.UnpaidPaymentCancellationService unpaidPayments) {
+        this.gateway = gateway; this.payments = payments; this.handlers = handlers; this.unpaidPayments = unpaidPayments;
     }
     @GetMapping("/return") @Transactional
     public ResponseEntity<?> handleReturn(@RequestParam Map<String, String> params) { return ResponseEntity.ok(process(params)); }
@@ -47,8 +48,14 @@ public class VNPayWebhookController {
             && (!params.containsKey("vnp_TransactionStatus") || "00".equals(params.get("vnp_TransactionStatus")));
         if (!successful) {
             attempts.recordFailure(payment, params.get("vnp_TxnRef"));
-            if ("PENDING".equals(payment.getPaymentStatus())) { payment.setPaymentStatus("FAILED"); payments.save(payment); }
-            return response(false, "00", "Thanh toán chưa thành công.", payment.getPaymentStatus(), id);
+            if (List.of("PENDING", "FAILED").contains(payment.getPaymentStatus())) unpaidPayments.cancelLocked(payment);
+            boolean alreadyPaid = "PAID".equals(payment.getPaymentStatus());
+            Map<String, Object> result = response(alreadyPaid, "00", alreadyPaid
+                ? "Thanh toán đã được ghi nhận."
+                : "CANCELLED".equals(payment.getPaymentStatus()) ? "Đã hủy thanh toán và trả lại chỗ giữ. Bạn có thể đăng ký lại." : "Thanh toán chưa thành công.",
+                payment.getPaymentStatus(), id);
+            result.put("bookingType", payment.getBookingType());
+            return result;
         }
         String transaction = params.get("vnp_TransactionNo");
         if (transaction == null || transaction.isBlank() || "0".equals(transaction)) return error("02", "Thiếu mã giao dịch gateway.");

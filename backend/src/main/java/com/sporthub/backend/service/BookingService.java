@@ -1492,7 +1492,7 @@ public class BookingService {
     public boolean isRefundEligible(PaymentTransaction payment) {
         if (payment.getMembershipId() != null) {
             return userMembershipRepository.findById(payment.getMembershipId()).map(m ->
-                List.of("PENDING_APPROVAL", "REJECTED").contains(m.getStatus())
+                List.of("PENDING_APPROVAL", "REJECTED", "CANCELLED").contains(m.getStatus())
                 || ("ACTIVE".equals(m.getStatus()) && m.getUsedQuotaSessions() == 0 && m.getHeldQuotaSessions() == 0 && m.getUsedQuotaCourts() == 0 && m.getHeldQuotaCourts() == 0)).orElse(false);
         }
         if ("COURT".equals(payment.getBookingType())) {
@@ -1517,7 +1517,7 @@ public class BookingService {
     public void prepareRefund(PaymentTransaction payment) {
         if (payment.getMembershipId() != null) {
             UserMembership m = userMembershipRepository.findByIdForUpdate(payment.getMembershipId()).orElseThrow();
-            if (!List.of("ACTIVE", "PENDING_APPROVAL", "REJECTED").contains(m.getStatus())
+            if (!List.of("ACTIVE", "PENDING_APPROVAL", "REJECTED", "CANCELLED").contains(m.getStatus())
                     || (m.getUsedQuotaSessions() != null && m.getUsedQuotaSessions() > 0)
                     || (m.getHeldQuotaSessions() != null && m.getHeldQuotaSessions() > 0)
                     || (m.getUsedQuotaCourts() != null && m.getUsedQuotaCourts() > 0)

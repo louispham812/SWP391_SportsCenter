@@ -46,7 +46,7 @@ class RemainingFixRegressionTest {
             when(receipts.findByGatewayTransactionNo(anyString())).thenAnswer(i -> Optional.ofNullable(receiptsByTransaction.get(i.getArgument(0))));
             when(receipts.saveAndFlush(any())).thenAnswer(i -> { GatewayReceipt r = i.getArgument(0); r.setReceiptId((long) receiptsByTransaction.size() + 1); receiptsByTransaction.put(r.getGatewayTransactionNo(), r); return r; });
             service = new PaymentAttemptService(attempts, receipts, engagement, mock(UserRepository.class));
-            controller = new VNPayWebhookController(gateway, payments, List.of(handler)); ReflectionTestUtils.setField(controller, "attempts", service);
+            controller = new VNPayWebhookController(gateway, payments, List.of(handler), mock(UnpaidPaymentCancellationService.class)); ReflectionTestUtils.setField(controller, "attempts", service);
         }
     }
     @Test void generatingAgainReusesTheSameUnexpiredAttemptAndOriginalHoldDeadline() {
