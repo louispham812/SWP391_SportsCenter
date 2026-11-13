@@ -379,14 +379,14 @@ export default function MemberTransactionsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                      <th className="py-3 px-4">Mã Giao Dịch</th>
-                      <th className="py-3 px-4">Dịch Vụ / Nội Dung</th>
-                      <th className="py-3 px-4">Thời Gian</th>
-                      <th className="py-3 px-4">Phương Thức</th>
-                      <th className="py-3 px-4">Số Tiền</th>
-                      <th className="py-3 px-4">Trạng Thái</th>
-                      <th className="py-3 px-4 text-right">Biên Lai</th>
+                    <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px] whitespace-nowrap">
+                      <th className="py-3 px-2.5">Mã Giao Dịch</th>
+                      <th className="py-3 px-2.5 min-w-[180px]">Dịch Vụ / Nội Dung</th>
+                      <th className="py-3 px-2.5">Thời Gian</th>
+                      <th className="py-3 px-2.5">Phương Thức</th>
+                      <th className="py-3 px-2.5">Số Tiền</th>
+                      <th className="py-3 px-2.5">Trạng Thái</th>
+                      <th className="py-3 px-2.5 text-right">Biên Lai</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -401,14 +401,14 @@ export default function MemberTransactionsPage() {
                           className="hover:bg-slate-50/70 transition-colors"
                         >
                           {/* Reference Code */}
-                          <td className="py-3.5 px-4 font-mono font-bold text-slate-800">
+                          <td className="py-3.5 px-2.5 font-mono font-bold text-slate-800 whitespace-nowrap">
                             {tx.referenceCode || `TX-${tx.id}`}
                           </td>
 
                           {/* Item Name & Type Badge */}
-                          <td className="py-3.5 px-4">
+                          <td className="py-3.5 px-2.5 min-w-[180px]">
                             <div className="flex items-center gap-2">
-                              <span className={`p-1.5 rounded-lg border text-[14px] ${typeMeta.color}`}>
+                              <span className={`p-1.5 rounded-lg border text-[14px] shrink-0 ${typeMeta.color}`}>
                                 <span className="material-symbols-outlined text-[16px] block">
                                   {typeMeta.icon}
                                 </span>
@@ -421,53 +421,53 @@ export default function MemberTransactionsPage() {
                           </td>
 
                           {/* Created At */}
-                          <td className="py-3.5 px-4 text-slate-600 font-medium">
+                          <td className="py-3.5 px-2.5 text-slate-600 font-medium whitespace-nowrap">
                             {formatDate(tx.createdAt)}
                           </td>
 
                           {/* Payment Method */}
-                          <td className="py-3.5 px-4">
-                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-semibold">
+                          <td className="py-3.5 px-2.5 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-semibold whitespace-nowrap">
                               {isQuota ? 'MEMBERSHIP_QUOTA' : tx.paymentMethod || 'SANDBOX'}
                             </span>
                           </td>
 
                           {/* Amount */}
-                          <td className="py-3.5 px-4 font-bold">
+                          <td className="py-3.5 px-2.5 font-bold whitespace-nowrap">
                             {isQuota ? (
-                              <span className="text-amber-600 font-extrabold">0 ₫ (Quota VIP)</span>
+                              <span className="text-amber-600 font-extrabold whitespace-nowrap">0 ₫ (Quota VIP)</span>
                             ) : isRefund ? (
-                              <span className="text-indigo-600">+{formatMoney(tx.amount)}</span>
+                              <span className="text-indigo-600 whitespace-nowrap">+{formatMoney(tx.amount)}</span>
                             ) : (
-                              <span className="text-slate-900">{formatMoney(tx.amount)}</span>
+                              <span className="text-slate-900 whitespace-nowrap">{formatMoney(tx.amount)}</span>
                             )}
                           </td>
 
                           {/* Status Badge */}
-                          <td className="py-3.5 px-4">
+                          <td className="py-3.5 px-2.5 whitespace-nowrap">
                             {isRefund ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 whitespace-nowrap">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0"></span>
                                 Đã Hoàn Tiền
                               </span>
                             ) : isQuota ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 whitespace-nowrap">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 shrink-0"></span>
                                 Khấu Trừ Quota
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0"></span>
                                 Thành Công
                               </span>
                             )}
                           </td>
 
                           {/* Receipt Button */}
-                          <td className="py-3.5 px-4 text-right">
+                          <td className="py-3.5 px-2.5 text-right whitespace-nowrap">
                             <button
                               onClick={() => setSelectedReceipt(tx)}
-                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-700 font-bold transition-colors inline-flex items-center gap-1 cursor-pointer"
+                              className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-700 font-bold transition-colors inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
                               type="button"
                             >
                               <span className="material-symbols-outlined text-[14px]">receipt</span>

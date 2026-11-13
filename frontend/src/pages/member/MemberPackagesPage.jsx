@@ -361,17 +361,17 @@ export default function MemberPackagesPage() {
                   >
                     <div>
                       {/* Top Badges */}
-                      <div className="flex items-center justify-between gap-2 mb-4">
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-700">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-700 whitespace-nowrap">
                           {pkg.accessType === 'ALL_DAY' ? 'Toàn Thời Gian (24/7)' : 'Khung Giờ Tiêu Chuẩn'}
                         </span>
                         {isCurrent && (
-                          <span className="rounded-full bg-orange-500 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-xs">
+                          <span className="rounded-full bg-orange-500 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-xs whitespace-nowrap">
                             Gói đang dùng
                           </span>
                         )}
                         {isHigher && (
-                          <span className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                          <span className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">
                             Nâng cấp VIP
                           </span>
                         )}

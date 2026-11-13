@@ -357,11 +357,11 @@ export default function MemberProfilePage() {
                   <div className="font-mono text-[11px] font-bold text-white bg-slate-900/80 px-2 py-1 rounded-md border border-slate-700 break-all select-all">
                     {digitalCard?.qrToken || `SPORTHUB-MEMBER-${currentUser.memberId || currentUser.id}`}
                   </div>
-                  <div className="flex items-center justify-center sm:justify-start gap-2 pt-1">
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
                     <button
                       type="button"
                       onClick={() => setShowQrModal(true)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-bold uppercase tracking-wider transition shadow-xs cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-bold uppercase tracking-wider transition shadow-xs cursor-pointer whitespace-nowrap"
                     >
                       <span className="material-symbols-outlined text-[14px]">fullscreen</span>
                       <span>Phóng to</span>
@@ -369,7 +369,7 @@ export default function MemberProfilePage() {
                     <button
                       type="button"
                       onClick={handleDownloadQr}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold uppercase tracking-wider transition border border-slate-700 cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold uppercase tracking-wider transition border border-slate-700 cursor-pointer whitespace-nowrap"
                     >
                       <span className="material-symbols-outlined text-[14px]">download</span>
                       <span>Tải QR</span>
@@ -379,8 +379,8 @@ export default function MemberProfilePage() {
               </div>
 
               {/* Card Footer Details */}
-              <div className="relative z-10 mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-                <span>Trạng thái: <strong className="text-emerald-400">HOẠT ĐỘNG</strong></span>
+              <div className="relative z-10 mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                <span className="whitespace-nowrap">Trạng thái: <strong className="text-emerald-400">HOẠT ĐỘNG</strong></span>
                 <span>Hệ thống nhận diện F Sport Check-in</span>
               </div>
             </div>

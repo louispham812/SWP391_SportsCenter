@@ -506,7 +506,7 @@ export default function AdminPackagesPage() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[760px] text-left text-sm">
-                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 font-bold">
+                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 font-bold whitespace-nowrap">
                       <tr>
                         <th className="px-5 py-3">Gói tập</th>
                         <th className="px-5 py-3">Bộ môn</th>
@@ -527,25 +527,25 @@ export default function AdminPackagesPage() {
                               <p className="font-semibold text-slate-900">{membershipPackage.name}</p>
                               <p className="mt-0.5 text-xs text-slate-400">Mã gói: #{membershipPackage.packageId}</p>
                             </td>
-                            <td className="px-5 py-4 text-slate-700">{sportName(membershipPackage.sportId)}</td>
-                            <td className="px-5 py-4 font-bold text-orange-600">{formatPrice(membershipPackage.price)}</td>
-                            <td className="px-5 py-4 text-slate-700">{formatDuration(membershipPackage.durationDays)}</td>
-                            <td className="px-5 py-4 text-slate-700">{ACCESS_LABELS[membershipPackage.accessType] || membershipPackage.accessType}</td>
-                            <td className="px-5 py-4">
+                            <td className="px-5 py-4 text-slate-700 whitespace-nowrap">{sportName(membershipPackage.sportId)}</td>
+                            <td className="px-5 py-4 font-bold text-orange-600 whitespace-nowrap">{formatPrice(membershipPackage.price)}</td>
+                            <td className="px-5 py-4 text-slate-700 whitespace-nowrap">{formatDuration(membershipPackage.durationDays)}</td>
+                            <td className="px-5 py-4 text-slate-700 whitespace-nowrap">{ACCESS_LABELS[membershipPackage.accessType] || membershipPackage.accessType}</td>
+                            <td className="px-5 py-4 whitespace-nowrap">
                               <span
-                                className={`rounded-full px-3 py-1 text-xs font-bold ${
+                                className={`inline-flex rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap ${
                                   isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
                                 }`}
                               >
                                 {isActive ? 'Đang mở bán' : 'Tạm ngưng'}
                               </span>
                             </td>
-                            <td className="px-5 py-4 text-right">
+                            <td className="px-5 py-4 text-right whitespace-nowrap">
                               <div className="flex items-center justify-end gap-2">
                                 <button
                                   type="button"
                                   onClick={() => openEditForm(membershipPackage)}
-                                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer whitespace-nowrap"
                                 >
                                   Sửa
                                 </button>
@@ -553,7 +553,7 @@ export default function AdminPackagesPage() {
                                   type="button"
                                   onClick={() => togglePackageStatus(membershipPackage)}
                                   disabled={isProcessing}
-                                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold cursor-pointer ${
+                                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold cursor-pointer whitespace-nowrap ${
                                     isActive
                                       ? 'border border-amber-300 text-amber-700 hover:bg-amber-50'
                                       : 'bg-emerald-600 text-white hover:bg-emerald-700'

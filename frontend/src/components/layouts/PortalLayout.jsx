@@ -261,13 +261,13 @@ export default function PortalLayout({
       {/* =========================================
           2. FIXED TOP HEADER (Synchronized Across Roles)
          ========================================= */}
-      <div className="lg:pl-72 flex-1 flex flex-col min-h-screen">
+      <div className="lg:pl-72 flex-1 flex flex-col min-h-screen min-w-0">
         <header className="sticky top-0 h-14 bg-white/95 backdrop-blur-xl z-40 border-b border-slate-200 shadow-[0_1px_4px_rgba(0,0,0,0.03)] flex items-center justify-between px-4 lg:px-6">
           {/* Left: Mobile Toggle + Search Trigger Button */}
-          <div className="flex items-center gap-3 flex-1 max-w-xl">
+          <div className="flex items-center gap-3 flex-1 min-w-0 max-w-xl">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 cursor-pointer"
+              className="lg:hidden w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 cursor-pointer shrink-0"
               type="button"
               aria-label="Toggle menu"
             >
@@ -277,7 +277,7 @@ export default function PortalLayout({
             {/* Clickable Quick Search Bar that opens Command Palette */}
             <div
               onClick={() => setSearchOpen(true)}
-              className="relative flex items-center w-full h-9 px-3 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-500 text-xs cursor-pointer transition-all shadow-inner select-none"
+              className="relative flex items-center w-full min-w-0 h-9 px-3 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-500 text-xs cursor-pointer transition-all shadow-inner select-none"
             >
               <span className="material-symbols-outlined text-slate-400 text-[18px] mr-2.5">
                 search
@@ -335,7 +335,7 @@ export default function PortalLayout({
 
               {/* Notification Flyout Menu */}
               {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="pb-3 border-b border-slate-100 flex items-center justify-between">
                     <h3 className="font-headline-sm text-sm font-bold text-slate-900">Thông báo</h3>
                     <button

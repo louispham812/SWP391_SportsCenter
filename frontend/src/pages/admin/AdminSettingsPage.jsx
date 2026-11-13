@@ -446,7 +446,7 @@ export default function AdminSettingsPage() {
                       Khi số buổi trong gói còn thiếu (ví dụ cần 2 buổi nhưng chỉ còn 1), hệ thống bắt buộc thanh toán toàn bộ theo giá bán lẻ hoặc nạp thêm gói. Không cho phép cấn trừ 1 buổi + bù tiền mặt.
                     </p>
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs">
+                  <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs whitespace-nowrap shrink-0">
                     Luôn Kích Hoạt
                   </span>
                 </div>

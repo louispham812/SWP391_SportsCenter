@@ -53,7 +53,7 @@ export default function AdminAuditLogPage() {
         ) : (
           <div className="overflow-x-auto bg-white rounded-xl border border-slate-200">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 whitespace-nowrap">
                 <tr><th className="p-3">Thời gian</th><th className="p-3">Người thực hiện</th><th className="p-3">Hành động</th><th className="p-3">Chi tiết</th></tr>
               </thead>
               <tbody>
@@ -63,12 +63,12 @@ export default function AdminAuditLogPage() {
                     <td className="p-3 font-medium text-slate-800">
                       {l.actorName || l.userEmail || (l.actorId || l.userId ? `#${l.actorId || l.userId}` : 'Hệ thống')}
                       {l.actorRole && (
-                        <span className="ml-1.5 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-xs font-normal text-slate-500">
+                        <span className="ml-1.5 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-xs font-normal text-slate-500 whitespace-nowrap">
                           {l.actorRole}
                         </span>
                       )}
                     </td>
-                    <td className="p-3 font-mono text-xs font-semibold text-primary">{l.action || l.logType || '-'}</td>
+                    <td className="p-3 font-mono text-xs font-semibold text-primary whitespace-nowrap">{l.action || l.logType || '-'}</td>
                     <td className="p-3 text-slate-600">{l.detail || l.actionDetail || l.errorMessage || '-'}</td>
                   </tr>
                 ))}

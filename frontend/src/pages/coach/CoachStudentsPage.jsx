@@ -663,8 +663,8 @@ export default function CoachStudentsPage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-extrabold uppercase">
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-extrabold uppercase whitespace-nowrap">
                           ID: #{student.id}
                         </span>
                         {getFitnessLevelBadge(student.fitnessLevel)}

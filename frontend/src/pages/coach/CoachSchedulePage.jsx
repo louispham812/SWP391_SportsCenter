@@ -925,7 +925,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
                   </div>
                 ) : (
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase border-b border-slate-200">
+                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase border-b border-slate-200 whitespace-nowrap">
                       <tr>
                         <th className="px-5 py-3.5">Mã ca</th>
                         <th className="px-5 py-3.5">Nội dung ca dạy</th>
@@ -940,23 +940,23 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
                     <tbody className="divide-y divide-slate-100 text-slate-700">
                       {incomeData.sessions.map((row) => (
                         <tr key={row.sessionId} className="hover:bg-slate-50/70 transition">
-                          <td className="px-5 py-3.5 font-mono text-slate-500 font-bold">SES-{row.sessionId}</td>
+                          <td className="px-5 py-3.5 font-mono text-slate-500 font-bold whitespace-nowrap">SES-{row.sessionId}</td>
                           <td className="px-5 py-3.5">
                             <span className="font-bold text-slate-900">{row.className}</span>
                             <div className="text-[11px] text-slate-500">
                               {row.sportName || 'Thể thao'} • {row.courtName || 'Sân trung tâm'}
                             </div>
                           </td>
-                          <td className="px-5 py-3.5 text-slate-600">
+                          <td className="px-5 py-3.5 text-slate-600 whitespace-nowrap">
                             {row.startTime ? new Date(row.startTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
                           </td>
-                          <td className="px-5 py-3.5 font-semibold">{row.studentsCount ?? row.enrolledStudents ?? 0} học viên</td>
-                          <td className="px-5 py-3.5 text-slate-600">{Number(row.priceAmount ?? row.classPrice ?? 0).toLocaleString()}₫</td>
-                          <td className="px-5 py-3.5 font-bold text-slate-900">{Number(row.sessionRevenue ?? row.totalClassRevenue ?? 0).toLocaleString()}₫</td>
-                          <td className="px-5 py-3.5 text-right font-black text-orange-600">{Number(row.coachCommission ?? row.coachIncome ?? 0).toLocaleString()}₫</td>
-                          <td className="px-5 py-3.5 text-center">
-                            <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          <td className="px-5 py-3.5 font-semibold whitespace-nowrap">{row.studentsCount ?? row.enrolledStudents ?? 0} học viên</td>
+                          <td className="px-5 py-3.5 text-slate-600 whitespace-nowrap">{Number(row.priceAmount ?? row.classPrice ?? 0).toLocaleString()}₫</td>
+                          <td className="px-5 py-3.5 font-bold text-slate-900 whitespace-nowrap">{Number(row.sessionRevenue ?? row.totalClassRevenue ?? 0).toLocaleString()}₫</td>
+                          <td className="px-5 py-3.5 text-right font-black text-orange-600 whitespace-nowrap">{Number(row.coachCommission ?? row.coachIncome ?? 0).toLocaleString()}₫</td>
+                          <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 whitespace-nowrap">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
                               {row.status || 'ĐÃ XÁC NHẬN'}
                             </span>
                           </td>
