@@ -120,4 +120,17 @@ test.describe('SUITE 1: Kiểm Thử Toàn Bộ 59 Routes & Phân Quyền 5 Vai 
       await audit.check(route, label);
     }
   });
+
+  test('6. Logo Portal & Header Landing Page: Điều hướng về đúng Portal theo role', async ({ page }) => {
+    await loginReceptionist(page);
+    await page.goto('/receptionist/checkin', { waitUntil: 'domcontentloaded' });
+    await page.locator('aside a', { hasText: 'F SPORT' }).click();
+    await expect(page).toHaveURL(/\/receptionist$/);
+
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    const backToPortal = page.locator('header').getByRole('link', { name: /Về Portal/i });
+    await expect(backToPortal).toBeVisible();
+    await backToPortal.click();
+    await expect(page).toHaveURL(/\/receptionist$/);
+  });
 });

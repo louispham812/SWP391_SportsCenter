@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { getMemberNotifications } from '../../services/memberApi';
 import { getNotifications, markNotificationRead } from '../../services/engagementApi';
 import { getAvatarImageUrl, getAvatarInitials } from '../../utils/avatarHelper';
+import { getPortalHomePath } from '../../utils/portalRoute';
 
 const parseNotifications = (data) => {
   const rawList = Array.isArray(data)
@@ -44,7 +45,8 @@ export default function PortalLayout({
   const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useApp();
+  const { currentRole, logout } = useApp();
+  const portalHomePath = getPortalHomePath(role, getPortalHomePath(currentRole, '/'));
 
   const searchInputRef = useRef(null);
 
@@ -149,7 +151,11 @@ export default function PortalLayout({
         <div className="flex flex-col min-h-0 flex-1 overflow-y-auto pb-3">
           {/* Brand Header */}
           <div className="px-5 pt-4 pb-3">
-            <Link to="/" className="flex items-center gap-2.5 group">
+            <Link
+              to={portalHomePath}
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2.5 group"
+            >
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 shadow-md shadow-orange-500/25 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
                 <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-white drop-shadow-sm" xmlns="http://www.w3.org/2000/svg">
                   <path d="M7 4H19L17.5 8H11.5L10.5 11H16.5L15 15H10L8.5 20H4.5L7 4Z" fill="currentColor" />

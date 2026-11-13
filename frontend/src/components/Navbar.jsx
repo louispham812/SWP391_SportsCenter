@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { getAvatarImageUrl, getAvatarInitials } from '../utils/avatarHelper';
+import { getPortalHomePath } from '../utils/portalRoute';
 
 export default function Navbar() {
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
@@ -10,13 +11,7 @@ export default function Navbar() {
   const { currentRole, currentUser, logout } = useApp();
   const isAuthenticated = Boolean(currentUser);
 
-  const roleHomePaths = {
-    member: '/member',
-    receptionist: '/receptionist',
-    coach: '/coach',
-    admin: '/admin',
-  };
-  const accountPath = roleHomePaths[currentRole] || '/login';
+  const accountPath = getPortalHomePath(currentRole, '/login');
 
   const handleLogout = () => {
     logout();
@@ -89,6 +84,13 @@ export default function Navbar() {
               <span className="hidden xl:inline text-xs font-bold text-slate-700">
                 Xin chào, <strong>{currentUser.name}</strong>
               </span>
+              <Link
+                to={accountPath}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-[12px] uppercase tracking-wider font-black shadow-sm shadow-orange-500/20 transition-all shrink-0"
+              >
+                <span className="material-symbols-outlined text-[16px]">dashboard</span>
+                <span>Về Portal</span>
+              </Link>
               <Link
                 to={accountPath}
                 title={`Khu vực ${currentUser.roleTitle}`}
