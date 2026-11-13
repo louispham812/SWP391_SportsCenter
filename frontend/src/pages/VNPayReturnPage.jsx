@@ -17,7 +17,7 @@ async function verifyPayment(query) {
           return { paymentId, title: 'Đã hủy thanh toán', message: 'Chỗ giữ đã được trả lại. Bạn có thể đăng ký lớp lại ngay.', type: 'warning' };
         }
         if (payment.paymentStatus === 'PAID') {
-          return { paymentId, title: 'Thanh toán thành công', message: 'Thanh toán đã được ghi nhận; đăng ký của bạn được giữ nguyên.', type: 'success' };
+          return { paymentId, completed: true, title: 'Thanh toán thành công', message: 'Thanh toán đã được ghi nhận; đăng ký của bạn được giữ nguyên.', type: 'success' };
         }
         if (payment.paymentStatus === 'REFUNDED') {
           return { paymentId, title: 'Giao dịch đã hoàn tiền', message: 'Giao dịch này đã được hoàn tiền.', type: 'warning' };
@@ -43,6 +43,7 @@ async function verifyPayment(query) {
       title: successful ? 'Thanh toán thành công' : review ? 'Cần kiểm tra giao dịch' : 'Thanh toán thất bại',
       message: result.message || (successful ? 'Đã nhận thanh toán.' : 'Giao dịch chưa được thanh toán thành công.'),
       type: successful ? 'success' : review ? 'warning' : 'error',
+      completed: successful,
       bookingType: result.bookingType,
       paymentId: result.paymentId,
     };
@@ -80,7 +81,12 @@ export default function VNPayReturnPage() {
       }
       const params = new URLSearchParams(query);
       const paymentId = result.paymentId || params.get('vnp_TxnRef')?.split('_')[0];
-      const destination = consumePaymentReturnPath(paymentId, currentRole, result.bookingType || params.get('bookingType'));
+      const destination = consumePaymentReturnPath(
+        paymentId,
+        currentRole,
+        result.bookingType || params.get('bookingType'),
+        { completed: result.completed === true }
+      );
       navigate(destination, { replace: true });
       showToast(result.title, result.message, result.type);
     });

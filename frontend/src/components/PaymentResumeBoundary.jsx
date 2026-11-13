@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { apiRequest } from '../services/apiClient';
 import { clearPendingPayment, getPendingPayment } from '../services/paymentNavigation';
@@ -8,6 +8,7 @@ const isGatewayReturn = (path) => ['/payment/return', '/vnpay-return'].includes(
 
 export default function PaymentResumeBoundary({ children }) {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { currentUser, showToast } = useApp();
   const [checking, setChecking] = useState(() => !!getPendingPayment() && !isGatewayReturn(window.location.pathname));
   const cancellation = useRef(null);
@@ -39,6 +40,9 @@ export default function PaymentResumeBoundary({ children }) {
           showToast('Đã hủy thanh toán', 'Bạn chưa thanh toán. Chỗ giữ đã được trả lại, bạn có thể đăng ký lại.', 'warning');
         } else if (result.paymentStatus === 'PAID') {
           showToast('Thanh toán đã được ghi nhận', 'Vui lòng xem trạng thái đơn hàng vừa được cập nhật.', 'success');
+          if (pathname.startsWith('/member/book/checkout/')) {
+            navigate('/member/schedule', { replace: true });
+          }
         }
         setChecking(false);
       }).catch(() => {
@@ -57,7 +61,7 @@ export default function PaymentResumeBoundary({ children }) {
     resume();
     window.addEventListener('pageshow', onPageShow);
     return () => { active = false; window.removeEventListener('pageshow', onPageShow); };
-  }, [pathname, currentUser, showToast]);
+  }, [pathname, currentUser, showToast, navigate]);
 
   if (checking && !isGatewayReturn(pathname)) {
     return <div role="status" className="min-h-screen flex items-center justify-center text-slate-600">Đang kiểm tra thanh toán và cập nhật chỗ giữ...</div>;

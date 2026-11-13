@@ -8,7 +8,7 @@ export function redirectToPayment(paymentId, paymentUrl) {
   window.location.assign(paymentUrl);
 }
 
-export function consumePaymentReturnPath(paymentId, role, bookingType) {
+export function consumePaymentReturnPath(paymentId, role, bookingType, { completed = false } = {}) {
   const key = `${RETURN_KEY_PREFIX}${paymentId}`;
   const saved = sessionStorage.getItem(key);
   clearPendingPayment(paymentId);
@@ -16,6 +16,11 @@ export function consumePaymentReturnPath(paymentId, role, bookingType) {
     try {
       const destination = new URL(saved, window.location.origin);
       if (destination.origin === window.location.origin && destination.pathname.startsWith(`/${role}/`)) {
+        // Avoid re-entering the pre-checkout quote page after payment succeeds,
+        // where the user's own confirmed slot would fail availability checks.
+        if (completed && destination.pathname.startsWith('/member/book/checkout/')) {
+          return '/member/schedule';
+        }
         return `${destination.pathname}${destination.search}${destination.hash}`;
       }
     } catch {
@@ -26,7 +31,7 @@ export function consumePaymentReturnPath(paymentId, role, bookingType) {
   if (role === 'member') {
     if (bookingType === 'MEMBERSHIP_PACKAGE') return '/member/packages';
     if (bookingType === 'CLASS') return '/member/classes';
-    return '/member/book';
+    return completed ? '/member/schedule' : '/member/book';
   }
   return `/${role}`;
 }

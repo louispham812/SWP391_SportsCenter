@@ -146,7 +146,7 @@ export default function PortalLayout({
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex flex-col">
+        <div className="flex flex-col min-h-0 flex-1 overflow-y-auto pb-3">
           {/* Brand Header */}
           <div className="px-5 pt-4 pb-3">
             <Link to="/" className="flex items-center gap-2.5 group">
@@ -155,7 +155,7 @@ export default function PortalLayout({
                   <path d="M7 4H19L17.5 8H11.5L10.5 11H16.5L15 15H10L8.5 20H4.5L7 4Z" fill="currentColor" />
                 </svg>
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col min-h-0 flex-1 overflow-y-auto pb-3">
                 <span className="font-headline-sm text-[15px] text-slate-900 tracking-tight font-black leading-tight">
                   F SPORT <span className="text-orange-500">CENTER</span>
                 </span>
@@ -218,7 +218,7 @@ export default function PortalLayout({
         </div>
 
         {/* User Card & Logout Bottom */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200">
+        <div className="p-4 bg-slate-50 border-t border-slate-200 shrink-0">
           <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-slate-200 shadow-sm">
             <div className="w-10 h-10 rounded-full bg-slate-900 text-orange-400 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm overflow-hidden">
               {getAvatarImageUrl(currentUser?.avatar) ? (

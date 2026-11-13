@@ -86,3 +86,93 @@ test('legacy return URL also returns automatically and ignores an external saved
   await expect(page).toHaveURL(`${baseURL}/member/classes`);
   await expect(page.getByRole('heading', { name: 'Đã hủy thanh toán', exact: true })).toBeVisible();
 });
+
+test('court checkout VNPay cancel -> retry -> success redirects to schedule without slot-taken conflict', async ({ page, baseURL }) => {
+  const startTime = new Date(Date.now() + 86400000).toISOString().slice(0, 19);
+  const endTime = new Date(Date.now() + 90000000).toISOString().slice(0, 19);
+  let attempt = 0;
+  let courtConfirmed = false;
+
+  await page.addInitScript(() => sessionStorage.setItem('sports-center-auth-session', JSON.stringify({
+    token: 'mock-token', role: 'member', user: { id: 9, name: 'Court Retry', avatar: 'CR' },
+  })));
+
+  await page.route('**/api/v1/**', async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/members/me/quota')) {
+      return route.fulfill({ json: { remainingQuota: 0, canUseForBooking: false, remainingQuotaCourts: 0, canUseCourtQuota: false } });
+    }
+    if (path.endsWith('/booking-flow/quote')) {
+      if (courtConfirmed) {
+        return route.fulfill({ status: 409, json: { message: 'Một hoặc nhiều khung giờ sân đã chọn vừa được người khác đặt.' } });
+      }
+      return route.fulfill({
+        json: {
+          bookingType: 'COURT',
+          itemId: 1,
+          itemName: 'Sân Cầu Lông 01',
+          sportName: 'Cầu lông',
+          location: 'Nhà thi đấu A',
+          startTime,
+          endTime,
+          amount: 120000,
+          originalAmount: 120000,
+          discountAmount: 0,
+        },
+      });
+    }
+    if (path.endsWith('/booking-flow/checkout')) {
+      attempt += 1;
+      return route.fulfill({ json: { paymentStatus: 'PENDING', paymentId: attempt === 1 ? 77 : 78 } });
+    }
+    if (path.endsWith('/payments/generate')) {
+      const code = attempt === 1 ? '24' : '00';
+      const txnRef = attempt === 1 ? '77_a1' : '78_a2';
+      return route.fulfill({ json: { paymentUrl: `https://gateway.example/pay?code=${code}&txn=${txnRef}`, bookingType: 'COURT' } });
+    }
+    if (path.endsWith('/cancel-unpaid')) {
+      return route.fulfill({ json: { paymentId: 77, paymentStatus: 'CANCELLED' } });
+    }
+    if (path.endsWith('/webhooks/vnpay/return')) {
+      courtConfirmed = true;
+      return route.fulfill({ json: { success: true, status: 'CONFIRMED', bookingType: 'COURT', paymentId: 78, message: 'Thanh toán thành công.' } });
+    }
+    if (path.endsWith('/booking-flow/schedule')) {
+      return route.fulfill({
+        json: courtConfirmed
+          ? [{ bookingId: 10, bookingType: 'COURT', title: 'Sân Cầu Lông 01', startTime, endTime, status: 'CONFIRMED', amountPaid: 120000, sportName: 'Cầu lông' }]
+          : [],
+      });
+    }
+    return route.fulfill({ json: [] });
+  });
+
+  await page.route('https://gateway.example/**', async (route) => {
+    const reqUrl = new URL(route.request().url());
+    const code = reqUrl.searchParams.get('code');
+    const txn = reqUrl.searchParams.get('txn');
+    await route.fulfill({
+      status: 302,
+      headers: { location: `${baseURL}/payment/return?vnp_TxnRef=${txn}&vnp_ResponseCode=${code}&vnp_SecureHash=test` },
+      body: '',
+    });
+  });
+
+  const checkoutUrl = `/member/book/checkout/court/1?startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`;
+  await page.goto(checkoutUrl);
+
+  // Attempt 1: click VNPay -> cancel -> returns to checkout page with slot still available
+  const payBtn = page.getByRole('button', { name: /Thanh Toán Qua VNPAY —/ });
+  await expect(payBtn).toBeEnabled();
+  await payBtn.click();
+  await expect(page).toHaveURL(`${baseURL}${checkoutUrl}`);
+  await expect(page.getByRole('heading', { name: 'Đã hủy thanh toán', exact: true })).toBeVisible();
+  await expect(page.getByText('Một hoặc nhiều khung giờ sân đã chọn vừa được người khác đặt.')).toHaveCount(0);
+
+  // Attempt 2: click VNPay again -> pay success -> redirects to schedule, NOT checkout quote conflict
+  await expect(payBtn).toBeEnabled();
+  await payBtn.click();
+  await expect(page).toHaveURL(`${baseURL}/member/schedule`);
+  await expect(page.getByRole('heading', { name: 'Thanh toán thành công', exact: true })).toBeVisible();
+  await expect(page.getByText('Một hoặc nhiều khung giờ sân đã chọn vừa được người khác đặt.')).toHaveCount(0);
+});
