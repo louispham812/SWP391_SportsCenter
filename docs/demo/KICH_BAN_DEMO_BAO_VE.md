@@ -6,10 +6,10 @@
 
 ## 1. Chuẩn bị Môi trường & Reset Database Trước Giờ Chấm
 
-Chạy lệnh sau tại thư mục gốc repo để nạp lại dữ liệu sạch 100% trước khi demo:
+Chạy lệnh sau tại thư mục gốc repo để nạp lại dữ liệu sạch 100% trước khi demo (script tự xóa toàn bộ bảng/FK cũ trong `SportsCenterDB` nên chạy an toàn ngay cả khi Spring Boot hoặc SSMS đang kết nối; lưu ý dùng đúng cổng `localhost,1433` khớp với `backend/.env` và `application.properties`):
 
 ```powershell
-sqlcmd -S localhost -U sa -P 12345 -C -f 65001 -i ".\DATABASEchuan.sql"
+sqlcmd -S localhost,1433 -U sa -P 12345 -C -f 65001 -b -i ".\DATABASEchuan.sql"
 ```
 
 Khởi động Backend & Frontend (2 terminal riêng):

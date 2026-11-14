@@ -12,14 +12,10 @@ GO
 USE [master];
 GO
 
-IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'SportsCenterDB')
+IF DB_ID(N'SportsCenterDB') IS NULL
 BEGIN
-    ALTER DATABASE [SportsCenterDB] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE [SportsCenterDB];
+    CREATE DATABASE [SportsCenterDB];
 END;
-GO
-
-CREATE DATABASE [SportsCenterDB];
 GO
 
 ALTER DATABASE [SportsCenterDB] SET RECOVERY SIMPLE;
@@ -31,6 +27,41 @@ GO
 
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
+GO
+
+/* ============================================================================
+   0. CLEAN RESET ALL OBJECTS INSIDE SportsCenterDB
+   Drops all Foreign Keys, Views, Triggers, and User Tables safely inside
+   SportsCenterDB (works even when Spring Boot HikariCP or SSMS is connected).
+   ============================================================================ */
+DECLARE @dropSql NVARCHAR(MAX) = N'';
+
+SELECT @dropSql = @dropSql + N'ALTER TABLE '
+    + QUOTENAME(OBJECT_SCHEMA_NAME(parent_object_id)) + N'.'
+    + QUOTENAME(OBJECT_NAME(parent_object_id))
+    + N' DROP CONSTRAINT ' + QUOTENAME(name) + N';' + CHAR(10)
+FROM sys.foreign_keys
+WHERE is_ms_shipped = 0;
+
+SELECT @dropSql = @dropSql + N'DROP VIEW '
+    + QUOTENAME(SCHEMA_NAME(schema_id)) + N'.' + QUOTENAME(name) + N';' + CHAR(10)
+FROM sys.views
+WHERE is_ms_shipped = 0;
+
+SELECT @dropSql = @dropSql + N'DROP TRIGGER '
+    + QUOTENAME(name) + N' ON DATABASE;' + CHAR(10)
+FROM sys.triggers
+WHERE parent_class = 0 AND is_ms_shipped = 0;
+
+SELECT @dropSql = @dropSql + N'DROP TABLE '
+    + QUOTENAME(SCHEMA_NAME(schema_id)) + N'.' + QUOTENAME(name) + N';' + CHAR(10)
+FROM sys.tables
+WHERE is_ms_shipped = 0;
+
+IF LEN(@dropSql) > 0
+BEGIN
+    EXEC sp_executesql @dropSql;
+END;
 GO
 
 /* ============================================================================

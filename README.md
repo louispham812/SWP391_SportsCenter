@@ -154,7 +154,7 @@ Sau khi nạp dữ liệu từ [`DATABASEchuan.sql`](./DATABASEchuan.sql), có t
 
 ### Bước 1: Khởi tạo Cơ sở dữ liệu SQL Server
 1. Mở **SQL Server Management Studio (SSMS)**, tạo database `SportsCenterDB` (nếu chưa có), mở file [`DATABASEchuan.sql`](./DATABASEchuan.sql) và nhấn **Execute (F5)**.  
-   *(Hoặc chạy bằng dòng lệnh `sqlcmd` với mã hóa UTF-8: `sqlcmd -S localhost,1433 -U sa -P 12345 -C -d SportsCenterDB -f 65001 -i DATABASEchuan.sql`)*.
+   *(Hoặc chạy bằng dòng lệnh `sqlcmd` với mã hóa UTF-8 đúng cổng `1433` của Spring Boot: `sqlcmd -S localhost,1433 -U sa -P 12345 -C -f 65001 -b -i DATABASEchuan.sql`)*.
 2. Kiểm tra thông tin kết nối SQL Server trong file `backend/src/main/resources/application.properties` (hoặc tạo file `.env` từ mẫu [`.env.example`](./.env.example)).
 
 ### Bước 2: Chạy Backend (Spring Boot)
