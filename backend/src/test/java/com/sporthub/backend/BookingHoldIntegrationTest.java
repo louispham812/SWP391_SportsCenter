@@ -65,7 +65,9 @@ class BookingHoldIntegrationTest {
         String firstRef = (String) link.get("gatewayReference"); String suffix = UUID.randomUUID().toString();
         String firstTxn = "first-" + suffix; String secondTxn = "second-" + suffix;
         var first = java.util.Map.of("vnp_TxnRef", firstRef, "vnp_TransactionNo", firstTxn, "vnp_PayDate", "20261109120000");
-        assertTrue(attempts.recordSuccess(p, first, BigDecimal.TEN).applyToOrder());
+        var firstResult = attempts.recordSuccess(p, first, BigDecimal.TEN);
+        assertTrue(firstResult.applyToOrder());
+        assertEquals("20261109115900", firstResult.transactionDate());
         p.setPaymentStatus("PAID"); p.setReferenceCode(firstTxn); p.setGatewayReference(firstRef); payments.saveAndFlush(p);
         var second = java.util.Map.of("vnp_TxnRef", p.getPaymentId() + "_legacy_" + suffix, "vnp_TransactionNo", secondTxn, "vnp_PayDate", "20261109120100");
         assertFalse(attempts.recordSuccess(p, second, BigDecimal.TEN).applyToOrder());

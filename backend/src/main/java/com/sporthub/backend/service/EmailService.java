@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -27,6 +28,7 @@ public class EmailService {
     /**
      * Gửi OTP cho Member Registration
      */
+    @Async
     public void sendRegistrationOtpEmail(String toEmail, String fullName, String otp) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
@@ -68,6 +70,7 @@ public class EmailService {
     /**
      * Gửi OTP cho Forgot Password hoặc Email Verification
      */
+    @Async
     public void sendOtpEmail(String toEmail, String fullName, String otp, String purpose) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
@@ -124,6 +127,7 @@ public class EmailService {
     /**
      * Gửi mật khẩu tạm thời cho Staff mới được tạo
      */
+    @Async
     public void sendTemporaryPasswordEmail(String toEmail, String fullName, String temporaryPassword, String role) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
@@ -170,6 +174,7 @@ public class EmailService {
     /**
      * Gửi email thông báo đặt lại mật khẩu thành công
      */
+    @Async
     public void sendPasswordResetSuccessEmail(String toEmail, String fullName) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();

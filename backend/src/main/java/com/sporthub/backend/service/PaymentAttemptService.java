@@ -73,8 +73,8 @@ public class PaymentAttemptService {
         GatewayReceipt receipt = new GatewayReceipt(); receipt.setPaymentId(payment.getPaymentId()); receipt.setAttemptId(attempt.getAttemptId());
         receipt.setGatewayReference(reference); receipt.setGatewayTransactionNo(transaction); receipt.setAmount(amount);
         String payDate = params.get("vnp_PayDate");
-        String txnDate = (payDate != null && payDate.matches("[0-9]{14}")) ? payDate
-            : (attempt.getMerchantDate() != null && attempt.getMerchantDate().matches("[0-9]{14}")) ? attempt.getMerchantDate()
+        String txnDate = (attempt.getMerchantDate() != null && attempt.getMerchantDate().matches("[0-9]{14}")) ? attempt.getMerchantDate()
+            : (payDate != null && payDate.matches("[0-9]{14}")) ? payDate
             : java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss").format(LocalDateTime.now());
         receipt.setTransactionDate(txnDate); receipt.setCreatedAt(LocalDateTime.now());
         String status = !terminal ? "APPLIED" : canonical ? ("REFUNDED".equals(payment.getPaymentStatus()) ? "REFUNDED" : "APPLIED") : "EXCESS";

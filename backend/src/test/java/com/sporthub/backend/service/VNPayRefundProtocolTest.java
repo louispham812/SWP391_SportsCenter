@@ -69,6 +69,31 @@ class VNPayRefundProtocolTest {
         payment.setTransactionDate(null); assertEquals("99", gateway.refundPayment(payment, BigDecimal.TEN, "Refund", "one").get("vnp_ResponseCode"));
         verifyNoInteractions(client);
     }
+    @Test void seedTransactionSimulatesRefundWithoutCallingGateway() {
+        PaymentTransaction seed = new PaymentTransaction();
+        seed.setPaymentId(13L); seed.setAmount(BigDecimal.valueOf(150000));
+        seed.setGatewayReference("VNP-CLS-100013"); seed.setReferenceCode("CLS-2026-0013");
+        assertEquals("00", gateway.refundPayment(seed, BigDecimal.valueOf(150000), "Cancel").get("vnp_ResponseCode"));
+
+        PaymentTransaction seedWithoutGwRef = new PaymentTransaction();
+        seedWithoutGwRef.setPaymentId(7L); seedWithoutGwRef.setAmount(BigDecimal.valueOf(200000));
+        seedWithoutGwRef.setReferenceCode("CLS-2026-0007");
+        assertEquals("00", gateway.refundPayment(seedWithoutGwRef, BigDecimal.valueOf(200000), "Cancel").get("vnp_ResponseCode"));
+        verifyNoInteractions(client);
+    }
+    @Test void threeArgRefundUsesFreshRequestIdOnRetry() {
+        gateway.refundPayment(payment, BigDecimal.TEN, "Retry 1");
+        gateway.refundPayment(payment, BigDecimal.TEN, "Retry 2");
+        assertEquals(2, requests.size());
+        assertNotEquals(requests.get(0).get("vnp_RequestId"), requests.get(1).get("vnp_RequestId"));
+    }
+    @Test void sandboxDemoModeSimulatesRefundWhenSandboxGatewayRejectsOrLacksMerchantDate() {
+        ReflectionTestUtils.setField(gateway, "vnpayApiUrl", "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction");
+        httpStatus = 500;
+        assertEquals("00", gateway.refundPayment(payment, BigDecimal.TEN, "Sandbox demo").get("vnp_ResponseCode"));
+        payment.setTransactionDate(null);
+        assertEquals("00", gateway.refundPayment(payment, BigDecimal.TEN, "Sandbox demo").get("vnp_ResponseCode"));
+    }
     private String hmac(String value) throws Exception {
         Mac mac = Mac.getInstance("HmacSHA512"); mac.init(new SecretKeySpec("test-secret".getBytes(StandardCharsets.UTF_8), "HmacSHA512"));
         return HexFormat.of().formatHex(mac.doFinal(value.getBytes(StandardCharsets.UTF_8)));

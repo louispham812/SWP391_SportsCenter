@@ -217,7 +217,12 @@ public class RefundRequestController {
                 try { result = vnpayGateway.refundPayment(tx, refund.getRefundAmount(), refund.getReason()); }
                 catch (Exception e) { result = Map.of("vnp_ResponseCode", "99"); }
                 if (result == null || !"00".equals(result.get("vnp_ResponseCode"))) {
-                    refund.setDecisionNote("Hoàn tiền chưa thành công; cần đối soát cổng thanh toán trước khi thử lại.");
+                    String gatewayMsg = result != null ? java.util.Objects.toString(result.get("vnp_Message"), "") : "";
+                    String note = "Hoàn tiền chưa thành công; cần đối soát cổng thanh toán trước khi thử lại.";
+                    if (!gatewayMsg.isBlank()) {
+                        note += " (" + gatewayMsg + ")";
+                    }
+                    refund.setDecisionNote(note);
                     return ResponseEntity.ok(toDTO(refundRepository.save(refund)));
                 }
             }
