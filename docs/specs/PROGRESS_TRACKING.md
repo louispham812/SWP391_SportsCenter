@@ -4,7 +4,7 @@
 > **Cập nhật lần cuối:** 31/10/2026  
 > **Trạng thái tổng thể:** `100% COMPLETED` (Sẵn sàng bảo vệ trước Hội đồng chấm đồ án)  
 > **Chất lượng kiểm thử:** `84/84 Backend Tests PASS` (0 Failure, 0 Error) | `25/25 Playwright E2E Tests PASS` (Bao phủ 7 Luồng Nghiệp Vụ) | `Frontend Build 100% PASS` | `Port 8000 CLEAN`  
-> 📘 **Kịch bản kiểm thử & Demo bảo vệ Final:** [`KICH_BAN_CHAM_FINAL.md`](./KICH_BAN_CHAM_FINAL.md)
+> 📘 **Kịch bản kiểm thử & Demo bảo vệ Final:** [`KICH_BAN_CHAM_FINAL.md`](../demo/KICH_BAN_CHAM_FINAL.md)
 
 ---
 
@@ -177,7 +177,7 @@ Cơ sở dữ liệu **`SportsCenterDB`** trên Microsoft SQL Server đã đư�
 ### 2. Kiểm thử Tự động E2E Playwright (`npx playwright test`):
 - **Tổng số kịch bản E2E:** 25 Tests
 - **Kết quả:** **`25/25 PASS`** (100% Green).
-- **Bao phủ 7 luồng nghiệp vụ trọng tâm (Xem chi tiết tại [`KICH_BAN_CHAM_FINAL.md`](./KICH_BAN_CHAM_FINAL.md)):**
+- **Bao phủ 7 luồng nghiệp vụ trọng tâm (Xem chi tiết tại [`KICH_BAN_CHAM_FINAL.md`](../demo/KICH_BAN_CHAM_FINAL.md)):**
   - **Luồng 1:** Quản trị Gói tập & Voucher $\rightarrow$ Hội viên mua/nâng cấp gói $\rightarrow$ Admin duyệt kích hoạt (`flow1-packages-vouchers.spec.js`).
   - **Luồng 2:** Đặt sân trực tuyến, áp chiết khấu thẻ VIP + Voucher, Hủy lịch hoàn tiền 100% (`flow2-booking-voucher-cancel.spec.js`, `court-booking.spec.js`, `class-options.spec.js`).
   - **Luồng 3:** Lập lịch bảo trì sân thi đấu $\rightarrow$ Khóa slot thời gian thực $\rightarrow$ Ngăn chặn xung đột đặt chỗ (`maintenance-lock.spec.js`, `swimming-lane-maintenance.spec.js`).
