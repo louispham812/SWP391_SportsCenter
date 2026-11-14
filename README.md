@@ -109,16 +109,13 @@ SWP391_SportsCenter/
 │   ├── src/test/                        # 29 bộ kiểm thử Unit & Integration (JUnit 5)
 │   └── pom.xml
 │
-├── docs/                                # Tài liệu dự án được phân nhóm gọn gàng
+├── docs/                                # Tài liệu dự án & hồ sơ bảo vệ
 │   ├── BUSINESS_RULES.md                # Đặc tả 23 Quy tắc Nghiệp vụ & BUSINESS_RULES.csv
-│   ├── demo/                            # Kịch bản bảo vệ hội đồng (KICH_BAN_DEMO_BAO_VE.md/.docx, KICH_BAN_CHAM_FINAL.md)
-│   ├── specs/                           # Tài liệu đặc tả SRD, tiến độ dự án & báo cáo kiểm thử
+│   ├── demo/                            # Kịch bản bảo vệ hội đồng (KICH_BAN_DEMO_BAO_VE.md & .docx)
+│   ├── specs/                           # Tài liệu đặc tả SRD (SRD_Document.md) & theo dõi dự án (PROJECT_TRACKING_FINAL.csv)
 │   ├── diagrams/                        # Sơ đồ kiến trúc hệ thống, ERD (.drawio/.png) & Usecase
-│   ├── slides/                          # Slide thuyết trình HTML/PPTX
-│   ├── scripts/                         # Script kiểm thử nhanh API (test_api.ps1)
-│   └── audit-2026-11-09/                # Nhật ký rà soát & kiểm chứng logic hệ thống
+│   └── slides/                          # Slide thuyết trình (SWP391_SportHub_Presentation.html, SportHub_Presentation.pptx)
 ├── postman/                             # Bộ collection kiểm thử API bằng Postman
-├── archive_legacy_sql/                  # Lưu trữ các file SQL cũ trước khi hợp nhất
 ├── DATABASEchuan.sql                    # Script khởi tạo Cơ sở dữ liệu SQL Server chuẩn hóa (32 bảng)
 ├── vercel.json                          # Cấu hình rewrite SPA khi deploy lên Vercel
 └── .env.example                         # Mẫu cấu hình biến môi trường (DB, Mail SMTP, Gemini AI)
