@@ -1,2446 +1,1048 @@
-USE [master]
+/* ============================================================================
+   SPORTHUB (SWP391_SportsCenter) - CLEAN DATABASE SCHEMA & REALISTIC SEED DATA
+   Target DBMS : Microsoft SQL Server 2019 / 2022
+   Encoding    : UTF-8 (without BOM)
+   Standard    : 32 Tables aligned with JPA Entities & backend/src/main/resources/schema.sql
+   Password    : SportHub@123 (BCrypt $2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq)
+   ============================================================================ */
+
+SET NOCOUNT ON;
 GO
-IF EXISTS (SELECT name FROM sys.databases WHERE name = N'SportsCenterDB')
+
+USE [master];
+GO
+
+IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'SportsCenterDB')
 BEGIN
     ALTER DATABASE [SportsCenterDB] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
     DROP DATABASE [SportsCenterDB];
-END
+END;
 GO
-CREATE DATABASE [SportsCenterDB]
-GO
-ALTER DATABASE [SportsCenterDB] SET COMPATIBILITY_LEVEL = 150
-GO
-IF (1 = FULLTEXTSERVICEPROPERTY('IsFullTextInstalled'))
-BEGIN
-    EXEC [SportsCenterDB].[dbo].[sp_fulltext_database] @action = 'enable'
-END
-GO
-ALTER DATABASE [SportsCenterDB] SET AUTO_CLOSE OFF 
-GO
-ALTER DATABASE [SportsCenterDB] SET AUTO_SHRINK OFF 
-GO
-ALTER DATABASE [SportsCenterDB] SET AUTO_UPDATE_STATISTICS ON 
-GO
-ALTER DATABASE [SportsCenterDB] SET RECOVERY SIMPLE 
-GO
-ALTER DATABASE [SportsCenterDB] SET MULTI_USER 
-GO
-USE [SportsCenterDB]
-GO
-/****** Object:  Table [dbo].[audit_logs]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[audit_logs](
-	[log_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[log_type] [nvarchar](50) NOT NULL,
-	[user_email] [nvarchar](100) NULL,
-	[user_id] [bigint] NULL,
-	[ip_address] [nvarchar](50) NULL,
-	[user_agent] [nvarchar](500) NULL,
-	[action_detail] [nvarchar](max) NULL,
-	[status] [nvarchar](20) NOT NULL,
-	[error_message] [nvarchar](500) NULL,
-	[created_at] [datetime2](7) NOT NULL,
-	[actor_id] [bigint] NULL,
-	[actor_name] [nvarchar](100) NULL,
-	[actor_role] [varchar](20) NULL,
-	[action] [varchar](60) NULL,
-	[detail] [nvarchar](1000) NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[log_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[auth_sessions]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[auth_sessions](
-	[token_hash] [char](64) NOT NULL,
-	[user_id] [bigint] NOT NULL,
-	[expires_at] [datetime2](7) NOT NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[token_hash] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[body_progress_logs]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[body_progress_logs](
-	[progress_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[member_id] [bigint] NOT NULL,
-	[recorded_date] [date] NOT NULL,
-	[weight_kg] [decimal](5, 2) NULL,
-	[height_cm] [decimal](5, 2) NULL,
-	[smm_kg] [decimal](5, 2) NULL,
-	[pbf_percent] [decimal](5, 2) NULL,
-	[bmi] [decimal](5, 2) NULL,
-	[max_lift_kg] [decimal](6, 2) NULL,
-	[note] [nvarchar](300) NULL,
-	[created_at] [datetime2](7) NOT NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[progress_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[bookings]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[bookings](
-	[booking_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[member_id] [bigint] NOT NULL,
-	[session_id] [bigint] NOT NULL,
-	[booking_time] [datetime] NULL,
-	[status] [varchar](20) NULL,
-	[attendance_status] [varchar](30) NULL,
-	[coach_note] [nvarchar](max) NULL,
-	[homework_note] [nvarchar](max) NULL,
-	[uses_membership_quota] [bit] NULL,
-	[membership_id] [bigint] NULL,
-	[fee_amount] [decimal](12, 2) NOT NULL,
-	[payment_id] [bigint] NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[booking_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[class_sessions]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[class_sessions](
-	[session_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[class_name] [nvarchar](100) NOT NULL,
-	[sport_id] [bigint] NOT NULL,
-	[coach_id] [bigint] NOT NULL,
-	[facility_id] [bigint] NOT NULL,
-	[start_time] [datetime] NOT NULL,
-	[end_time] [datetime] NOT NULL,
-	[max_slots] [int] NOT NULL,
-	[booked_slots] [int] NULL,
-	[price_amount] [decimal](12, 2) NOT NULL,
-	[status] [varchar](20) NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[session_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[coach_leave_requests]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[coach_leave_requests](
-	[request_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[coach_id] [bigint] NOT NULL,
-	[coach_name] [nvarchar](100) NULL,
-	[leave_type] [nvarchar](50) NOT NULL,
-	[start_date] [date] NOT NULL,
-	[end_date] [date] NOT NULL,
-	[reason] [nvarchar](1000) NOT NULL,
-	[status] [nvarchar](20) NOT NULL,
-	[approved_by] [bigint] NULL,
-	[affected_bookings_count] [int] NOT NULL,
-	[reassigned_coach_id] [bigint] NULL,
-	[created_at] [datetime2](7) NOT NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[request_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[court_bookings]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[court_bookings](
-	[court_booking_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[member_id] [bigint] NOT NULL,
-	[court_id] [bigint] NOT NULL,
-	[start_time] [datetime2](7) NOT NULL,
-	[end_time] [datetime2](7) NOT NULL,
-	[amount_paid] [decimal](12, 2) NOT NULL,
-	[payment_id] [bigint] NULL,
-	[status] [nvarchar](20) NOT NULL,
-	[created_at] [datetime2](7) NOT NULL,
-	[uses_membership_quota] [bit] NULL,
-	[membership_id] [bigint] NULL,
-	[quota_hours_used] [decimal](4, 2) NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[court_booking_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[court_maintenance]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[court_maintenance](
-	[maintenance_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[court_id] [bigint] NOT NULL,
-	[start_time] [datetime2](7) NOT NULL,
-	[end_time] [datetime2](7) NOT NULL,
-	[reason] [nvarchar](500) NULL,
-	[created_by] [bigint] NULL,
-	[created_at] [datetime2](7) NOT NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[maintenance_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[equipment_loans]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[equipment_loans](
-	[loan_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[member_id] [bigint] NOT NULL,
-	[member_name] [nvarchar](100) NULL,
-	[phone] [nvarchar](20) NULL,
-	[item_id] [bigint] NOT NULL,
-	[item_name] [nvarchar](150) NULL,
-	[quantity] [int] NOT NULL,
-	[rental_price_per_hour] [decimal](12, 2) NOT NULL,
-	[loaned_at] [datetime2](7) NOT NULL,
-	[returned_at] [datetime2](7) NULL,
-	[rental_fee] [decimal](12, 2) NULL,
-	[status] [nvarchar](20) NOT NULL,
-	[payment_method] [nvarchar](20) NULL,
-	[recorded_by] [bigint] NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[loan_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[equipments]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[equipments](
-	[item_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[item_name] [nvarchar](150) NOT NULL,
-	[category] [nvarchar](50) NOT NULL,
-	[rental_price_per_hour] [decimal](12, 2) NOT NULL,
-	[total_quantity] [int] NOT NULL,
-	[available_quantity] [int] NOT NULL,
-	[status] [nvarchar](20) NOT NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[item_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[facilities]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[facilities](
-	[facility_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[facility_name] [nvarchar](255) NULL,
-	[sport_id] [bigint] NOT NULL,
-	[capacity] [int] NOT NULL,
-	[status] [varchar](255) NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[facility_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[feedbacks]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[feedbacks](
-	[feedback_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[member_id] [bigint] NOT NULL,
-	[session_id] [bigint] NOT NULL,
-	[coach_id] [bigint] NOT NULL,
-	[rating] [int] NULL,
-	[comment] [nvarchar](max) NULL,
-	[created_at] [datetime] NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[feedback_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[member_check_ins]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[member_check_ins](
-	[check_in_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[member_id] [bigint] NOT NULL,
-	[checked_in_at] [datetime2](7) NOT NULL,
-	[result] [nvarchar](20) NOT NULL,
-	[recorded_by] [bigint] NOT NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[check_in_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[member_health_profiles]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[member_health_profiles](
-	[profile_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[member_id] [bigint] NOT NULL,
-	[fitness_level] [varchar](30) NULL,
-	[fitness_goals] [nvarchar](max) NULL,
-	[injury_history] [nvarchar](max) NULL,
-	[weight_kg] [decimal](5, 2) NULL,
-	[height_cm] [decimal](5, 2) NULL,
-	[smm_kg] [decimal](5, 2) NULL,
-	[pbf_percent] [decimal](5, 2) NULL,
-	[bmi] [decimal](5, 2) NULL,
-	[updated_at] [datetime] NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[profile_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[membership_packages]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[membership_packages](
-	[package_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[name] [nvarchar](100) NOT NULL,
-	[sport_id] [bigint] NULL,
-	[price] [decimal](10, 2) NOT NULL,
-	[duration_days] [int] NOT NULL,
-	[access_type] [varchar](20) NULL,
-	[description] [nvarchar](max) NULL,
-	[status] [varchar](20) NULL,
-	[package_type] [nvarchar](20) NULL,
-	[quota_sessions] [int] NULL,
-	[quota_courts] [int] NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[package_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[notifications]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[notifications](
-	[notification_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[user_id] [bigint] NOT NULL,
-	[title] [nvarchar](200) NULL,
-	[message] [nvarchar](max) NULL,
-	[type] [varchar](30) NULL,
-	[is_read] [bit] NOT NULL,
-	[created_at] [datetime2](7) NOT NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[notification_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[payment_transactions]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[payment_transactions](
-	[payment_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[member_id] [bigint] NOT NULL,
-	[booking_type] [nvarchar](20) NOT NULL,
-	[amount] [decimal](12, 2) NOT NULL,
-	[payment_method] [nvarchar](40) NOT NULL,
-	[payment_status] [nvarchar](20) NOT NULL,
-	[reference_code] [nvarchar](64) NOT NULL,
-	[created_at] [datetime2](7) NOT NULL,
-	[transaction_date] [varchar](14) NULL,
-	[payment_completed_at] [datetime2](7) NULL,
-	[item_type] [varchar](20) NULL,
-	[item_description] [nvarchar](500) NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[payment_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[payment_transactions_backup]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[payment_transactions_backup](
-	[payment_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[member_id] [bigint] NOT NULL,
-	[booking_type] [nvarchar](20) NOT NULL,
-	[amount] [decimal](12, 2) NOT NULL,
-	[payment_method] [nvarchar](40) NOT NULL,
-	[payment_status] [nvarchar](20) NOT NULL,
-	[reference_code] [nvarchar](64) NOT NULL,
-	[created_at] [datetime2](7) NOT NULL,
-	[transaction_date] [varchar](14) NULL,
-	[payment_completed_at] [datetime2](7) NULL,
-	[item_type] [varchar](20) NULL,
-	[item_description] [nvarchar](500) NULL
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[payments]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[payments](
-	[payment_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[member_id] [bigint] NOT NULL,
-	[um_id] [bigint] NULL,
-	[voucher_id] [bigint] NULL,
-	[amount] [numeric](38, 2) NULL,
-	[payment_method] [varchar](255) NULL,
-	[payment_status] [varchar](255) NULL,
-	[approved_by] [bigint] NULL,
-	[created_at] [datetime] NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[payment_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[public_facilities]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[public_facilities](
-	[facility_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[slug] [nvarchar](80) NOT NULL,
-	[name] [nvarchar](120) NOT NULL,
-	[description] [nvarchar](1000) NULL,
-	[icon] [nvarchar](80) NULL,
-	[highlight] [nvarchar](150) NULL,
-	[active] [bit] NOT NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[facility_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[public_sports]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[public_sports](
-	[sport_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[slug] [nvarchar](80) NOT NULL,
-	[name] [nvarchar](100) NOT NULL,
-	[subtitle] [nvarchar](150) NULL,
-	[tag] [nvarchar](80) NULL,
-	[description] [nvarchar](1000) NULL,
-	[icon] [nvarchar](80) NULL,
-	[area] [nvarchar](150) NULL,
-	[active] [bit] NOT NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[sport_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[refund_requests]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[refund_requests](
-	[refund_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[member_id] [bigint] NOT NULL,
-	[member_name] [nvarchar](100) NULL,
-	[phone] [nvarchar](20) NULL,
-	[transaction_id] [bigint] NULL,
-	[reference_code] [nvarchar](50) NULL,
-	[booking_description] [nvarchar](255) NULL,
-	[refund_amount] [decimal](12, 2) NOT NULL,
-	[reason] [nvarchar](1000) NOT NULL,
-	[bank_name] [nvarchar](100) NULL,
-	[bank_account] [nvarchar](50) NULL,
-	[account_holder] [nvarchar](100) NULL,
-	[status] [nvarchar](20) NOT NULL,
-	[approved_by] [bigint] NULL,
-	[decision_note] [nvarchar](500) NULL,
-	[created_at] [datetime2](7) NOT NULL,
-	[booking_id] [bigint] NULL,
-	[booking_type] [varchar](20) NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[refund_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[sports]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[sports](
-	[sport_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[sport_name] [nvarchar](50) NOT NULL,
-	[description] [nvarchar](max) NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[sport_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[sports_courts]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[sports_courts](
-	[court_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[sport_id] [bigint] NOT NULL,
-	[court_name] [nvarchar](120) NOT NULL,
-	[description] [nvarchar](500) NULL,
-	[hourly_rate] [decimal](12, 2) NOT NULL,
-	[opens_at] [time](7) NOT NULL,
-	[closes_at] [time](7) NOT NULL,
-	[active] [bit] NOT NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[court_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[support_tickets]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[support_tickets](
-	[ticket_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[member_id] [bigint] NOT NULL,
-	[member_name] [nvarchar](100) NULL,
-	[category] [nvarchar](50) NOT NULL,
-	[title] [nvarchar](200) NOT NULL,
-	[description] [nvarchar](max) NULL,
-	[severity] [nvarchar](20) NOT NULL,
-	[status] [nvarchar](20) NOT NULL,
-	[admin_response] [nvarchar](max) NULL,
-	[created_at] [datetime2](7) NOT NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[ticket_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[system_settings]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[system_settings](
-	[setting_key] [varchar](60) NOT NULL,
-	[setting_value] [nvarchar](max) NULL,
-	[updated_at] [datetime2](7) NOT NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[setting_key] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[user_memberships]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[user_memberships](
-	[um_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[user_id] [bigint] NOT NULL,
-	[package_id] [bigint] NOT NULL,
-	[start_date] [date] NULL,
-	[end_date] [date] NULL,
-	[status] [varchar](20) NULL,
-	[remaining_quota_sessions] [int] NULL,
-	[held_quota_sessions] [int] NULL,
-	[used_quota_sessions] [int] NULL,
-	[initial_quota_sessions] [int] NULL,
-	[remaining_quota_courts] [int] NULL,
-	[held_quota_courts] [int] NULL,
-	[used_quota_courts] [int] NULL,
-	[initial_quota_courts] [int] NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[um_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[users]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[users](
-	[user_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[full_name] [nvarchar](100) NOT NULL,
-	[email] [varchar](100) NOT NULL,
-	[password] [nvarchar](100) NOT NULL,
-	[phone] [varchar](15) NULL,
-	[avatar] [nvarchar](max) NULL,
-	[date_of_birth] [date] NULL,
-	[gender] [nvarchar](20) NULL,
-	[address] [nvarchar](500) NULL,
-	[emergency_contact_name] [nvarchar](100) NULL,
-	[emergency_contact_phone] [nvarchar](15) NULL,
-	[role] [varchar](20) NOT NULL,
-	[status] [varchar](20) NULL,
-	[require_password_change] [bit] NOT NULL,
-	[created_at] [datetime2](7) NULL,
-	[rfid_code] [nvarchar](64) NULL,
-	[specialty] [nvarchar](200) NULL,
-	[experience_years] [int] NULL,
-	[certifications] [nvarchar](500) NULL,
-	[bio] [nvarchar](max) NULL,
-	[availability_json] [nvarchar](max) NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[user_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[verification_tokens]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[verification_tokens](
-	[token_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[email] [nvarchar](100) NOT NULL,
-	[token_hash] [nvarchar](64) NOT NULL,
-	[token_type] [nvarchar](20) NOT NULL,
-	[created_at] [datetime2](7) NOT NULL,
-	[expires_at] [datetime2](7) NOT NULL,
-	[used_at] [datetime2](7) NULL,
-	[failed_attempts] [int] NOT NULL,
-	[locked] [bit] NOT NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[token_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[vouchers]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[vouchers](
-	[voucher_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[code] [nvarchar](50) NOT NULL,
-	[discount_type] [nvarchar](20) NOT NULL,
-	[discount_value] [decimal](12, 2) NULL,
-	[discount_percent] [int] NULL,
-	[discount_amount] [decimal](12, 2) NULL,
-	[max_discount_amount] [decimal](10, 2) NULL,
-	[min_purchase] [decimal](12, 2) NOT NULL,
-	[valid_from] [date] NULL,
-	[valid_until] [date] NOT NULL,
-	[usage_limit] [int] NOT NULL,
-	[used_count] [int] NOT NULL,
-	[applies_to] [nvarchar](50) NOT NULL,
-	[status] [nvarchar](20) NOT NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[voucher_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-/****** Object:  Table [dbo].[workout_plans]    Script Date: 05/11/2026 4:13:53 SA ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [dbo].[workout_plans](
-	[plan_id] [bigint] IDENTITY(1,1) NOT NULL,
-	[member_id] [bigint] NOT NULL,
-	[coach_id] [bigint] NULL,
-	[coach_name] [nvarchar](100) NULL,
-	[title] [nvarchar](200) NULL,
-	[goal] [nvarchar](300) NULL,
-	[exercises_json] [nvarchar](max) NULL,
-	[session_result] [nvarchar](max) NULL,
-	[coach_feedback] [nvarchar](max) NULL,
-	[homework] [nvarchar](max) NULL,
-	[source] [varchar](20) NOT NULL,
-	[created_at] [datetime2](7) NOT NULL,
-PRIMARY KEY CLUSTERED 
-(
-	[plan_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
-GO
-SET IDENTITY_INSERT [dbo].[audit_logs] ON 
 
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (1, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-27T18:47:57.0118145' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (2, N'LOGOUT', N'khoa.member@gmail.com', 9, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-27T19:01:59.6980456' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (3, N'LOGIN', N'bumximitech@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:02:10.2794155' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (4, N'REGISTER_OTP_SENT', N'phamhuutien1901@gmail.com', 14, NULL, NULL, N'Registration OTP sent | Expires in 10 minutes', N'SUCCESS', NULL, CAST(N'2026-10-27T19:02:31.7823235' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (5, N'REGISTER', N'phamhuutien1901@gmail.com', 14, NULL, NULL, N'User registered | Status: PENDING | Awaiting OTP verification', N'SUCCESS', NULL, CAST(N'2026-10-27T19:02:31.7943315' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (6, N'LOGIN', N'bumximitech@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:02:51.3889185' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (7, N'LOGIN', N'phamhuutien1901@gmail.com', 14, NULL, NULL, N'Login attempt', N'FAILED', N'Account status: PENDING', CAST(N'2026-10-27T19:03:02.4052056' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (8, N'LOGIN_PENDING_OTP_ACTIVE', N'phamhuutien1901@gmail.com', 14, NULL, NULL, N'Login with PENDING status', N'FAILED', N'OTP still valid | Remaining: 9 minutes', CAST(N'2026-10-27T19:03:02.4641924' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (9, N'VERIFY_REGISTRATION_OTP', N'phamhuutien1901@gmail.com', 14, NULL, NULL, N'Email verified successfully | Status changed to ACTIVE', N'SUCCESS', NULL, CAST(N'2026-10-27T19:03:45.5389816' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (10, N'LOGOUT', N'phamhuutien1901@gmail.com', 14, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-27T19:05:46.1405645' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (11, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:05:56.2075084' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (12, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:11:31.7375123' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (13, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:11:32.7033238' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (14, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:11:32.9081110' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (15, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:11:33.1143205' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (16, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:11:33.3173723' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (17, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:11:33.5194358' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (18, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:11:33.7955190' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (19, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:11:34.0375033' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (20, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:11:34.3065833' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (21, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:11:34.5062688' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (22, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:12:09.3625830' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (23, N'LOGIN', N'phamhuutien1901@gmail.com', 14, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-27T19:32:33.6184459' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (24, N'LOGOUT', N'phamhuutien1901@gmail.com', 14, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-27T19:32:37.3511699' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (25, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:33:02.4598259' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (26, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:34:05.5520256' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (27, N'LOGIN', N'testnotexist@example.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:56:51.2720227' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (28, N'LOGIN', N'notexist@test.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:57:01.9081566' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (29, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:59:24.8996234' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (30, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T19:59:34.2865473' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (31, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T20:05:38.6548117' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (32, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T20:12:19.9772299' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (33, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T20:15:01.4156855' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (34, N'LOGIN', N'phamhuutien1901@gmail.com', 14, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-27T20:16:19.2541621' AS DateTime2), NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (35, N'LOGIN', N'bumximitech@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T21:31:07.4489005' AS DateTime2), NULL, N'bumximitech@gmail.com', NULL, N'LOGIN', N'Login attempt | Lỗi: User not found')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (36, N'LOGIN', N'diepthao2727@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T23:21:31.6857381' AS DateTime2), NULL, N'diepthao2727@gmail.com', NULL, N'LOGIN', N'Login attempt | Lỗi: User not found')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (37, N'LOGIN', N'diepthao2727@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-27T23:21:44.3777300' AS DateTime2), NULL, N'diepthao2727@gmail.com', NULL, N'LOGIN', N'Login attempt | Lỗi: User not found')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (38, N'LOGIN', N'diepthao2727@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-28T00:05:13.2191351' AS DateTime2), NULL, N'diepthao2727@gmail.com', NULL, N'LOGIN', N'Login attempt | Lỗi: User not found')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (39, N'REGISTER_OTP_SEND_FAILED', N'bumximitech@gmail.com', 23, NULL, NULL, N'Failed to send registration OTP', N'FAILED', N'Unable to rollback against JDBC Connection', CAST(N'2026-10-28T10:12:07.5436355' AS DateTime2), 23, N'bumximitech@gmail.com', NULL, N'REGISTER_OTP_SEND_FAILED', N'Failed to send registration OTP | Lỗi: Unable to rollback against JDBC Connection')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (40, N'LOGIN', N'coach.minh@sporthub.com', 5, NULL, NULL, N'Login successful | Role: COACH | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-28T10:18:19.2718356' AS DateTime2), 5, N'Trần Văn Minh', N'COACH', N'LOGIN', N'Login successful | Role: COACH | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (41, N'LOGOUT', N'coach.minh@sporthub.com', 5, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-28T10:40:33.7920653' AS DateTime2), 5, N'Trần Văn Minh', N'COACH', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (42, N'REGISTER_OTP_SENT', N'bumximitech@gmail.com', 29, NULL, NULL, N'Registration OTP sent | Expires in 10 minutes', N'SUCCESS', NULL, CAST(N'2026-10-28T12:13:05.9314522' AS DateTime2), 29, N'tien pham', N'MEMBER', N'REGISTER_OTP_SENT', N'Registration OTP sent | Expires in 10 minutes')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (43, N'REGISTER', N'bumximitech@gmail.com', 29, NULL, NULL, N'User registered | Status: PENDING | Awaiting OTP verification', N'SUCCESS', NULL, CAST(N'2026-10-28T12:13:06.0804436' AS DateTime2), 29, N'tien pham', N'MEMBER', N'REGISTER', N'User registered | Status: PENDING | Awaiting OTP verification')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (44, N'RESEND_REGISTRATION_OTP', N'bumximitech@gmail.com', 29, NULL, NULL, N'Registration OTP resent | Expires in 10 minutes', N'SUCCESS', NULL, CAST(N'2026-10-28T12:49:43.5239233' AS DateTime2), 29, N'tien pham', N'MEMBER', N'RESEND_REGISTRATION_OTP', N'Registration OTP resent | Expires in 10 minutes')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (45, N'VERIFY_REGISTRATION_OTP', N'bumximitech@gmail.com', 29, NULL, NULL, N'Email verified successfully | Status changed to ACTIVE', N'SUCCESS', NULL, CAST(N'2026-10-28T12:50:04.1462364' AS DateTime2), 29, N'tien pham', N'MEMBER', N'VERIFY_REGISTRATION_OTP', N'Email verified successfully | Status changed to ACTIVE')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (46, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-28T13:07:56.8617830' AS DateTime2), 29, N'tien pham', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (47, N'LOGIN', N'diepthao2727@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-28T13:08:00.9411092' AS DateTime2), NULL, N'diepthao2727@gmail.com', NULL, N'LOGIN', N'Login attempt | Lỗi: User not found')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (48, N'REGISTER_OTP_SENT', N'diepthao2727@gmail.com', 30, NULL, NULL, N'Registration OTP sent | Expires in 10 minutes', N'SUCCESS', NULL, CAST(N'2026-10-28T13:08:19.6120407' AS DateTime2), 30, N'duc tran', N'MEMBER', N'REGISTER_OTP_SENT', N'Registration OTP sent | Expires in 10 minutes')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (49, N'REGISTER', N'diepthao2727@gmail.com', 30, NULL, NULL, N'User registered | Status: PENDING | Awaiting OTP verification', N'SUCCESS', NULL, CAST(N'2026-10-28T13:08:19.6350506' AS DateTime2), 30, N'duc tran', N'MEMBER', N'REGISTER', N'User registered | Status: PENDING | Awaiting OTP verification')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (50, N'LOGIN', N'diepthao2727@gmail.com', 30, NULL, NULL, N'Login attempt', N'FAILED', N'Account status: PENDING', CAST(N'2026-10-28T13:10:03.1312492' AS DateTime2), 30, N'duc tran', N'MEMBER', N'LOGIN', N'Login attempt | Lỗi: Account status: PENDING')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (51, N'LOGIN_PENDING_OTP_ACTIVE', N'diepthao2727@gmail.com', 30, NULL, NULL, N'Login with PENDING status', N'FAILED', N'OTP still valid | Remaining: 8 minutes', CAST(N'2026-10-28T13:10:03.1598361' AS DateTime2), 30, N'duc tran', N'MEMBER', N'LOGIN_PENDING_OTP_ACTIVE', N'Login with PENDING status | Lỗi: OTP still valid | Remaining: 8 minutes')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (52, N'VERIFY_REGISTRATION_OTP', N'diepthao2727@gmail.com', 30, NULL, NULL, N'Email verification attempt', N'FAILED', N'Invalid OTP | Remaining attempts: 4', CAST(N'2026-10-28T13:10:30.0365255' AS DateTime2), 30, N'duc tran', N'MEMBER', N'VERIFY_REGISTRATION_OTP', N'Email verification attempt | Lỗi: Invalid OTP | Remaining attempts: 4')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (53, N'VERIFY_REGISTRATION_OTP', N'diepthao2727@gmail.com', 30, NULL, NULL, N'Email verified successfully | Status changed to ACTIVE', N'SUCCESS', NULL, CAST(N'2026-10-28T13:10:37.6976291' AS DateTime2), 30, N'duc tran', N'MEMBER', N'VERIFY_REGISTRATION_OTP', N'Email verified successfully | Status changed to ACTIVE')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (54, N'LOGIN', N'diepthao2727@gmail.com', 30, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-28T13:16:13.5268177' AS DateTime2), 30, N'duc tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (55, N'LOGOUT', N'diepthao2727@gmail.com', 30, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-28T13:37:33.4052084' AS DateTime2), 30, N'duc tran', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (56, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-28T13:37:37.2102968' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (57, N'LOGOUT', N'manager@sporthub.com', 1, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-29T12:09:57.0604170' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (58, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-29T12:10:00.9604054' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (59, N'LOGOUT', N'khoa.member@gmail.com', 9, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-29T15:24:57.3158329' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (60, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-29T15:24:59.1154251' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (61, N'LOGOUT', N'khoa.member@gmail.com', 9, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-29T15:54:56.2411740' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (62, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-29T15:54:58.2513584' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (63, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-29T16:06:57.2997378' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (64, N'LOGOUT', N'khoa.member@gmail.com', 9, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-29T16:17:19.8378525' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (65, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-29T16:17:21.3677017' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (66, N'LOGOUT', N'khoa.member@gmail.com', 9, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-29T16:32:03.7151626' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (67, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-29T16:32:06.1391753' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (68, N'LOGOUT', N'khoa.member@gmail.com', 9, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-29T16:33:42.8010781' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (69, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-29T16:33:49.8628901' AS DateTime2), 29, N'tien pham', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (70, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-29T16:45:39.3303713' AS DateTime2), 29, N'tien pham', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (71, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-29T22:07:29.7933154' AS DateTime2), 29, N'tien pham', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (72, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-29T22:07:33.1619795' AS DateTime2), 29, N'tien pham', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (73, N'CANCEL_CLASS_BOOKING', N'booking_id=12', 29, NULL, NULL, N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | Original fee: 170000.00 | Refund: 170000.00', N'SUCCESS', NULL, CAST(N'2026-10-29T22:07:41.7884081' AS DateTime2), 29, N'tien pham', N'MEMBER', N'CANCEL_CLASS_BOOKING', N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | Original fee: 170000.00 | Refund: 170000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (74, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-29T22:08:39.0139377' AS DateTime2), 29, N'tien pham', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (75, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-29T22:08:40.5107565' AS DateTime2), 29, N'tien pham', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (76, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-29T22:22:44.0465975' AS DateTime2), 29, N'tien pham', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (77, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-29T22:22:48.5193517' AS DateTime2), 29, N'tien pham', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (78, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-29T22:36:51.1622748' AS DateTime2), 29, N'tien pham', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (79, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-29T22:44:04.8401489' AS DateTime2), 29, N'tien pham', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (80, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-29T23:03:07.3639930' AS DateTime2), 29, N'tien pham', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (81, N'LOGIN', N'phamhuutien876@gmail.com', NULL, NULL, NULL, N'Login attempt', N'FAILED', N'User not found', CAST(N'2026-10-29T23:03:16.7194514' AS DateTime2), NULL, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login attempt | Lỗi: User not found')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (82, N'LOGIN', N'phamhuutien1901@gmail.com', 14, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-29T23:03:34.1312631' AS DateTime2), 14, N'jbhvvy', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (83, N'LOGOUT', N'phamhuutien1901@gmail.com', 14, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-29T23:12:24.4801470' AS DateTime2), 14, N'jbhvvy', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (84, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-29T23:12:30.7027229' AS DateTime2), 29, N'tien pham', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (85, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-30T00:40:01.3188500' AS DateTime2), 29, N'tien pham', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (86, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-30T00:41:36.1498077' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (87, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-30T00:57:30.1187751' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (88, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-30T01:08:17.3600694' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (89, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-30T01:18:09.6582609' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (90, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-30T13:22:43.7165110' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (91, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-30T13:58:15.1512401' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (92, N'LOGOUT', N'khoa.member@gmail.com', 9, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-30T14:04:13.4795371' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (93, N'REGISTER_OTP_SENT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Registration OTP sent | Expires in 10 minutes', N'SUCCESS', NULL, CAST(N'2026-10-30T14:04:49.8564675' AS DateTime2), 37, N'huy tran', N'MEMBER', N'REGISTER_OTP_SENT', N'Registration OTP sent | Expires in 10 minutes')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (94, N'REGISTER', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User registered | Status: PENDING | Awaiting OTP verification', N'SUCCESS', NULL, CAST(N'2026-10-30T14:04:49.8805547' AS DateTime2), 37, N'huy tran', N'MEMBER', N'REGISTER', N'User registered | Status: PENDING | Awaiting OTP verification')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (95, N'VERIFY_REGISTRATION_OTP', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Email verified successfully | Status changed to ACTIVE', N'SUCCESS', NULL, CAST(N'2026-10-30T14:06:23.0268965' AS DateTime2), 37, N'huy tran', N'MEMBER', N'VERIFY_REGISTRATION_OTP', N'Email verified successfully | Status changed to ACTIVE')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (96, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-30T14:19:37.7912673' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (97, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-30T15:18:01.0680184' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (98, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-30T15:18:02.8393123' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (100, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-30T15:44:23.2465190' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGOUT', N'User logged out')
+CREATE DATABASE [SportsCenterDB];
 GO
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (101, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-30T15:44:24.9249858' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (102, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-30T16:16:50.9156615' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (105, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-30T16:33:16.6919609' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (106, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-30T16:52:29.5367052' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (108, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-30T23:22:45.2113220' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (111, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-30T23:37:38.5437867' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (113, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-31T00:08:05.9922212' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (114, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-31T00:24:46.4850342' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (115, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-31T00:43:16.4242701' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (116, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-31T00:43:17.7942918' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (118, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-31T00:56:11.4850556' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (119, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-31T00:56:13.7715065' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (122, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-31T09:07:22.1839289' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (123, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-31T09:12:51.2825109' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (125, N'LOGIN', N'phamhuutien1901@gmail.com', 14, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-31T11:04:48.9650602' AS DateTime2), 14, N'jbhvvy', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (126, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-31T11:06:51.8644584' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (128, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-31T11:10:55.8365473' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (129, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-31T11:10:57.5611319' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (130, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-31T11:11:02.2171772' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (131, N'LOGIN', N'phamhuutien1901@gmail.com', 14, NULL, NULL, N'Login attempt', N'FAILED', N'Wrong password', CAST(N'2026-10-31T11:11:13.5852114' AS DateTime2), 14, N'jbhvvy', N'MEMBER', N'LOGIN', N'Login attempt | Lỗi: Wrong password')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (132, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-31T11:11:34.5748549' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (133, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-31T13:02:01.2425202' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (134, N'LOGIN', N'phamhuutien1901@gmail.com', 14, NULL, NULL, N'Login attempt', N'FAILED', N'Wrong password', CAST(N'2026-10-31T23:17:01.1971700' AS DateTime2), 14, N'jbhvvy', N'MEMBER', N'LOGIN', N'Login attempt | Lỗi: Wrong password')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (135, N'REGISTER', N'phamhuutien1901@gmail.com', 14, NULL, NULL, N'Registration attempt', N'FAILED', N'Email exists with ACTIVE status', CAST(N'2026-10-31T23:17:10.2084372' AS DateTime2), 14, N'jbhvvy', N'MEMBER', N'REGISTER', N'Registration attempt | Lỗi: Email exists with ACTIVE status')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (136, N'LOGIN', N'phamhuutien1901@gmail.com', 14, NULL, NULL, N'Login attempt', N'FAILED', N'Wrong password', CAST(N'2026-10-31T23:17:20.3102613' AS DateTime2), 14, N'jbhvvy', N'MEMBER', N'LOGIN', N'Login attempt | Lỗi: Wrong password')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (137, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-31T23:17:25.7661265' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (141, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-31T23:19:54.8332154' AS DateTime2), 37, N'huy tran', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (142, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-31T23:20:39.7930032' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (143, N'CREATE_USER_ADMIN_PANEL', N'nguyenkimtam155@gmail.com', 38, NULL, NULL, N'User created via Admin Panel | Role: MEMBER | RequirePasswordChange: true | Temporary password sent', N'SUCCESS', NULL, CAST(N'2026-10-31T23:23:40.1511251' AS DateTime2), 38, N'duc dao', N'MEMBER', N'CREATE_USER_ADMIN_PANEL', N'User created via Admin Panel | Role: MEMBER | RequirePasswordChange: true | Temporary password sent')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (144, N'LOGOUT', N'manager@sporthub.com', 1, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-31T23:23:47.5047175' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (145, N'LOGIN', N'reception.tu@sporthub.com', 4, NULL, NULL, N'Login successful | Role: RECEPTIONIST | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-31T23:27:16.4243963' AS DateTime2), 4, N'Phạm Minh Tú', N'RECEPTIONIST', N'LOGIN', N'Login successful | Role: RECEPTIONIST | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (146, N'LOGOUT', N'reception.tu@sporthub.com', 4, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-31T23:30:12.5077344' AS DateTime2), 4, N'Phạm Minh Tú', N'RECEPTIONIST', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (147, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-31T23:30:16.1151216' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (148, N'LOGOUT', N'khoa.member@gmail.com', 9, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-10-31T23:31:10.4532593' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (149, N'LOGIN', N'reception.tu@sporthub.com', 4, NULL, NULL, N'Login successful | Role: RECEPTIONIST | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-10-31T23:31:15.7444740' AS DateTime2), 4, N'Phạm Minh Tú', N'RECEPTIONIST', N'LOGIN', N'Login successful | Role: RECEPTIONIST | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (150, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-01T18:23:23.2823347' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (151, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-01T18:23:29.5326854' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (153, N'REGISTER_OTP_SENT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Registration OTP sent | Expires in 10 minutes', N'SUCCESS', NULL, CAST(N'2026-11-01T18:23:55.0998296' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'REGISTER_OTP_SENT', N'Registration OTP sent | Expires in 10 minutes')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (154, N'REGISTER', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User registered | Status: PENDING | Awaiting OTP verification', N'SUCCESS', NULL, CAST(N'2026-11-01T18:23:55.1083424' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'REGISTER', N'User registered | Status: PENDING | Awaiting OTP verification')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (157, N'VERIFY_REGISTRATION_OTP', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Email verified successfully | Status changed to ACTIVE', N'SUCCESS', NULL, CAST(N'2026-11-01T18:24:44.1769729' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'VERIFY_REGISTRATION_OTP', N'Email verified successfully | Status changed to ACTIVE')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (158, N'CANCEL_CLASS_BOOKING', N'booking_id=35', 39, NULL, NULL, N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | Original fee: 150000.00 | Refund: 150000.00', N'SUCCESS', NULL, CAST(N'2026-11-01T18:27:33.4618651' AS DateTime2), 39, N'booking_id=35', NULL, N'CANCEL_CLASS_BOOKING', N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | Original fee: 150000.00 | Refund: 150000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (159, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-01T18:45:13.9358617' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (160, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-01T18:52:06.8943309' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (162, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-01T18:52:37.5920831' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (163, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-01T19:02:36.4849322' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (164, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-01T19:15:40.5614611' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (165, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-01T19:15:42.6690552' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (166, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-01T19:28:15.9679917' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (167, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-01T19:28:21.6103026' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (168, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-01T19:42:53.1385896' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (169, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-01T19:42:54.6705103' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (172, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-01T20:14:07.2657871' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (175, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-01T22:50:39.7395486' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (176, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-01T23:06:44.0770669' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (178, N'LOGIN', N'diepthao2727@gmail.com', 30, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T00:22:46.3457666' AS DateTime2), 30, N'diepthao2727@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (182, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-02T01:33:57.6023769' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (183, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T01:33:58.9348859' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (184, N'CANCEL_CLASS_BOOKING', N'booking_id=45', 29, NULL, NULL, N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | Original fee: 120000.00 | Refund: 120000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T01:34:09.1085377' AS DateTime2), 29, N'booking_id=45', NULL, N'CANCEL_CLASS_BOOKING', N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | Original fee: 120000.00 | Refund: 120000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (185, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-02T01:34:53.6955508' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (186, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T01:34:58.2301102' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (187, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-02T01:35:08.9011829' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (190, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T01:35:23.5137788' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (191, N'CANCEL_CLASS_BOOKING', N'booking_id=32', 37, NULL, NULL, N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | Original fee: 180000.00 | Refund: 180000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T01:35:42.3220028' AS DateTime2), 37, N'booking_id=32', NULL, N'CANCEL_CLASS_BOOKING', N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | Original fee: 180000.00 | Refund: 180000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (192, N'CANCEL_COURT_BOOKING', N'booking_id=42', 37, NULL, NULL, N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | Original amount: 60000.00 | Refund: 60000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T01:36:17.5496126' AS DateTime2), 37, N'booking_id=42', NULL, N'CANCEL_COURT_BOOKING', N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | Original amount: 60000.00 | Refund: 60000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (193, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-02T02:09:18.9039419' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (194, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T02:09:20.2245125' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (195, N'CANCEL_CLASS_BOOKING', N'booking_id=29', 37, NULL, NULL, N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | Original fee: 150000.00 | Refund: 150000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T02:09:31.3210340' AS DateTime2), 37, N'booking_id=29', NULL, N'CANCEL_CLASS_BOOKING', N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | Original fee: 150000.00 | Refund: 150000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (196, N'CANCEL_COURT_BOOKING', N'booking_id=40', 37, NULL, NULL, N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | Original amount: 120000.00 | Refund: 120000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T02:10:02.8315503' AS DateTime2), 37, N'booking_id=40', NULL, N'CANCEL_COURT_BOOKING', N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | Original amount: 120000.00 | Refund: 120000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (197, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-02T02:34:47.3202301' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (198, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T02:34:48.6167783' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (199, N'CANCEL_CLASS_BOOKING', N'booking_id=49', 37, NULL, NULL, N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 162000.00 | Refund: 162000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T02:35:29.1698700' AS DateTime2), 37, N'booking_id=49', NULL, N'CANCEL_CLASS_BOOKING', N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 162000.00 | Refund: 162000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (200, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-02T02:52:23.1771190' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (201, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T02:52:26.2193954' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (202, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-02T03:12:06.7945447' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (204, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T03:12:13.8312032' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (205, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T03:41:34.0589107' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (206, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=53, paymentId=123, amount=108000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T03:42:42.3297522' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=53, paymentId=123, amount=108000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (207, N'CANCEL_CLASS_BOOKING', N'booking_id=53', 39, NULL, NULL, N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 108000.00 | Refund: 108000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T03:43:28.3643231' AS DateTime2), 39, N'booking_id=53', NULL, N'CANCEL_CLASS_BOOKING', N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 108000.00 | Refund: 108000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (208, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=54, paymentId=124, amount=144000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T03:44:31.6932304' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=54, paymentId=124, amount=144000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (209, N'CANCEL_CLASS_BOOKING', N'booking_id=54', 39, NULL, NULL, N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 144000.00 | Refund: 144000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T03:45:30.4843258' AS DateTime2), 39, N'booking_id=54', NULL, N'CANCEL_CLASS_BOOKING', N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 144000.00 | Refund: 144000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (210, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T04:17:57.9206847' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (211, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=56, paymentId=126, amount=162000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T04:18:46.3524668' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=56, paymentId=126, amount=162000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (212, N'CANCEL_CLASS_BOOKING', N'booking_id=56', 39, NULL, NULL, N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 162000.00 | Refund: 162000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T04:19:08.0409104' AS DateTime2), 39, N'booking_id=56', NULL, N'CANCEL_CLASS_BOOKING', N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 162000.00 | Refund: 162000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (213, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T04:27:43.5768968' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (214, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-02T04:46:13.6964199' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (215, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T04:46:15.2434352' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (216, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=57, paymentId=127, amount=198000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T04:47:04.0465646' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=57, paymentId=127, amount=198000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (217, N'CANCEL_CLASS_BOOKING', N'booking_id=57', 39, NULL, NULL, N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 198000.00 | Refund: 198000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T04:47:37.4983992' AS DateTime2), 39, N'booking_id=57', NULL, N'CANCEL_CLASS_BOOKING', N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 198000.00 | Refund: 198000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (218, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-02T04:54:28.4077134' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (219, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T04:54:29.6152722' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (220, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=58, paymentId=128, amount=135000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T04:55:12.6818346' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=58, paymentId=128, amount=135000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (221, N'CANCEL_CLASS_BOOKING', N'booking_id=58', 39, NULL, NULL, N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 135000.00 | Refund: 135000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T04:55:39.5333419' AS DateTime2), 39, N'booking_id=58', NULL, N'CANCEL_CLASS_BOOKING', N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 135000.00 | Refund: 135000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (222, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T05:03:24.8309798' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (223, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=59, paymentId=129, amount=135000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T05:05:33.0824097' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=59, paymentId=129, amount=135000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (224, N'CANCEL_CLASS_BOOKING', N'booking_id=59', 39, NULL, NULL, N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 135000.00 | Refund: 135000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T05:05:52.1880533' AS DateTime2), 39, N'booking_id=59', NULL, N'CANCEL_CLASS_BOOKING', N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 135000.00 | Refund: 135000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (225, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-02T12:44:22.5958680' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (226, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T12:44:25.5944663' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (227, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=60, paymentId=130, amount=180000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T12:45:15.9994320' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=60, paymentId=130, amount=180000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (228, N'CANCEL_CLASS_BOOKING', N'booking_id=60', 39, NULL, NULL, N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 180000.00 | Refund: 180000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T12:45:41.1376523' AS DateTime2), 39, N'booking_id=60', NULL, N'CANCEL_CLASS_BOOKING', N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 180000.00 | Refund: 180000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (229, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=61, paymentId=131, amount=198000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T12:49:00.7376674' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=61, paymentId=131, amount=198000.0')
-GO
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (230, N'CANCEL_CLASS_BOOKING', N'booking_id=61', 39, NULL, NULL, N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 198000.00 | Refund: 198000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T12:52:04.9816049' AS DateTime2), 39, N'booking_id=61', NULL, N'CANCEL_CLASS_BOOKING', N'Hủy đúng hạn (trước 2 tiếng) - Hoàn 100% | VNPay refund failed: Invalid data format | Original fee: 198000.00 | Refund: 198000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (231, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T14:10:04.8368468' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (232, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=62, paymentId=132, amount=144000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T14:11:56.3025702' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=62, paymentId=132, amount=144000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (233, N'CANCEL_CLASS_BOOKING', N'booking_id=62', 39, NULL, NULL, N'Refund booking 62 - 100% | VNPay refund failed: Invalid data format | Original fee: 144000.00 | Refund: 144000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T14:13:20.1776067' AS DateTime2), 39, N'booking_id=62', NULL, N'CANCEL_CLASS_BOOKING', N'Refund booking 62 - 100% | VNPay refund failed: Invalid data format | Original fee: 144000.00 | Refund: 144000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (234, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=63, paymentId=133, amount=144000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T14:39:08.2540645' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=63, paymentId=133, amount=144000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (235, N'CANCEL_CLASS_BOOKING', N'booking_id=63', 39, NULL, NULL, N'Refund booking 63 - 100% | VNPay refund failed: Invalid data format | Original fee: 144000.00 | Refund: 144000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T14:43:45.1484304' AS DateTime2), 39, N'booking_id=63', NULL, N'CANCEL_CLASS_BOOKING', N'Refund booking 63 - 100% | VNPay refund failed: Invalid data format | Original fee: 144000.00 | Refund: 144000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (236, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T14:47:33.5299785' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (237, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'courtBookingId=55, paymentId=134, amount=187000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T14:49:03.6162440' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'courtBookingId=55, paymentId=134, amount=187000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (238, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=64, paymentId=135, amount=162000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T14:50:07.6478762' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=64, paymentId=135, amount=162000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (239, N'CANCEL_CLASS_BOOKING', N'booking_id=64', 39, NULL, NULL, N'Refund booking 64 - 100% | VNPay refund failed: Invalid data format | Original fee: 162000.00 | Refund: 162000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T14:51:33.4374042' AS DateTime2), 39, N'booking_id=64', NULL, N'CANCEL_CLASS_BOOKING', N'Refund booking 64 - 100% | VNPay refund failed: Invalid data format | Original fee: 162000.00 | Refund: 162000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (240, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T14:57:28.4721221' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (241, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=65, paymentId=136, amount=135000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T14:58:33.9291389' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=65, paymentId=136, amount=135000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (242, N'CANCEL_CLASS_BOOKING', N'booking_id=65', 39, NULL, NULL, N'Refund booking 65 - 100% | VNPay refund failed: Invalid data format | Original fee: 135000.00 | Refund: 135000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T14:58:50.4575248' AS DateTime2), 39, N'booking_id=65', NULL, N'CANCEL_CLASS_BOOKING', N'Refund booking 65 - 100% | VNPay refund failed: Invalid data format | Original fee: 135000.00 | Refund: 135000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (243, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-02T14:59:58.4032402' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (244, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T15:03:22.2138914' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (245, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=66, paymentId=137, amount=126000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T15:05:54.9074517' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=66, paymentId=137, amount=126000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (246, N'CANCEL_CLASS_BOOKING', N'booking_id=66', 39, NULL, NULL, N'Refund booking 66 - 100% | VNPay refund failed: Invalid data format | Original fee: 126000.00 | Refund: 126000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T15:13:48.9094276' AS DateTime2), 39, N'booking_id=66', NULL, N'CANCEL_CLASS_BOOKING', N'Refund booking 66 - 100% | VNPay refund failed: Invalid data format | Original fee: 126000.00 | Refund: 126000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (247, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=67, paymentId=138, amount=135000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T15:38:40.0234790' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=67, paymentId=138, amount=135000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (248, N'CANCEL_CLASS_BOOKING', N'booking_id=67', 39, NULL, NULL, N'Refund booking 67 - 100% | VNPay refund failed: null | Original fee: 135000.00 | Refund: 135000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T15:39:07.6732798' AS DateTime2), 39, N'booking_id=67', NULL, N'CANCEL_CLASS_BOOKING', N'Refund booking 67 - 100% | VNPay refund failed: null | Original fee: 135000.00 | Refund: 135000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (249, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T15:42:20.4055368' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (250, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=68, paymentId=139, amount=153000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T15:44:41.7218069' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=68, paymentId=139, amount=153000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (251, N'CANCEL_CLASS_BOOKING', N'booking_id=68', 39, NULL, NULL, N'Refund booking 68 - 100% | VNPay refund failed: null | Original fee: 153000.00 | Refund: 153000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T15:45:59.9481649' AS DateTime2), 39, N'booking_id=68', NULL, N'CANCEL_CLASS_BOOKING', N'Refund booking 68 - 100% | VNPay refund failed: null | Original fee: 153000.00 | Refund: 153000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (252, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-02T22:11:08.5051906' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (253, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T22:11:13.9426667' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (254, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'courtBookingId=56, paymentId=140, amount=467500.0', N'SUCCESS', NULL, CAST(N'2026-11-02T22:12:06.9450693' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'courtBookingId=56, paymentId=140, amount=467500.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (255, N'CANCEL_COURT_BOOKING', N'booking_id=56', 39, NULL, NULL, N'Refund court booking 56 - 100% | VNPay refund failed: Invalid data format | Original amount: 467500.00 | Refund: 467500.00', N'SUCCESS', NULL, CAST(N'2026-11-02T22:14:15.7806471' AS DateTime2), 39, N'booking_id=56', NULL, N'CANCEL_COURT_BOOKING', N'Refund court booking 56 - 100% | VNPay refund failed: Invalid data format | Original amount: 467500.00 | Refund: 467500.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (256, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'courtBookingId=57, paymentId=141, amount=85000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T22:15:06.0371131' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'courtBookingId=57, paymentId=141, amount=85000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (257, N'CANCEL_COURT_BOOKING', N'booking_id=57', 39, NULL, NULL, N'Refund court booking 57 - 100% | VNPay refund failed: Invalid data format | Original amount: 85000.00 | Refund: 85000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T22:15:22.3399077' AS DateTime2), 39, N'booking_id=57', NULL, N'CANCEL_COURT_BOOKING', N'Refund court booking 57 - 100% | VNPay refund failed: Invalid data format | Original amount: 85000.00 | Refund: 85000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (258, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-02T22:19:16.3831571' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (259, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T22:19:20.6821700' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (260, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=69, paymentId=142, amount=153000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T22:20:20.6838204' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=69, paymentId=142, amount=153000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (261, N'CANCEL_CLASS_BOOKING', N'booking_id=69', 39, NULL, NULL, N'Refund booking 69 - 100% | Original fee: 153000.00 | Refund: 153000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T22:21:07.1472896' AS DateTime2), 39, N'booking_id=69', NULL, N'CANCEL_CLASS_BOOKING', N'Refund booking 69 - 100% | Original fee: 153000.00 | Refund: 153000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (262, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-02T23:03:22.3052894' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (263, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-02T23:03:23.7212522' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (264, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=70, paymentId=143, amount=135000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T23:04:06.0203056' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=70, paymentId=143, amount=135000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (265, N'CANCEL_CLASS_BOOKING', N'booking_id=70', 39, NULL, NULL, N'Refund booking 70 - 100% | Original fee: 135000.00 | Refund: 135000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T23:04:46.5426781' AS DateTime2), 39, N'booking_id=70', NULL, N'CANCEL_CLASS_BOOKING', N'Refund booking 70 - 100% | Original fee: 135000.00 | Refund: 135000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (266, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'courtBookingId=58, paymentId=144, amount=85000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T23:05:51.0458719' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'courtBookingId=58, paymentId=144, amount=85000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (267, N'CANCEL_COURT_BOOKING', N'booking_id=58', 39, NULL, NULL, N'Refund court booking 58 - 100% | Original amount: 85000.00 | Refund: 85000.00', N'SUCCESS', NULL, CAST(N'2026-11-02T23:06:17.7619388' AS DateTime2), 39, N'booking_id=58', NULL, N'CANCEL_COURT_BOOKING', N'Refund court booking 58 - 100% | Original amount: 85000.00 | Refund: 85000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (268, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=71, paymentId=145, amount=126000.0', N'SUCCESS', NULL, CAST(N'2026-11-02T23:18:10.7932964' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=71, paymentId=145, amount=126000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (269, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T00:09:53.1269803' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (270, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T00:10:17.7746015' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (271, N'LOGOUT', N'manager@sporthub.com', 1, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T00:15:52.1121263' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (272, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T00:15:55.1794316' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (273, N'LOGOUT', N'manager@sporthub.com', 1, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T00:15:58.7242330' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (274, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T00:16:01.1578894' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (275, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T00:20:36.9121479' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (276, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T00:20:39.4814963' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (277, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T00:32:55.8181582' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (278, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T00:32:58.5180312' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (279, N'LOGOUT', N'manager@sporthub.com', 1, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T00:56:18.2693317' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (280, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T00:56:21.5079383' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (281, N'CANCEL_CLASS_BOOKING', N'booking_id=71', 39, NULL, NULL, N'Refund booking 71 - 100% | Original fee: 126000.00 | Refund: 126000.00', N'SUCCESS', NULL, CAST(N'2026-11-03T01:06:06.0063705' AS DateTime2), 39, N'booking_id=71', NULL, N'CANCEL_CLASS_BOOKING', N'Refund booking 71 - 100% | Original fee: 126000.00 | Refund: 126000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (282, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T01:07:59.5883756' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (283, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T01:08:01.0306939' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (284, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T01:17:50.7540614' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (285, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T01:17:54.1695153' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (286, N'LOGOUT', N'manager@sporthub.com', 1, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T01:18:05.1366800' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (287, N'LOGIN', N'director@sporthub.com', 2, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T01:18:18.3783217' AS DateTime2), 2, N'director@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (288, N'LOGOUT', N'director@sporthub.com', 2, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T01:18:37.3126010' AS DateTime2), 2, N'director@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (290, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T01:18:46.0400841' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (291, N'CANCEL_CLASS_BOOKING', N'booking_id=25', 37, NULL, NULL, N'Refund booking 25 - 100% | Original fee: 160000.00 | Refund: 160000.00', N'SUCCESS', NULL, CAST(N'2026-11-03T01:19:04.8480604' AS DateTime2), 37, N'booking_id=25', NULL, N'CANCEL_CLASS_BOOKING', N'Refund booking 25 - 100% | Original fee: 160000.00 | Refund: 160000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (292, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T01:26:29.7740235' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (293, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T01:26:34.0234562' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (294, N'LOGOUT', N'manager@sporthub.com', 1, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T01:34:35.6687211' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (295, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T01:34:46.3945109' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (296, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T01:47:02.3099933' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (297, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T01:47:05.6817375' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (298, N'LOGOUT', N'manager@sporthub.com', 1, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T01:51:16.7132509' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (299, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T01:51:19.3386616' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (300, N'LOGOUT', N'khoa.member@gmail.com', 9, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T02:14:12.8712680' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (301, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T02:14:15.8894998' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (302, N'LOGOUT', N'manager@sporthub.com', 1, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T02:55:23.6998513' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (303, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T02:55:25.1077010' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (304, N'LOGOUT', N'manager@sporthub.com', 1, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T02:59:57.0261531' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (305, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T02:59:59.9122548' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (306, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T03:00:16.0212381' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (307, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T03:00:19.3948019' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (308, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T04:09:04.4371904' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (309, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T04:09:34.1188336' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (310, N'LOGOUT', N'manager@sporthub.com', 1, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T04:28:15.9190191' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (311, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T04:28:18.6733195' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (312, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T04:29:42.8445974' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (313, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T04:29:46.0439719' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (315, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T05:22:12.0284447' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (316, N'PAYMENT_CONFIRMED', N'huy tran', 37, NULL, NULL, N'bookingId=72, paymentId=147, amount=150000.0', N'SUCCESS', NULL, CAST(N'2026-11-03T05:23:09.9428963' AS DateTime2), 37, N'huy tran', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=72, paymentId=147, amount=150000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (317, N'CANCEL_CLASS_BOOKING', N'booking_id=72', 37, NULL, NULL, N'Refund booking 72 - 100% | Original fee: 150000.00 | Refund: 150000.00', N'SUCCESS', NULL, CAST(N'2026-11-03T05:23:26.4293086' AS DateTime2), 37, N'booking_id=72', NULL, N'CANCEL_CLASS_BOOKING', N'Refund booking 72 - 100% | Original fee: 150000.00 | Refund: 150000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (318, N'CANCEL_COURT_BOOKING', N'booking_id=41', 37, NULL, NULL, N'Refund court booking 41 - 100% | Original amount: 250000.00 | Refund: 250000.00', N'SUCCESS', NULL, CAST(N'2026-11-03T05:24:58.8902631' AS DateTime2), 37, N'booking_id=41', NULL, N'CANCEL_COURT_BOOKING', N'Refund court booking 41 - 100% | Original amount: 250000.00 | Refund: 250000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (319, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T06:12:18.1135791' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (320, N'PAYMENT_CONFIRMED', N'huy tran', 37, NULL, NULL, N'bookingId=73, paymentId=149, amount=150000.0', N'SUCCESS', NULL, CAST(N'2026-11-03T06:12:58.8514217' AS DateTime2), 37, N'huy tran', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=73, paymentId=149, amount=150000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (321, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T07:24:05.6558411' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (322, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T15:37:34.5211993' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (323, N'MEMBERSHIP_PAYMENT_CONFIRMED', N'huy tran', 37, NULL, NULL, N'membershipId=27, paymentId=150, amount=1500000.0, status=PENDING_APPROVAL', N'SUCCESS', NULL, CAST(N'2026-11-03T15:41:39.0722206' AS DateTime2), 37, N'huy tran', N'MEMBER', N'MEMBERSHIP_PAYMENT_CONFIRMED', N'membershipId=27, paymentId=150, amount=1500000.0, status=PENDING_APPROVAL')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (324, N'PAYMENT_CONFIRMED', N'huy tran', 37, NULL, NULL, N'courtBookingId=59, paymentId=151, amount=50000.0', N'SUCCESS', NULL, CAST(N'2026-11-03T15:43:01.5373725' AS DateTime2), 37, N'huy tran', N'MEMBER', N'PAYMENT_CONFIRMED', N'courtBookingId=59, paymentId=151, amount=50000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (325, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T16:11:16.5792803' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (326, N'PAYMENT_CONFIRMED', N'huy tran', 37, NULL, NULL, N'bookingId=74, paymentId=152, amount=180000.0', N'SUCCESS', NULL, CAST(N'2026-11-03T16:11:56.3615578' AS DateTime2), 37, N'huy tran', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=74, paymentId=152, amount=180000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (327, N'REFUND_REQUEST_CREATED', N'huy tran', 37, NULL, NULL, N'bookingId=74, bookingType=CLASS, amount=180000.00, refundId=803', N'SUCCESS', NULL, CAST(N'2026-11-03T16:12:14.0890375' AS DateTime2), 37, N'huy tran', N'MEMBER', N'REFUND_REQUEST_CREATED', N'bookingId=74, bookingType=CLASS, amount=180000.00, refundId=803')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (328, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T16:18:14.4051764' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (329, N'REFUND_DECIDED', N'Nguyễn Văn Quản Lý', 1, NULL, NULL, N'refundId=803, status=APPROVED, amount=180000.00, memberId=37, note=Đã duyệt hoàn tiền', N'SUCCESS', NULL, CAST(N'2026-11-03T16:18:33.8147395' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'REFUND_DECIDED', N'refundId=803, status=APPROVED, amount=180000.00, memberId=37, note=Đã duyệt hoàn tiền')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (330, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T16:39:31.2877774' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (331, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T16:39:32.4245004' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-GO
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (332, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T16:40:50.4907207' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (333, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T16:40:51.7529873' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (334, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T16:56:55.0222076' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (335, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T16:56:56.1794691' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (336, N'REFUND_REQUEST_CREATED', N'huy tran', 37, NULL, NULL, N'courtBookingId=60, bookingType=COURT, amount=120000.00', N'SUCCESS', NULL, CAST(N'2026-11-03T16:58:17.5234926' AS DateTime2), 37, N'huy tran', N'MEMBER', N'REFUND_REQUEST_CREATED', N'courtBookingId=60, bookingType=COURT, amount=120000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (337, N'REFUND_REQUEST_CREATED', N'huy tran', 37, NULL, NULL, N'courtBookingId=59, bookingType=COURT, amount=50000.00', N'SUCCESS', NULL, CAST(N'2026-11-03T16:59:45.0428584' AS DateTime2), 37, N'huy tran', N'MEMBER', N'REFUND_REQUEST_CREATED', N'courtBookingId=59, bookingType=COURT, amount=50000.00')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (338, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T17:08:02.3829104' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (339, N'PAYMENT_CONFIRMED', N'huy tran', 37, NULL, NULL, N'bookingId=75, paymentId=155, amount=180000.0', N'SUCCESS', NULL, CAST(N'2026-11-03T17:11:58.4864677' AS DateTime2), 37, N'huy tran', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=75, paymentId=155, amount=180000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (340, N'REFUND_REQUEST_CREATED', N'huy tran', 37, NULL, NULL, N'bookingId=75, bookingType=CLASS, amount=180000.00, refundId=806', N'SUCCESS', NULL, CAST(N'2026-11-03T17:12:09.5488114' AS DateTime2), 37, N'huy tran', N'MEMBER', N'REFUND_REQUEST_CREATED', N'bookingId=75, bookingType=CLASS, amount=180000.00, refundId=806')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (341, N'REFUND_DECIDED', N'Nguyễn Văn Quản Lý', 1, NULL, NULL, N'refundId=806, status=APPROVED, amount=180000.00, memberId=37, note=Đã duyệt hoàn tiền', N'SUCCESS', NULL, CAST(N'2026-11-03T17:14:30.6002960' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'REFUND_DECIDED', N'refundId=806, status=APPROVED, amount=180000.00, memberId=37, note=Đã duyệt hoàn tiền')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (342, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T17:15:43.3132200' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (343, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T17:15:45.4782553' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (344, N'REFUND_DECIDED', N'Nguyễn Văn Quản Lý', 1, NULL, NULL, N'refundId=805, status=APPROVED, amount=50000.00, memberId=37, note=Đã duyệt hoàn tiền', N'SUCCESS', NULL, CAST(N'2026-11-03T17:15:58.0844365' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'REFUND_DECIDED', N'refundId=805, status=APPROVED, amount=50000.00, memberId=37, note=Đã duyệt hoàn tiền')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (345, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T17:16:14.0959060' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (347, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T20:59:03.2848411' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (348, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=77, paymentId=157, amount=198000.0', N'SUCCESS', NULL, CAST(N'2026-11-03T21:02:58.3015947' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=77, paymentId=157, amount=198000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (349, N'REFUND_REQUEST_CREATED', N'duc nguyen', 39, NULL, NULL, N'bookingId=77, bookingType=CLASS, amount=198000.00, refundId=807', N'SUCCESS', NULL, CAST(N'2026-11-03T21:03:27.6084245' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'REFUND_REQUEST_CREATED', N'bookingId=77, bookingType=CLASS, amount=198000.00, refundId=807')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (350, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=78, paymentId=158, amount=162000.0', N'SUCCESS', NULL, CAST(N'2026-11-03T21:04:14.5181987' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=78, paymentId=158, amount=162000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (351, N'REFUND_REQUEST_CREATED', N'duc nguyen', 39, NULL, NULL, N'bookingId=78, bookingType=CLASS, amount=162000.00, refundId=808', N'SUCCESS', NULL, CAST(N'2026-11-03T21:07:04.3383532' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'REFUND_REQUEST_CREATED', N'bookingId=78, bookingType=CLASS, amount=162000.00, refundId=808')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (352, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T21:11:26.6995353' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (353, N'PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'bookingId=79, paymentId=159, amount=126000.0', N'SUCCESS', NULL, CAST(N'2026-11-03T21:33:22.5005958' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=79, paymentId=159, amount=126000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (354, N'REFUND_REQUEST_CREATED', N'duc nguyen', 39, NULL, NULL, N'bookingId=79, bookingType=CLASS, amount=126000.00, refundId=809', N'SUCCESS', NULL, CAST(N'2026-11-03T21:36:26.0015410' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'REFUND_REQUEST_CREATED', N'bookingId=79, bookingType=CLASS, amount=126000.00, refundId=809')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (355, N'REFUND_DECIDED', N'Nguyễn Văn Quản Lý', 1, NULL, NULL, N'refundId=809, status=APPROVED, amount=126000.00, memberId=39, note=Đã duyệt hoàn tiền', N'SUCCESS', NULL, CAST(N'2026-11-03T21:36:51.0753642' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'REFUND_DECIDED', N'refundId=809, status=APPROVED, amount=126000.00, memberId=39, note=Đã duyệt hoàn tiền')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (356, N'MEMBERSHIP_PAYMENT_CONFIRMED', N'duc nguyen', 39, NULL, NULL, N'membershipId=29, paymentId=160, amount=1800000.0, status=PENDING_APPROVAL', N'SUCCESS', NULL, CAST(N'2026-11-03T21:38:06.9784819' AS DateTime2), 39, N'duc nguyen', N'MEMBER', N'MEMBERSHIP_PAYMENT_CONFIRMED', N'membershipId=29, paymentId=160, amount=1800000.0, status=PENDING_APPROVAL')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (357, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T21:40:11.4912406' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (358, N'MEMBERSHIP_APPROVED', N'Manager #1', 15, NULL, NULL, N'Approved membership #15 (Package: Khóa Học Pickleball Căn Bản (10 Buổi)) for user #37. Quota granted: 10 sessions', N'SUCCESS', NULL, CAST(N'2026-11-03T21:40:18.5944127' AS DateTime2), 15, N'Manager #1', NULL, N'MEMBERSHIP_APPROVED', N'Approved membership #15 (Package: Khóa Học Pickleball Căn Bản (10 Buổi)) for user #37. Quota granted: 10 sessions')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (359, N'LOGOUT', N'manager@sporthub.com', 1, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T21:46:08.6345070' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (360, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T21:46:10.8396590' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (361, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T21:46:13.2636787' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (362, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T21:46:14.6829495' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (363, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T22:48:41.0218274' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (364, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T22:48:46.6064601' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (365, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-03T22:48:49.2945037' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (370, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T22:49:30.1352591' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (371, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T23:01:14.2515293' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (372, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-03T23:01:23.4657344' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (373, N'MEMBERSHIP_PAYMENT_CONFIRMED', N'tien pham', 29, NULL, NULL, N'membershipId=31, paymentId=164, amount=1800000.0, status=PENDING_APPROVAL', N'SUCCESS', NULL, CAST(N'2026-11-03T23:02:03.2254973' AS DateTime2), 29, N'tien pham', N'MEMBER', N'MEMBERSHIP_PAYMENT_CONFIRMED', N'membershipId=31, paymentId=164, amount=1800000.0, status=PENDING_APPROVAL')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (374, N'MEMBERSHIP_PAYMENT_CONFIRMED', N'tien pham', 29, NULL, NULL, N'membershipId=33, paymentId=166, amount=1500000.0, status=PENDING_APPROVAL', N'SUCCESS', NULL, CAST(N'2026-11-03T23:03:42.0187363' AS DateTime2), 29, N'tien pham', N'MEMBER', N'MEMBERSHIP_PAYMENT_CONFIRMED', N'membershipId=33, paymentId=166, amount=1500000.0, status=PENDING_APPROVAL')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (375, N'MEMBERSHIP_APPROVED', N'Manager #1', 21, NULL, NULL, N'Approved membership #21 (Package: Thẻ Hội Viên Vàng Off-Peak) for user #29. Quota granted: 20 sessions', N'SUCCESS', NULL, CAST(N'2026-11-03T23:06:24.7977147' AS DateTime2), 21, N'Manager #1', NULL, N'MEMBERSHIP_APPROVED', N'Approved membership #21 (Package: Thẻ Hội Viên Vàng Off-Peak) for user #29. Quota granted: 20 sessions')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (376, N'PAYMENT_CONFIRMED', N'tien pham', 29, NULL, NULL, N'bookingId=82, paymentId=167, amount=112000.0', N'SUCCESS', NULL, CAST(N'2026-11-03T23:08:10.2167103' AS DateTime2), 29, N'tien pham', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=82, paymentId=167, amount=112000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (377, N'REFUND_REQUEST_CREATED', N'tien pham', 29, NULL, NULL, N'bookingId=82, bookingType=CLASS, amount=112000.00, refundId=810', N'SUCCESS', NULL, CAST(N'2026-11-03T23:10:00.8288655' AS DateTime2), 29, N'tien pham', N'MEMBER', N'REFUND_REQUEST_CREATED', N'bookingId=82, bookingType=CLASS, amount=112000.00, refundId=810')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (378, N'REFUND_DECIDED', N'Nguyễn Văn Quản Lý', 1, NULL, NULL, N'refundId=810, status=REJECTED, amount=112000.00, memberId=29, note=Từ chối hoàn tiền', N'SUCCESS', NULL, CAST(N'2026-11-03T23:10:49.8689671' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'REFUND_DECIDED', N'refundId=810, status=REJECTED, amount=112000.00, memberId=29, note=Từ chối hoàn tiền')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (379, N'REFUND_REQUEST_CREATED', N'tien pham', 29, NULL, NULL, N'bookingId=82, bookingType=CLASS, amount=112000.00, refundId=811', N'SUCCESS', NULL, CAST(N'2026-11-03T23:11:10.0053807' AS DateTime2), 29, N'tien pham', N'MEMBER', N'REFUND_REQUEST_CREATED', N'bookingId=82, bookingType=CLASS, amount=112000.00, refundId=811')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (380, N'REFUND_DECIDED', N'Nguyễn Văn Quản Lý', 1, NULL, NULL, N'refundId=811, status=APPROVED, amount=112000.00, memberId=29, note=Đã duyệt hoàn tiền', N'SUCCESS', NULL, CAST(N'2026-11-03T23:11:29.1290764' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'REFUND_DECIDED', N'refundId=811, status=APPROVED, amount=112000.00, memberId=29, note=Đã duyệt hoàn tiền')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (381, N'PAYMENT_CONFIRMED', N'tien pham', 29, NULL, NULL, N'bookingId=84, paymentId=169, amount=112000.0', N'SUCCESS', NULL, CAST(N'2026-11-04T00:23:00.3193386' AS DateTime2), 29, N'tien pham', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=84, paymentId=169, amount=112000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (382, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-04T00:53:52.7190763' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (383, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T00:54:00.5050679' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (384, N'REFUND_DECIDED', N'Nguyễn Văn Quản Lý', 1, NULL, NULL, N'refundId=812, status=APPROVED, amount=550000.00, memberId=37, note=Đã duyệt hoàn tiền', N'SUCCESS', NULL, CAST(N'2026-11-04T00:55:14.0975001' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'REFUND_DECIDED', N'refundId=812, status=APPROVED, amount=550000.00, memberId=37, note=Đã duyệt hoàn tiền')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (385, N'PAYMENT_CONFIRMED', N'huy tran', 37, NULL, NULL, N'courtBookingId=61, paymentId=170, amount=153000.0', N'SUCCESS', NULL, CAST(N'2026-11-04T01:32:09.8786314' AS DateTime2), 37, N'huy tran', N'MEMBER', N'PAYMENT_CONFIRMED', N'courtBookingId=61, paymentId=170, amount=153000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (386, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T01:41:21.1127360' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (387, N'MEMBERSHIP_PAYMENT_CONFIRMED', N'huy tran', 37, NULL, NULL, N'membershipId=35, paymentId=172, amount=2800000.0, status=PENDING_APPROVAL', N'SUCCESS', NULL, CAST(N'2026-11-04T01:42:51.7841399' AS DateTime2), 37, N'huy tran', N'MEMBER', N'MEMBERSHIP_PAYMENT_CONFIRMED', N'membershipId=35, paymentId=172, amount=2800000.0, status=PENDING_APPROVAL')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (388, N'MEMBERSHIP_PAYMENT_CONFIRMED', N'huy tran', 37, NULL, NULL, N'membershipId=36, paymentId=173, amount=2800000.0, status=PENDING_APPROVAL', N'SUCCESS', NULL, CAST(N'2026-11-04T13:15:11.7697084' AS DateTime2), 37, N'huy tran', N'MEMBER', N'MEMBERSHIP_PAYMENT_CONFIRMED', N'membershipId=36, paymentId=173, amount=2800000.0, status=PENDING_APPROVAL')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (389, N'LOGOUT', N'manager@sporthub.com', 1, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-04T13:15:21.5036938' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (390, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T13:15:38.2222078' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (391, N'MEMBERSHIP_APPROVED', N'Manager #1', 36, NULL, NULL, N'Approved membership #36 (Package: Thẻ Hội Viên VIP Diamond (Toàn Hệ Thống)) for user #37. Quota granted: 0 sessions', N'SUCCESS', NULL, CAST(N'2026-11-04T13:18:22.8751574' AS DateTime2), 36, N'Manager #1', NULL, N'MEMBERSHIP_APPROVED', N'Approved membership #36 (Package: Thẻ Hội Viên VIP Diamond (Toàn Hệ Thống)) for user #37. Quota granted: 0 sessions')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (392, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T13:36:05.0947927' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (393, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-04T13:41:33.2369359' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (394, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T13:41:40.4269058' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (398, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T20:26:40.9582390' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (399, N'LOGOUT', N'manager@sporthub.com', 1, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-04T20:27:24.4210472' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (400, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T20:28:17.5278849' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (401, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T20:28:40.5863639' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (402, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-04T21:02:31.5428023' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (403, N'LOGIN', N'reception.tu@sporthub.com', 4, NULL, NULL, N'Login successful | Role: RECEPTIONIST | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T21:03:34.7637223' AS DateTime2), 4, N'reception.tu@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: RECEPTIONIST | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (404, N'LOGOUT', N'reception.tu@sporthub.com', 4, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-04T21:05:04.5028218' AS DateTime2), 4, N'reception.tu@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (405, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T21:05:10.3398988' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (406, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-04T22:00:08.9961287' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (407, N'LOGIN', N'reception.tu@sporthub.com', 4, NULL, NULL, N'Login successful | Role: RECEPTIONIST | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T22:00:15.7220639' AS DateTime2), 4, N'reception.tu@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: RECEPTIONIST | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (408, N'MEMBERSHIP_PAYMENT_CONFIRMED', N'huy tran', 37, NULL, NULL, N'membershipId=37, paymentId=176, amount=1800000.0, status=PENDING_APPROVAL', N'SUCCESS', NULL, CAST(N'2026-11-04T22:02:00.2148525' AS DateTime2), 37, N'huy tran', N'MEMBER', N'MEMBERSHIP_PAYMENT_CONFIRMED', N'membershipId=37, paymentId=176, amount=1800000.0, status=PENDING_APPROVAL')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (409, N'LOGIN', N'reception.tu@sporthub.com', 4, NULL, NULL, N'Login successful | Role: RECEPTIONIST | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T22:02:13.8879680' AS DateTime2), 4, N'reception.tu@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: RECEPTIONIST | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (410, N'LOGOUT', N'reception.tu@sporthub.com', 4, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-04T22:02:30.1949451' AS DateTime2), 4, N'reception.tu@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (411, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T22:02:38.8160284' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (412, N'LOGOUT', N'manager@sporthub.com', 1, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-04T22:03:00.9108109' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (413, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-04T22:17:12.8460758' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (414, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T22:17:16.1548722' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (415, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-04T22:17:21.0072070' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (416, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T22:17:23.9356592' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (417, N'LOGIN', N'reception.le@sporthub.com', 3, NULL, NULL, N'Login successful | Role: RECEPTIONIST | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T22:18:01.9841887' AS DateTime2), 3, N'reception.le@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: RECEPTIONIST | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (418, N'MEMBERSHIP_ACTIVATED', N'tien pham', 29, NULL, NULL, N'membershipId=38, paymentId=177, amount=2000000.0, status=ACTIVE', N'SUCCESS', NULL, CAST(N'2026-11-04T22:19:44.6084308' AS DateTime2), 29, N'tien pham', N'MEMBER', N'MEMBERSHIP_ACTIVATED', N'membershipId=38, paymentId=177, amount=2000000.0, status=ACTIVE')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (419, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-04T22:22:44.0197276' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (420, N'LOGIN', N'reception.tu@sporthub.com', 4, NULL, NULL, N'Login successful | Role: RECEPTIONIST | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T22:22:49.7682626' AS DateTime2), 4, N'reception.tu@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: RECEPTIONIST | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (421, N'MEMBERSHIP_ACTIVATED', N'jbhvvy', 14, NULL, NULL, N'membershipId=40, paymentId=179, amount=1800000.0, status=ACTIVE', N'SUCCESS', NULL, CAST(N'2026-11-04T22:28:03.7777366' AS DateTime2), 14, N'jbhvvy', N'MEMBER', N'MEMBERSHIP_ACTIVATED', N'membershipId=40, paymentId=179, amount=1800000.0, status=ACTIVE')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (422, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-04T22:52:53.0340315' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (423, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T00:36:42.4680191' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (424, N'PAYMENT_CONFIRMED', N'tien pham', 29, NULL, NULL, N'bookingId=88, paymentId=182, amount=162000.0', N'SUCCESS', NULL, CAST(N'2026-11-05T00:57:22.1372731' AS DateTime2), 29, N'tien pham', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=88, paymentId=182, amount=162000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (425, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T00:59:54.9697806' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (426, N'REFUND_DECIDED', N'Nguyễn Văn Quản Lý', 1, NULL, NULL, N'refundId=813, status=APPROVED, amount=162000.00, memberId=29, note=Đã duyệt hoàn tiền', N'SUCCESS', NULL, CAST(N'2026-11-05T01:00:11.2272993' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'REFUND_DECIDED', N'refundId=813, status=APPROVED, amount=162000.00, memberId=29, note=Đã duyệt hoàn tiền')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (427, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-05T01:11:44.8435160' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (428, N'LOGIN', N'diepnhan453@gmail.com', 39, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T01:11:48.3463956' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (429, N'LOGOUT', N'diepnhan453@gmail.com', 39, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-05T01:12:07.3193228' AS DateTime2), 39, N'diepnhan453@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (430, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T01:12:10.6392351' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (431, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T02:21:22.6014551' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (432, N'REFUND_DECIDED', N'Nguyễn Văn Quản Lý', 1, NULL, NULL, N'refundId=814, status=APPROVED, amount=160000.00, memberId=37, note=Đã duyệt hoàn tiền', N'SUCCESS', NULL, CAST(N'2026-11-05T02:22:13.1716126' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'REFUND_DECIDED', N'refundId=814, status=APPROVED, amount=160000.00, memberId=37, note=Đã duyệt hoàn tiền')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (433, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-05T02:37:03.0389544' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (434, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T02:37:05.8118549' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (435, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T02:38:07.6756307' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (436, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T03:22:37.1401220' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (437, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-05T03:22:41.6226278' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (438, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T03:22:45.1435228' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (439, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T03:23:08.5710661' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-GO
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (440, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T03:25:12.4514801' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (441, N'REFUND_REQUEST_CREATED', N'Nguyễn Anh Khoa', 9, NULL, NULL, N'bookingId=91, bookingType=CLASS, amount=0.00, refundId=815', N'SUCCESS', NULL, CAST(N'2026-11-05T03:25:23.9679591' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'REFUND_REQUEST_CREATED', N'bookingId=91, bookingType=CLASS, amount=0.00, refundId=815')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (442, N'REFUND_DECIDED', N'Nguyễn Văn Quản Lý', 1, NULL, NULL, N'refundId=815, status=APPROVED, amount=0.00, memberId=9, note=Đã duyệt hoàn tiền', N'SUCCESS', NULL, CAST(N'2026-11-05T03:25:52.5449290' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'REFUND_DECIDED', N'refundId=815, status=APPROVED, amount=0.00, memberId=9, note=Đã duyệt hoàn tiền')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (443, N'REFUND_REQUEST_CREATED', N'Nguyễn Anh Khoa', 9, NULL, NULL, N'bookingId=92, bookingType=CLASS, amount=0.00, refundId=816', N'SUCCESS', NULL, CAST(N'2026-11-05T03:27:27.5439490' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'REFUND_REQUEST_CREATED', N'bookingId=92, bookingType=CLASS, amount=0.00, refundId=816')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (444, N'REFUND_DECIDED', N'Nguyễn Văn Quản Lý', 1, NULL, NULL, N'refundId=816, status=APPROVED, amount=0.00, memberId=9, note=Đã duyệt hoàn tiền', N'SUCCESS', NULL, CAST(N'2026-11-05T03:27:49.8414601' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'REFUND_DECIDED', N'refundId=816, status=APPROVED, amount=0.00, memberId=9, note=Đã duyệt hoàn tiền')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (445, N'LOGOUT', N'khoa.member@gmail.com', 9, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-05T03:28:11.3161320' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (446, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T03:28:12.4252603' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (447, N'LOGOUT', N'khoa.member@gmail.com', 9, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-05T03:28:17.7342404' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (448, N'LOGIN', N'reception.tu@sporthub.com', 4, NULL, NULL, N'Login successful | Role: RECEPTIONIST | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T03:28:20.9112415' AS DateTime2), 4, N'reception.tu@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: RECEPTIONIST | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (449, N'MEMBERSHIP_ACTIVATED', N'Nguyễn Anh Khoa', 9, NULL, NULL, N'membershipId=41, paymentId=187, amount=1500000.0, status=ACTIVE', N'SUCCESS', NULL, CAST(N'2026-11-05T03:29:11.9990848' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'MEMBERSHIP_ACTIVATED', N'membershipId=41, paymentId=187, amount=1500000.0, status=ACTIVE')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (450, N'LOGOUT', N'manager@sporthub.com', 1, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-05T03:29:22.2929801' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (451, N'LOGOUT', N'reception.tu@sporthub.com', 4, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-05T03:30:01.2314351' AS DateTime2), 4, N'reception.tu@sporthub.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (452, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T03:30:04.5470503' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (453, N'LOGOUT', N'khoa.member@gmail.com', 9, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-05T03:31:07.4510922' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (454, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T03:43:33.0159604' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (455, N'LOGOUT', N'khoa.member@gmail.com', 9, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-05T03:43:44.4074322' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (456, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T03:43:50.2939359' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (457, N'LOGOUT', N'khoa.member@gmail.com', 9, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-05T03:43:54.8317382' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (458, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T03:43:56.8953367' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (459, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-05T03:45:00.8374650' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (460, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T03:45:05.2814641' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (461, N'PAYMENT_CONFIRMED', N'Nguyễn Anh Khoa', 9, NULL, NULL, N'bookingId=93, paymentId=188, amount=128000.0', N'SUCCESS', NULL, CAST(N'2026-11-05T03:45:56.7540724' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=93, paymentId=188, amount=128000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (462, N'LOGIN', N'manager@sporthub.com', 1, NULL, NULL, N'Login successful | Role: MANAGER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T03:47:01.3872840' AS DateTime2), 1, N'manager@sporthub.com', NULL, N'LOGIN', N'Login successful | Role: MANAGER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (463, N'REFUND_DECIDED', N'Nguyễn Văn Quản Lý', 1, NULL, NULL, N'refundId=818, status=APPROVED, amount=128000.00, memberId=9, note=Đã duyệt hoàn tiền', N'SUCCESS', NULL, CAST(N'2026-11-05T03:58:55.0725599' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'REFUND_DECIDED', N'refundId=818, status=APPROVED, amount=128000.00, memberId=9, note=Đã duyệt hoàn tiền')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (464, N'LOGOUT', N'khoa.member@gmail.com', 9, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-05T03:59:20.5598347' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (465, N'LOGIN', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T03:59:29.2531182' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (466, N'LOGOUT', N'phamhuutien876@gmail.com', 37, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-05T03:59:32.3386383' AS DateTime2), 37, N'phamhuutien876@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (467, N'LOGIN', N'bumximitech@gmail.com', 29, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T03:59:37.1594901' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (468, N'LOGOUT', N'bumximitech@gmail.com', 29, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-05T04:00:40.7309797' AS DateTime2), 29, N'bumximitech@gmail.com', NULL, N'LOGOUT', N'User logged out')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (469, N'LOGIN', N'khoa.member@gmail.com', 9, NULL, NULL, N'Login successful | Role: MEMBER | RequirePasswordChange: false', N'SUCCESS', NULL, CAST(N'2026-11-05T04:00:46.1647581' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGIN', N'Login successful | Role: MEMBER | RequirePasswordChange: false')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (470, N'PAYMENT_CONFIRMED', N'Nguyễn Anh Khoa', 9, NULL, NULL, N'bookingId=94, paymentId=189, amount=144000.0', N'SUCCESS', NULL, CAST(N'2026-11-05T04:02:05.5513106' AS DateTime2), 9, N'Nguyễn Anh Khoa', N'MEMBER', N'PAYMENT_CONFIRMED', N'bookingId=94, paymentId=189, amount=144000.0')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (471, N'REFUND_DECIDED', N'Nguyễn Văn Quản Lý', 1, NULL, NULL, N'refundId=819, status=APPROVED, amount=144000.00, memberId=9, note=Đã duyệt hoàn tiền', N'SUCCESS', NULL, CAST(N'2026-11-05T04:03:02.5556640' AS DateTime2), 1, N'Nguyễn Văn Quản Lý', N'MANAGER', N'REFUND_DECIDED', N'refundId=819, status=APPROVED, amount=144000.00, memberId=9, note=Đã duyệt hoàn tiền')
-INSERT [dbo].[audit_logs] ([log_id], [log_type], [user_email], [user_id], [ip_address], [user_agent], [action_detail], [status], [error_message], [created_at], [actor_id], [actor_name], [actor_role], [action], [detail]) VALUES (472, N'LOGOUT', N'khoa.member@gmail.com', 9, NULL, NULL, N'User logged out', N'SUCCESS', NULL, CAST(N'2026-11-05T04:03:13.9330336' AS DateTime2), 9, N'khoa.member@gmail.com', NULL, N'LOGOUT', N'User logged out')
-SET IDENTITY_INSERT [dbo].[audit_logs] OFF
-GO
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'0488dd7754dcbc8d480f01969c5539698368c12b1150eafabc72a3d51ff36b93', 29, CAST(N'2026-11-05T01:41:40.4358012' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'07695e92e9d349be8f65a4be221ecd5dd62749fe22f367fc4daeabbd7996913a', 37, CAST(N'2026-11-03T19:24:05.7274142' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'0adcd6e48e7b4d3a7ad6f92b71a4b92cad9ba7f3a2e11c3d60bf98b65229170c', 4, CAST(N'2026-11-05T10:00:15.7344801' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'0e0291e4512ead6c39abead7edc1fb277364204502091693cd07ca2b59941d76', 37, CAST(N'2026-11-04T12:54:00.5102092' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'0ed63a58f6061efcecd1a7081830414b15696c597285cb21210b48999b24a27a', 39, CAST(N'2026-11-02T15:41:34.1668431' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'0ffe2bcf05e3504867ce68592259ee35da6d91c3d5cd30b95b048bb7f679e65c', 9, CAST(N'2026-10-30T03:54:58.2719234' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'1511af9ae97afd8c05008a0514e3f6866da01b0a781c169e554b4d3eea540271', 37, CAST(N'2026-10-31T04:52:29.6756875' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'1fc1af968834615ab8af53e00f5bef663f8d23e32234aae465639036dbfa72f1', 37, CAST(N'2026-11-02T07:02:37.1875852' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'2617d3ed0e8796f40a1884f4bb824967e5490f87eb8a4d7c13a183b3804c0a65', 9, CAST(N'2026-11-05T14:38:07.6846295' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'28ef6dd23bfd8ce5a3b51df4f5f2327cea6a9fe23ce5547325ee253d7d49dac6', 9, CAST(N'2026-11-05T15:22:45.1505295' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'2a1ef4ecbc79c76d39154dd8121063914dd56c7a89f38c00292b35c6c44679ca', 9, CAST(N'2026-10-30T13:08:17.4916474' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'2a24eafe9f93d103e7c5176ca819578a653c43b0b8baf8283557ab8a07f76c33', 37, CAST(N'2026-11-03T18:12:18.1873267' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'2a76ee02e996c2d0a27f22d361cb31a4d9fdd63948a4c219ad42e3530cf2c96f', 30, CAST(N'2026-10-29T01:10:37.7070344' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'2c0fbe85f1f0607ddf2da748feb951ae4645771374d9f22b709dcd9a61083916', 39, CAST(N'2026-11-02T15:12:13.8422043' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'3612b6b11059332721af532bc0f59e01deb94dd0f8c88e0ddc0d1374eb6ca252', 9, CAST(N'2026-10-30T13:18:09.6886025' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'4260418d137018ccbb4b615d387b64f92778d4aeed4aa5ba3e603897a6f07619', 37, CAST(N'2026-10-31T21:12:51.3929307' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'4692691249e3c0a29d59a4c66d43a435a6a1ee3c5a1e53885c6f0e6f1f2dbc22', 3, CAST(N'2026-11-05T10:18:01.9912903' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'4cdad067cc4437eddb92784841e96a0c1b84cbcc9e87af5cc67209740fe1377a', 37, CAST(N'2026-11-05T13:12:10.6422348' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'57a4acece810d0ebed07e7ac1db74d496de848a791e457d604719220347fd537', 39, CAST(N'2026-11-03T00:44:25.6044514' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'61ca8286dade2fe2e02fd239c8cef04777c92b4790ae3664680c9729dfa2b5e3', 9, CAST(N'2026-10-31T01:22:43.9370966' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'66dcbcfc1df3ef20d9fade1ec34803c9e883d61e6cbff6c5182e8335e22df205', 37, CAST(N'2026-10-31T23:11:34.5904949' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'6733604ec8966330a2a03b7f47c89885c77833c4c1c5ebf75c98bb1ffbb2f0f9', 37, CAST(N'2026-11-01T01:02:01.3159024' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'6fcd28019dd1cd35f96a051c6cc5d22cb77d4031dc018efa8b210341baaea577', 1, CAST(N'2026-11-03T16:29:46.0507728' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'814f50da3704fae7e5d4b19e325d5b8a95fe99135641ee3110271bab91dd97aa', 1, CAST(N'2026-11-04T09:46:10.8446712' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'9478172a42bbe80788dde86dcab8ea4adf1112654f7544a21196f0fc783e14e2', 9, CAST(N'2026-11-05T14:37:05.8178554' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'94b38d955f412a9e7ad5e479d5d6efe8ece6b5dbd8958fdc1324a035883d22cb', 39, CAST(N'2026-11-02T07:42:54.6805085' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'961dc446299f80e91a08c49161d84022ac6407c01c2dfcc8f87fb78981c1b17b', 37, CAST(N'2026-10-31T11:22:45.2974192' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'9a640f5bbe079e821044ad4b0ba8fc2065d067d17f708c119261a693afb0201c', 29, CAST(N'2026-11-05T10:52:53.1845603' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'9b97f7caa1c82cef9a8c79df40ceb54c32230a99fe9ddafcab50b8338159468e', 29, CAST(N'2026-10-30T04:33:49.8728971' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'a2d8b3a10b38fcf3cc77c7d99bd9f844a21cdc9168b713ada1128b16c1b363ec', 9, CAST(N'2026-10-30T12:57:30.2585758' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'a56f1976a808b40d61e8aca6886402ef5cad135377da78cc1f97438e1451c3f0', 39, CAST(N'2026-11-04T08:59:03.3104664' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'a7f727df41d686733ef796e0b2e5f1a6911dece72badba69503964a7655f0711', 39, CAST(N'2026-11-02T06:52:07.0982675' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'aa5ca9599c918d5c396839b3ca685d13354c5208daf0565b17773ab4c910becc', 1, CAST(N'2026-11-05T01:15:38.2282119' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'ab0f04c82d175b74a5a826690832ad561afa91c8ce1f4271537f00ac370570ac', 1, CAST(N'2026-11-04T04:18:14.4131691' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'aec2573e0c57598fda79cbf5179d9ee38f370dd5693bff05f4119c82b8b008fd', 4, CAST(N'2026-11-05T10:22:49.7802366' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'b430ff65ed7600786b07ea22799f907adc03aeca43431132d67ec9f25f457272', 39, CAST(N'2026-11-03T02:10:04.8798465' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'b4d26b27ece61a17407ae74c13d4b5fc230c3f357beaebde6b39736af3aa8233', 39, CAST(N'2026-11-02T16:17:58.0283184' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'b63d2903e101d562950c100cbf5e9426437b601054472a58c6c3c0246f2f44ee', 37, CAST(N'2026-11-04T03:37:34.7679264' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'b7bd182c135d9c8f3fae25ff62e5c03092ce235786e8bb6b53382aac59ec0cf5', 9, CAST(N'2026-10-30T12:41:36.1588184' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'b8d8f480fb3779388a6dd26b7d8d7763a1770e4f5ea90ff3869ea2c9fb6f0fa8', 1, CAST(N'2026-11-05T15:47:01.3972856' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'b91cbd3a17c9bf69b320d24e5471b723d3f88647a0bbc86e63296c397d98178f', 4, CAST(N'2026-11-01T11:31:15.7538235' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'bbb7b4e0573101d02b74e10c51f2db1ebefce7ff12dc2510f060357afc498eac', 14, CAST(N'2026-10-31T23:04:49.0534231' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'bcf3ba2a5cf33283fb5eceebbbf146436e62a1e78786e2b5d74caee4bfde51cf', 37, CAST(N'2026-11-04T04:56:56.1864560' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'c26dad49507da1386751c9715d1380f1756ed7eb69bea1a8b580a10ccde47860', 37, CAST(N'2026-11-03T17:22:12.0354445' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'c55f8684e540369f730951571e87e061b71b088927a6fe3b4df5b333722fb6b8', 39, CAST(N'2026-11-03T03:03:22.2206103' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'ccbf636ad775ba4995951284db025f9616c0ed8dffc9ab69ab6d7cdf5b4dab30', 9, CAST(N'2026-11-05T15:23:08.5769729' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'd4a4b090f8980ac95f521398a45d0cbd2bd7159b870a6a523dcfee2357c5216b', 37, CAST(N'2026-10-31T03:44:24.9377619' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'd56caee892c38bf0087dce216cbaa7a5d87f8a2eca1d6b328461090b3d5f9615', 39, CAST(N'2026-11-03T02:47:33.5409808' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'e158f25c7cabcefe147cf5d1f84e2b6ca87a819034ab555e5e95d4930d04b7e7', 37, CAST(N'2026-10-31T02:06:23.0359009' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'e22e9ba71d838c948166a2a48c87b46b3d3930a3098e716fba1f75bc183770cd', 29, CAST(N'2026-10-30T10:22:48.5325587' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'e29e508c84bf8a1ea58510146025bf656509c59a63b97b6adc85b6d09165adf5', 39, CAST(N'2026-11-02T06:45:13.9580728' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'e664fe30f36be566f33a5670d9bc3cc02ffdd68d72b30b403c8f8adafa30cb31', 37, CAST(N'2026-11-02T06:52:37.6000756' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'e87b7890143f5205c15aad77ec9d14a9b5541d523783c3718a39da0d8cb1b570', 30, CAST(N'2026-11-02T12:22:46.3583320' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'e9244af89cbda25ffcdd9784040635484f37b0f124e9e7b40f7d3d0e6cd7ae79', 29, CAST(N'2026-11-04T10:49:30.1447716' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'ec3d98774bf4d1827f4899025104d8a73695b8d9e16f36028c90b22cac4e4fcd', 14, CAST(N'2026-10-28T08:16:19.2721318' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'ec7b12d0f447f0246e5323f706b9439e5b0de026efa8d9a18751a824010db1ee', 37, CAST(N'2026-11-04T13:41:21.1192434' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'f335d81fa86d3bbe56bf3a9d3dc86eea656a5e9e33940e35a916e5922e7de20a', 29, CAST(N'2026-10-30T10:36:51.3878430' AS DateTime2))
-INSERT [dbo].[auth_sessions] ([token_hash], [user_id], [expires_at]) VALUES (N'f7febb8ebe10b9a6070a6e5b0626055c119ea866a2cf3d2f2c60cc8eb242c1ed', 39, CAST(N'2026-11-02T16:54:29.6227134' AS DateTime2))
-GO
-SET IDENTITY_INSERT [dbo].[bookings] ON 
 
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (1, 9, 1, CAST(N'2026-10-02T09:15:00.000' AS DateTime), N'BOOKED', N'PENDING', NULL, NULL, NULL, NULL, CAST(0.00 AS Decimal(12, 2)), NULL)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (2, 10, 1, CAST(N'2026-10-02T10:30:00.000' AS DateTime), N'BOOKED', N'PENDING', NULL, NULL, NULL, NULL, CAST(0.00 AS Decimal(12, 2)), NULL)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (3, 11, 3, CAST(N'2026-10-03T14:00:00.000' AS DateTime), N'BOOKED', N'PENDING', NULL, NULL, NULL, NULL, CAST(0.00 AS Decimal(12, 2)), NULL)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (4, 9, 4, CAST(N'2026-10-08T11:00:00.000' AS DateTime), N'BOOKED', N'PRESENT', N'Động tác phát bóng tốt, cần chú ý bộ chân khi di chuyển lùi.', N'Tập nhảy dây 500 cái tại nhà', NULL, NULL, CAST(0.00 AS Decimal(12, 2)), NULL)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (5, 12, 4, CAST(N'2026-10-08T15:20:00.000' AS DateTime), N'BOOKED', N'PRESENT', N'Cần thả lỏng cổ tay khi giao bóng.', N'Xem lại video kỹ thuật tay cầm vợt Continental', NULL, NULL, CAST(0.00 AS Decimal(12, 2)), NULL)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (6, 13, 4, CAST(N'2026-10-08T16:00:00.000' AS DateTime), N'BOOKED', N'UNEXCUSED_ABSENCE', N'Vắng mặt không lý do.', NULL, NULL, NULL, CAST(0.00 AS Decimal(12, 2)), NULL)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (25, 37, 37, CAST(N'2026-10-30T15:18:12.873' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(160000.00 AS Decimal(12, 2)), 58)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (28, 37, 20, CAST(N'2026-10-30T16:20:50.997' AS DateTime), N'CONFIRMED', N'PENDING', NULL, NULL, 0, NULL, CAST(140000.00 AS Decimal(12, 2)), 65)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (29, 37, 28, CAST(N'2026-10-30T23:27:41.137' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(150000.00 AS Decimal(12, 2)), 68)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (30, 37, 21, CAST(N'2026-10-30T23:38:08.887' AS DateTime), N'CONFIRMED', N'PENDING', NULL, NULL, 0, NULL, CAST(220000.00 AS Decimal(12, 2)), 69)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (31, 37, 22, CAST(N'2026-10-31T00:43:25.427' AS DateTime), N'CONFIRMED', N'PENDING', NULL, NULL, 0, NULL, CAST(160000.00 AS Decimal(12, 2)), 70)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (32, 37, 36, CAST(N'2026-10-31T00:57:31.580' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(180000.00 AS Decimal(12, 2)), 72)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (34, 37, 24, CAST(N'2026-10-31T23:17:35.950' AS DateTime), N'CONFIRMED', N'PENDING', NULL, NULL, 0, NULL, CAST(160000.00 AS Decimal(12, 2)), 78)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (35, 39, 26, CAST(N'2026-11-01T18:24:56.937' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(150000.00 AS Decimal(12, 2)), 81)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (37, 39, 28, CAST(N'2026-11-01T18:29:40.193' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(150000.00 AS Decimal(12, 2)), 84)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (38, 39, 25, CAST(N'2026-11-01T18:30:29.513' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(200000.00 AS Decimal(12, 2)), 85)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (39, 39, 26, CAST(N'2026-11-01T18:45:24.647' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(150000.00 AS Decimal(12, 2)), 86)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (40, 39, 27, CAST(N'2026-11-01T18:45:44.453' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(110000.00 AS Decimal(12, 2)), 87)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (41, 39, 28, CAST(N'2026-11-01T18:52:14.167' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(150000.00 AS Decimal(12, 2)), 88)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (42, 37, 44, CAST(N'2026-11-01T18:53:07.433' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(144000.00 AS Decimal(12, 2)), 89)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (43, 37, 47, CAST(N'2026-11-01T19:03:00.280' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(162000.00 AS Decimal(12, 2)), 90)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (44, 37, 45, CAST(N'2026-11-01T19:15:55.493' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(144000.00 AS Decimal(12, 2)), 91)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (45, 29, 30, CAST(N'2026-11-01T20:14:17.267' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(120000.00 AS Decimal(12, 2)), 96)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (46, 29, 39, CAST(N'2026-11-01T23:30:37.120' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(180000.00 AS Decimal(12, 2)), 100)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (47, 29, 46, CAST(N'2026-11-02T00:01:45.193' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(180000.00 AS Decimal(12, 2)), 102)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (48, 30, 26, CAST(N'2026-11-02T00:32:24.950' AS DateTime), N'CONFIRMED', N'PENDING', NULL, NULL, 0, NULL, CAST(150000.00 AS Decimal(12, 2)), 106)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (49, 37, 47, CAST(N'2026-11-02T02:35:02.763' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(162000.00 AS Decimal(12, 2)), 113)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (50, 37, 44, CAST(N'2026-11-02T02:35:34.157' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(144000.00 AS Decimal(12, 2)), 114)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (51, 37, 27, CAST(N'2026-11-02T02:50:01.547' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(110000.00 AS Decimal(12, 2)), 118)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (52, 39, 25, CAST(N'2026-11-02T03:12:25.117' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(180000.00 AS Decimal(12, 2)), 121)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (53, 39, 30, CAST(N'2026-11-02T03:41:56.703' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(108000.00 AS Decimal(12, 2)), 123)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (54, 39, 44, CAST(N'2026-11-02T03:43:58.853' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(144000.00 AS Decimal(12, 2)), 124)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (55, 39, 47, CAST(N'2026-11-02T03:46:24.343' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(162000.00 AS Decimal(12, 2)), 125)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (56, 39, 47, CAST(N'2026-11-02T04:18:13.873' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(162000.00 AS Decimal(12, 2)), 126)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (57, 39, 41, CAST(N'2026-11-02T04:46:26.013' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(198000.00 AS Decimal(12, 2)), 127)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (58, 39, 26, CAST(N'2026-11-02T04:54:35.620' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(135000.00 AS Decimal(12, 2)), 128)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (59, 39, 42, CAST(N'2026-11-02T05:03:39.477' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(135000.00 AS Decimal(12, 2)), 129)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (60, 39, 40, CAST(N'2026-11-02T12:44:39.360' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(180000.00 AS Decimal(12, 2)), 130)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (61, 39, 41, CAST(N'2026-11-02T12:47:58.537' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(198000.00 AS Decimal(12, 2)), 131)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (62, 39, 44, CAST(N'2026-11-02T14:10:52.443' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(144000.00 AS Decimal(12, 2)), 132)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (63, 39, 44, CAST(N'2026-11-02T14:37:08.467' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(144000.00 AS Decimal(12, 2)), 133)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (64, 39, 39, CAST(N'2026-11-02T14:49:28.927' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(162000.00 AS Decimal(12, 2)), 135)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (65, 39, 42, CAST(N'2026-11-02T14:57:38.613' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(135000.00 AS Decimal(12, 2)), 136)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (66, 39, 43, CAST(N'2026-11-02T15:03:29.120' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(126000.00 AS Decimal(12, 2)), 137)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (67, 39, 38, CAST(N'2026-11-02T15:37:41.887' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(135000.00 AS Decimal(12, 2)), 138)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (68, 39, 49, CAST(N'2026-11-02T15:43:34.957' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(153000.00 AS Decimal(12, 2)), 139)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (69, 39, 32, CAST(N'2026-11-02T22:19:27.980' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(153000.00 AS Decimal(12, 2)), 142)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (70, 39, 28, CAST(N'2026-11-02T23:03:31.603' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(135000.00 AS Decimal(12, 2)), 143)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (71, 39, 43, CAST(N'2026-11-02T23:16:51.620' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(126000.00 AS Decimal(12, 2)), 145)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (72, 37, 28, CAST(N'2026-11-03T05:22:17.133' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(150000.00 AS Decimal(12, 2)), 147)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (73, 37, 28, CAST(N'2026-11-03T06:12:23.973' AS DateTime), N'CONFIRMED', N'PENDING', NULL, NULL, 0, NULL, CAST(150000.00 AS Decimal(12, 2)), 149)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (74, 37, 29, CAST(N'2026-11-03T16:11:22.940' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(180000.00 AS Decimal(12, 2)), 152)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (75, 37, 29, CAST(N'2026-11-03T17:11:26.790' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(180000.00 AS Decimal(12, 2)), 155)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (76, 39, 49, CAST(N'2026-11-03T21:00:42.663' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(153000.00 AS Decimal(12, 2)), 156)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (77, 39, 34, CAST(N'2026-11-03T21:02:09.897' AS DateTime), N'CONFIRMED', N'PENDING', NULL, NULL, 0, NULL, CAST(198000.00 AS Decimal(12, 2)), 157)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (78, 39, 31, CAST(N'2026-11-03T21:03:46.587' AS DateTime), N'CONFIRMED', N'PENDING', NULL, NULL, 0, NULL, CAST(162000.00 AS Decimal(12, 2)), 158)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (79, 39, 33, CAST(N'2026-11-03T21:32:41.660' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(126000.00 AS Decimal(12, 2)), 159)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (80, 39, 41, CAST(N'2026-11-03T21:39:59.910' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(220000.00 AS Decimal(12, 2)), 161)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (82, 29, 43, CAST(N'2026-11-03T23:06:47.280' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(112000.00 AS Decimal(12, 2)), 167)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (83, 29, 49, CAST(N'2026-11-03T23:17:09.300' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(136000.00 AS Decimal(12, 2)), 168)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (84, 29, 33, CAST(N'2026-11-04T00:18:39.040' AS DateTime), N'CONFIRMED', N'PENDING', NULL, NULL, 0, NULL, CAST(112000.00 AS Decimal(12, 2)), 169)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (85, 29, 30, CAST(N'2026-11-04T13:42:00.097' AS DateTime), N'CONFIRMED', N'PENDING', NULL, NULL, 1, 21, CAST(0.00 AS Decimal(12, 2)), NULL)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (86, 29, 32, CAST(N'2026-11-04T20:31:37.653' AS DateTime), N'CONFIRMED', N'PENDING', NULL, NULL, 1, 21, CAST(0.00 AS Decimal(12, 2)), NULL)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (87, 39, 32, CAST(N'2026-11-04T21:05:15.817' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(170000.00 AS Decimal(12, 2)), 175)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (88, 29, 36, CAST(N'2026-11-05T00:56:06.080' AS DateTime), N'CONFIRMED', N'PENDING', NULL, NULL, 0, NULL, CAST(162000.00 AS Decimal(12, 2)), 182)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (89, 9, 31, CAST(N'2026-11-05T02:37:21.717' AS DateTime), N'CONFIRMED', N'PENDING', NULL, NULL, 1, 1, CAST(0.00 AS Decimal(12, 2)), NULL)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (90, 9, 32, CAST(N'2026-11-05T02:39:26.937' AS DateTime), N'CONFIRMED', N'PENDING', NULL, NULL, 1, 1, CAST(0.00 AS Decimal(12, 2)), NULL)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (91, 9, 33, CAST(N'2026-11-05T03:25:18.123' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 1, 1, CAST(0.00 AS Decimal(12, 2)), 185)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (92, 9, 35, CAST(N'2026-11-05T03:26:16.190' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 1, 1, CAST(0.00 AS Decimal(12, 2)), 186)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (93, 9, 35, CAST(N'2026-11-05T03:45:22.383' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(128000.00 AS Decimal(12, 2)), 188)
-INSERT [dbo].[bookings] ([booking_id], [member_id], [session_id], [booking_time], [status], [attendance_status], [coach_note], [homework_note], [uses_membership_quota], [membership_id], [fee_amount], [payment_id]) VALUES (94, 9, 36, CAST(N'2026-11-05T04:00:59.793' AS DateTime), N'CANCELLED', N'PENDING', NULL, NULL, 0, NULL, CAST(144000.00 AS Decimal(12, 2)), 189)
-SET IDENTITY_INSERT [dbo].[bookings] OFF
+ALTER DATABASE [SportsCenterDB] SET RECOVERY SIMPLE;
+ALTER DATABASE [SportsCenterDB] SET MULTI_USER;
 GO
-SET IDENTITY_INSERT [dbo].[class_sessions] ON 
 
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (1, N'Lớp Tennis Chuyên Kỹ Thuật Serve', 2, 5, 4, CAST(N'2026-10-12T17:00:00.000' AS DateTime), CAST(N'2026-10-12T18:30:00.000' AS DateTime), 6, 2, CAST(200000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (2, N'Lớp Pickleball Căn Bản K12', 1, 6, 1, CAST(N'2026-10-12T18:00:00.000' AS DateTime), CAST(N'2026-10-12T19:30:00.000' AS DateTime), 8, 0, CAST(150000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (3, N'Lớp Điền Kinh Căn Bản', 8, 7, 13, CAST(N'2026-10-13T06:30:00.000' AS DateTime), CAST(N'2026-10-13T08:00:00.000' AS DateTime), 12, 1, CAST(110000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (4, N'Lớp Cầu Lông Phản Xạ Nhanh', 4, 8, 16, CAST(N'2026-10-13T18:00:00.000' AS DateTime), CAST(N'2026-10-13T19:30:00.000' AS DateTime), 8, 3, CAST(150000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (5, N'Lớp Pickleball Nâng Cao K05', 1, 6, 2, CAST(N'2026-10-14T18:00:00.000' AS DateTime), CAST(N'2026-10-14T19:30:00.000' AS DateTime), 8, 0, CAST(180000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (6, N'Lớp Bóng Bàn Căn Bản', 6, 5, 11, CAST(N'2026-10-14T18:30:00.000' AS DateTime), CAST(N'2026-10-14T20:00:00.000' AS DateTime), 8, 0, CAST(120000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (7, N'Lớp Bóng Đá Cơ Bản', 3, 7, 14, CAST(N'2026-10-15T17:30:00.000' AS DateTime), CAST(N'2026-10-15T19:00:00.000' AS DateTime), 14, 0, CAST(180000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (8, N'Lớp Bơi Lội Căn Bản', 7, 6, 12, CAST(N'2026-10-16T16:30:00.000' AS DateTime), CAST(N'2026-10-16T18:00:00.000' AS DateTime), 8, 0, CAST(170000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (9, N'Lớp Cầu Lông Căn Bản', 4, 8, 17, CAST(N'2026-10-16T18:30:00.000' AS DateTime), CAST(N'2026-10-16T20:00:00.000' AS DateTime), 8, 0, CAST(140000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (10, N'Lớp Tennis Chiến Thuật Đánh Đôi', 2, 5, 5, CAST(N'2026-10-17T08:00:00.000' AS DateTime), CAST(N'2026-10-17T09:30:00.000' AS DateTime), 6, 0, CAST(220000.00 AS Decimal(12, 2)), N'COMPLETED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (11, N'Lớp Bóng Chuyền Căn Bản', 5, 6, 10, CAST(N'2026-10-17T16:00:00.000' AS DateTime), CAST(N'2026-10-17T17:30:00.000' AS DateTime), 12, 0, CAST(160000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (12, N'Lớp Tennis Chuyên Kỹ Thuật Serve', 2, 5, 4, CAST(N'2026-10-26T17:00:00.000' AS DateTime), CAST(N'2026-10-26T18:30:00.000' AS DateTime), 6, 0, CAST(200000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (13, N'Lớp Pickleball Căn Bản K12', 1, 6, 1, CAST(N'2026-10-26T18:00:00.000' AS DateTime), CAST(N'2026-10-26T19:30:00.000' AS DateTime), 8, 0, CAST(150000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (14, N'Lớp Điền Kinh Căn Bản', 8, 7, 13, CAST(N'2026-10-27T06:30:00.000' AS DateTime), CAST(N'2026-10-27T08:00:00.000' AS DateTime), 12, 0, CAST(110000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (15, N'Lớp Cầu Lông Phản Xạ Nhanh', 4, 8, 16, CAST(N'2026-10-27T18:00:00.000' AS DateTime), CAST(N'2026-10-27T19:30:00.000' AS DateTime), 8, 0, CAST(150000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (16, N'Lớp Pickleball Nâng Cao K05', 1, 6, 2, CAST(N'2026-10-28T18:00:00.000' AS DateTime), CAST(N'2026-10-28T19:30:00.000' AS DateTime), 8, 0, CAST(180000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (17, N'Lớp Bóng Bàn Căn Bản', 6, 5, 11, CAST(N'2026-10-28T18:30:00.000' AS DateTime), CAST(N'2026-10-28T20:00:00.000' AS DateTime), 8, 0, CAST(120000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (18, N'Lớp Bóng Đá Cơ Bản', 5, 7, 14, CAST(N'2026-10-29T17:30:00.000' AS DateTime), CAST(N'2026-10-29T19:00:00.000' AS DateTime), 14, 0, CAST(180000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (19, N'Lớp Bơi Lội Căn Bản', 7, 6, 12, CAST(N'2026-10-30T16:30:00.000' AS DateTime), CAST(N'2026-10-30T18:00:00.000' AS DateTime), 8, 0, CAST(170000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (20, N'Lớp Cầu Lông Căn Bản', 6, 8, 16, CAST(N'2026-10-30T18:30:00.000' AS DateTime), CAST(N'2026-10-30T20:00:00.000' AS DateTime), 8, 1, CAST(140000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (21, N'Lớp Tennis Chiến Thuật Đánh Đôi', 2, 5, 5, CAST(N'2026-10-31T08:00:00.000' AS DateTime), CAST(N'2026-10-31T09:30:00.000' AS DateTime), 6, 1, CAST(220000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (22, N'Lớp Bóng Chuyền Căn Bản', 5, 6, 10, CAST(N'2026-10-31T16:00:00.000' AS DateTime), CAST(N'2026-10-31T17:30:00.000' AS DateTime), 12, 1, CAST(160000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (23, N'Lớp Bóng Đá Thể Lực & Phối Hợp', 5, 7, 14, CAST(N'2026-11-01T08:00:00.000' AS DateTime), CAST(N'2026-11-01T09:30:00.000' AS DateTime), 14, 0, CAST(180000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (24, N'Lớp Cầu Lông Đánh Đôi Nâng Cao', 6, 8, 16, CAST(N'2026-11-01T16:00:00.000' AS DateTime), CAST(N'2026-11-01T17:30:00.000' AS DateTime), 8, 1, CAST(160000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (25, N'Lớp Tennis Chuyên Kỹ Thuật Serve', 2, 5, 4, CAST(N'2026-11-02T17:00:00.000' AS DateTime), CAST(N'2026-11-02T18:30:00.000' AS DateTime), 6, 0, CAST(200000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (26, N'Lớp Pickleball Căn Bản K12', 1, 6, 1, CAST(N'2026-11-02T18:00:00.000' AS DateTime), CAST(N'2026-11-02T19:30:00.000' AS DateTime), 8, 1, CAST(150000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (27, N'Lớp Điền Kinh Căn Bản', 8, 7, 13, CAST(N'2026-11-03T06:30:00.000' AS DateTime), CAST(N'2026-11-03T08:00:00.000' AS DateTime), 12, 0, CAST(110000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (28, N'Lớp Cầu Lông Phản Xạ Nhanh', 4, 8, 16, CAST(N'2026-11-03T18:00:00.000' AS DateTime), CAST(N'2026-11-03T19:30:00.000' AS DateTime), 8, 1, CAST(150000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (29, N'Lớp Pickleball Nâng Cao K05', 1, 6, 2, CAST(N'2026-11-04T18:00:00.000' AS DateTime), CAST(N'2026-11-04T19:30:00.000' AS DateTime), 8, 0, CAST(180000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (30, N'Lớp Bóng Bàn Căn Bản', 6, 5, 11, CAST(N'2026-11-04T18:30:00.000' AS DateTime), CAST(N'2026-11-04T20:00:00.000' AS DateTime), 8, 1, CAST(120000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (31, N'Lớp Bóng Đá Cơ Bản', 5, 7, 14, CAST(N'2026-11-05T17:30:00.000' AS DateTime), CAST(N'2026-11-05T19:00:00.000' AS DateTime), 14, 2, CAST(180000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (32, N'Lớp Bơi Lội Căn Bản', 7, 6, 12, CAST(N'2026-11-06T16:30:00.000' AS DateTime), CAST(N'2026-11-06T18:00:00.000' AS DateTime), 8, 2, CAST(170000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (33, N'Lớp Cầu Lông Căn Bản', 6, 8, 16, CAST(N'2026-11-06T18:30:00.000' AS DateTime), CAST(N'2026-11-06T20:00:00.000' AS DateTime), 8, 1, CAST(140000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (34, N'Lớp Tennis Chiến Thuật Đánh Đôi', 2, 5, 5, CAST(N'2026-11-07T08:00:00.000' AS DateTime), CAST(N'2026-11-07T09:30:00.000' AS DateTime), 6, 1, CAST(220000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (35, N'Lớp Bóng Chuyền Căn Bản', 5, 6, 10, CAST(N'2026-11-07T16:00:00.000' AS DateTime), CAST(N'2026-11-07T17:30:00.000' AS DateTime), 12, 0, CAST(160000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (36, N'Lớp Bóng Đá Thể Lực & Phối Hợp', 5, 7, 14, CAST(N'2026-11-08T08:00:00.000' AS DateTime), CAST(N'2026-11-08T09:30:00.000' AS DateTime), 14, 1, CAST(180000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (37, N'Lớp Cầu Lông Đánh Đôi Nâng Cao', 6, 8, 16, CAST(N'2026-11-08T16:00:00.000' AS DateTime), CAST(N'2026-11-08T17:30:00.000' AS DateTime), 8, 0, CAST(160000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (38, N'Lớp Pickleball Căn Bản K12', 1, 6, 1, CAST(N'2026-11-09T18:00:00.000' AS DateTime), CAST(N'2026-11-09T19:30:00.000' AS DateTime), 8, 0, CAST(150000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (39, N'Lớp Pickleball Nâng Cao K05', 1, 6, 2, CAST(N'2026-11-11T18:00:00.000' AS DateTime), CAST(N'2026-11-11T19:30:00.000' AS DateTime), 8, 0, CAST(180000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (40, N'Lớp Tennis Chuyên Kỹ Thuật Serve', 2, 5, 4, CAST(N'2026-11-09T17:00:00.000' AS DateTime), CAST(N'2026-11-09T18:30:00.000' AS DateTime), 6, 0, CAST(200000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (41, N'Lớp Tennis Chiến Thuật Đánh Đôi', 2, 5, 5, CAST(N'2026-11-14T08:00:00.000' AS DateTime), CAST(N'2026-11-14T09:30:00.000' AS DateTime), 6, 0, CAST(220000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (42, N'Lớp Cầu Lông Phản Xạ Nhanh', 4, 8, 16, CAST(N'2026-11-10T18:00:00.000' AS DateTime), CAST(N'2026-11-10T19:30:00.000' AS DateTime), 8, 0, CAST(150000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (43, N'Lớp Cầu Lông Căn Bản', 4, 8, 17, CAST(N'2026-11-13T18:30:00.000' AS DateTime), CAST(N'2026-11-13T20:00:00.000' AS DateTime), 8, 0, CAST(140000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (44, N'Lớp Cầu Lông Đánh Đôi Nâng Cao', 4, 8, 17, CAST(N'2026-11-15T16:00:00.000' AS DateTime), CAST(N'2026-11-15T17:30:00.000' AS DateTime), 8, 0, CAST(160000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (45, N'Lớp Bóng Chuyền Căn Bản', 5, 6, 10, CAST(N'2026-11-14T16:00:00.000' AS DateTime), CAST(N'2026-11-14T17:30:00.000' AS DateTime), 12, 0, CAST(160000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (46, N'Lớp Bóng Đá Cơ Bản', 5, 7, 14, CAST(N'2026-11-12T17:30:00.000' AS DateTime), CAST(N'2026-11-12T19:00:00.000' AS DateTime), 14, 0, CAST(180000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (47, N'Lớp Bóng Đá Thể Lực & Phối Hợp', 5, 7, 14, CAST(N'2026-11-15T08:00:00.000' AS DateTime), CAST(N'2026-11-15T09:30:00.000' AS DateTime), 14, 0, CAST(180000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (48, N'Lớp Bóng Bàn Căn Bản', 6, 5, 11, CAST(N'2026-11-11T18:30:00.000' AS DateTime), CAST(N'2026-11-11T20:00:00.000' AS DateTime), 8, 0, CAST(120000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (49, N'Lớp Bơi Lội Căn Bản', 7, 6, 12, CAST(N'2026-11-13T16:30:00.000' AS DateTime), CAST(N'2026-11-13T18:00:00.000' AS DateTime), 8, 0, CAST(170000.00 AS Decimal(12, 2)), N'SCHEDULED')
-INSERT [dbo].[class_sessions] ([session_id], [class_name], [sport_id], [coach_id], [facility_id], [start_time], [end_time], [max_slots], [booked_slots], [price_amount], [status]) VALUES (50, N'Lớp Điền Kinh Căn Bản', 8, 7, 13, CAST(N'2026-11-10T06:30:00.000' AS DateTime), CAST(N'2026-11-10T08:00:00.000' AS DateTime), 12, 0, CAST(110000.00 AS Decimal(12, 2)), N'SCHEDULED')
-SET IDENTITY_INSERT [dbo].[class_sessions] OFF
+USE [SportsCenterDB];
 GO
-SET IDENTITY_INSERT [dbo].[coach_leave_requests] ON 
 
-INSERT [dbo].[coach_leave_requests] ([request_id], [coach_id], [coach_name], [leave_type], [start_date], [end_date], [reason], [status], [approved_by], [affected_bookings_count], [reassigned_coach_id], [created_at]) VALUES (101, 6, N'Nguyễn Hoàng Nam', N'SICK_LEAVE', CAST(N'2026-10-25' AS Date), CAST(N'2026-10-26' AS Date), N'Sốt xuất huyết cần theo dõi tại cơ sở y tế', N'PENDING', NULL, 0, NULL, CAST(N'2026-10-20T08:00:00.0000000' AS DateTime2))
-SET IDENTITY_INSERT [dbo].[coach_leave_requests] OFF
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
 GO
-SET IDENTITY_INSERT [dbo].[court_bookings] ON 
 
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (40, 37, 11, CAST(N'2026-11-04T19:00:00.0000000' AS DateTime2), CAST(N'2026-11-04T20:00:00.0000000' AS DateTime2), CAST(120000.00 AS Decimal(12, 2)), 64, N'CANCELLED', CAST(N'2026-10-30T16:18:41.5682002' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (41, 37, 12, CAST(N'2026-11-06T18:00:00.0000000' AS DateTime2), CAST(N'2026-11-06T19:00:00.0000000' AS DateTime2), CAST(250000.00 AS Decimal(12, 2)), 66, N'CANCELLED', CAST(N'2026-10-30T16:53:36.4980223' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (42, 37, 15, CAST(N'2026-11-08T13:00:00.0000000' AS DateTime2), CAST(N'2026-11-08T14:00:00.0000000' AS DateTime2), CAST(60000.00 AS Decimal(12, 2)), 67, N'CANCELLED', CAST(N'2026-10-30T23:25:59.3375476' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (43, 37, 15, CAST(N'2026-11-09T12:00:00.0000000' AS DateTime2), CAST(N'2026-11-09T13:00:00.0000000' AS DateTime2), CAST(60000.00 AS Decimal(12, 2)), 71, N'CONFIRMED', CAST(N'2026-10-31T00:57:02.2169396' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (44, 37, 15, CAST(N'2026-11-09T21:00:00.0000000' AS DateTime2), CAST(N'2026-11-09T22:00:00.0000000' AS DateTime2), CAST(51000.00 AS Decimal(12, 2)), 74, N'CONFIRMED', CAST(N'2026-10-31T11:09:29.9476985' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (45, 37, 9, CAST(N'2026-11-01T13:00:00.0000000' AS DateTime2), CAST(N'2026-11-01T14:00:00.0000000' AS DateTime2), CAST(550000.00 AS Decimal(12, 2)), 79, N'CONFIRMED', CAST(N'2026-10-31T23:18:10.9373708' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (46, 37, 15, CAST(N'2026-11-07T09:00:00.0000000' AS DateTime2), CAST(N'2026-11-07T10:00:00.0000000' AS DateTime2), CAST(51000.00 AS Decimal(12, 2)), 92, N'CANCELLED', CAST(N'2026-11-01T19:20:13.5911081' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (47, 29, 8, CAST(N'2026-11-01T21:00:00.0000000' AS DateTime2), CAST(N'2026-11-01T22:00:00.0000000' AS DateTime2), CAST(500000.00 AS Decimal(12, 2)), 97, N'CONFIRMED', CAST(N'2026-11-01T20:15:57.9966648' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (48, 30, 1, CAST(N'2026-11-02T21:00:00.0000000' AS DateTime2), CAST(N'2026-11-02T22:00:00.0000000' AS DateTime2), CAST(180000.00 AS Decimal(12, 2)), 104, N'CONFIRMED', CAST(N'2026-11-02T00:23:02.8930447' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (49, 30, 8, CAST(N'2026-11-08T19:00:00.0000000' AS DateTime2), CAST(N'2026-11-08T20:00:00.0000000' AS DateTime2), CAST(500000.00 AS Decimal(12, 2)), 107, N'CONFIRMED', CAST(N'2026-11-02T00:34:53.6998178' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (51, 37, 9, CAST(N'2026-11-02T21:00:00.0000000' AS DateTime2), CAST(N'2026-11-02T22:00:00.0000000' AS DateTime2), CAST(550000.00 AS Decimal(12, 2)), 117, N'CANCELLED', CAST(N'2026-11-02T02:49:15.0681439' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (52, 37, 1, CAST(N'2026-11-07T20:00:00.0000000' AS DateTime2), CAST(N'2026-11-07T21:00:00.0000000' AS DateTime2), CAST(180000.00 AS Decimal(12, 2)), 119, N'CANCELLED', CAST(N'2026-11-02T02:52:36.0686346' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (54, 39, 1, CAST(N'2026-11-02T19:00:00.0000000' AS DateTime2), CAST(N'2026-11-02T20:00:00.0000000' AS DateTime2), CAST(153000.00 AS Decimal(12, 2)), 122, N'CANCELLED', CAST(N'2026-11-02T03:12:40.0856544' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (55, 39, 17, CAST(N'2026-11-02T19:00:00.0000000' AS DateTime2), CAST(N'2026-11-02T20:00:00.0000000' AS DateTime2), CAST(187000.00 AS Decimal(12, 2)), 134, N'CONFIRMED', CAST(N'2026-11-02T14:48:06.6616619' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (56, 39, 9, CAST(N'2026-11-03T20:00:00.0000000' AS DateTime2), CAST(N'2026-11-03T21:00:00.0000000' AS DateTime2), CAST(467500.00 AS Decimal(12, 2)), 140, N'CANCELLED', CAST(N'2026-11-02T22:11:21.6279961' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (57, 39, 19, CAST(N'2026-11-03T19:00:00.0000000' AS DateTime2), CAST(N'2026-11-03T20:00:00.0000000' AS DateTime2), CAST(85000.00 AS Decimal(12, 2)), 141, N'CANCELLED', CAST(N'2026-11-02T22:14:36.5977434' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (58, 39, 10, CAST(N'2026-11-14T20:00:00.0000000' AS DateTime2), CAST(N'2026-11-14T21:00:00.0000000' AS DateTime2), CAST(85000.00 AS Decimal(12, 2)), 144, N'CANCELLED', CAST(N'2026-11-02T23:05:18.5090217' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (59, 37, 14, CAST(N'2026-11-08T10:00:00.0000000' AS DateTime2), CAST(N'2026-11-08T11:00:00.0000000' AS DateTime2), CAST(50000.00 AS Decimal(12, 2)), 151, N'CANCELLED', CAST(N'2026-11-03T15:42:33.0258101' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (61, 37, 1, CAST(N'2026-11-04T18:00:00.0000000' AS DateTime2), CAST(N'2026-11-04T19:00:00.0000000' AS DateTime2), CAST(153000.00 AS Decimal(12, 2)), 170, N'CONFIRMED', CAST(N'2026-11-04T01:31:34.6712659' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (62, 29, 8, CAST(N'2026-11-04T17:00:00.0000000' AS DateTime2), CAST(N'2026-11-04T18:00:00.0000000' AS DateTime2), CAST(350000.00 AS Decimal(12, 2)), 174, N'CANCELLED', CAST(N'2026-11-04T13:45:04.3080918' AS DateTime2), NULL, NULL, NULL)
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (63, 9, 11, CAST(N'2026-11-05T21:00:00.0000000' AS DateTime2), CAST(N'2026-11-05T22:00:00.0000000' AS DateTime2), CAST(102000.00 AS Decimal(12, 2)), 183, N'CANCELLED', CAST(N'2026-11-05T02:38:50.6656187' AS DateTime2), 0, NULL, CAST(0.00 AS Decimal(4, 2)))
-INSERT [dbo].[court_bookings] ([court_booking_id], [member_id], [court_id], [start_time], [end_time], [amount_paid], [payment_id], [status], [created_at], [uses_membership_quota], [membership_id], [quota_hours_used]) VALUES (64, 9, 11, CAST(N'2026-11-05T21:00:00.0000000' AS DateTime2), CAST(N'2026-11-05T22:00:00.0000000' AS DateTime2), CAST(102000.00 AS Decimal(12, 2)), 184, N'CANCELLED', CAST(N'2026-11-05T02:39:17.9118034' AS DateTime2), 0, NULL, CAST(0.00 AS Decimal(4, 2)))
-SET IDENTITY_INSERT [dbo].[court_bookings] OFF
-GO
-SET IDENTITY_INSERT [dbo].[equipment_loans] ON 
+/* ============================================================================
+   1. CREATE TABLES (32 CORE TABLES)
+   ============================================================================ */
 
-INSERT [dbo].[equipment_loans] ([loan_id], [member_id], [member_name], [phone], [item_id], [item_name], [quantity], [rental_price_per_hour], [loaned_at], [returned_at], [rental_fee], [status], [payment_method], [recorded_by]) VALUES (501, 1, N'Nguyễn Văn Member', N'0901 234 567', 1, N'Vợt Tennis Wilson Pro Staff', 1, CAST(30000.00 AS Decimal(12, 2)), CAST(N'2026-10-27T17:12:22.2373547' AS DateTime2), NULL, NULL, N'OVERDUE', NULL, NULL)
-SET IDENTITY_INSERT [dbo].[equipment_loans] OFF
+-- 1.1 Users
+CREATE TABLE dbo.users (
+    user_id                  BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_users PRIMARY KEY,
+    full_name                NVARCHAR(100) NOT NULL,
+    email                    VARCHAR(100)  NOT NULL CONSTRAINT UQ_users_email UNIQUE,
+    password                 NVARCHAR(100) NOT NULL,
+    phone                    VARCHAR(15)   NULL,
+    avatar                   NVARCHAR(MAX) NULL,
+    date_of_birth            DATE          NULL,
+    gender                   NVARCHAR(20)  NULL,
+    address                  NVARCHAR(500) NULL,
+    emergency_contact_name   NVARCHAR(100) NULL,
+    emergency_contact_phone  NVARCHAR(15)  NULL,
+    role                     VARCHAR(20)   NOT NULL,
+    status                   VARCHAR(20)   NOT NULL CONSTRAINT DF_users_status DEFAULT 'ACTIVE',
+    require_password_change  BIT           NOT NULL CONSTRAINT DF_users_require_pw_change DEFAULT 0,
+    created_at               DATETIME2(7)  NOT NULL CONSTRAINT DF_users_created_at DEFAULT SYSDATETIME(),
+    rfid_code                NVARCHAR(64)  NULL,
+    specialty                NVARCHAR(200) NULL,
+    experience_years         INT           NULL,
+    certifications           NVARCHAR(500) NULL,
+    bio                      NVARCHAR(MAX) NULL,
+    availability_json        NVARCHAR(MAX) NULL,
+    CONSTRAINT CK_users_role CHECK (role IN ('MANAGER', 'ADMIN', 'RECEPTIONIST', 'COACH', 'MEMBER')),
+    CONSTRAINT CK_users_registration_status CHECK (status IN ('ACTIVE', 'PENDING', 'INACTIVE', 'LOCKED'))
+);
 GO
-SET IDENTITY_INSERT [dbo].[equipments] ON 
 
-INSERT [dbo].[equipments] ([item_id], [item_name], [category], [rental_price_per_hour], [total_quantity], [available_quantity], [status]) VALUES (1, N'Vợt Tennis Wilson Pro Staff', N'Vợt', CAST(30000.00 AS Decimal(12, 2)), 20, 16, N'ACTIVE')
-INSERT [dbo].[equipments] ([item_id], [item_name], [category], [rental_price_per_hour], [total_quantity], [available_quantity], [status]) VALUES (2, N'Vợt Pickleball Franklin Ben Johns', N'Vợt', CAST(20000.00 AS Decimal(12, 2)), 30, 24, N'ACTIVE')
-INSERT [dbo].[equipments] ([item_id], [item_name], [category], [rental_price_per_hour], [total_quantity], [available_quantity], [status]) VALUES (3, N'Giày Thi Đấu Asics Court FF (Size 40-43)', N'Giày', CAST(40000.00 AS Decimal(12, 2)), 15, 12, N'ACTIVE')
-INSERT [dbo].[equipments] ([item_id], [item_name], [category], [rental_price_per_hour], [total_quantity], [available_quantity], [status]) VALUES (4, N'Khăn Thể Thao Cao Cấp F Sport', N'Khăn', CAST(0.00 AS Decimal(12, 2)), 50, 42, N'ACTIVE')
-INSERT [dbo].[equipments] ([item_id], [item_name], [category], [rental_price_per_hour], [total_quantity], [available_quantity], [status]) VALUES (5, N'Rổ Bóng Tennis 50 Quả (Tập phát bóng)', N'Bóng', CAST(50000.00 AS Decimal(12, 2)), 10, 8, N'ACTIVE')
-SET IDENTITY_INSERT [dbo].[equipments] OFF
+CREATE UNIQUE NONCLUSTERED INDEX UQ_users_rfid_code
+    ON dbo.users (rfid_code)
+    WHERE rfid_code IS NOT NULL;
 GO
-SET IDENTITY_INSERT [dbo].[facilities] ON 
-INSERT [dbo].[facilities] ([facility_id], [facility_name], [sport_id], [capacity], [status]) VALUES (1, N'Cụm Sân Pickleball - Sân P1 (Indoor)', 2, 4, N'AVAILABLE')
-INSERT [dbo].[facilities] ([facility_id], [facility_name], [sport_id], [capacity], [status]) VALUES (2, N'Cụm Sân Pickleball - Sân P2 (Indoor)', 2, 4, N'AVAILABLE')
-INSERT [dbo].[facilities] ([facility_id], [facility_name], [sport_id], [capacity], [status]) VALUES (4, N'Sân Tennis Đơn & Đôi - Sân T1', 3, 4, N'AVAILABLE')
-INSERT [dbo].[facilities] ([facility_id], [facility_name], [sport_id], [capacity], [status]) VALUES (5, N'Sân Tennis Đơn & Đôi - Sân T2', 3, 4, N'AVAILABLE')
-INSERT [dbo].[facilities] ([facility_id], [facility_name], [sport_id], [capacity], [status]) VALUES (10, N'Sân Bóng Chuyền - Sân V1', 7, 12, N'AVAILABLE')
-INSERT [dbo].[facilities] ([facility_id], [facility_name], [sport_id], [capacity], [status]) VALUES (11, N'Khu Bóng Bàn - Bàn T1', 8, 4, N'AVAILABLE')
-INSERT [dbo].[facilities] ([facility_id], [facility_name], [sport_id], [capacity], [status]) VALUES (12, N'Hồ Bơi - Làn S1', 9, 8, N'AVAILABLE')
-INSERT [dbo].[facilities] ([facility_id], [facility_name], [sport_id], [capacity], [status]) VALUES (13, N'Đường Chạy Điền Kinh - Khu A1', 10, 12, N'AVAILABLE')
-INSERT [dbo].[facilities] ([facility_id], [facility_name], [sport_id], [capacity], [status]) VALUES (14, N'Sân Bóng Đá 7 Người - Sân F1', 5, 14, N'AVAILABLE')
-INSERT [dbo].[facilities] ([facility_id], [facility_name], [sport_id], [capacity], [status]) VALUES (15, N'Sân Bóng Đá 7 Người - Sân F2', 5, 14, N'AVAILABLE')
-INSERT [dbo].[facilities] ([facility_id], [facility_name], [sport_id], [capacity], [status]) VALUES (16, N'Sân Cầu Lông Trong Nhà - Sân B1', 6, 4, N'AVAILABLE')
-INSERT [dbo].[facilities] ([facility_id], [facility_name], [sport_id], [capacity], [status]) VALUES (17, N'Sân Cầu Lông Trong Nhà - Sân B2', 6, 4, N'AVAILABLE')
-INSERT [dbo].[facilities] ([facility_id], [facility_name], [sport_id], [capacity], [status]) VALUES (18, N'Sân Bóng Chuyền - Sân V2', 7, 12, N'AVAILABLE')
-INSERT [dbo].[facilities] ([facility_id], [facility_name], [sport_id], [capacity], [status]) VALUES (19, N'Khu Bóng Bàn - Bàn T2', 8, 4, N'AVAILABLE')
-INSERT [dbo].[facilities] ([facility_id], [facility_name], [sport_id], [capacity], [status]) VALUES (20, N'Hồ Bơi - Làn S2', 9, 8, N'AVAILABLE')
-INSERT [dbo].[facilities] ([facility_id], [facility_name], [sport_id], [capacity], [status]) VALUES (21, N'Đường Chạy Điền Kinh - Khu A2', 10, 12, N'AVAILABLE')
-SET IDENTITY_INSERT [dbo].[facilities] OFF
-GO
-SET IDENTITY_INSERT [dbo].[feedbacks] ON 
 
-INSERT [dbo].[feedbacks] ([feedback_id], [member_id], [session_id], [coach_id], [rating], [comment], [created_at]) VALUES (1, 9, 4, 5, 5, N'HLV Minh hướng dẫn rất nhiệt tình, sửa dáng giao bóng chuẩn từng chút một!', CAST(N'2026-10-10T10:00:00.000' AS DateTime))
-INSERT [dbo].[feedbacks] ([feedback_id], [member_id], [session_id], [coach_id], [rating], [comment], [created_at]) VALUES (2, 12, 4, 5, 4, N'Buổi tập vui vẻ, không khí lớp học năng động. Sân bãi sạch đẹp.', CAST(N'2026-10-10T10:30:00.000' AS DateTime))
-SET IDENTITY_INSERT [dbo].[feedbacks] OFF
+-- 1.2 Auth Sessions
+CREATE TABLE dbo.auth_sessions (
+    token_hash  CHAR(64)     NOT NULL CONSTRAINT PK_auth_sessions PRIMARY KEY,
+    user_id     BIGINT       NOT NULL,
+    expires_at  DATETIME2(7) NOT NULL,
+    CONSTRAINT FK_auth_sessions_users FOREIGN KEY (user_id) REFERENCES dbo.users(user_id) ON DELETE CASCADE
+);
 GO
-SET IDENTITY_INSERT [dbo].[member_health_profiles] ON 
 
-INSERT [dbo].[member_health_profiles] ([profile_id], [member_id], [fitness_level], [fitness_goals], [injury_history], [weight_kg], [height_cm], [smm_kg], [pbf_percent], [bmi], [updated_at]) VALUES (1, 9, N'AMATEUR', N'Tăng sức bền, rèn kỹ thuật Pickleball', N'Tiền sử lật sơ mi cổ chân trái năm 2024', CAST(68.50 AS Decimal(5, 2)), CAST(172.00 AS Decimal(5, 2)), NULL, NULL, CAST(23.20 AS Decimal(5, 2)), CAST(N'2026-10-27T18:26:48.117' AS DateTime))
-INSERT [dbo].[member_health_profiles] ([profile_id], [member_id], [fitness_level], [fitness_goals], [injury_history], [weight_kg], [height_cm], [smm_kg], [pbf_percent], [bmi], [updated_at]) VALUES (2, 10, N'BEGINNER', N'Giảm cân, cải thiện vóc dáng', N'Không có', CAST(58.00 AS Decimal(5, 2)), CAST(160.00 AS Decimal(5, 2)), NULL, NULL, NULL, CAST(N'2026-10-27T18:26:48.117' AS DateTime))
-INSERT [dbo].[member_health_profiles] ([profile_id], [member_id], [fitness_level], [fitness_goals], [injury_history], [weight_kg], [height_cm], [smm_kg], [pbf_percent], [bmi], [updated_at]) VALUES (3, 11, N'ADVANCED', N'Thi đấu giải Tennis phong trào', N'Đau cơ vai nhẹ sau các trận đấu kéo dài', CAST(74.00 AS Decimal(5, 2)), CAST(178.00 AS Decimal(5, 2)), NULL, NULL, NULL, CAST(N'2026-10-27T18:26:48.117' AS DateTime))
-INSERT [dbo].[member_health_profiles] ([profile_id], [member_id], [fitness_level], [fitness_goals], [injury_history], [weight_kg], [height_cm], [smm_kg], [pbf_percent], [bmi], [updated_at]) VALUES (4, 12, N'BEGINNER', N'Tập phản xạ và cardio cùng bạn bè', N'Không có', CAST(52.00 AS Decimal(5, 2)), CAST(158.00 AS Decimal(5, 2)), NULL, NULL, NULL, CAST(N'2026-10-27T18:26:48.117' AS DateTime))
-SET IDENTITY_INSERT [dbo].[member_health_profiles] OFF
+-- 1.3 Verification Tokens
+CREATE TABLE dbo.verification_tokens (
+    token_id         BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_verification_tokens PRIMARY KEY,
+    email            VARCHAR(100) NOT NULL,
+    token_hash       VARCHAR(64)  NOT NULL,
+    token_type       VARCHAR(20)  NOT NULL,
+    created_at       DATETIME2(7) NOT NULL CONSTRAINT DF_verification_tokens_created DEFAULT SYSDATETIME(),
+    expires_at       DATETIME2(7) NOT NULL,
+    used_at          DATETIME2(7) NULL,
+    failed_attempts  INT          NOT NULL CONSTRAINT DF_verification_tokens_failed DEFAULT 0,
+    locked           BIT          NOT NULL CONSTRAINT DF_verification_tokens_locked DEFAULT 0
+);
 GO
-SET IDENTITY_INSERT [dbo].[membership_packages] ON 
 
-INSERT [dbo].[membership_packages] ([package_id], [name], [sport_id], [price], [duration_days], [access_type], [description], [status], [package_type], [quota_sessions], [quota_courts]) VALUES (1, N'Thẻ Hội Viên VIP Diamond (Toàn Hệ Thống)', NULL, CAST(2800000.00 AS Decimal(10, 2)), 30, N'ALL_DAY', N'Tập không giới hạn tất cả các bộ môn, free Locker & nước uống.', N'ACTIVE', N'VIP', 30, 15)
-INSERT [dbo].[membership_packages] ([package_id], [name], [sport_id], [price], [duration_days], [access_type], [description], [status], [package_type], [quota_sessions], [quota_courts]) VALUES (2, N'Thẻ Hội Viên Vàng Off-Peak', NULL, CAST(1500000.00 AS Decimal(10, 2)), 30, N'OFF_PEAK', N'Tập tất cả các môn từ 08:00 - 16:00 các ngày trong tuần.', N'ACTIVE', N'VIP', 20, 10)
-INSERT [dbo].[membership_packages] ([package_id], [name], [sport_id], [price], [duration_days], [access_type], [description], [status], [package_type], [quota_sessions], [quota_courts]) VALUES (3, N'Khóa Học Pickleball Căn Bản (10 Buổi)', 1, CAST(1800000.00 AS Decimal(10, 2)), 45, N'ALL_DAY', N'Bao gồm 10 buổi học kỹ thuật cầm vợt, di chuyển cùng HLV.', N'ACTIVE', N'CLASS', 10, 0)
-INSERT [dbo].[membership_packages] ([package_id], [name], [sport_id], [price], [duration_days], [access_type], [description], [status], [package_type], [quota_sessions], [quota_courts]) VALUES (4, N'Thẻ Hội Viên Tennis Tháng', 2, CAST(2000000.00 AS Decimal(10, 2)), 30, N'PEAK', N'Miễn phí đặt sân Tennis vào khung giờ vàng (17:00 - 21:00).', N'ACTIVE', N'PT', 30, 15)
-INSERT [dbo].[membership_packages] ([package_id], [name], [sport_id], [price], [duration_days], [access_type], [description], [status], [package_type], [quota_sessions], [quota_courts]) VALUES (5, N'Gói Tập Cầu Lông Học Sinh / Sinh Viên', 4, CAST(800000.00 AS Decimal(10, 2)), 30, N'OFF_PEAK', N'Dành riêng cho HS-SV với giá ưu đãi.', N'ACTIVE', N'CLASS', 15, 0)
-SET IDENTITY_INSERT [dbo].[membership_packages] OFF
+-- 1.4 Sports & Public Sports (IDs 1..10 synchronized)
+CREATE TABLE dbo.sports (
+    sport_id     BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_sports PRIMARY KEY,
+    sport_name   NVARCHAR(50)  NOT NULL,
+    description  NVARCHAR(MAX) NULL
+);
 GO
-SET IDENTITY_INSERT [dbo].[notifications] ON 
 
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (1, 9, N'Booking đã bị hủy', N'Lớp học #16 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-10-30T14:38:03.5421904' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (2, 9, N'Booking đã bị hủy', N'Lớp học #19 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-10-30T14:38:03.5711907' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (3, 9, N'Booking đã bị hủy', N'Lớp học #20 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-10-30T14:38:03.5741895' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (4, 9, N'Booking đã bị hủy', N'Lớp học #21 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-10-30T14:38:03.5761946' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (5, 9, N'Booking đã bị hủy', N'Lớp học #22 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-10-30T14:38:03.5781913' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (6, 37, N'Booking đã bị hủy', N'Lớp học #23 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-10-30T14:38:03.5801898' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (7, 37, N'Booking đã bị hủy', N'Lớp học #24 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-10-30T14:38:03.5821902' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (8, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #25', N'PAYMENT', 0, CAST(N'2026-10-30T15:28:12.5053552' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (9, 37, N'Booking đã bị hủy', N'Lớp học #26 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-10-30T15:39:18.4613304' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (10, 37, N'Booking đã bị hủy', N'Lớp học #27 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-10-30T15:50:18.9544199' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (11, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #28', N'PAYMENT', 0, CAST(N'2026-10-30T16:23:17.0976822' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (12, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho đặt sân #40', N'PAYMENT', 0, CAST(N'2026-10-30T16:23:20.7158688' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (13, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho đặt sân #41', N'PAYMENT', 0, CAST(N'2026-10-30T16:53:53.7363499' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (14, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho đặt sân #42', N'PAYMENT', 0, CAST(N'2026-10-30T23:26:24.6992711' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (15, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #29', N'PAYMENT', 0, CAST(N'2026-10-30T23:27:57.5771362' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (16, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #30', N'PAYMENT', 0, CAST(N'2026-10-30T23:38:25.4590058' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (17, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #31', N'PAYMENT', 0, CAST(N'2026-10-31T00:43:44.9413476' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (18, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho đặt sân #43', N'PAYMENT', 0, CAST(N'2026-10-31T00:57:16.0426010' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (19, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #32', N'PAYMENT', 0, CAST(N'2026-10-31T00:57:43.3389257' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (20, 37, N'Kích hoạt gói tập thành công', N'Gói hội viên của bạn đã được kích hoạt. Mã thẻ: #14', N'PAYMENT', 0, CAST(N'2026-10-31T09:13:18.2181766' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (21, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho đặt sân #44', N'PAYMENT', 0, CAST(N'2026-10-31T11:10:44.2834306' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (22, 37, N'Thanh toán gói tập hết hạn', N'Thanh toán cho gói tập đã hết hạn do không hoàn tất trong 10 phút. Vui lòng đăng ký lại nếu muốn tiếp tục.', N'PAYMENT', 0, CAST(N'2026-10-31T11:22:40.9349276' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (23, 37, N'Thanh toán gói tập hết hạn', N'Thanh toán cho gói tập đã hết hạn do không hoàn tất trong 10 phút. Vui lòng đăng ký lại nếu muốn tiếp tục.', N'PAYMENT', 0, CAST(N'2026-10-31T11:52:08.2925590' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (24, 37, N'Booking đã bị hủy', N'Lớp học #33 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-10-31T13:12:14.9935285' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (25, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #34', N'PAYMENT', 0, CAST(N'2026-10-31T23:17:59.6913489' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (26, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho đặt sân #45', N'PAYMENT', 0, CAST(N'2026-10-31T23:18:24.5741044' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (27, 37, N'Kích hoạt gói tập thành công', N'Gói hội viên của bạn đã được kích hoạt. Mã thẻ: #17', N'PAYMENT', 0, CAST(N'2026-10-31T23:18:45.8155104' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (28, 39, N'Booking đã bị hủy', N'Lớp học #36 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-01T18:43:27.1473157' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (29, 39, N'Booking đã bị hủy', N'Lớp học #37 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-01T18:43:27.2482552' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (30, 39, N'Booking đã bị hủy', N'Lớp học #38 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-01T18:43:27.2602581' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (31, 39, N'Booking đã bị hủy', N'Lớp học #39 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-01T18:55:41.1462464' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (32, 39, N'Booking đã bị hủy', N'Lớp học #40 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-01T18:56:41.2091873' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (33, 39, N'Booking đã bị hủy', N'Lớp học #41 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-01T19:02:53.0496774' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (34, 37, N'Booking đã bị hủy', N'Lớp học #42 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-01T19:03:53.2005154' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (35, 37, N'Booking đã bị hủy', N'Lớp học #43 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-01T19:13:53.9065770' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (36, 37, N'Booking đã bị hủy', N'Lớp học #44 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-01T19:26:10.1369315' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (37, 37, N'Đặt sân đã bị hủy', N'Đặt sân #46 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-01T19:31:10.5180758' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (38, 39, N'Thanh toán gói tập hết hạn', N'Thanh toán cho gói tập đã hết hạn do không hoàn tất trong 10 phút. Vui lòng đăng ký lại nếu muốn tiếp tục.', N'PAYMENT', 0, CAST(N'2026-11-01T19:39:06.4317370' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (39, 39, N'Thanh toán gói tập hết hạn', N'Thanh toán cho gói tập đã hết hạn do không hoàn tất trong 10 phút. Vui lòng đăng ký lại nếu muốn tiếp tục.', N'PAYMENT', 0, CAST(N'2026-11-01T19:43:16.9446061' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (40, 39, N'Kích hoạt gói tập thành công', N'Gói hội viên của bạn đã được kích hoạt. Mã thẻ: #20', N'PAYMENT', 0, CAST(N'2026-11-01T19:44:23.4750499' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (41, 29, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #45', N'PAYMENT', 1, CAST(N'2026-11-01T20:15:01.9654597' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (42, 29, N'Thanh toán thành công', N'Đã nhận thanh toán cho đặt sân #47', N'PAYMENT', 1, CAST(N'2026-11-01T20:16:39.4960816' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (43, 29, N'Thanh toán gói tập hết hạn', N'Thanh toán cho gói tập đã hết hạn do không hoàn tất trong 10 phút. Vui lòng đăng ký lại nếu muốn tiếp tục.', N'PAYMENT', 1, CAST(N'2026-11-01T23:17:39.6402108' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (44, 29, N'Thanh toán gói tập hết hạn', N'Thanh toán cho gói tập đã hết hạn do không hoàn tất trong 10 phút. Vui lòng đăng ký lại nếu muốn tiếp tục.', N'PAYMENT', 1, CAST(N'2026-11-01T23:28:40.1644667' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (45, 29, N'Booking đã bị hủy', N'Lớp học #46 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 1, CAST(N'2026-11-01T23:41:07.5994871' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (46, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T00:00:00.0579035' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (47, 29, N'Thanh toán gói tập hết hạn', N'Thanh toán cho gói tập đã hết hạn do không hoàn tất trong 10 phút. Vui lòng đăng ký lại nếu muốn tiếp tục.', N'PAYMENT', 1, CAST(N'2026-11-02T00:02:08.6802900' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (48, 29, N'Booking đã bị hủy', N'Lớp học #47 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 1, CAST(N'2026-11-02T00:12:09.3391947' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (49, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T00:15:37.1382130' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (50, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T00:18:23.0599704' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (51, 30, N'Thanh toán thành công', N'Đã nhận thanh toán cho đặt sân #48', N'PAYMENT', 0, CAST(N'2026-11-02T00:23:58.5031475' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (52, 29, N'Thanh toán gói tập hết hạn', N'Thanh toán cho gói tập đã hết hạn do không hoàn tất trong 10 phút. Vui lòng đăng ký lại nếu muốn tiếp tục.', N'PAYMENT', 1, CAST(N'2026-11-02T00:30:24.5642820' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (53, 30, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #48', N'PAYMENT', 0, CAST(N'2026-11-02T00:33:56.3761350' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (54, 30, N'Thanh toán thành công', N'Đã nhận thanh toán cho đặt sân #49', N'PAYMENT', 0, CAST(N'2026-11-02T00:35:27.1149215' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (55, 29, N'Thanh toán gói tập hết hạn', N'Thanh toán cho gói tập đã hết hạn do không hoàn tất trong 10 phút. Vui lòng đăng ký lại nếu muốn tiếp tục.', N'PAYMENT', 1, CAST(N'2026-11-02T00:42:25.2709365' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (56, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T02:08:10.0465544' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (57, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T02:34:14.6525049' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (58, 37, N'Booking đã bị hủy', N'Lớp học #50 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-02T02:46:15.7554212' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (59, 37, N'Đặt sân đã bị hủy', N'Đặt sân #50 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-02T02:49:15.8848043' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (60, 37, N'Thanh toán gói tập hết hạn', N'Thanh toán cho gói tập đã hết hạn do không hoàn tất trong 10 phút. Vui lòng đăng ký lại nếu muốn tiếp tục.', N'PAYMENT', 0, CAST(N'2026-11-02T02:50:15.9619846' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (61, 37, N'Đặt sân đã bị hủy', N'Đặt sân #51 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-02T02:59:16.2932935' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (62, 37, N'Booking đã bị hủy', N'Lớp học #51 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-02T03:00:16.3565522' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (63, 37, N'Đặt sân đã bị hủy', N'Đặt sân #52 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-02T03:03:16.5371178' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (64, 37, N'Đặt sân đã bị hủy', N'Đặt sân #53 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-02T03:03:16.5548795' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (65, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T03:09:27.9119889' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (66, 39, N'Booking đã bị hủy', N'Lớp học #52 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-02T03:22:29.0150601' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (67, 39, N'Đặt sân đã bị hủy', N'Đặt sân #54 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-02T03:23:29.0841507' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (68, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T03:28:51.7172221' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (69, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T03:38:53.1098444' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (70, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #53', N'PAYMENT', 0, CAST(N'2026-11-02T03:42:42.3497289' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (71, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #54', N'PAYMENT', 0, CAST(N'2026-11-02T03:44:31.7032138' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (72, 39, N'Booking đã bị hủy', N'Lớp học #55 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-02T03:56:55.0291448' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (73, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T04:16:14.1655521' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (74, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #56', N'PAYMENT', 0, CAST(N'2026-11-02T04:18:46.3748653' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (75, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T04:26:51.8706575' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (76, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T04:43:29.3650788' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (77, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T04:45:06.7872166' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (78, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #57', N'PAYMENT', 0, CAST(N'2026-11-02T04:47:04.0588633' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (79, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T04:51:11.4564755' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (80, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T04:53:02.9190150' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (81, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #58', N'PAYMENT', 0, CAST(N'2026-11-02T04:55:12.6948339' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (82, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T05:02:39.6318548' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (83, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #59', N'PAYMENT', 0, CAST(N'2026-11-02T05:05:33.1468442' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (84, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T12:44:05.9423939' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (85, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #60', N'PAYMENT', 0, CAST(N'2026-11-02T12:45:16.0714475' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (86, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #61', N'PAYMENT', 0, CAST(N'2026-11-02T12:49:00.7546690' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (87, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T13:04:38.6772888' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (88, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #62', N'PAYMENT', 0, CAST(N'2026-11-02T14:11:56.3185756' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (89, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #63', N'PAYMENT', 0, CAST(N'2026-11-02T14:39:08.2680588' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (90, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T14:47:30.7738107' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (91, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho đặt sân #55', N'PAYMENT', 0, CAST(N'2026-11-02T14:49:03.6282357' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (92, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #64', N'PAYMENT', 0, CAST(N'2026-11-02T14:50:07.6778815' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (93, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T14:57:25.2797040' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (94, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #65', N'PAYMENT', 0, CAST(N'2026-11-02T14:58:33.9501263' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (95, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #66', N'PAYMENT', 0, CAST(N'2026-11-02T15:05:54.9194505' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (96, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T15:35:53.9144853' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (97, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #67', N'PAYMENT', 0, CAST(N'2026-11-02T15:38:40.0437228' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (98, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #68', N'PAYMENT', 0, CAST(N'2026-11-02T15:44:41.7469036' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (99, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T16:05:50.0324975' AS DateTime2))
+CREATE TABLE dbo.public_sports (
+    sport_id     BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_public_sports PRIMARY KEY,
+    slug         NVARCHAR(80)   NOT NULL CONSTRAINT UQ_public_sports_slug UNIQUE,
+    name         NVARCHAR(100)  NOT NULL,
+    subtitle     NVARCHAR(150)  NULL,
+    tag          NVARCHAR(80)   NULL,
+    description  NVARCHAR(1000) NULL,
+    icon         NVARCHAR(80)   NULL,
+    area         NVARCHAR(150)  NULL,
+    active       BIT            NOT NULL CONSTRAINT DF_public_sports_active DEFAULT 1
+);
 GO
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (100, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T16:20:36.1577338' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (101, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho đặt sân #56', N'PAYMENT', 0, CAST(N'2026-11-02T22:12:06.9520705' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (102, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho đặt sân #57', N'PAYMENT', 0, CAST(N'2026-11-02T22:15:06.0571111' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (103, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T22:17:44.7871227' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (104, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #69', N'PAYMENT', 0, CAST(N'2026-11-02T22:20:20.6955343' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (105, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T22:29:54.4477784' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (106, 10, N'Nhắc nhở gia hạn gói tập', N'Gói tập của bạn sẽ hết hạn sau 3 ngày nữa (ngày 2026-11-05). Hãy gia hạn sớm để duy trì quyền lợi tập luyện nhé!', N'MEMBERSHIP', 0, CAST(N'2026-11-02T22:58:08.9277449' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (107, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #70', N'PAYMENT', 0, CAST(N'2026-11-02T23:04:06.0359227' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (108, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho đặt sân #58', N'PAYMENT', 0, CAST(N'2026-11-02T23:05:51.0657330' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (109, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #71', N'PAYMENT', 0, CAST(N'2026-11-02T23:18:10.8030602' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (110, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #72', N'PAYMENT', 0, CAST(N'2026-11-03T05:23:09.9523235' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (111, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #73', N'PAYMENT', 0, CAST(N'2026-11-03T06:12:58.8768340' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (112, 37, N'Thanh toán gói thành công', N'Gói hội viên #27 của bạn đã được thanh toán thành công! Hệ thống đang chờ Quản lý phê duyệt để kích hoạt gói tập.', N'PAYMENT', 0, CAST(N'2026-11-03T15:41:39.1056509' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (113, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho đặt sân #59', N'PAYMENT', 0, CAST(N'2026-11-03T15:43:01.5610948' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (114, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #74', N'PAYMENT', 0, CAST(N'2026-11-03T16:11:56.4296484' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (115, 1, N'Yêu cầu hoàn tiền mới', N'huy tran yêu cầu hoàn tiền 180.000 VNĐ cho: Lớp Pickleball Nâng Cao K05 - Gym & Fitness - Cụm Sân Pickleball - Sân P2 (Indoor) - HLV Nguyễn Hoàng Nam', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T16:12:14.0589097' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (116, 2, N'Yêu cầu hoàn tiền mới', N'huy tran yêu cầu hoàn tiền 180.000 VNĐ cho: Lớp Pickleball Nâng Cao K05 - Gym & Fitness - Cụm Sân Pickleball - Sân P2 (Indoor) - HLV Nguyễn Hoàng Nam', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T16:12:14.0689140' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (117, 37, N'Yêu cầu hủy đăng ký đã được gửi', N'Yêu cầu hủy đăng ký của bạn đang chờ quản lý phê duyệt. Bạn sẽ nhận được thông báo khi có kết quả.', N'BOOKING_CANCEL', 0, CAST(N'2026-11-03T16:12:14.0779027' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (118, 37, N'Yêu cầu hoàn tiền đã được duyệt', N'Yêu cầu hoàn tiền 180.000 VNĐ đã được duyệt. Tiền sẽ được chuyển về tài khoản trong 3-5 ngày làm việc.', N'REFUND', 0, CAST(N'2026-11-03T16:18:33.8027391' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (119, 1, N'Yêu cầu hoàn tiền mới', N'huy tran yêu cầu hoàn tiền 120.000 VNĐ cho: Fitness Studio 01 - Gym & Fitness - 03/11/2026 20:00 đến 03/11/2026 21:00', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T16:58:17.5058360' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (120, 2, N'Yêu cầu hoàn tiền mới', N'huy tran yêu cầu hoàn tiền 120.000 VNĐ cho: Fitness Studio 01 - Gym & Fitness - 03/11/2026 20:00 đến 03/11/2026 21:00', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T16:58:17.5126318' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (121, 37, N'Yêu cầu hủy đặt sân đã được gửi', N'Yêu cầu hủy đặt sân của bạn đang chờ quản lý phê duyệt.', N'BOOKING_CANCEL', 0, CAST(N'2026-11-03T16:58:17.5170635' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (122, 1, N'Yêu cầu hoàn tiền mới', N'huy tran yêu cầu hoàn tiền 50.000 VNĐ cho: Bàn bóng bàn 01 - Bóng bàn - 08/11/2026 10:00 đến 08/11/2026 11:00', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T16:59:45.0186767' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (123, 2, N'Yêu cầu hoàn tiền mới', N'huy tran yêu cầu hoàn tiền 50.000 VNĐ cho: Bàn bóng bàn 01 - Bóng bàn - 08/11/2026 10:00 đến 08/11/2026 11:00', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T16:59:45.0325569' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (124, 37, N'Yêu cầu hủy đặt sân đã được gửi', N'Yêu cầu hủy đặt sân của bạn đang chờ quản lý phê duyệt.', N'BOOKING_CANCEL', 0, CAST(N'2026-11-03T16:59:45.0375553' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (125, 37, N'Đặt sân đã bị hủy', N'Đặt sân #60 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-03T17:07:47.0756091' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (126, 37, N'Thanh toán gói tập hết hạn', N'Thanh toán cho gói tập đã hết hạn do không hoàn tất trong 10 phút. Vui lòng đăng ký lại nếu muốn tiếp tục.', N'PAYMENT', 0, CAST(N'2026-11-03T17:10:47.2172211' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (127, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #75', N'PAYMENT', 0, CAST(N'2026-11-03T17:11:58.5214987' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (128, 1, N'Yêu cầu hoàn tiền mới', N'huy tran yêu cầu hoàn tiền 180.000 VNĐ cho: Lớp Pickleball Nâng Cao K05 - Gym & Fitness - Cụm Sân Pickleball - Sân P2 (Indoor) - HLV Nguyễn Hoàng Nam', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T17:12:09.5056157' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (129, 2, N'Yêu cầu hoàn tiền mới', N'huy tran yêu cầu hoàn tiền 180.000 VNĐ cho: Lớp Pickleball Nâng Cao K05 - Gym & Fitness - Cụm Sân Pickleball - Sân P2 (Indoor) - HLV Nguyễn Hoàng Nam', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T17:12:09.5286539' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (130, 37, N'Yêu cầu hủy đăng ký đã được gửi', N'Yêu cầu hủy đăng ký của bạn đang chờ quản lý phê duyệt. Bạn sẽ nhận được thông báo khi có kết quả.', N'BOOKING_CANCEL', 0, CAST(N'2026-11-03T17:12:09.5382315' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (131, 37, N'Yêu cầu hoàn tiền đã được duyệt', N'Yêu cầu hoàn tiền 180.000 VNĐ đã được duyệt. Tiền sẽ được chuyển về tài khoản trong 3-5 ngày làm việc.', N'REFUND', 0, CAST(N'2026-11-03T17:14:30.5881386' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (132, 37, N'Yêu cầu hoàn tiền đã được duyệt', N'Yêu cầu hoàn tiền 50.000 VNĐ đã được duyệt. Tiền sẽ được chuyển về tài khoản trong 3-5 ngày làm việc.', N'REFUND', 0, CAST(N'2026-11-03T17:15:58.0158315' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (133, 1, N'Dụng cụ mượn quá hạn (7 ngày)', N'Dụng cụ "Vợt Tennis Wilson Pro Staff" bạn mượn tại quầy lễ tân đã quá hạn 7 ngày. Vui lòng hoàn trả sớm để tránh phí phạt.', N'EQUIPMENT', 0, CAST(N'2026-11-03T20:54:16.0302443' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (134, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #77', N'PAYMENT', 0, CAST(N'2026-11-03T21:02:58.3155933' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (135, 1, N'Yêu cầu hoàn tiền mới', N'duc nguyen yêu cầu hoàn tiền 198.000 VNĐ cho: Lớp Tennis Chiến Thuật Đánh Đôi - Sân Pickleball - Sân Tennis Đơn & Đôi - Sân T2 - HLV Trần Văn Minh', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T21:03:27.5688608' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (136, 2, N'Yêu cầu hoàn tiền mới', N'duc nguyen yêu cầu hoàn tiền 198.000 VNĐ cho: Lớp Tennis Chiến Thuật Đánh Đôi - Sân Pickleball - Sân Tennis Đơn & Đôi - Sân T2 - HLV Trần Văn Minh', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T21:03:27.5798726' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (137, 39, N'Yêu cầu hủy đăng ký đã được gửi', N'Yêu cầu hủy đăng ký của bạn đang chờ quản lý phê duyệt. Bạn sẽ nhận được thông báo khi có kết quả.', N'BOOKING_CANCEL', 0, CAST(N'2026-11-03T21:03:27.5964156' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (138, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #78', N'PAYMENT', 0, CAST(N'2026-11-03T21:04:14.5352327' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (139, 1, N'Yêu cầu hoàn tiền mới', N'duc nguyen yêu cầu hoàn tiền 162.000 VNĐ cho: Lớp Bóng Đá Cơ Bản - Bóng đá - Sân bóng đá 7 người - Sân F1 - HLV Võ Tấn Phát', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T21:07:04.2901638' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (140, 2, N'Yêu cầu hoàn tiền mới', N'duc nguyen yêu cầu hoàn tiền 162.000 VNĐ cho: Lớp Bóng Đá Cơ Bản - Bóng đá - Sân bóng đá 7 người - Sân F1 - HLV Võ Tấn Phát', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T21:07:04.3051622' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (141, 39, N'Yêu cầu hủy đăng ký đã được gửi', N'Yêu cầu hủy đăng ký của bạn đang chờ quản lý phê duyệt. Bạn sẽ nhận được thông báo khi có kết quả.', N'BOOKING_CANCEL', 0, CAST(N'2026-11-03T21:07:04.3303533' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (142, 39, N'Booking đã bị hủy', N'Lớp học #76 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-03T21:11:18.0512808' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (143, 39, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #79', N'PAYMENT', 0, CAST(N'2026-11-03T21:33:22.5669551' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (144, 1, N'Yêu cầu hoàn tiền mới', N'duc nguyen yêu cầu hoàn tiền 126.000 VNĐ cho: Lớp Cầu Lông Căn Bản - Cầu lông - Sân cầu lông - Sân B1 - HLV Đặng Thu Thảo', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T21:36:25.9577242' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (145, 2, N'Yêu cầu hoàn tiền mới', N'duc nguyen yêu cầu hoàn tiền 126.000 VNĐ cho: Lớp Cầu Lông Căn Bản - Cầu lông - Sân cầu lông - Sân B1 - HLV Đặng Thu Thảo', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T21:36:25.9655164' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (146, 39, N'Yêu cầu hủy đăng ký đã được gửi', N'Yêu cầu hủy đăng ký của bạn đang chờ quản lý phê duyệt. Bạn sẽ nhận được thông báo khi có kết quả.', N'BOOKING_CANCEL', 0, CAST(N'2026-11-03T21:36:25.9715484' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (147, 39, N'Yêu cầu hoàn tiền đã được duyệt', N'Yêu cầu hoàn tiền 126.000 VNĐ đã được duyệt. Tiền sẽ được chuyển về tài khoản trong 3-5 ngày làm việc.', N'REFUND', 0, CAST(N'2026-11-03T21:36:51.0572680' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (148, 39, N'Thanh toán gói thành công', N'Gói hội viên #29 của bạn đã được thanh toán thành công! Hệ thống đang chờ Quản lý phê duyệt để kích hoạt gói tập.', N'PAYMENT', 1, CAST(N'2026-11-03T21:38:07.0032875' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (149, 37, N'Gói tập đã được kích hoạt', N'Gói tập ''Khóa Học Pickleball Căn Bản (10 Buổi)'' của bạn đã được kích hoạt thành công! Hạn sử dụng: 2026-12-18. Quota: 10 buổi tập.', N'MEMBERSHIP', 0, CAST(N'2026-11-03T21:40:18.5873989' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (150, 39, N'Booking đã bị hủy', N'Lớp học #80 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-03T21:50:20.0467865' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (151, 29, N'Thanh toán gói tập hết hạn', N'Thanh toán cho gói tập đã hết hạn do không hoàn tất trong 10 phút. Vui lòng đăng ký lại nếu muốn tiếp tục.', N'PAYMENT', 1, CAST(N'2026-11-03T22:59:44.1784606' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (152, 29, N'Booking đã bị hủy', N'Lớp học #81 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 1, CAST(N'2026-11-03T23:00:44.3728087' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (153, 29, N'Thanh toán gói thành công', N'Gói hội viên #31 của bạn đã được thanh toán thành công! Hệ thống đang chờ Quản lý phê duyệt để kích hoạt gói tập.', N'PAYMENT', 1, CAST(N'2026-11-03T23:02:03.2377238' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (154, 29, N'Thanh toán gói thành công', N'Gói hội viên #33 của bạn đã được thanh toán thành công! Hệ thống đang chờ Quản lý phê duyệt để kích hoạt gói tập.', N'PAYMENT', 1, CAST(N'2026-11-03T23:03:42.0337249' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (155, 29, N'Gói tập đã được kích hoạt', N'Gói tập ''Thẻ Hội Viên Vàng Off-Peak'' của bạn đã được kích hoạt thành công! Hạn sử dụng: 2026-12-03. Quota: 20 buổi tập.', N'MEMBERSHIP', 1, CAST(N'2026-11-03T23:06:24.7851500' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (156, 29, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #82', N'PAYMENT', 1, CAST(N'2026-11-03T23:08:10.2292744' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (157, 1, N'Yêu cầu hoàn tiền mới', N'tien pham yêu cầu hoàn tiền 112.000 VNĐ cho: Lớp Cầu Lông Căn Bản - Yoga & Pilates - Sân Cầu Lông Thảm Yonex - Sân L2 - HLV Đặng Thu Thảo', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T23:10:00.8121925' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (158, 2, N'Yêu cầu hoàn tiền mới', N'tien pham yêu cầu hoàn tiền 112.000 VNĐ cho: Lớp Cầu Lông Căn Bản - Yoga & Pilates - Sân Cầu Lông Thảm Yonex - Sân L2 - HLV Đặng Thu Thảo', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T23:10:00.8207660' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (159, 29, N'Yêu cầu hủy đăng ký đã được gửi', N'Yêu cầu hủy đăng ký của bạn đang chờ quản lý phê duyệt. Bạn sẽ nhận được thông báo khi có kết quả.', N'BOOKING_CANCEL', 1, CAST(N'2026-11-03T23:10:00.8227491' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (160, 29, N'Yêu cầu hoàn tiền bị từ chối', N'Yêu cầu hoàn tiền 112.000 VNĐ đã bị từ chối. Lý do: Từ chối hoàn tiền', N'REFUND', 1, CAST(N'2026-11-03T23:10:49.8467655' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (161, 1, N'Yêu cầu hoàn tiền mới', N'tien pham yêu cầu hoàn tiền 112.000 VNĐ cho: Lớp Cầu Lông Căn Bản - Yoga & Pilates - Sân Cầu Lông Thảm Yonex - Sân L2 - HLV Đặng Thu Thảo', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T23:11:09.9744674' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (162, 2, N'Yêu cầu hoàn tiền mới', N'tien pham yêu cầu hoàn tiền 112.000 VNĐ cho: Lớp Cầu Lông Căn Bản - Yoga & Pilates - Sân Cầu Lông Thảm Yonex - Sân L2 - HLV Đặng Thu Thảo', N'REFUND_REQUEST', 0, CAST(N'2026-11-03T23:11:09.9875929' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (163, 29, N'Yêu cầu hủy đăng ký đã được gửi', N'Yêu cầu hủy đăng ký của bạn đang chờ quản lý phê duyệt. Bạn sẽ nhận được thông báo khi có kết quả.', N'BOOKING_CANCEL', 1, CAST(N'2026-11-03T23:11:09.9937729' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (164, 29, N'Yêu cầu hoàn tiền đã được duyệt', N'Yêu cầu hoàn tiền 112.000 VNĐ đã được duyệt. Tiền sẽ được chuyển về tài khoản trong 3-5 ngày làm việc.', N'REFUND', 1, CAST(N'2026-11-03T23:11:29.1157248' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (165, 29, N'Thanh toán gói tập hết hạn', N'Thanh toán cho gói tập đã hết hạn do không hoàn tất trong 10 phút. Vui lòng đăng ký lại nếu muốn tiếp tục.', N'PAYMENT', 1, CAST(N'2026-11-03T23:12:44.9942166' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (166, 29, N'Booking đã bị hủy', N'Lớp học #83 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 1, CAST(N'2026-11-03T23:27:45.5921886' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (167, 29, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #84', N'PAYMENT', 1, CAST(N'2026-11-04T00:23:00.3656059' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (168, 37, N'Yêu cầu hoàn tiền đã được duyệt', N'Yêu cầu hoàn tiền 550.000 VNĐ đã được duyệt. Tiền sẽ được chuyển về tài khoản trong 3-5 ngày làm việc.', N'REFUND', 0, CAST(N'2026-11-04T00:55:14.0864941' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (169, 37, N'Thanh toán thành công', N'Đã nhận thanh toán cho đặt sân #61', N'PAYMENT', 0, CAST(N'2026-11-04T01:32:09.8898944' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (170, 37, N'Thanh toán gói thành công', N'Gói hội viên #35 của bạn đã được thanh toán thành công! Hệ thống đang chờ Quản lý phê duyệt để kích hoạt gói tập.', N'PAYMENT', 0, CAST(N'2026-11-04T01:42:51.7935305' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (171, 37, N'Thanh toán gói tập hết hạn', N'Thanh toán cho gói tập đã hết hạn do không hoàn tất trong 10 phút. Vui lòng đăng ký lại nếu muốn tiếp tục.', N'PAYMENT', 0, CAST(N'2026-11-04T01:43:51.4588289' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (172, 37, N'Thanh toán gói thành công', N'Gói hội viên #36 của bạn đã được thanh toán thành công! Hệ thống đang chờ Quản lý phê duyệt để kích hoạt gói tập.', N'PAYMENT', 1, CAST(N'2026-11-04T13:15:11.7823983' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (173, 37, N'Gói tập đã được kích hoạt', N'Gói tập ''Thẻ Hội Viên VIP Diamond (Toàn Hệ Thống)'' của bạn đã được kích hoạt thành công! Hạn sử dụng: 2026-12-04. Quota: 0 buổi tập.', N'MEMBERSHIP', 0, CAST(N'2026-11-04T13:18:22.8640585' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (174, 29, N'Đặt sân đã bị hủy', N'Đặt sân #62 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-04T13:55:07.0957021' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (175, 39, N'Booking đã bị hủy', N'Lớp học #87 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-04T21:15:32.2418503' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (176, 37, N'Thanh toán gói thành công', N'Gói hội viên #37 của bạn đã được thanh toán thành công! Hệ thống đang chờ Quản lý phê duyệt để kích hoạt gói tập.', N'PAYMENT', 0, CAST(N'2026-11-04T22:02:00.2298943' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (177, 29, N'Gói hội viên đã được kích hoạt', N'Gói hội viên #38 của bạn đã được kích hoạt thành công! Bạn có thể bắt đầu đăng ký lớp học và sử dụng dịch vụ.', N'MEMBERSHIP', 0, CAST(N'2026-11-04T22:19:44.6215448' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (178, 14, N'Gói hội viên đã được kích hoạt', N'Gói hội viên #40 của bạn đã được kích hoạt thành công! Bạn có thể bắt đầu đăng ký lớp học và sử dụng dịch vụ.', N'MEMBERSHIP', 0, CAST(N'2026-11-04T22:28:03.7857598' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (179, 29, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #88', N'PAYMENT', 0, CAST(N'2026-11-05T00:57:22.1783293' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (180, 29, N'Yêu cầu hoàn tiền đã được duyệt', N'Yêu cầu hoàn tiền 162.000 VNĐ đã được duyệt. Tiền sẽ được chuyển về tài khoản trong 3-5 ngày làm việc.', N'REFUND', 1, CAST(N'2026-11-05T01:00:11.2067852' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (181, 37, N'Yêu cầu hoàn tiền đã được duyệt', N'Yêu cầu hoàn tiền 160.000 VNĐ đã được duyệt. Tiền sẽ được chuyển về tài khoản trong 3-5 ngày làm việc.', N'REFUND', 1, CAST(N'2026-11-05T02:22:13.1496322' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (182, 9, N'Đặt sân đã bị hủy', N'Đặt sân #63 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-05T02:49:43.4079852' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (183, 9, N'Đặt sân đã bị hủy', N'Đặt sân #64 đã bị hủy do không thanh toán trong 10 phút.', N'BOOKING', 0, CAST(N'2026-11-05T02:49:43.4154808' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (184, 1, N'Yêu cầu hoàn tiền mới', N'Nguyễn Anh Khoa yêu cầu hoàn tiền 0 VNĐ cho: Lớp Cầu Lông Căn Bản - Cầu lông - Sân cầu lông - Sân B1 - HLV Đặng Thu Thảo', N'REFUND_REQUEST', 0, CAST(N'2026-11-05T03:25:23.9349042' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (185, 2, N'Yêu cầu hoàn tiền mới', N'Nguyễn Anh Khoa yêu cầu hoàn tiền 0 VNĐ cho: Lớp Cầu Lông Căn Bản - Cầu lông - Sân cầu lông - Sân B1 - HLV Đặng Thu Thảo', N'REFUND_REQUEST', 0, CAST(N'2026-11-05T03:25:23.9489023' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (186, 9, N'Yêu cầu hủy đăng ký đã được gửi', N'Yêu cầu hủy đăng ký của bạn đang chờ quản lý phê duyệt. Bạn sẽ nhận được thông báo khi có kết quả.', N'BOOKING_CANCEL', 0, CAST(N'2026-11-05T03:25:23.9569476' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (187, 9, N'Yêu cầu hoàn tiền đã được duyệt', N'Yêu cầu hoàn tiền 0 VNĐ đã được duyệt. Tiền sẽ được chuyển về tài khoản trong 3-5 ngày làm việc.', N'REFUND', 0, CAST(N'2026-11-05T03:25:52.5306366' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (188, 1, N'Yêu cầu hoàn tiền mới', N'Nguyễn Anh Khoa yêu cầu hoàn tiền 0 VNĐ cho: Lớp Bóng Chuyền Căn Bản - Bóng đá - Sân bóng chuyền - Sân V1 - HLV Nguyễn Hoàng Nam', N'REFUND_REQUEST', 0, CAST(N'2026-11-05T03:27:27.4910442' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (189, 2, N'Yêu cầu hoàn tiền mới', N'Nguyễn Anh Khoa yêu cầu hoàn tiền 0 VNĐ cho: Lớp Bóng Chuyền Căn Bản - Bóng đá - Sân bóng chuyền - Sân V1 - HLV Nguyễn Hoàng Nam', N'REFUND_REQUEST', 0, CAST(N'2026-11-05T03:27:27.5090012' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (190, 9, N'Yêu cầu hủy đăng ký đã được gửi', N'Yêu cầu hủy đăng ký của bạn đang chờ quản lý phê duyệt. Bạn sẽ nhận được thông báo khi có kết quả.', N'BOOKING_CANCEL', 0, CAST(N'2026-11-05T03:27:27.5319497' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (191, 9, N'Yêu cầu hoàn tiền đã được duyệt', N'Yêu cầu hoàn tiền 0 VNĐ đã được duyệt. Tiền sẽ được chuyển về tài khoản trong 3-5 ngày làm việc.', N'REFUND', 0, CAST(N'2026-11-05T03:27:49.8175722' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (192, 9, N'Gói hội viên đã được kích hoạt', N'Gói hội viên #41 của bạn đã được kích hoạt thành công! Bạn có thể bắt đầu đăng ký lớp học và sử dụng dịch vụ.', N'MEMBERSHIP', 0, CAST(N'2026-11-05T03:29:12.0180441' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (193, 9, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #93', N'PAYMENT', 0, CAST(N'2026-11-05T03:45:56.7693828' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (194, 9, N'Yêu cầu hoàn tiền đã được duyệt', N'Yêu cầu hoàn tiền 128.000 VNĐ đã được duyệt. Tiền sẽ được chuyển về tài khoản trong 3-5 ngày làm việc.', N'REFUND', 0, CAST(N'2026-11-05T03:58:55.0481254' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (195, 9, N'Thanh toán thành công', N'Đã nhận thanh toán cho lớp học #94', N'PAYMENT', 0, CAST(N'2026-11-05T04:02:05.5793224' AS DateTime2))
-INSERT [dbo].[notifications] ([notification_id], [user_id], [title], [message], [type], [is_read], [created_at]) VALUES (196, 9, N'Yêu cầu hoàn tiền đã được duyệt', N'Yêu cầu hoàn tiền 144.000 VNĐ đã được duyệt. Tiền sẽ được chuyển về tài khoản trong 3-5 ngày làm việc.', N'REFUND', 0, CAST(N'2026-11-05T04:03:02.5387731' AS DateTime2))
-SET IDENTITY_INSERT [dbo].[notifications] OFF
-GO
-SET IDENTITY_INSERT [dbo].[payment_transactions] ON 
 
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (58, 37, N'CLASS', CAST(160000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'REFUNDED', N'TEST30102026', CAST(N'2026-10-30T15:18:12.8535620' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (64, 37, N'COURT', CAST(120000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'ae43f3af-ec30-4f81-929c-6dd48525ad4f', CAST(N'2026-10-30T16:18:41.5641012' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (65, 37, N'CLASS', CAST(140000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'cd4aeb5f-69dd-4bcb-b340-7911abe6fd64', CAST(N'2026-10-30T16:20:50.9916683' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (66, 37, N'COURT', CAST(250000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'cbcfe800-e2c0-4327-97a2-bdc35fda2b00', CAST(N'2026-10-30T16:53:36.4597932' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (67, 37, N'COURT', CAST(60000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'109330fd-835a-4a2b-93ff-dbed5e1842e2', CAST(N'2026-10-30T23:25:59.3238915' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (68, 37, N'CLASS', CAST(150000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'5e8abd2b-a12c-4f1d-9bcd-081bcca9ff24', CAST(N'2026-10-30T23:27:41.1289302' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (69, 37, N'CLASS', CAST(220000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'ea035be3-e1b7-4925-a6c7-02e7ea7d9d1c', CAST(N'2026-10-30T23:38:08.8753513' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (70, 37, N'CLASS', CAST(160000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'ba481337-0f47-4537-a9ed-78838a186597', CAST(N'2026-10-31T00:43:25.4182753' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (71, 37, N'COURT', CAST(60000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'21a68889-6e3c-44b9-b971-d14f9d99c52a', CAST(N'2026-10-31T00:57:02.2062035' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (72, 37, N'CLASS', CAST(180000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'72b15fba-53c1-428b-a2b0-b2c3cecc0731', CAST(N'2026-10-31T00:57:31.5706396' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (73, 37, N'MEMBERSHIP_PACKAGE', CAST(800000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'007ecedc-5635-4e27-ba0b-4a5b62aa9374', CAST(N'2026-10-31T09:12:59.0654300' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (74, 37, N'COURT', CAST(51000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'cf390833-100f-419e-9841-cafbbc31034e', CAST(N'2026-10-31T11:09:29.9261110' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (78, 37, N'CLASS', CAST(160000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'366e34fa-5794-447d-84fe-ea8975764873', CAST(N'2026-10-31T23:17:35.9347970' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (79, 37, N'COURT', CAST(550000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'REFUNDED', N'd3babf62-ff32-4198-a316-9d1444bf678f', CAST(N'2026-10-31T23:18:10.9326903' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (80, 37, N'MEMBERSHIP_PACKAGE', CAST(800000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'868c44dc-35f5-4082-98ce-1318f667c5db', CAST(N'2026-10-31T23:18:35.2029136' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (81, 39, N'CLASS', CAST(150000.00 AS Decimal(12, 2)), N'VNPAY', N'PENDING', N'CLS-633B7BA245', CAST(N'2026-11-01T18:24:56.9108406' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (82, 39, N'CLASS_REFUND', CAST(150000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'RFD-CLS-57072765EF', CAST(N'2026-11-01T18:27:33.4538651' AS DateTime2), NULL, NULL, N'CLASS', N'Hoàn Tiền Hủy Lớp Học (100%)')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (84, 39, N'CLASS', CAST(150000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-873AC91D88', CAST(N'2026-11-01T18:29:40.1874024' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (85, 39, N'CLASS', CAST(200000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-3DBF6F210B', CAST(N'2026-11-01T18:30:29.5081526' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (86, 39, N'CLASS', CAST(150000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-F574E805A9', CAST(N'2026-11-01T18:45:24.6209604' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (87, 39, N'CLASS', CAST(110000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-2861E73A4B', CAST(N'2026-11-01T18:45:44.4387995' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (88, 39, N'CLASS', CAST(150000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-588E2F1D5A', CAST(N'2026-11-01T18:52:14.0998555' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (89, 37, N'CLASS', CAST(144000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-BF7C4C761D', CAST(N'2026-11-01T18:53:07.4286153' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (90, 37, N'CLASS', CAST(162000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-2CF70C3FA3', CAST(N'2026-11-01T19:03:00.2581784' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (91, 37, N'CLASS', CAST(144000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-CB67FFDC2A', CAST(N'2026-11-01T19:15:55.4642427' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (92, 37, N'COURT', CAST(51000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CRT-78B8474FE6', CAST(N'2026-11-01T19:20:13.5850864' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (93, 39, N'MEMBERSHIP_PACKAGE', CAST(800000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-451EC3B6AD', CAST(N'2026-11-01T19:28:27.8041351' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (94, 39, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-1F8AFEA261', CAST(N'2026-11-01T19:32:35.6496489' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (95, 39, N'MEMBERSHIP_PACKAGE', CAST(800000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721676', CAST(N'2026-11-01T19:43:04.7634712' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (96, 29, N'CLASS', CAST(120000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721692', CAST(N'2026-11-01T20:14:17.2338515' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (97, 29, N'COURT', CAST(500000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721693', CAST(N'2026-11-01T20:15:57.9906510' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (98, 29, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-F5D23AF3F8', CAST(N'2026-11-01T23:06:54.8103541' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (99, 29, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-EB516C90DD', CAST(N'2026-11-01T23:17:55.3162108' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (100, 29, N'CLASS', CAST(180000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-A3D56E0C49', CAST(N'2026-11-01T23:30:37.0173377' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (101, 29, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-36CA0AED5C', CAST(N'2026-11-01T23:51:20.6445904' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (102, 29, N'CLASS', CAST(180000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-70B4373FF4', CAST(N'2026-11-02T00:01:45.1905554' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (103, 29, N'MEMBERSHIP_PACKAGE', CAST(800000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-98F175788A', CAST(N'2026-11-02T00:19:27.2869781' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (104, 30, N'COURT', CAST(180000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721855', CAST(N'2026-11-02T00:23:02.8880460' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (105, 29, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-CD15E4499E', CAST(N'2026-11-02T00:32:10.0769997' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (106, 30, N'CLASS', CAST(150000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721860', CAST(N'2026-11-02T00:32:24.9458533' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (107, 30, N'COURT', CAST(500000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721861', CAST(N'2026-11-02T00:34:53.6928185' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (108, 29, N'CLASS_REFUND', CAST(120000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'RFD-CLS-03FD7B67D8', CAST(N'2026-11-02T01:34:09.0894366' AS DateTime2), NULL, NULL, N'CLASS', N'Hoàn Tiền Hủy Lớp Học (100%)')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (109, 37, N'CLASS_REFUND', CAST(180000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'REFUNDED', N'RFD-CLS-18DE288680', CAST(N'2026-11-02T01:35:42.3160146' AS DateTime2), NULL, NULL, N'CLASS', N'Hoàn Tiền Hủy Lớp Học (100%)')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (110, 37, N'COURT_REFUND', CAST(60000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'REFUNDED', N'RFD-CRT-954B4C64A1', CAST(N'2026-11-02T01:36:17.5445867' AS DateTime2), NULL, NULL, N'COURT', N'Hoàn Tiền Hủy Thuê Sân (100%)')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (111, 37, N'CLASS_REFUND', CAST(150000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'REFUNDED', N'RFD-CLS-726B4FF27B', CAST(N'2026-11-02T02:09:31.2930524' AS DateTime2), NULL, NULL, N'CLASS', N'Hoàn Tiền Hủy Lớp Học (100%)')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (112, 37, N'COURT_REFUND', CAST(120000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'REFUNDED', N'RFD-CRT-9F5DC0E823', CAST(N'2026-11-02T02:10:02.8224201' AS DateTime2), NULL, NULL, N'COURT', N'Hoàn Tiền Hủy Thuê Sân (100%)')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (113, 37, N'CLASS', CAST(162000.00 AS Decimal(12, 2)), N'VNPAY', N'PENDING', N'CLS-49450F2552', CAST(N'2026-11-02T02:35:02.7477602' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (114, 37, N'CLASS', CAST(144000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-185760BA30', CAST(N'2026-11-02T02:35:34.1439829' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (115, 37, N'COURT', CAST(127500.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CRT-36940BD395', CAST(N'2026-11-02T02:39:01.9595986' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (116, 37, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-BD86F6C30D', CAST(N'2026-11-02T02:39:29.4865009' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (117, 37, N'COURT', CAST(550000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CRT-2229783F76', CAST(N'2026-11-02T02:49:15.0636716' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (118, 37, N'CLASS', CAST(110000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-E1CECC1503', CAST(N'2026-11-02T02:50:01.5328685' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (119, 37, N'COURT', CAST(180000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CRT-7A0A6EEFBC', CAST(N'2026-11-02T02:52:36.0636490' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (121, 39, N'CLASS', CAST(180000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-A9B595BAB9', CAST(N'2026-11-02T03:12:25.1022142' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (122, 39, N'COURT', CAST(153000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CRT-49CCCFA4D3', CAST(N'2026-11-02T03:12:40.0836552' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (123, 39, N'CLASS', CAST(108000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721882', CAST(N'2026-11-02T03:41:56.6759069' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (124, 39, N'CLASS', CAST(144000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721883', CAST(N'2026-11-02T03:43:58.8441456' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (125, 39, N'CLASS', CAST(162000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-0EDE581FC2', CAST(N'2026-11-02T03:46:24.3326986' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (126, 39, N'CLASS', CAST(162000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721886', CAST(N'2026-11-02T04:18:13.8292336' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (127, 39, N'CLASS', CAST(198000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721894', CAST(N'2026-11-02T04:46:25.9946750' AS DateTime2), N'20261102044659', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (128, 39, N'CLASS', CAST(135000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721896', CAST(N'2026-11-02T04:54:35.6054782' AS DateTime2), N'20261102045508', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (129, 39, N'CLASS', CAST(135000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721898', CAST(N'2026-11-02T05:03:39.3988333' AS DateTime2), N'20261102050525', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (130, 39, N'CLASS', CAST(180000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722255', CAST(N'2026-11-02T12:44:39.3385654' AS DateTime2), N'20261102124510', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (131, 39, N'CLASS', CAST(198000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722258', CAST(N'2026-11-02T12:47:58.5229642' AS DateTime2), N'20261102124836', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (132, 39, N'CLASS', CAST(144000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722389', CAST(N'2026-11-02T14:10:52.4276253' AS DateTime2), N'20261102141150', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (133, 39, N'CLASS', CAST(144000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722452', CAST(N'2026-11-02T14:37:08.4402766' AS DateTime2), N'20261102143903', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (134, 39, N'COURT', CAST(187000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722476', CAST(N'2026-11-02T14:48:06.6546622' AS DateTime2), N'20261102144858', NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (135, 39, N'CLASS', CAST(162000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722478', CAST(N'2026-11-02T14:49:28.9194637' AS DateTime2), N'20261102145002', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (136, 39, N'CLASS', CAST(135000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722502', CAST(N'2026-11-02T14:57:38.6059793' AS DateTime2), N'20261102145827', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (137, 39, N'CLASS', CAST(126000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722526', CAST(N'2026-11-02T15:03:29.1152471' AS DateTime2), N'20261102150549', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (138, 39, N'CLASS', CAST(135000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722598', CAST(N'2026-11-02T15:37:41.8721933' AS DateTime2), N'20261102153825', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (139, 39, N'CLASS', CAST(153000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722614', CAST(N'2026-11-02T15:43:34.9493108' AS DateTime2), N'20261102154432', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (140, 39, N'COURT', CAST(467500.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15723118', CAST(N'2026-11-02T22:11:21.6150028' AS DateTime2), N'20261102221158', NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (141, 39, N'COURT', CAST(85000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15723122', CAST(N'2026-11-02T22:14:36.5927354' AS DateTime2), N'20261102221500', NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (142, 39, N'CLASS', CAST(153000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15723125', CAST(N'2026-11-02T22:19:27.9419020' AS DateTime2), N'20261102222014', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (143, 39, N'CLASS', CAST(135000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15723166', CAST(N'2026-11-02T23:03:31.5630894' AS DateTime2), N'20261102230400', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (144, 39, N'COURT', CAST(85000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15723170', CAST(N'2026-11-02T23:05:18.4973106' AS DateTime2), N'20261102230545', NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (145, 39, N'CLASS', CAST(126000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15723175', CAST(N'2026-11-02T23:16:51.6130856' AS DateTime2), N'20261102231806', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (146, 37, N'CLASS_REFUND', CAST(160000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'REFUNDED', N'RFD-CLS-C36E4C93A3', CAST(N'2026-11-03T01:19:04.8334428' AS DateTime2), NULL, NULL, N'CLASS', N'Hoàn Tiền Hủy Lớp Học (100%)')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (147, 37, N'CLASS', CAST(150000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15723286', CAST(N'2026-11-03T05:22:17.1215963' AS DateTime2), N'20261103052304', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (148, 37, N'COURT_REFUND', CAST(250000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'REFUNDED', N'RFD-CRT-E467AFFEDB', CAST(N'2026-11-03T05:24:58.8865781' AS DateTime2), NULL, NULL, N'COURT', N'Hoàn Tiền Hủy Thuê Sân (100%)')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (149, 37, N'CLASS', CAST(150000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15723290', CAST(N'2026-11-03T06:12:23.9409754' AS DateTime2), N'20261103061251', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (150, 37, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724069', CAST(N'2026-11-03T15:37:40.0596432' AS DateTime2), N'20261103154130', NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (151, 37, N'COURT', CAST(50000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15724074', CAST(N'2026-11-03T15:42:33.0142548' AS DateTime2), N'20261103154256', NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (152, 37, N'CLASS', CAST(180000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15724144', CAST(N'2026-11-03T16:11:22.8834296' AS DateTime2), N'20261103161150', CAST(N'2026-11-03T16:11:56.2900149' AS DateTime2), N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (153, 37, N'COURT', CAST(120000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CRT-D6EA7E0F3A', CAST(N'2026-11-03T16:57:30.4579987' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (154, 37, N'MEMBERSHIP_PACKAGE', CAST(800000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-6D3B595CE4', CAST(N'2026-11-03T17:00:09.2585787' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (155, 37, N'CLASS', CAST(180000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15724273', CAST(N'2026-11-03T17:11:26.7798349' AS DateTime2), N'20261103171153', CAST(N'2026-11-03T17:11:58.4524407' AS DateTime2), N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (156, 39, N'CLASS', CAST(153000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-12F1427770', CAST(N'2026-11-03T21:00:42.6121544' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (157, 39, N'CLASS', CAST(198000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724444', CAST(N'2026-11-03T21:02:09.8860114' AS DateTime2), N'20261103210251', CAST(N'2026-11-03T21:02:58.2645764' AS DateTime2), N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (158, 39, N'CLASS', CAST(162000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724446', CAST(N'2026-11-03T21:03:46.5830714' AS DateTime2), N'20261103210409', CAST(N'2026-11-03T21:04:14.4875697' AS DateTime2), N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (159, 39, N'CLASS', CAST(126000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15724456', CAST(N'2026-11-03T21:32:41.6366980' AS DateTime2), N'20261103213316', CAST(N'2026-11-03T21:33:22.4838199' AS DateTime2), N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (160, 39, N'MEMBERSHIP_PACKAGE', CAST(1800000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724459', CAST(N'2026-11-03T21:37:34.7953348' AS DateTime2), N'20261103213800', CAST(N'2026-11-03T21:38:06.8968071' AS DateTime2), N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (161, 39, N'CLASS', CAST(220000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-D91215B0D0', CAST(N'2026-11-03T21:39:59.9012369' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (164, 29, N'MEMBERSHIP_PACKAGE', CAST(1800000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724495', CAST(N'2026-11-03T23:01:28.5400427' AS DateTime2), N'20261103230158', CAST(N'2026-11-03T23:02:03.1442793' AS DateTime2), N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (165, 29, N'MEMBERSHIP_PACKAGE', CAST(1800000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-D5BB80E98D', CAST(N'2026-11-03T23:02:15.7316743' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (166, 29, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724496', CAST(N'2026-11-03T23:03:00.3997191' AS DateTime2), N'20261103230336', CAST(N'2026-11-03T23:03:41.9867618' AS DateTime2), N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (167, 29, N'CLASS', CAST(112000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15724501', CAST(N'2026-11-03T23:06:47.2699054' AS DateTime2), N'20261103230805', CAST(N'2026-11-03T23:08:10.1840969' AS DateTime2), N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (168, 29, N'CLASS', CAST(136000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-B9C6854912', CAST(N'2026-11-03T23:17:09.2910564' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
+-- 1.5 Facilities, Public Facilities & Sports Courts (Canonical IDs aligned with FacilityCourtSyncService)
+CREATE TABLE dbo.facilities (
+    facility_id    BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_facilities PRIMARY KEY,
+    facility_name  NVARCHAR(255) NOT NULL,
+    sport_id       BIGINT        NOT NULL,
+    capacity       INT           NOT NULL,
+    status         VARCHAR(20)   NOT NULL CONSTRAINT DF_facilities_status DEFAULT 'AVAILABLE',
+    CONSTRAINT FK_facilities_sports FOREIGN KEY (sport_id) REFERENCES dbo.sports(sport_id),
+    CONSTRAINT CK_facilities_status CHECK (status IN ('AVAILABLE', 'MAINTENANCE'))
+);
 GO
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (169, 29, N'CLASS', CAST(112000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724541', CAST(N'2026-11-04T00:18:39.0272201' AS DateTime2), N'20261104002254', CAST(N'2026-11-04T00:23:00.3024931' AS DateTime2), N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (170, 37, N'COURT', CAST(153000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724573', CAST(N'2026-11-04T01:31:34.6670870' AS DateTime2), N'20261104013205', CAST(N'2026-11-04T01:32:09.8563161' AS DateTime2), N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (171, 37, N'MEMBERSHIP_PACKAGE', CAST(2800000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-5FB191F32F', CAST(N'2026-11-04T01:33:01.2588395' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (172, 37, N'MEMBERSHIP_PACKAGE', CAST(2800000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724579', CAST(N'2026-11-04T01:42:21.1762235' AS DateTime2), N'20261104014246', CAST(N'2026-11-04T01:42:51.7512890' AS DateTime2), N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (173, 37, N'MEMBERSHIP_PACKAGE', CAST(2800000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15725099', CAST(N'2026-11-04T13:14:23.8314003' AS DateTime2), N'20261104131506', CAST(N'2026-11-04T13:15:11.7256646' AS DateTime2), N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (174, 29, N'COURT', CAST(350000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CRT-21516E3A45', CAST(N'2026-11-04T13:45:04.2960921' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (175, 39, N'CLASS', CAST(170000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-D53B6FCD4F', CAST(N'2026-11-04T21:05:15.7878133' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (176, 37, N'MEMBERSHIP_PACKAGE', CAST(1800000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15725865', CAST(N'2026-11-04T22:01:13.1455059' AS DateTime2), N'20261104220154', CAST(N'2026-11-04T22:02:00.1291077' AS DateTime2), N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (177, 29, N'MEMBERSHIP_PACKAGE', CAST(2000000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15725880', CAST(N'2026-11-04T22:18:55.6139825' AS DateTime2), N'20261104221939', CAST(N'2026-11-04T22:19:44.5184248' AS DateTime2), N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (178, 14, N'MEMBERSHIP_PACKAGE', CAST(1800000.00 AS Decimal(12, 2)), N'CASH_COUNTER', N'PAID', N'PKG-9A192C6AD8', CAST(N'2026-11-04T22:27:03.2077294' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (179, 14, N'MEMBERSHIP_PACKAGE', CAST(1800000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15725885', CAST(N'2026-11-04T22:27:14.9601316' AS DateTime2), N'20261104222759', CAST(N'2026-11-04T22:28:03.7447369' AS DateTime2), N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (182, 29, N'CLASS', CAST(162000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15725967', CAST(N'2026-11-05T00:56:05.2940039' AS DateTime2), N'20261105005718', CAST(N'2026-11-05T00:57:22.0683415' AS DateTime2), N'CLASS', N'Lớp Bóng Đá Thể Lực & Phối Hợp - HLV Võ Tấn Phát')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (183, 9, N'COURT', CAST(102000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CRT-C4A36938AE', CAST(N'2026-11-05T02:38:50.6586208' AS DateTime2), NULL, NULL, N'COURT', N'Sân cầu lông 02 (Cầu lông)')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (184, 9, N'COURT', CAST(102000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CRT-7ED8B2608B', CAST(N'2026-11-05T02:39:17.9068608' AS DateTime2), NULL, NULL, N'COURT', N'Sân cầu lông 02 (Cầu lông)')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (185, 9, N'CLASS', CAST(0.00 AS Decimal(12, 2)), N'MEMBERSHIP_QUOTA', N'REFUNDED', N'CLS-ACED1FA443', CAST(N'2026-11-05T03:25:18.1112474' AS DateTime2), NULL, NULL, N'CLASS', N'Lớp Cầu Lông Căn Bản - HLV Đặng Thu Thảo')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (186, 9, N'CLASS', CAST(0.00 AS Decimal(12, 2)), N'MEMBERSHIP_QUOTA', N'REFUNDED', N'CLS-BFB12E2B6A', CAST(N'2026-11-05T03:26:16.1836488' AS DateTime2), NULL, NULL, N'CLASS', N'Lớp Bóng Chuyền Căn Bản - HLV Nguyễn Hoàng Nam')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (187, 9, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15726007', CAST(N'2026-11-05T03:28:40.0646670' AS DateTime2), N'20261105032907', CAST(N'2026-11-05T03:29:11.9059290' AS DateTime2), N'MEMBERSHIP', N'Thẻ Hội Viên Vàng Off-Peak')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (188, 9, N'CLASS', CAST(128000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15726012', CAST(N'2026-11-05T03:45:22.3740881' AS DateTime2), N'20261105034551', CAST(N'2026-11-05T03:45:56.7330659' AS DateTime2), N'CLASS', N'Lớp Bóng Chuyền Căn Bản - HLV Nguyễn Hoàng Nam')
-INSERT [dbo].[payment_transactions] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (189, 9, N'CLASS', CAST(144000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15726017', CAST(N'2026-11-05T04:00:59.7794186' AS DateTime2), N'20261105040201', CAST(N'2026-11-05T04:02:05.5343211' AS DateTime2), N'CLASS', N'Lớp Bóng Đá Thể Lực & Phối Hợp - HLV Võ Tấn Phát')
-SET IDENTITY_INSERT [dbo].[payment_transactions] OFF
-GO
-SET IDENTITY_INSERT [dbo].[payment_transactions_backup] ON 
 
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (58, 37, N'CLASS', CAST(160000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'TEST30102026', CAST(N'2026-10-30T15:18:12.8535620' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (64, 37, N'COURT', CAST(120000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'ae43f3af-ec30-4f81-929c-6dd48525ad4f', CAST(N'2026-10-30T16:18:41.5641012' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (65, 37, N'CLASS', CAST(140000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'cd4aeb5f-69dd-4bcb-b340-7911abe6fd64', CAST(N'2026-10-30T16:20:50.9916683' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (66, 37, N'COURT', CAST(250000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'cbcfe800-e2c0-4327-97a2-bdc35fda2b00', CAST(N'2026-10-30T16:53:36.4597932' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (67, 37, N'COURT', CAST(60000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'109330fd-835a-4a2b-93ff-dbed5e1842e2', CAST(N'2026-10-30T23:25:59.3238915' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (68, 37, N'CLASS', CAST(150000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'5e8abd2b-a12c-4f1d-9bcd-081bcca9ff24', CAST(N'2026-10-30T23:27:41.1289302' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (69, 37, N'CLASS', CAST(220000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'ea035be3-e1b7-4925-a6c7-02e7ea7d9d1c', CAST(N'2026-10-30T23:38:08.8753513' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (70, 37, N'CLASS', CAST(160000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'ba481337-0f47-4537-a9ed-78838a186597', CAST(N'2026-10-31T00:43:25.4182753' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (71, 37, N'COURT', CAST(60000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'21a68889-6e3c-44b9-b971-d14f9d99c52a', CAST(N'2026-10-31T00:57:02.2062035' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (72, 37, N'CLASS', CAST(180000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'72b15fba-53c1-428b-a2b0-b2c3cecc0731', CAST(N'2026-10-31T00:57:31.5706396' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (73, 37, N'MEMBERSHIP_PACKAGE', CAST(800000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'007ecedc-5635-4e27-ba0b-4a5b62aa9374', CAST(N'2026-10-31T09:12:59.0654300' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (74, 37, N'COURT', CAST(51000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'cf390833-100f-419e-9841-cafbbc31034e', CAST(N'2026-10-31T11:09:29.9261110' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (78, 37, N'CLASS', CAST(160000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'366e34fa-5794-447d-84fe-ea8975764873', CAST(N'2026-10-31T23:17:35.9347970' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (79, 37, N'COURT', CAST(550000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'REFUNDED', N'd3babf62-ff32-4198-a316-9d1444bf678f', CAST(N'2026-10-31T23:18:10.9326903' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (80, 37, N'MEMBERSHIP_PACKAGE', CAST(800000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'PAID', N'868c44dc-35f5-4082-98ce-1318f667c5db', CAST(N'2026-10-31T23:18:35.2029136' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (81, 39, N'CLASS', CAST(150000.00 AS Decimal(12, 2)), N'VNPAY', N'PENDING', N'CLS-633B7BA245', CAST(N'2026-11-01T18:24:56.9108406' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (82, 39, N'CLASS_REFUND', CAST(150000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'RFD-CLS-57072765EF', CAST(N'2026-11-01T18:27:33.4538651' AS DateTime2), NULL, NULL, N'CLASS', N'Hoàn Tiền Hủy Lớp Học (100%)')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (84, 39, N'CLASS', CAST(150000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-873AC91D88', CAST(N'2026-11-01T18:29:40.1874024' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (85, 39, N'CLASS', CAST(200000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-3DBF6F210B', CAST(N'2026-11-01T18:30:29.5081526' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (86, 39, N'CLASS', CAST(150000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-F574E805A9', CAST(N'2026-11-01T18:45:24.6209604' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (87, 39, N'CLASS', CAST(110000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-2861E73A4B', CAST(N'2026-11-01T18:45:44.4387995' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (88, 39, N'CLASS', CAST(150000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-588E2F1D5A', CAST(N'2026-11-01T18:52:14.0998555' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (89, 37, N'CLASS', CAST(144000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-BF7C4C761D', CAST(N'2026-11-01T18:53:07.4286153' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (90, 37, N'CLASS', CAST(162000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-2CF70C3FA3', CAST(N'2026-11-01T19:03:00.2581784' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (91, 37, N'CLASS', CAST(144000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-CB67FFDC2A', CAST(N'2026-11-01T19:15:55.4642427' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (92, 37, N'COURT', CAST(51000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CRT-78B8474FE6', CAST(N'2026-11-01T19:20:13.5850864' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (93, 39, N'MEMBERSHIP_PACKAGE', CAST(800000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-451EC3B6AD', CAST(N'2026-11-01T19:28:27.8041351' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (94, 39, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-1F8AFEA261', CAST(N'2026-11-01T19:32:35.6496489' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (95, 39, N'MEMBERSHIP_PACKAGE', CAST(800000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721676', CAST(N'2026-11-01T19:43:04.7634712' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (96, 29, N'CLASS', CAST(120000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721692', CAST(N'2026-11-01T20:14:17.2338515' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (97, 29, N'COURT', CAST(500000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721693', CAST(N'2026-11-01T20:15:57.9906510' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (98, 29, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-F5D23AF3F8', CAST(N'2026-11-01T23:06:54.8103541' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (99, 29, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-EB516C90DD', CAST(N'2026-11-01T23:17:55.3162108' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (100, 29, N'CLASS', CAST(180000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-A3D56E0C49', CAST(N'2026-11-01T23:30:37.0173377' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (101, 29, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-36CA0AED5C', CAST(N'2026-11-01T23:51:20.6445904' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (102, 29, N'CLASS', CAST(180000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-70B4373FF4', CAST(N'2026-11-02T00:01:45.1905554' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (103, 29, N'MEMBERSHIP_PACKAGE', CAST(800000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-98F175788A', CAST(N'2026-11-02T00:19:27.2869781' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (104, 30, N'COURT', CAST(180000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721855', CAST(N'2026-11-02T00:23:02.8880460' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (105, 29, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-CD15E4499E', CAST(N'2026-11-02T00:32:10.0769997' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (106, 30, N'CLASS', CAST(150000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721860', CAST(N'2026-11-02T00:32:24.9458533' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (107, 30, N'COURT', CAST(500000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721861', CAST(N'2026-11-02T00:34:53.6928185' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (108, 29, N'CLASS_REFUND', CAST(120000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'RFD-CLS-03FD7B67D8', CAST(N'2026-11-02T01:34:09.0894366' AS DateTime2), NULL, NULL, N'CLASS', N'Hoàn Tiền Hủy Lớp Học (100%)')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (109, 37, N'CLASS_REFUND', CAST(180000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'REFUNDED', N'RFD-CLS-18DE288680', CAST(N'2026-11-02T01:35:42.3160146' AS DateTime2), NULL, NULL, N'CLASS', N'Hoàn Tiền Hủy Lớp Học (100%)')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (110, 37, N'COURT_REFUND', CAST(60000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'REFUNDED', N'RFD-CRT-954B4C64A1', CAST(N'2026-11-02T01:36:17.5445867' AS DateTime2), NULL, NULL, N'COURT', N'Hoàn Tiền Hủy Thuê Sân (100%)')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (111, 37, N'CLASS_REFUND', CAST(150000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'REFUNDED', N'RFD-CLS-726B4FF27B', CAST(N'2026-11-02T02:09:31.2930524' AS DateTime2), NULL, NULL, N'CLASS', N'Hoàn Tiền Hủy Lớp Học (100%)')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (112, 37, N'COURT_REFUND', CAST(120000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'REFUNDED', N'RFD-CRT-9F5DC0E823', CAST(N'2026-11-02T02:10:02.8224201' AS DateTime2), NULL, NULL, N'COURT', N'Hoàn Tiền Hủy Thuê Sân (100%)')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (113, 37, N'CLASS', CAST(162000.00 AS Decimal(12, 2)), N'VNPAY', N'PENDING', N'CLS-49450F2552', CAST(N'2026-11-02T02:35:02.7477602' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (114, 37, N'CLASS', CAST(144000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-185760BA30', CAST(N'2026-11-02T02:35:34.1439829' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (115, 37, N'COURT', CAST(127500.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CRT-36940BD395', CAST(N'2026-11-02T02:39:01.9595986' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (116, 37, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-BD86F6C30D', CAST(N'2026-11-02T02:39:29.4865009' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (117, 37, N'COURT', CAST(550000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CRT-2229783F76', CAST(N'2026-11-02T02:49:15.0636716' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (118, 37, N'CLASS', CAST(110000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-E1CECC1503', CAST(N'2026-11-02T02:50:01.5328685' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (119, 37, N'COURT', CAST(180000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CRT-7A0A6EEFBC', CAST(N'2026-11-02T02:52:36.0636490' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (121, 39, N'CLASS', CAST(180000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-A9B595BAB9', CAST(N'2026-11-02T03:12:25.1022142' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (122, 39, N'COURT', CAST(153000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CRT-49CCCFA4D3', CAST(N'2026-11-02T03:12:40.0836552' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (123, 39, N'CLASS', CAST(108000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721882', CAST(N'2026-11-02T03:41:56.6759069' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (124, 39, N'CLASS', CAST(144000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721883', CAST(N'2026-11-02T03:43:58.8441456' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (125, 39, N'CLASS', CAST(162000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-0EDE581FC2', CAST(N'2026-11-02T03:46:24.3326986' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (126, 39, N'CLASS', CAST(162000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721886', CAST(N'2026-11-02T04:18:13.8292336' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (127, 39, N'CLASS', CAST(198000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721894', CAST(N'2026-11-02T04:46:25.9946750' AS DateTime2), N'20261102044659', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (128, 39, N'CLASS', CAST(135000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721896', CAST(N'2026-11-02T04:54:35.6054782' AS DateTime2), N'20261102045508', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (129, 39, N'CLASS', CAST(135000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15721898', CAST(N'2026-11-02T05:03:39.3988333' AS DateTime2), N'20261102050525', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (130, 39, N'CLASS', CAST(180000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722255', CAST(N'2026-11-02T12:44:39.3385654' AS DateTime2), N'20261102124510', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (131, 39, N'CLASS', CAST(198000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722258', CAST(N'2026-11-02T12:47:58.5229642' AS DateTime2), N'20261102124836', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (132, 39, N'CLASS', CAST(144000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722389', CAST(N'2026-11-02T14:10:52.4276253' AS DateTime2), N'20261102141150', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (133, 39, N'CLASS', CAST(144000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722452', CAST(N'2026-11-02T14:37:08.4402766' AS DateTime2), N'20261102143903', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (134, 39, N'COURT', CAST(187000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722476', CAST(N'2026-11-02T14:48:06.6546622' AS DateTime2), N'20261102144858', NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (135, 39, N'CLASS', CAST(162000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722478', CAST(N'2026-11-02T14:49:28.9194637' AS DateTime2), N'20261102145002', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (136, 39, N'CLASS', CAST(135000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722502', CAST(N'2026-11-02T14:57:38.6059793' AS DateTime2), N'20261102145827', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (137, 39, N'CLASS', CAST(126000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722526', CAST(N'2026-11-02T15:03:29.1152471' AS DateTime2), N'20261102150549', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (138, 39, N'CLASS', CAST(135000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722598', CAST(N'2026-11-02T15:37:41.8721933' AS DateTime2), N'20261102153825', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (139, 39, N'CLASS', CAST(153000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15722614', CAST(N'2026-11-02T15:43:34.9493108' AS DateTime2), N'20261102154432', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (140, 39, N'COURT', CAST(467500.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15723118', CAST(N'2026-11-02T22:11:21.6150028' AS DateTime2), N'20261102221158', NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (141, 39, N'COURT', CAST(85000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15723122', CAST(N'2026-11-02T22:14:36.5927354' AS DateTime2), N'20261102221500', NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (142, 39, N'CLASS', CAST(153000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15723125', CAST(N'2026-11-02T22:19:27.9419020' AS DateTime2), N'20261102222014', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (143, 39, N'CLASS', CAST(135000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15723166', CAST(N'2026-11-02T23:03:31.5630894' AS DateTime2), N'20261102230400', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (144, 39, N'COURT', CAST(85000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15723170', CAST(N'2026-11-02T23:05:18.4973106' AS DateTime2), N'20261102230545', NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (145, 39, N'CLASS', CAST(126000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15723175', CAST(N'2026-11-02T23:16:51.6130856' AS DateTime2), N'20261102231806', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (146, 37, N'CLASS_REFUND', CAST(160000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'REFUNDED', N'RFD-CLS-C36E4C93A3', CAST(N'2026-11-03T01:19:04.8334428' AS DateTime2), NULL, NULL, N'CLASS', N'Hoàn Tiền Hủy Lớp Học (100%)')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (147, 37, N'CLASS', CAST(150000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15723286', CAST(N'2026-11-03T05:22:17.1215963' AS DateTime2), N'20261103052304', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (148, 37, N'COURT_REFUND', CAST(250000.00 AS Decimal(12, 2)), N'BANK_TRANSFER', N'REFUNDED', N'RFD-CRT-E467AFFEDB', CAST(N'2026-11-03T05:24:58.8865781' AS DateTime2), NULL, NULL, N'COURT', N'Hoàn Tiền Hủy Thuê Sân (100%)')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (149, 37, N'CLASS', CAST(150000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15723290', CAST(N'2026-11-03T06:12:23.9409754' AS DateTime2), N'20261103061251', NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (150, 37, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724069', CAST(N'2026-11-03T15:37:40.0596432' AS DateTime2), N'20261103154130', NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (151, 37, N'COURT', CAST(50000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15724074', CAST(N'2026-11-03T15:42:33.0142548' AS DateTime2), N'20261103154256', NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (152, 37, N'CLASS', CAST(180000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15724144', CAST(N'2026-11-03T16:11:22.8834296' AS DateTime2), N'20261103161150', CAST(N'2026-11-03T16:11:56.2900149' AS DateTime2), N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (153, 37, N'COURT', CAST(120000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CRT-D6EA7E0F3A', CAST(N'2026-11-03T16:57:30.4579987' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (154, 37, N'MEMBERSHIP_PACKAGE', CAST(800000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-6D3B595CE4', CAST(N'2026-11-03T17:00:09.2585787' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (155, 37, N'CLASS', CAST(180000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15724273', CAST(N'2026-11-03T17:11:26.7798349' AS DateTime2), N'20261103171153', CAST(N'2026-11-03T17:11:58.4524407' AS DateTime2), N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (156, 39, N'CLASS', CAST(153000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-12F1427770', CAST(N'2026-11-03T21:00:42.6121544' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (157, 39, N'CLASS', CAST(198000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724444', CAST(N'2026-11-03T21:02:09.8860114' AS DateTime2), N'20261103210251', CAST(N'2026-11-03T21:02:58.2645764' AS DateTime2), N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (158, 39, N'CLASS', CAST(162000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724446', CAST(N'2026-11-03T21:03:46.5830714' AS DateTime2), N'20261103210409', CAST(N'2026-11-03T21:04:14.4875697' AS DateTime2), N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (159, 39, N'CLASS', CAST(126000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15724456', CAST(N'2026-11-03T21:32:41.6366980' AS DateTime2), N'20261103213316', CAST(N'2026-11-03T21:33:22.4838199' AS DateTime2), N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (160, 39, N'MEMBERSHIP_PACKAGE', CAST(1800000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724459', CAST(N'2026-11-03T21:37:34.7953348' AS DateTime2), N'20261103213800', CAST(N'2026-11-03T21:38:06.8968071' AS DateTime2), N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (161, 39, N'CLASS', CAST(220000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-D91215B0D0', CAST(N'2026-11-03T21:39:59.9012369' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (164, 29, N'MEMBERSHIP_PACKAGE', CAST(1800000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724495', CAST(N'2026-11-03T23:01:28.5400427' AS DateTime2), N'20261103230158', CAST(N'2026-11-03T23:02:03.1442793' AS DateTime2), N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (165, 29, N'MEMBERSHIP_PACKAGE', CAST(1800000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-D5BB80E98D', CAST(N'2026-11-03T23:02:15.7316743' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (166, 29, N'MEMBERSHIP_PACKAGE', CAST(1500000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724496', CAST(N'2026-11-03T23:03:00.3997191' AS DateTime2), N'20261103230336', CAST(N'2026-11-03T23:03:41.9867618' AS DateTime2), N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (167, 29, N'CLASS', CAST(112000.00 AS Decimal(12, 2)), N'VNPAY', N'REFUNDED', N'15724501', CAST(N'2026-11-03T23:06:47.2699054' AS DateTime2), N'20261103230805', CAST(N'2026-11-03T23:08:10.1840969' AS DateTime2), N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (168, 29, N'CLASS', CAST(136000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-B9C6854912', CAST(N'2026-11-03T23:17:09.2910564' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
+CREATE TABLE dbo.public_facilities (
+    facility_id  BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_public_facilities PRIMARY KEY,
+    slug         NVARCHAR(80)   NOT NULL CONSTRAINT UQ_public_facilities_slug UNIQUE,
+    name         NVARCHAR(120)  NOT NULL,
+    description  NVARCHAR(1000) NULL,
+    icon         NVARCHAR(80)   NULL,
+    highlight    NVARCHAR(150)  NULL,
+    active       BIT            NOT NULL CONSTRAINT DF_public_facilities_active DEFAULT 1
+);
 GO
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (169, 29, N'CLASS', CAST(112000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724541', CAST(N'2026-11-04T00:18:39.0272201' AS DateTime2), N'20261104002254', CAST(N'2026-11-04T00:23:00.3024931' AS DateTime2), N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (170, 37, N'COURT', CAST(153000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724573', CAST(N'2026-11-04T01:31:34.6670870' AS DateTime2), N'20261104013205', CAST(N'2026-11-04T01:32:09.8563161' AS DateTime2), N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (171, 37, N'MEMBERSHIP_PACKAGE', CAST(2800000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'PKG-5FB191F32F', CAST(N'2026-11-04T01:33:01.2588395' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (172, 37, N'MEMBERSHIP_PACKAGE', CAST(2800000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15724579', CAST(N'2026-11-04T01:42:21.1762235' AS DateTime2), N'20261104014246', CAST(N'2026-11-04T01:42:51.7512890' AS DateTime2), N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (173, 37, N'MEMBERSHIP_PACKAGE', CAST(2800000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15725099', CAST(N'2026-11-04T13:14:23.8314003' AS DateTime2), N'20261104131506', CAST(N'2026-11-04T13:15:11.7256646' AS DateTime2), N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (174, 29, N'COURT', CAST(350000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CRT-21516E3A45', CAST(N'2026-11-04T13:45:04.2960921' AS DateTime2), NULL, NULL, N'COURT', N'Thuê Sân Thi Đấu Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (175, 39, N'CLASS', CAST(170000.00 AS Decimal(12, 2)), N'VNPAY', N'FAILED', N'CLS-D53B6FCD4F', CAST(N'2026-11-04T21:05:15.7878133' AS DateTime2), NULL, NULL, N'CLASS', N'Đăng Ký Khóa Học Thể Thao')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (176, 37, N'MEMBERSHIP_PACKAGE', CAST(1800000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15725865', CAST(N'2026-11-04T22:01:13.1455059' AS DateTime2), N'20261104220154', CAST(N'2026-11-04T22:02:00.1291077' AS DateTime2), N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (177, 29, N'MEMBERSHIP_PACKAGE', CAST(2000000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15725880', CAST(N'2026-11-04T22:18:55.6139825' AS DateTime2), N'20261104221939', CAST(N'2026-11-04T22:19:44.5184248' AS DateTime2), N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (178, 14, N'MEMBERSHIP_PACKAGE', CAST(1800000.00 AS Decimal(12, 2)), N'CASH_COUNTER', N'PAID', N'PKG-9A192C6AD8', CAST(N'2026-11-04T22:27:03.2077294' AS DateTime2), NULL, NULL, N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-INSERT [dbo].[payment_transactions_backup] ([payment_id], [member_id], [booking_type], [amount], [payment_method], [payment_status], [reference_code], [created_at], [transaction_date], [payment_completed_at], [item_type], [item_description]) VALUES (179, 14, N'MEMBERSHIP_PACKAGE', CAST(1800000.00 AS Decimal(12, 2)), N'VNPAY', N'PAID', N'15725885', CAST(N'2026-11-04T22:27:14.9601316' AS DateTime2), N'20261104222759', CAST(N'2026-11-04T22:28:03.7447369' AS DateTime2), N'MEMBERSHIP', N'Thanh toán Gói Hội Viên')
-SET IDENTITY_INSERT [dbo].[payment_transactions_backup] OFF
-GO
-SET IDENTITY_INSERT [dbo].[payments] ON 
 
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (1, 9, 1, 1, CAST(1600000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', 3, CAST(N'2026-10-01T09:30:00.000' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (2, 10, 2, 2, CAST(1350000.00 AS Numeric(38, 2)), N'TRANSFER', N'COMPLETED', 3, CAST(N'2026-10-05T14:15:00.000' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (3, 11, 3, NULL, CAST(2000000.00 AS Numeric(38, 2)), N'CASH', N'COMPLETED', 3, CAST(N'2026-09-01T08:00:00.000' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (4, 12, 4, NULL, CAST(800000.00 AS Numeric(38, 2)), N'POS', N'PENDING', 4, CAST(N'2026-10-10T10:00:00.000' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (9, 37, 14, NULL, CAST(800000.00 AS Numeric(38, 2)), N'TRANSFER', N'COMPLETED', NULL, CAST(N'2026-10-31T09:12:58.987' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (10, 37, 15, NULL, CAST(1800000.00 AS Numeric(38, 2)), N'TRANSFER', N'COMPLETED', NULL, CAST(N'2026-10-31T11:11:44.753' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (11, 37, 16, NULL, CAST(800000.00 AS Numeric(38, 2)), N'TRANSFER', N'COMPLETED', NULL, CAST(N'2026-10-31T11:32:37.537' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (12, 37, 17, NULL, CAST(800000.00 AS Numeric(38, 2)), N'TRANSFER', N'COMPLETED', NULL, CAST(N'2026-10-31T23:18:35.170' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (13, 39, 18, NULL, CAST(800000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-01T19:28:27.783' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (14, 39, 19, NULL, CAST(1500000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-01T19:32:35.607' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (15, 39, 20, NULL, CAST(800000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-01T19:43:04.690' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (16, 29, 21, NULL, CAST(1500000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-01T23:06:54.790' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (17, 29, 22, NULL, CAST(1500000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-01T23:17:55.303' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (18, 29, 23, NULL, CAST(1500000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-01T23:51:20.623' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (19, 29, 24, NULL, CAST(800000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-02T00:19:27.273' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (20, 29, 25, NULL, CAST(1500000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-02T00:32:10.070' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (21, 37, 26, NULL, CAST(1500000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-02T02:39:29.470' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (22, 37, 27, NULL, CAST(1500000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-03T15:37:40.037' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (23, 37, 28, NULL, CAST(800000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-03T17:00:09.247' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (24, 39, 29, NULL, CAST(1800000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-03T21:37:34.780' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (25, 29, 30, NULL, CAST(1800000.00 AS Numeric(38, 2)), N'TRANSFER', N'PENDING', NULL, CAST(N'2026-11-03T22:49:38.290' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (26, 29, 31, NULL, CAST(1800000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-03T23:01:28.520' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (27, 29, 32, NULL, CAST(1800000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-03T23:02:15.713' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (28, 29, 33, NULL, CAST(1500000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-03T23:03:00.390' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (29, 37, 34, NULL, CAST(2800000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-04T01:33:01.250' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (30, 37, 35, NULL, CAST(2800000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-04T01:42:21.163' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (31, 37, 36, NULL, CAST(2800000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-04T13:14:23.790' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (32, 37, 37, NULL, CAST(1800000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-04T22:01:13.153' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (33, 29, 38, NULL, CAST(2000000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-04T22:18:55.627' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (34, 14, 39, NULL, CAST(1800000.00 AS Numeric(38, 2)), N'CASH', N'COMPLETED', 4, CAST(N'2026-11-04T22:27:03.210' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (35, 14, 40, NULL, CAST(1800000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-04T22:27:14.967' AS DateTime))
-INSERT [dbo].[payments] ([payment_id], [member_id], [um_id], [voucher_id], [amount], [payment_method], [payment_status], [approved_by], [created_at]) VALUES (36, 9, 41, NULL, CAST(1500000.00 AS Numeric(38, 2)), N'ONLINE', N'COMPLETED', NULL, CAST(N'2026-11-05T03:28:40.070' AS DateTime))
-SET IDENTITY_INSERT [dbo].[payments] OFF
+CREATE TABLE dbo.sports_courts (
+    court_id     BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_sports_courts PRIMARY KEY,
+    sport_id     BIGINT        NOT NULL,
+    court_name   NVARCHAR(120) NOT NULL,
+    description  NVARCHAR(500) NULL,
+    hourly_rate  DECIMAL(12,2) NOT NULL,
+    opens_at     TIME(7)       NOT NULL,
+    closes_at    TIME(7)       NOT NULL,
+    active       BIT           NOT NULL CONSTRAINT DF_sports_courts_active DEFAULT 1,
+    CONSTRAINT FK_sports_courts_public_sports FOREIGN KEY (sport_id) REFERENCES dbo.public_sports(sport_id)
+);
 GO
-SET IDENTITY_INSERT [dbo].[public_facilities] ON 
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (1, N'booking-pickleball-01', N'Cụm Sân Pickleball - Sân P1 (Indoor)', N'Cụm sân Pickleball tiêu chuẩn trong nhà.', N'sports_tennis', N'Sân trong nhà', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (2, N'booking-pickleball-02', N'Cụm Sân Pickleball - Sân P2 (Indoor)', N'Cụm sân Pickleball tiêu chuẩn trong nhà.', N'sports_tennis', N'Sân trong nhà', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (4, N'booking-tennis-01', N'Sân Tennis Đơn & Đôi - Sân T1', N'Sân tennis mặt cứng tiêu chuẩn quốc tế ITF.', N'sports_tennis', N'Mặt sân ITF', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (5, N'booking-tennis-02', N'Sân Tennis Đơn & Đôi - Sân T2', N'Sân tennis có mái che và hệ thống đèn LED.', N'sports_tennis', N'Có mái che', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (10, N'booking-volleyball-01', N'Sân Bóng Chuyền - Sân V1', N'Sân trong nhà phục vụ lớp học và luyện tập.', N'sports_volleyball', N'Sân trong nhà', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (11, N'booking-table-tennis-01', N'Khu Bóng Bàn - Bàn T1', N'Bàn bóng bàn khu luyện tập.', N'table_restaurant', N'Bàn tiêu chuẩn', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (12, N'booking-swimming-01', N'Hồ Bơi - Làn S1', N'Làn bơi tiêu chuẩn phục vụ lớp học và luyện tập.', N'pool', N'Làn bơi', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (13, N'booking-athletics-01', N'Đường Chạy Điền Kinh - Khu A1', N'Khu đường chạy phục vụ lớp học và luyện tập.', N'directions_run', N'Đường chạy', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (14, N'booking-football-01', N'Sân Bóng Đá 7 Người - Sân F1', N'Sân cỏ nhân tạo phục vụ lớp học và luyện tập.', N'sports_soccer', N'Sân cỏ nhân tạo', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (15, N'booking-football-02', N'Sân Bóng Đá 7 Người - Sân F2', N'Sân cỏ nhân tạo có đèn buổi tối.', N'sports_soccer', N'Sân cỏ nhân tạo', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (16, N'booking-badminton-01', N'Sân Cầu Lông Trong Nhà - Sân B1', N'Sân cầu lông trong nhà phục vụ lớp học và luyện tập.', N'sports_tennis', N'Sân trong nhà', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (17, N'booking-badminton-02', N'Sân Cầu Lông Trong Nhà - Sân B2', N'Sân cầu lông trong nhà thảm tiêu chuẩn.', N'sports_tennis', N'Sân trong nhà', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (18, N'booking-volleyball-02', N'Sân Bóng Chuyền - Sân V2', N'Sân đa năng phục vụ luyện tập và thi đấu.', N'sports_volleyball', N'Sân đa năng', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (19, N'booking-table-tennis-02', N'Khu Bóng Bàn - Bàn T2', N'Bàn bóng bàn thi đấu.', N'table_restaurant', N'Bàn tiêu chuẩn', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (20, N'booking-swimming-02', N'Hồ Bơi - Làn S2', N'Làn bơi khu luyện tập.', N'pool', N'Làn bơi', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (21, N'booking-athletics-02', N'Đường Chạy Điền Kinh - Khu A2', N'Khu đường chạy tiêu chuẩn.', N'directions_run', N'Đường chạy', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (22, N'check-in-qr', N'Check-in QR & RFID', N'Hội viên chủ động check-in tại quầy bằng QR hoặc thẻ RFID, giúp việc vào trung tâm thuận tiện hơn.', N'lock_open', N'Check-in tự động', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (23, N'coach', N'Đội ngũ huấn luyện viên', N'Đội ngũ huấn luyện viên đồng hành, tư vấn và cá nhân hóa nội dung luyện tập theo mục tiêu hội viên.', N'verified_user', N'Kèm 1-1 chuyên sâu', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (24, N'ai-assistant', N'Trợ lý luyện tập thông minh', N'Trợ lý hỗ trợ giải đáp, theo dõi thông tin thể trạng và gợi ý lộ trình luyện tập phù hợp.', N'smart_toy', N'Hỗ trợ luyện tập', 1)
-INSERT [dbo].[public_facilities] ([facility_id], [slug], [name], [description], [icon], [highlight], [active]) VALUES (25, N'flexible-hours', N'Thời gian tập linh hoạt', N'Lịch hoạt động linh hoạt giúp hội viên chủ động sắp xếp thời gian đến tập và sử dụng dịch vụ.', N'access_time', N'Lịch linh hoạt', 1)
-SET IDENTITY_INSERT [dbo].[public_facilities] OFF
-GO
-SET IDENTITY_INSERT [dbo].[public_sports] ON 
 
-INSERT [dbo].[public_sports] ([sport_id], [slug], [name], [subtitle], [tag], [description], [icon], [area], [active]) VALUES (1, N'gym-fitness', N'Gym & Fitness', N'Trang thiết bị hiện đại', N'Olympic Spec', N'Máy tập Technogym và Hammer Strength, khu tạ tự do chuẩn Olympic cùng thiết bị hỗ trợ đo lường.', N'fitness_center', N'Khu vực 800m²', 1)
-INSERT [dbo].[public_sports] ([sport_id], [slug], [name], [subtitle], [tag], [description], [icon], [area], [active]) VALUES (2, N'pickleball', N'Sân Pickleball', N'Cụm 5 sân có mái che', N'Hot Trend', N'Mặt sân giảm chấn và hệ thống đèn phục vụ luyện tập, thi đấu cả ngày lẫn đêm.', N'sports_tennis', N'Đạt chuẩn USAPA', 1)
-INSERT [dbo].[public_sports] ([sport_id], [slug], [name], [subtitle], [tag], [description], [icon], [area], [active]) VALUES (3, N'tennis', N'Quần vợt Tennis', N'Sân chuẩn thi đấu', N'Chuẩn ITF', N'Sân đất nện nhân tạo và sân cứng, tích hợp máy bắn bóng cùng khu vực thay đồ.', N'sports_baseball', N'7 sân', 1)
-INSERT [dbo].[public_sports] ([sport_id], [slug], [name], [subtitle], [tag], [description], [icon], [area], [active]) VALUES (4, N'yoga-pilates', N'Yoga & Pilates', N'Không gian tĩnh lặng', N'Phục hồi', N'Phòng tập yên tĩnh với thiết bị Reformer, phù hợp cho luyện tập và phục hồi thể chất.', N'self_improvement', N'Lớp tối đa 8 người', 1)
-INSERT [dbo].[public_sports] ([sport_id], [slug], [name], [subtitle], [tag], [description], [icon], [area], [active]) VALUES (5, N'football', N'Bóng đá', N'Sân bóng đá', N'Thể thao đồng đội', N'Bộ môn bóng đá dành cho luyện tập và thi đấu theo nhóm.', N'sports_soccer', N'Sân bóng đá', 1)
-INSERT [dbo].[public_sports] ([sport_id], [slug], [name], [subtitle], [tag], [description], [icon], [area], [active]) VALUES (6, N'badminton', N'Cầu lông', N'Sân cầu lông', N'Phổ biến', N'Bộ môn cầu lông dành cho luyện tập cá nhân và thi đấu đôi.', N'sports_tennis', N'Sân trong nhà', 1)
-INSERT [dbo].[public_sports] ([sport_id], [slug], [name], [subtitle], [tag], [description], [icon], [area], [active]) VALUES (7, N'volleyball', N'Bóng chuyền', N'Sân bóng chuyền', N'Thể thao đồng đội', N'Bộ môn bóng chuyền dành cho luyện tập và thi đấu theo đội.', N'sports_volleyball', N'Sân bóng chuyền', 1)
-INSERT [dbo].[public_sports] ([sport_id], [slug], [name], [subtitle], [tag], [description], [icon], [area], [active]) VALUES (8, N'table-tennis', N'Bóng bàn', N'Bàn bóng bàn', N'Phản xạ', N'Bộ môn bóng bàn phù hợp cho luyện tập kỹ thuật và thi đấu đơn hoặc đôi.', N'table_restaurant', N'Khu bóng bàn', 1)
-INSERT [dbo].[public_sports] ([sport_id], [slug], [name], [subtitle], [tag], [description], [icon], [area], [active]) VALUES (9, N'swimming', N'Bơi lội', N'Hồ bơi', N'Thể thao dưới nước', N'Bộ môn bơi lội dành cho luyện tập thể lực và cải thiện kỹ thuật bơi.', N'pool', N'Hồ bơi', 1)
-INSERT [dbo].[public_sports] ([sport_id], [slug], [name], [subtitle], [tag], [description], [icon], [area], [active]) VALUES (10, N'athletics', N'Điền kinh', N'Đường chạy điền kinh', N'Rèn thể lực', N'Bộ môn điền kinh gồm các hoạt động chạy bộ và rèn luyện sức bền.', N'directions_run', N'Đường chạy', 1)
-SET IDENTITY_INSERT [dbo].[public_sports] OFF
+-- 1.6 Court Maintenance
+CREATE TABLE dbo.court_maintenance (
+    maintenance_id  BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_court_maintenance PRIMARY KEY,
+    court_id        BIGINT        NOT NULL,
+    start_time      DATETIME2(7)  NOT NULL,
+    end_time        DATETIME2(7)  NOT NULL,
+    reason          NVARCHAR(500) NULL,
+    created_by      BIGINT        NULL,
+    created_at      DATETIME2(7)  NOT NULL CONSTRAINT DF_court_maintenance_created DEFAULT SYSDATETIME(),
+    CONSTRAINT FK_court_maintenance_court FOREIGN KEY (court_id) REFERENCES dbo.sports_courts(court_id),
+    CONSTRAINT FK_court_maintenance_creator FOREIGN KEY (created_by) REFERENCES dbo.users(user_id)
+);
 GO
-SET IDENTITY_INSERT [dbo].[refund_requests] ON 
 
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (801, 5, N'Vũ Đức Minh', N'0933 111 222', NULL, NULL, N'Thuê sân Tennis Sân 1 (18:00 - 19:00)', CAST(300000.00 AS Decimal(12, 2)), N'Hủy booking đúng hạn trước 2 giờ theo chính sách quy định', NULL, NULL, NULL, N'PENDING', NULL, NULL, CAST(N'2026-10-20T15:00:00.0000000' AS DateTime2), NULL, NULL)
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (802, 7, N'Đỗ Hải Yến', N'0912 333 444', NULL, NULL, N'Lớp Cầu Lông Cơ Bản Kèm HLV', CAST(180000.00 AS Decimal(12, 2)), N'Vắng có phép được Coach xác nhận EXCUSED_ABSENCE', NULL, NULL, NULL, N'PENDING', NULL, NULL, CAST(N'2026-10-19T17:30:00.0000000' AS DateTime2), NULL, NULL)
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (803, 37, N'huy tran', N'0961100542', 152, N'15724144', N'Lớp Pickleball Nâng Cao K05 - Gym & Fitness - Cụm Sân Pickleball - Sân P2 (Indoor) - HLV Nguyễn Hoàng Nam', CAST(180000.00 AS Decimal(12, 2)), N'Hủy đăng ký lớp trong 2h từ khi thanh toán (tự động)', NULL, NULL, N'huy tran', N'APPROVED', 1, N'Đã duyệt hoàn tiền', CAST(N'2026-11-03T16:12:13.9812341' AS DateTime2), 74, N'CLASS')
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (804, 37, N'huy tran', N'0961100542', 153, N'CRT-D6EA7E0F3A', N'Fitness Studio 01 - Gym & Fitness - 03/11/2026 20:00 đến 03/11/2026 21:00', CAST(120000.00 AS Decimal(12, 2)), N'Hủy đặt sân trong 2h từ khi thanh toán (tự động)', NULL, NULL, N'huy tran', N'PENDING_APPROVAL', NULL, NULL, CAST(N'2026-11-03T16:58:17.4949243' AS DateTime2), 60, N'COURT')
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (805, 37, N'huy tran', N'0961100542', 151, N'15724074', N'Bàn bóng bàn 01 - Bóng bàn - 08/11/2026 10:00 đến 08/11/2026 11:00', CAST(50000.00 AS Decimal(12, 2)), N'Hủy đặt sân trong 2h từ khi thanh toán (tự động)', NULL, NULL, N'huy tran', N'APPROVED', 1, N'Đã duyệt hoàn tiền', CAST(N'2026-11-03T16:59:45.0028269' AS DateTime2), 59, N'COURT')
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (806, 37, N'huy tran', N'0961100542', 155, N'15724273', N'Lớp Pickleball Nâng Cao K05 - Gym & Fitness - Cụm Sân Pickleball - Sân P2 (Indoor) - HLV Nguyễn Hoàng Nam', CAST(180000.00 AS Decimal(12, 2)), N'Hủy đăng ký lớp trong 2h từ khi thanh toán (tự động)', NULL, NULL, N'huy tran', N'APPROVED', 1, N'Đã duyệt hoàn tiền', CAST(N'2026-11-03T17:12:09.4801690' AS DateTime2), 75, N'CLASS')
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (807, 39, N'duc nguyen', N'09191713213', 157, N'15724444', N'Lớp Tennis Chiến Thuật Đánh Đôi - Sân Pickleball - Sân Tennis Đơn & Đôi - Sân T2 - HLV Trần Văn Minh', CAST(198000.00 AS Decimal(12, 2)), N'Hủy đăng ký lớp trong 2h từ khi thanh toán (tự động)', NULL, NULL, N'duc nguyen', N'PENDING_APPROVAL', NULL, NULL, CAST(N'2026-11-03T21:03:27.5428849' AS DateTime2), 77, N'CLASS')
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (808, 39, N'duc nguyen', N'09191713213', 158, N'15724446', N'Lớp Bóng Đá Cơ Bản - Bóng đá - Sân bóng đá 7 người - Sân F1 - HLV Võ Tấn Phát', CAST(162000.00 AS Decimal(12, 2)), N'Hủy đăng ký lớp trong 2h từ khi thanh toán (tự động)', NULL, NULL, N'duc nguyen', N'PENDING_APPROVAL', NULL, NULL, CAST(N'2026-11-03T21:07:04.2741622' AS DateTime2), 78, N'CLASS')
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (809, 39, N'duc nguyen', N'09191713213', 159, N'15724456', N'Lớp Cầu Lông Căn Bản - Cầu lông - Sân cầu lông - Sân B1 - HLV Đặng Thu Thảo', CAST(126000.00 AS Decimal(12, 2)), N'Hủy đăng ký lớp trong 2h từ khi thanh toán (tự động)', NULL, NULL, N'duc nguyen', N'APPROVED', 1, N'Đã duyệt hoàn tiền', CAST(N'2026-11-03T21:36:25.9370257' AS DateTime2), 79, N'CLASS')
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (810, 29, N'tien pham', N'091721721', 167, N'15724501', N'Lớp Cầu Lông Căn Bản - Yoga & Pilates - Sân Cầu Lông Thảm Yonex - Sân L2 - HLV Đặng Thu Thảo', CAST(112000.00 AS Decimal(12, 2)), N'Hủy đăng ký lớp trong 2h từ khi thanh toán (tự động)', NULL, NULL, N'tien pham', N'REJECTED', 1, N'Từ chối hoàn tiền', CAST(N'2026-11-03T23:10:00.7909098' AS DateTime2), 82, N'CLASS')
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (811, 29, N'tien pham', N'091721721', 167, N'15724501', N'Lớp Cầu Lông Căn Bản - Yoga & Pilates - Sân Cầu Lông Thảm Yonex - Sân L2 - HLV Đặng Thu Thảo', CAST(112000.00 AS Decimal(12, 2)), N'Hủy đăng ký lớp trong 2h từ khi thanh toán (tự động)', NULL, NULL, N'tien pham', N'APPROVED', 1, N'Đã duyệt hoàn tiền', CAST(N'2026-11-03T23:11:09.9565087' AS DateTime2), 82, N'CLASS')
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (812, 37, N'huy tran', N'0961100542', NULL, N'd3babf62-ff32-4198-a316-9d1444bf678f', N'Giao dịch dịch vụ thể thao', CAST(550000.00 AS Decimal(12, 2)), N'bệnh', N'Vietcombank', N'513236533', N'HDSSHDSSHDH', N'APPROVED', 1, N'Đã duyệt hoàn tiền', CAST(N'2026-11-04T00:54:38.8836794' AS DateTime2), NULL, NULL)
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (813, 29, N'tien pham', N'091721721', NULL, N'15725967', N'Lớp Bóng Đá Thể Lực & Phối Hợp - HLV Võ Tấn Phát', CAST(162000.00 AS Decimal(12, 2)), N'bị sốt', N'MB Bank', N'	9704198526191432198', N'	NGUYEN VAN A', N'APPROVED', 1, N'Đã duyệt hoàn tiền', CAST(N'2026-11-05T00:59:17.4835208' AS DateTime2), NULL, NULL)
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (814, 37, N'huy tran', N'0961100542', NULL, N'TEST30102026', N'Đăng Ký Khóa Học Thể Thao', CAST(160000.00 AS Decimal(12, 2)), N'bệnh', N'Vietcombank', N'421414311', N'ẤGAGE', N'APPROVED', 1, N'Đã duyệt hoàn tiền', CAST(N'2026-11-05T02:22:00.1395117' AS DateTime2), NULL, NULL)
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (815, 9, N'Nguyễn Anh Khoa', N'0934567890', 185, N'CLS-ACED1FA443', N'Lớp Cầu Lông Căn Bản - Cầu lông - Sân cầu lông - Sân B1 - HLV Đặng Thu Thảo', CAST(0.00 AS Decimal(12, 2)), N'Hủy đăng ký lớp trong 2h từ khi thanh toán (tự động)', NULL, NULL, N'Nguyễn Anh Khoa', N'APPROVED', 1, N'Đã duyệt hoàn tiền', CAST(N'2026-11-05T03:25:23.8929117' AS DateTime2), 91, N'CLASS')
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (816, 9, N'Nguyễn Anh Khoa', N'0934567890', 186, N'CLS-BFB12E2B6A', N'Lớp Bóng Chuyền Căn Bản - Bóng đá - Sân bóng chuyền - Sân V1 - HLV Nguyễn Hoàng Nam', CAST(0.00 AS Decimal(12, 2)), N'Hủy đăng ký lớp trong 2h từ khi thanh toán (tự động)', NULL, NULL, N'Nguyễn Anh Khoa', N'APPROVED', 1, N'Đã duyệt hoàn tiền', CAST(N'2026-11-05T03:27:27.4490532' AS DateTime2), 92, N'CLASS')
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (817, 29, N'tien pham', N'091721721', NULL, N'15724541', N'Đăng Ký Khóa Học Thể Thao', CAST(112000.00 AS Decimal(12, 2)), N'bệnh', N'Vietcombank', N'573625', N'SSDGA', N'PENDING_APPROVAL', NULL, NULL, CAST(N'2026-11-05T03:44:16.9841726' AS DateTime2), NULL, NULL)
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (818, 9, N'Nguyễn Anh Khoa', N'0934567890', 188, N'15726012', N'Lớp Bóng Chuyền Căn Bản - HLV Nguyễn Hoàng Nam', CAST(128000.00 AS Decimal(12, 2)), N'ốm', N'Vietcombank', N'322523', N'DSGAS', N'APPROVED', 1, N'Đã duyệt hoàn tiền', CAST(N'2026-11-05T03:46:28.1890369' AS DateTime2), 93, N'CLASS')
-INSERT [dbo].[refund_requests] ([refund_id], [member_id], [member_name], [phone], [transaction_id], [reference_code], [booking_description], [refund_amount], [reason], [bank_name], [bank_account], [account_holder], [status], [approved_by], [decision_note], [created_at], [booking_id], [booking_type]) VALUES (819, 9, N'Nguyễn Anh Khoa', N'0934567890', 189, N'15726017', N'Lớp Bóng Đá Thể Lực & Phối Hợp - HLV Võ Tấn Phát', CAST(144000.00 AS Decimal(12, 2)), N'MỆT', N'Vietcombank', N'9744823', N'DẦEG', N'APPROVED', 1, N'Đã duyệt hoàn tiền', CAST(N'2026-11-05T04:02:33.1081343' AS DateTime2), 94, N'CLASS')
-SET IDENTITY_INSERT [dbo].[refund_requests] OFF
+-- 1.7 Membership Packages & Vouchers
+CREATE TABLE dbo.membership_packages (
+    package_id      BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_membership_packages PRIMARY KEY,
+    name            NVARCHAR(100) NOT NULL,
+    sport_id        BIGINT        NULL,
+    price           DECIMAL(10,2) NOT NULL,
+    duration_days   INT           NOT NULL,
+    access_type     VARCHAR(20)   NOT NULL CONSTRAINT DF_membership_packages_access_type DEFAULT 'ALL_DAY',
+    description     NVARCHAR(MAX) NULL,
+    status          VARCHAR(20)   NOT NULL CONSTRAINT DF_membership_packages_status DEFAULT 'ACTIVE',
+    package_type    NVARCHAR(20)  NULL CONSTRAINT DF_packages_package_type DEFAULT 'VIP',
+    quota_sessions  INT           NULL CONSTRAINT DF_packages_quota_sessions DEFAULT 0,
+    quota_courts    INT           NULL CONSTRAINT DF_packages_quota_courts DEFAULT 0,
+    CONSTRAINT FK_membership_packages_sports FOREIGN KEY (sport_id) REFERENCES dbo.sports(sport_id),
+    CONSTRAINT CK_membership_packages_access_type CHECK (access_type IN ('ALL_DAY', 'PEAK', 'OFF_PEAK')),
+    CONSTRAINT CK_membership_packages_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+);
 GO
-SET IDENTITY_INSERT [dbo].[sports] ON 
-INSERT [dbo].[sports] ([sport_id], [sport_name], [description]) VALUES (1, N'Gym & Fitness', N'Khu vực tập Gym, Cardio và rèn luyện thể lực.')
-INSERT [dbo].[sports] ([sport_id], [sport_name], [description]) VALUES (2, N'Pickleball', N'Bộ môn thể thao hiện đại kết hợp giữa Tennis, Cầu lông và Bóng bàn. Phù hợp mọi lứa tuổi.')
-INSERT [dbo].[sports] ([sport_id], [sport_name], [description]) VALUES (3, N'Tennis', N'Bộ môn Tennis tiêu chuẩn chuẩn thi đấu quốc tế, sân mặt cứng có đèn chiếu sáng ban đêm.')
-INSERT [dbo].[sports] ([sport_id], [sport_name], [description]) VALUES (4, N'Yoga & Pilates', N'Phòng tập Yoga và Pilates yên tĩnh tiêu chuẩn.')
-INSERT [dbo].[sports] ([sport_id], [sport_name], [description]) VALUES (5, N'Bóng đá', N'Sân bóng đá cỏ nhân tạo 7 người đạt chuẩn, hệ thống thoát nước hiện đại.')
-INSERT [dbo].[sports] ([sport_id], [sport_name], [description]) VALUES (6, N'Cầu lông', N'Thảm cầu lông Yonex tiêu chuẩn trong nhà, hệ thống điều hòa thoáng mát.')
-INSERT [dbo].[sports] ([sport_id], [sport_name], [description]) VALUES (7, N'Bóng chuyền', N'Sân bóng chuyền đa năng phục vụ luyện tập và thi đấu.')
-INSERT [dbo].[sports] ([sport_id], [sport_name], [description]) VALUES (8, N'Bóng bàn', N'Khu bàn bóng bàn phục vụ luyện tập và thi đấu.')
-INSERT [dbo].[sports] ([sport_id], [sport_name], [description]) VALUES (9, N'Bơi lội', N'Hồ bơi và làn bơi phục vụ luyện tập các cấp độ.')
-INSERT [dbo].[sports] ([sport_id], [sport_name], [description]) VALUES (10, N'Điền kinh', N'Đường chạy phục vụ luyện tập sức bền và điền kinh.')
-SET IDENTITY_INSERT [dbo].[sports] OFF
-GO
-SET IDENTITY_INSERT [dbo].[sports_courts] ON 
 
-INSERT [dbo].[sports_courts] ([court_id], [sport_id], [court_name], [description], [hourly_rate], [opens_at], [closes_at], [active]) VALUES (1, 2, N'Pickleball Court 01', N'Sân có mái che, mặt sân tiêu chuẩn.', CAST(180000.00 AS Decimal(12, 2)), CAST(N'06:00:00' AS Time), CAST(N'22:00:00' AS Time), 1)
-INSERT [dbo].[sports_courts] ([court_id], [sport_id], [court_name], [description], [hourly_rate], [opens_at], [closes_at], [active]) VALUES (2, 2, N'Pickleball Court 02', N'Sân mái che khu vực trung tâm.', CAST(200000.00 AS Decimal(12, 2)), CAST(N'06:00:00' AS Time), CAST(N'22:00:00' AS Time), 1)
-INSERT [dbo].[sports_courts] ([court_id], [sport_id], [court_name], [description], [hourly_rate], [opens_at], [closes_at], [active]) VALUES (3, 3, N'Tennis Court 01', N'Sân tennis ngoài trời, mặt sân tiêu chuẩn.', CAST(320000.00 AS Decimal(12, 2)), CAST(N'06:00:00' AS Time), CAST(N'22:00:00' AS Time), 1)
-INSERT [dbo].[sports_courts] ([court_id], [sport_id], [court_name], [description], [hourly_rate], [opens_at], [closes_at], [active]) VALUES (4, 3, N'Tennis Court 02', N'Sân tennis có đèn chiếu sáng buổi tối.', CAST(350000.00 AS Decimal(12, 2)), CAST(N'06:00:00' AS Time), CAST(N'22:00:00' AS Time), 1)
-INSERT [dbo].[sports_courts] ([court_id], [sport_id], [court_name], [description], [hourly_rate], [opens_at], [closes_at], [active]) VALUES (8, 5, N'Sân bóng đá 7 người 01', N'Sân cỏ nhân tạo 7 người.', CAST(500000.00 AS Decimal(12, 2)), CAST(N'06:00:00' AS Time), CAST(N'22:00:00' AS Time), 1)
-INSERT [dbo].[sports_courts] ([court_id], [sport_id], [court_name], [description], [hourly_rate], [opens_at], [closes_at], [active]) VALUES (9, 5, N'Sân bóng đá 7 người 02', N'Sân cỏ nhân tạo 7 người, có đèn buổi tối.', CAST(550000.00 AS Decimal(12, 2)), CAST(N'06:00:00' AS Time), CAST(N'22:00:00' AS Time), 1)
-INSERT [dbo].[sports_courts] ([court_id], [sport_id], [court_name], [description], [hourly_rate], [opens_at], [closes_at], [active]) VALUES (10, 6, N'Sân cầu lông 01', N'Sân cầu lông trong nhà.', CAST(100000.00 AS Decimal(12, 2)), CAST(N'06:00:00' AS Time), CAST(N'22:00:00' AS Time), 1)
-INSERT [dbo].[sports_courts] ([court_id], [sport_id], [court_name], [description], [hourly_rate], [opens_at], [closes_at], [active]) VALUES (11, 6, N'Sân cầu lông 02', N'Sân cầu lông trong nhà, thảm tiêu chuẩn.', CAST(120000.00 AS Decimal(12, 2)), CAST(N'06:00:00' AS Time), CAST(N'22:00:00' AS Time), 1)
-INSERT [dbo].[sports_courts] ([court_id], [sport_id], [court_name], [description], [hourly_rate], [opens_at], [closes_at], [active]) VALUES (12, 7, N'Sân bóng chuyền 01', N'Sân bóng chuyền trong nhà.', CAST(250000.00 AS Decimal(12, 2)), CAST(N'06:00:00' AS Time), CAST(N'22:00:00' AS Time), 1)
-INSERT [dbo].[sports_courts] ([court_id], [sport_id], [court_name], [description], [hourly_rate], [opens_at], [closes_at], [active]) VALUES (13, 7, N'Sân bóng chuyền 02', N'Sân bóng chuyền đa năng.', CAST(280000.00 AS Decimal(12, 2)), CAST(N'06:00:00' AS Time), CAST(N'22:00:00' AS Time), 1)
-INSERT [dbo].[sports_courts] ([court_id], [sport_id], [court_name], [description], [hourly_rate], [opens_at], [closes_at], [active]) VALUES (14, 8, N'Bàn bóng bàn 01', N'Bàn bóng bàn khu luyện tập.', CAST(50000.00 AS Decimal(12, 2)), CAST(N'06:00:00' AS Time), CAST(N'22:00:00' AS Time), 1)
-INSERT [dbo].[sports_courts] ([court_id], [sport_id], [court_name], [description], [hourly_rate], [opens_at], [closes_at], [active]) VALUES (15, 8, N'Bàn bóng bàn 02', N'Bàn bóng bàn thi đấu.', CAST(60000.00 AS Decimal(12, 2)), CAST(N'06:00:00' AS Time), CAST(N'22:00:00' AS Time), 1)
-INSERT [dbo].[sports_courts] ([court_id], [sport_id], [court_name], [description], [hourly_rate], [opens_at], [closes_at], [active]) VALUES (16, 9, N'Làn bơi 01', N'Làn bơi tiêu chuẩn.', CAST(180000.00 AS Decimal(12, 2)), CAST(N'06:00:00' AS Time), CAST(N'21:00:00' AS Time), 1)
-INSERT [dbo].[sports_courts] ([court_id], [sport_id], [court_name], [description], [hourly_rate], [opens_at], [closes_at], [active]) VALUES (17, 9, N'Làn bơi 02', N'Làn bơi khu luyện tập.', CAST(220000.00 AS Decimal(12, 2)), CAST(N'06:00:00' AS Time), CAST(N'21:00:00' AS Time), 1)
-INSERT [dbo].[sports_courts] ([court_id], [sport_id], [court_name], [description], [hourly_rate], [opens_at], [closes_at], [active]) VALUES (18, 10, N'Đường chạy 01', N'Khu đường chạy luyện tập.', CAST(80000.00 AS Decimal(12, 2)), CAST(N'05:00:00' AS Time), CAST(N'21:00:00' AS Time), 1)
-INSERT [dbo].[sports_courts] ([court_id], [sport_id], [court_name], [description], [hourly_rate], [opens_at], [closes_at], [active]) VALUES (19, 10, N'Đường chạy 02', N'Khu đường chạy tiêu chuẩn.', CAST(100000.00 AS Decimal(12, 2)), CAST(N'05:00:00' AS Time), CAST(N'21:00:00' AS Time), 1)
-SET IDENTITY_INSERT [dbo].[sports_courts] OFF
+CREATE TABLE dbo.vouchers (
+    voucher_id           BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_vouchers PRIMARY KEY,
+    code                 NVARCHAR(50)  NOT NULL CONSTRAINT UQ_vouchers_code UNIQUE,
+    discount_type        NVARCHAR(20)  NOT NULL CONSTRAINT DF_vouchers_type DEFAULT N'PERCENT',
+    discount_value       DECIMAL(12,2) NULL,
+    discount_percent     INT           NULL,
+    discount_amount      DECIMAL(12,2) NULL,
+    max_discount_amount  DECIMAL(10,2) NULL,
+    min_purchase         DECIMAL(12,2) NOT NULL CONSTRAINT DF_vouchers_min_purchase DEFAULT 0,
+    valid_from           DATE          NULL,
+    valid_until          DATE          NOT NULL,
+    usage_limit          INT           NOT NULL CONSTRAINT DF_vouchers_usage_limit DEFAULT 100,
+    used_count           INT           NOT NULL CONSTRAINT DF_vouchers_used_count DEFAULT 0,
+    applies_to           NVARCHAR(50)  NOT NULL CONSTRAINT DF_vouchers_applies DEFAULT N'ALL',
+    status               NVARCHAR(20)  NOT NULL CONSTRAINT DF_vouchers_status DEFAULT N'ACTIVE',
+    CONSTRAINT CK_vouchers_discount_percent CHECK (discount_percent IS NULL OR (discount_percent >= 1 AND discount_percent <= 100)),
+    CONSTRAINT CK_vouchers_status CHECK (status IN ('ACTIVE', 'INACTIVE', 'EXPIRED'))
+);
 GO
-SET IDENTITY_INSERT [dbo].[user_memberships] ON 
 
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (1, 9, 3, CAST(N'2026-10-01' AS Date), CAST(N'2026-11-15' AS Date), N'ACTIVE', 8, 2, 0, 10, 0, 0, 0, 0)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (2, 10, 2, CAST(N'2026-10-05' AS Date), CAST(N'2026-11-05' AS Date), N'ACTIVE', 20, 0, 0, 20, 10, 0, 0, 10)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (3, 11, 4, CAST(N'2026-09-01' AS Date), CAST(N'2026-10-01' AS Date), N'EXPIRED', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (4, 12, 5, CAST(N'2026-10-10' AS Date), CAST(N'2026-11-10' AS Date), N'PENDING_PAYMENT', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (14, 37, 5, CAST(N'2026-10-31' AS Date), CAST(N'2026-11-30' AS Date), N'EXPIRED', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (15, 37, 3, CAST(N'2026-11-03' AS Date), CAST(N'2026-12-18' AS Date), N'EXPIRED', 10, 0, 0, 10, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (16, 37, 5, CAST(N'2026-10-31' AS Date), CAST(N'2026-11-30' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (17, 37, 5, CAST(N'2026-10-31' AS Date), CAST(N'2026-11-30' AS Date), N'EXPIRED', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (18, 39, 5, CAST(N'2026-11-01' AS Date), CAST(N'2026-12-01' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (19, 39, 2, CAST(N'2026-11-01' AS Date), CAST(N'2026-12-01' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (20, 39, 5, CAST(N'2026-11-01' AS Date), CAST(N'2026-12-01' AS Date), N'EXPIRED', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (21, 29, 2, CAST(N'2026-11-03' AS Date), CAST(N'2026-12-03' AS Date), N'ACTIVE', 18, 2, 0, 20, 10, 0, 0, 10)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (22, 29, 2, CAST(N'2026-11-01' AS Date), CAST(N'2026-12-01' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (23, 29, 2, CAST(N'2026-11-01' AS Date), CAST(N'2026-12-01' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (24, 29, 5, CAST(N'2026-11-02' AS Date), CAST(N'2026-12-02' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (25, 29, 2, CAST(N'2026-11-02' AS Date), CAST(N'2026-12-02' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (26, 37, 2, CAST(N'2026-11-02' AS Date), CAST(N'2026-12-02' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (27, 37, 2, CAST(N'2026-11-03' AS Date), CAST(N'2026-12-03' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (28, 37, 5, CAST(N'2026-11-03' AS Date), CAST(N'2026-12-03' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (29, 39, 3, CAST(N'2026-11-03' AS Date), CAST(N'2026-12-18' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (30, 29, 3, CAST(N'2026-11-03' AS Date), CAST(N'2026-12-18' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (31, 29, 3, CAST(N'2026-11-03' AS Date), CAST(N'2026-12-18' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (32, 29, 3, CAST(N'2026-11-03' AS Date), CAST(N'2026-12-18' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (33, 29, 2, CAST(N'2026-11-03' AS Date), CAST(N'2026-12-03' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (34, 37, 1, CAST(N'2026-11-04' AS Date), CAST(N'2026-12-04' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (35, 37, 1, CAST(N'2026-11-04' AS Date), CAST(N'2026-12-04' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, NULL, NULL, NULL, NULL)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (36, 37, 1, CAST(N'2026-11-04' AS Date), CAST(N'2026-12-04' AS Date), N'ACTIVE', 0, 0, 0, 0, 15, 0, 0, 15)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (37, 37, 3, CAST(N'2026-11-04' AS Date), CAST(N'2026-12-19' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, 0, 0, 0, 0)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (38, 29, 4, CAST(N'2026-11-04' AS Date), CAST(N'2026-12-04' AS Date), N'ACTIVE', 0, 0, 0, 0, 0, 0, 0, 0)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (39, 14, 3, CAST(N'2026-11-04' AS Date), CAST(N'2026-12-19' AS Date), N'PENDING_APPROVAL', 0, 0, 0, 0, 0, 0, 0, 0)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (40, 14, 3, CAST(N'2026-11-04' AS Date), CAST(N'2026-12-19' AS Date), N'ACTIVE', 0, 0, 0, 0, 0, 0, 0, 0)
-INSERT [dbo].[user_memberships] ([um_id], [user_id], [package_id], [start_date], [end_date], [status], [remaining_quota_sessions], [held_quota_sessions], [used_quota_sessions], [initial_quota_sessions], [remaining_quota_courts], [held_quota_courts], [used_quota_courts], [initial_quota_courts]) VALUES (41, 9, 2, CAST(N'2026-11-05' AS Date), CAST(N'2026-12-05' AS Date), N'ACTIVE', 0, 0, 0, 0, 0, 0, 0, 0)
-SET IDENTITY_INSERT [dbo].[user_memberships] OFF
+-- 1.8 User Memberships
+CREATE TABLE dbo.user_memberships (
+    um_id                     BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_user_memberships PRIMARY KEY,
+    user_id                   BIGINT      NOT NULL,
+    package_id                BIGINT      NOT NULL,
+    start_date                DATE        NULL,
+    end_date                  DATE        NULL,
+    status                    VARCHAR(20) NOT NULL CONSTRAINT DF_user_memberships_status DEFAULT 'PENDING',
+    remaining_quota_sessions  INT         NULL CONSTRAINT DF_user_memberships_remaining_quota DEFAULT 0,
+    held_quota_sessions       INT         NULL CONSTRAINT DF_user_memberships_held_quota DEFAULT 0,
+    used_quota_sessions       INT         NULL CONSTRAINT DF_user_memberships_used_quota DEFAULT 0,
+    initial_quota_sessions    INT         NULL CONSTRAINT DF_user_memberships_initial_quota DEFAULT 0,
+    remaining_quota_courts    INT         NULL CONSTRAINT DF_user_memberships_remaining_courts DEFAULT 0,
+    held_quota_courts         INT         NULL CONSTRAINT DF_user_memberships_held_courts DEFAULT 0,
+    used_quota_courts         INT         NULL CONSTRAINT DF_user_memberships_used_courts DEFAULT 0,
+    initial_quota_courts      INT         NULL CONSTRAINT DF_user_memberships_initial_courts DEFAULT 0,
+    CONSTRAINT FK_user_memberships_users FOREIGN KEY (user_id) REFERENCES dbo.users(user_id),
+    CONSTRAINT FK_user_memberships_packages FOREIGN KEY (package_id) REFERENCES dbo.membership_packages(package_id),
+    CONSTRAINT CK_user_memberships_status CHECK (status IN ('PENDING', 'PENDING_APPROVAL', 'PENDING_PAYMENT', 'ACTIVE', 'EXPIRED', 'FROZEN', 'REJECTED', 'CANCELLED'))
+);
 GO
-SET IDENTITY_INSERT [dbo].[users] ON 
 
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (1, N'Nguyễn Văn Quản Lý', N'manager@sporthub.com', N'$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', N'0901234567', NULL, NULL, NULL, NULL, NULL, NULL, N'MANAGER', N'ACTIVE', 0, CAST(N'2026-10-27T18:26:48.1081807' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (2, N'Trần Thị Giám Đốc', N'director@sporthub.com', N'$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', N'0909876543', NULL, NULL, NULL, NULL, NULL, NULL, N'MANAGER', N'ACTIVE', 0, CAST(N'2026-10-27T18:26:48.1081807' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (3, N'Lê Thị Lễ Tân', N'reception.le@sporthub.com', N'$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', N'0912345678', NULL, NULL, NULL, NULL, NULL, NULL, N'RECEPTIONIST', N'ACTIVE', 0, CAST(N'2026-10-27T18:26:48.1081807' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (4, N'Phạm Minh Tú', N'reception.tu@sporthub.com', N'$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', N'0918765432', NULL, NULL, NULL, NULL, NULL, NULL, N'RECEPTIONIST', N'ACTIVE', 0, CAST(N'2026-10-27T18:26:48.1081807' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (5, N'Trần Văn Minh', N'coach.minh@sporthub.com', N'$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', N'0923456789', NULL, NULL, N'Nam', N'', N'', N'', N'COACH', N'ACTIVE', 0, CAST(N'2026-10-27T18:26:48.1081807' AS DateTime2), NULL, N'Sân Pickleball, Cầu lông · Thể Lực & Phục Hồi', 5, N'', N'', NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (6, N'Nguyễn Hoàng Nam', N'coach.nam@sporthub.com', N'$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', N'0928765432', NULL, NULL, NULL, NULL, NULL, NULL, N'COACH', N'ACTIVE', 0, CAST(N'2026-10-27T18:26:48.1081807' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (7, N'Võ Tấn Phát', N'coach.phat@sporthub.com', N'$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', N'0921112223', NULL, NULL, NULL, NULL, NULL, NULL, N'COACH', N'ACTIVE', 0, CAST(N'2026-10-27T18:26:48.1081807' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (8, N'Đặng Thu Thảo', N'coach.thao@sporthub.com', N'$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', N'0923334445', NULL, NULL, NULL, NULL, NULL, NULL, N'COACH', N'ACTIVE', 0, CAST(N'2026-10-27T18:26:48.1081807' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (9, N'Nguyễn Anh Khoa', N'khoa.member@gmail.com', N'$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', N'0934567890', NULL, NULL, NULL, NULL, NULL, NULL, N'MEMBER', N'ACTIVE', 0, CAST(N'2026-10-27T18:26:48.1081807' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (10, N'Hoàng Thị Ngọc', N'ngoc.hoang@gmail.com', N'$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', N'0938765432', NULL, NULL, NULL, NULL, NULL, NULL, N'MEMBER', N'ACTIVE', 0, CAST(N'2026-10-27T18:26:48.1081807' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (11, N'Bùi Huy Hoàng', N'hoang.bui@gmail.com', N'$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', N'0931112233', NULL, NULL, NULL, NULL, NULL, NULL, N'MEMBER', N'ACTIVE', 0, CAST(N'2026-10-27T18:26:48.1081807' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (12, N'Đỗ Phương Anh', N'anh.do@gmail.com', N'$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', N'0934445566', NULL, NULL, NULL, NULL, NULL, NULL, N'MEMBER', N'ACTIVE', 0, CAST(N'2026-10-27T18:26:48.1081807' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (13, N'Vũ Trọng Tuấn', N'tuan.vu@gmail.com', N'$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq', N'0937778899', NULL, NULL, NULL, NULL, NULL, NULL, N'MEMBER', N'ACTIVE', 0, CAST(N'2026-10-27T18:26:48.1081807' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (14, N'jbhvvy', N'phamhuutien1901@gmail.com', N'$2a$10$6SNLntUvuWvq/pEkskZiYOXoewLgflF2fOGehMQf35T3m4XDLnP5C', N'0878686', NULL, NULL, NULL, NULL, NULL, NULL, N'MEMBER', N'ACTIVE', 0, CAST(N'2026-10-27T19:02:25.8997916' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (29, N'tien pham', N'bumximitech@gmail.com', N'$2a$10$MQFcchoVkzr60Goc47wxkeFiIw1zqDdfiNj.He1S94qlaXur1Y5Xa', N'091721721', NULL, NULL, NULL, NULL, NULL, NULL, N'MEMBER', N'ACTIVE', 0, CAST(N'2026-10-28T12:13:01.1555028' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (30, N'duc tran', N'diepthao2727@gmail.com', N'$2a$10$sqiSqZLYG/gihWTot7xPx.Dp28/we3oBVfDVmRzi8q0tLUKZpTBgy', N'0817262316', NULL, NULL, NULL, NULL, NULL, NULL, N'MEMBER', N'ACTIVE', 0, CAST(N'2026-10-28T13:08:14.5886590' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (37, N'huy tran', N'phamhuutien876@gmail.com', N'$2a$10$uyEzvpeWHVnUVczOUdazyeua1gIyv7QoSjZa3CnOYwvpjCSdHbFk.', N'0961100542', NULL, NULL, NULL, NULL, NULL, NULL, N'MEMBER', N'ACTIVE', 0, CAST(N'2026-10-30T14:04:43.2104945' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (38, N'duc dao', N'nguyenkimtam155@gmail.com', N'$2a$10$lHB6rrbyWuy8RPLumtwZP.KRTPkLQ5sOUesRJrebP5OU/DLhIBYqK', N'098171612', NULL, NULL, NULL, NULL, NULL, NULL, N'MEMBER', N'ACTIVE', 1, CAST(N'2026-10-31T23:23:34.7037066' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-INSERT [dbo].[users] ([user_id], [full_name], [email], [password], [phone], [avatar], [date_of_birth], [gender], [address], [emergency_contact_name], [emergency_contact_phone], [role], [status], [require_password_change], [created_at], [rfid_code], [specialty], [experience_years], [certifications], [bio], [availability_json]) VALUES (39, N'duc nguyen', N'diepnhan453@gmail.com', N'$2a$10$S1nh9V6/EtpruWcHstG2.eij.1cNdY0Wad8bjWze9EE93nUSrG1Li', N'09191713213', NULL, NULL, NULL, NULL, NULL, NULL, N'MEMBER', N'ACTIVE', 0, CAST(N'2026-11-01T18:23:51.0234516' AS DateTime2), NULL, NULL, NULL, NULL, NULL, NULL)
-SET IDENTITY_INSERT [dbo].[users] OFF
+-- 1.9 Payment Transactions, Attempts, Gateway Receipts & Legacy Reception Payments
+CREATE TABLE dbo.payment_transactions (
+    payment_id            BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_payment_transactions PRIMARY KEY,
+    member_id             BIGINT        NOT NULL,
+    membership_id         BIGINT        NULL,
+    voucher_id            BIGINT        NULL,
+    gateway_reference     VARCHAR(100)  NULL,
+    booking_type          NVARCHAR(20)  NOT NULL,
+    amount                DECIMAL(12,2) NOT NULL,
+    payment_method        NVARCHAR(40)  NOT NULL,
+    payment_status        NVARCHAR(20)  NOT NULL,
+    reference_code        NVARCHAR(64)  NOT NULL CONSTRAINT UQ_payment_transactions_ref UNIQUE,
+    created_at            DATETIME2(7)  NOT NULL CONSTRAINT DF_payment_transactions_created DEFAULT SYSDATETIME(),
+    transaction_date      VARCHAR(14)   NULL,
+    payment_completed_at  DATETIME2(7)  NULL,
+    item_type             VARCHAR(20)   NULL,
+    item_description      NVARCHAR(500) NULL,
+    CONSTRAINT FK_payment_transactions_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
+    CONSTRAINT FK_payment_transactions_membership FOREIGN KEY (membership_id) REFERENCES dbo.user_memberships(um_id),
+    CONSTRAINT FK_payment_transactions_voucher FOREIGN KEY (voucher_id) REFERENCES dbo.vouchers(voucher_id)
+);
 GO
-SET IDENTITY_INSERT [dbo].[vouchers] ON 
 
-INSERT [dbo].[vouchers] ([voucher_id], [code], [discount_type], [discount_value], [discount_percent], [discount_amount], [max_discount_amount], [min_purchase], [valid_from], [valid_until], [usage_limit], [used_count], [applies_to], [status]) VALUES (1, N'WELCOME2026', N'PERCENT', CAST(20.00 AS Decimal(12, 2)), 20, CAST(200000.00 AS Decimal(12, 2)), CAST(200000.00 AS Decimal(10, 2)), CAST(0.00 AS Decimal(12, 2)), NULL, CAST(N'2026-12-31' AS Date), 200, 0, N'ALL', N'ACTIVE')
-INSERT [dbo].[vouchers] ([voucher_id], [code], [discount_type], [discount_value], [discount_percent], [discount_amount], [max_discount_amount], [min_purchase], [valid_from], [valid_until], [usage_limit], [used_count], [applies_to], [status]) VALUES (2, N'SPORTSHUB10', N'PERCENT', CAST(10.00 AS Decimal(12, 2)), 10, CAST(100000.00 AS Decimal(12, 2)), CAST(100000.00 AS Decimal(10, 2)), CAST(0.00 AS Decimal(12, 2)), NULL, CAST(N'2026-11-30' AS Date), 100, 0, N'ALL', N'ACTIVE')
-INSERT [dbo].[vouchers] ([voucher_id], [code], [discount_type], [discount_value], [discount_percent], [discount_amount], [max_discount_amount], [min_purchase], [valid_from], [valid_until], [usage_limit], [used_count], [applies_to], [status]) VALUES (3, N'VIPMEMBER', N'PERCENT', CAST(15.00 AS Decimal(12, 2)), 15, CAST(300000.00 AS Decimal(12, 2)), CAST(300000.00 AS Decimal(10, 2)), CAST(0.00 AS Decimal(12, 2)), NULL, CAST(N'2026-12-31' AS Date), 50, 0, N'ALL', N'ACTIVE')
-INSERT [dbo].[vouchers] ([voucher_id], [code], [discount_type], [discount_value], [discount_percent], [discount_amount], [max_discount_amount], [min_purchase], [valid_from], [valid_until], [usage_limit], [used_count], [applies_to], [status]) VALUES (4, N'SUMMEREND', N'PERCENT', CAST(30.00 AS Decimal(12, 2)), 30, CAST(500000.00 AS Decimal(12, 2)), CAST(500000.00 AS Decimal(10, 2)), CAST(0.00 AS Decimal(12, 2)), NULL, CAST(N'2026-09-30' AS Date), 0, 0, N'ALL', N'EXPIRED')
-INSERT [dbo].[vouchers] ([voucher_id], [code], [discount_type], [discount_value], [discount_percent], [discount_amount], [max_discount_amount], [min_purchase], [valid_from], [valid_until], [usage_limit], [used_count], [applies_to], [status]) VALUES (5, N'TET2026', N'PERCENT', CAST(20.00 AS Decimal(12, 2)), 20, CAST(500000.00 AS Decimal(12, 2)), NULL, CAST(500000.00 AS Decimal(12, 2)), NULL, CAST(N'2026-12-31' AS Date), 200, 15, N'ALL', N'ACTIVE')
-INSERT [dbo].[vouchers] ([voucher_id], [code], [discount_type], [discount_value], [discount_percent], [discount_amount], [max_discount_amount], [min_purchase], [valid_from], [valid_until], [usage_limit], [used_count], [applies_to], [status]) VALUES (6, N'GIAM50K', N'FIXED', CAST(50000.00 AS Decimal(12, 2)), NULL, CAST(50000.00 AS Decimal(12, 2)), NULL, CAST(150000.00 AS Decimal(12, 2)), NULL, CAST(N'2026-12-31' AS Date), 500, 48, N'ALL', N'ACTIVE')
-INSERT [dbo].[vouchers] ([voucher_id], [code], [discount_type], [discount_value], [discount_percent], [discount_amount], [max_discount_amount], [min_purchase], [valid_from], [valid_until], [usage_limit], [used_count], [applies_to], [status]) VALUES (7, N'WELCOME20', N'PERCENT', CAST(20.00 AS Decimal(12, 2)), 20, CAST(300000.00 AS Decimal(12, 2)), NULL, CAST(100000.00 AS Decimal(12, 2)), NULL, CAST(N'2026-12-31' AS Date), 1000, 89, N'ALL', N'ACTIVE')
-SET IDENTITY_INSERT [dbo].[vouchers] OFF
-GO
-/****** Object:  Index [idx_created_at]    Script Date: 05/11/2026 4:13:53 SA ******/
-CREATE NONCLUSTERED INDEX [idx_created_at] ON [dbo].[audit_logs]
-(
-	[created_at] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-GO
-SET ANSI_PADDING ON
-GO
-/****** Object:  Index [idx_log_type]    Script Date: 05/11/2026 4:13:53 SA ******/
-CREATE NONCLUSTERED INDEX [idx_log_type] ON [dbo].[audit_logs]
-(
-	[log_type] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-GO
-SET ANSI_PADDING ON
-GO
-/****** Object:  Index [idx_user_email]    Script Date: 05/11/2026 4:13:53 SA ******/
-CREATE NONCLUSTERED INDEX [idx_user_email] ON [dbo].[audit_logs]
-(
-	[user_email] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-GO
-/****** Object:  Index [UQ__member_h__B29B8535BDD0C382]    Script Date: 05/11/2026 4:13:53 SA ******/
-ALTER TABLE [dbo].[member_health_profiles] ADD UNIQUE NONCLUSTERED 
-(
-	[member_id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-GO
-SET ANSI_PADDING ON
-GO
-/****** Object:  Index [UQ__payment___372CD11720109340]    Script Date: 05/11/2026 4:13:53 SA ******/
-ALTER TABLE [dbo].[payment_transactions] ADD UNIQUE NONCLUSTERED 
-(
-	[reference_code] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-GO
-SET ANSI_PADDING ON
-GO
-/****** Object:  Index [UQ__public_f__32DD1E4C701D8261]    Script Date: 05/11/2026 4:13:53 SA ******/
-ALTER TABLE [dbo].[public_facilities] ADD UNIQUE NONCLUSTERED 
-(
-	[slug] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-GO
-SET ANSI_PADDING ON
-GO
-/****** Object:  Index [UQ__public_s__32DD1E4CDFF3C208]    Script Date: 05/11/2026 4:13:53 SA ******/
-ALTER TABLE [dbo].[public_sports] ADD UNIQUE NONCLUSTERED 
-(
-	[slug] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-GO
-SET ANSI_PADDING ON
-GO
-/****** Object:  Index [UQ__users__AB6E616423BFD71A]    Script Date: 05/11/2026 4:13:53 SA ******/
-ALTER TABLE [dbo].[users] ADD UNIQUE NONCLUSTERED 
-(
-	[email] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-GO
-SET ANSI_PADDING ON
-GO
-/****** Object:  Index [idx_email_type]    Script Date: 05/11/2026 4:13:53 SA ******/
-CREATE NONCLUSTERED INDEX [idx_email_type] ON [dbo].[verification_tokens]
-(
-	[email] ASC,
-	[token_type] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-GO
-/****** Object:  Index [idx_expires_at]    Script Date: 05/11/2026 4:13:53 SA ******/
-CREATE NONCLUSTERED INDEX [idx_expires_at] ON [dbo].[verification_tokens]
-(
-	[expires_at] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-GO
-SET ANSI_PADDING ON
-GO
-/****** Object:  Index [idx_token_hash]    Script Date: 05/11/2026 4:13:53 SA ******/
-CREATE NONCLUSTERED INDEX [idx_token_hash] ON [dbo].[verification_tokens]
-(
-	[token_hash] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-GO
-SET ANSI_PADDING ON
-GO
-/****** Object:  Index [UQ__vouchers__357D4CF9ECFBA1C4]    Script Date: 05/11/2026 4:13:53 SA ******/
-ALTER TABLE [dbo].[vouchers] ADD UNIQUE NONCLUSTERED 
-(
-	[code] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-GO
-ALTER TABLE [dbo].[audit_logs] ADD  DEFAULT (getdate()) FOR [created_at]
-GO
-ALTER TABLE [dbo].[body_progress_logs] ADD  CONSTRAINT [DF_body_progress_created]  DEFAULT (sysdatetime()) FOR [created_at]
-GO
-ALTER TABLE [dbo].[bookings] ADD  DEFAULT (getdate()) FOR [booking_time]
-GO
-ALTER TABLE [dbo].[bookings] ADD  DEFAULT ('BOOKED') FOR [status]
-GO
-ALTER TABLE [dbo].[bookings] ADD  DEFAULT ('PENDING') FOR [attendance_status]
-GO
-ALTER TABLE [dbo].[bookings] ADD  DEFAULT ((0)) FOR [uses_membership_quota]
-GO
-ALTER TABLE [dbo].[bookings] ADD  CONSTRAINT [DF_bookings_fee_amount]  DEFAULT ((0)) FOR [fee_amount]
-GO
-ALTER TABLE [dbo].[class_sessions] ADD  DEFAULT ((0)) FOR [booked_slots]
-GO
-ALTER TABLE [dbo].[class_sessions] ADD  DEFAULT ((0)) FOR [price_amount]
-GO
-ALTER TABLE [dbo].[class_sessions] ADD  DEFAULT ('SCHEDULED') FOR [status]
-GO
-ALTER TABLE [dbo].[coach_leave_requests] ADD  DEFAULT (N'PENDING') FOR [status]
-GO
-ALTER TABLE [dbo].[coach_leave_requests] ADD  DEFAULT ((0)) FOR [affected_bookings_count]
-GO
-ALTER TABLE [dbo].[coach_leave_requests] ADD  DEFAULT (sysdatetime()) FOR [created_at]
-GO
-ALTER TABLE [dbo].[court_bookings] ADD  DEFAULT ((0)) FOR [uses_membership_quota]
-GO
-ALTER TABLE [dbo].[court_bookings] ADD  DEFAULT ((0.00)) FOR [quota_hours_used]
-GO
-ALTER TABLE [dbo].[court_maintenance] ADD  CONSTRAINT [DF_court_maintenance_created]  DEFAULT (sysdatetime()) FOR [created_at]
-GO
-ALTER TABLE [dbo].[equipment_loans] ADD  DEFAULT ((1)) FOR [quantity]
-GO
-ALTER TABLE [dbo].[equipment_loans] ADD  DEFAULT (sysdatetime()) FOR [loaned_at]
-GO
-ALTER TABLE [dbo].[equipment_loans] ADD  DEFAULT (N'BORROWED') FOR [status]
-GO
-ALTER TABLE [dbo].[equipments] ADD  DEFAULT (N'ACTIVE') FOR [status]
-GO
-ALTER TABLE [dbo].[facilities] ADD  DEFAULT ('AVAILABLE') FOR [status]
-GO
-ALTER TABLE [dbo].[feedbacks] ADD  DEFAULT (getdate()) FOR [created_at]
-GO
-ALTER TABLE [dbo].[member_check_ins] ADD  DEFAULT (sysdatetime()) FOR [checked_in_at]
-GO
-ALTER TABLE [dbo].[member_health_profiles] ADD  DEFAULT ('BEGINNER') FOR [fitness_level]
-GO
-ALTER TABLE [dbo].[member_health_profiles] ADD  DEFAULT (getdate()) FOR [updated_at]
-GO
-ALTER TABLE [dbo].[membership_packages] ADD  DEFAULT ('ALL_DAY') FOR [access_type]
-GO
-ALTER TABLE [dbo].[membership_packages] ADD  DEFAULT ('ACTIVE') FOR [status]
-GO
-ALTER TABLE [dbo].[notifications] ADD  CONSTRAINT [DF_notifications_read]  DEFAULT ((0)) FOR [is_read]
-GO
-ALTER TABLE [dbo].[notifications] ADD  CONSTRAINT [DF_notifications_created]  DEFAULT (sysdatetime()) FOR [created_at]
-GO
-ALTER TABLE [dbo].[payments] ADD  DEFAULT ('PENDING') FOR [payment_status]
-GO
-ALTER TABLE [dbo].[payments] ADD  DEFAULT (getdate()) FOR [created_at]
-GO
-ALTER TABLE [dbo].[public_facilities] ADD  DEFAULT ((1)) FOR [active]
-GO
-ALTER TABLE [dbo].[public_sports] ADD  DEFAULT ((1)) FOR [active]
-GO
-ALTER TABLE [dbo].[refund_requests] ADD  DEFAULT (N'PENDING') FOR [status]
-GO
-ALTER TABLE [dbo].[refund_requests] ADD  DEFAULT (sysdatetime()) FOR [created_at]
-GO
-ALTER TABLE [dbo].[sports_courts] ADD  DEFAULT ((1)) FOR [active]
-GO
-ALTER TABLE [dbo].[support_tickets] ADD  DEFAULT (N'NORMAL') FOR [severity]
-GO
-ALTER TABLE [dbo].[support_tickets] ADD  DEFAULT (N'SUBMITTED') FOR [status]
-GO
-ALTER TABLE [dbo].[support_tickets] ADD  DEFAULT (sysdatetime()) FOR [created_at]
-GO
-ALTER TABLE [dbo].[system_settings] ADD  CONSTRAINT [DF_system_settings_updated]  DEFAULT (sysdatetime()) FOR [updated_at]
-GO
-ALTER TABLE [dbo].[user_memberships] ADD  DEFAULT ('PENDING') FOR [status]
-GO
-ALTER TABLE [dbo].[user_memberships] ADD  DEFAULT ((0)) FOR [remaining_quota_sessions]
-GO
-ALTER TABLE [dbo].[user_memberships] ADD  DEFAULT ((0)) FOR [held_quota_sessions]
-GO
-ALTER TABLE [dbo].[user_memberships] ADD  DEFAULT ((0)) FOR [used_quota_sessions]
-GO
-ALTER TABLE [dbo].[user_memberships] ADD  DEFAULT ((0)) FOR [initial_quota_sessions]
-GO
-ALTER TABLE [dbo].[user_memberships] ADD  DEFAULT ((0)) FOR [remaining_quota_courts]
-GO
-ALTER TABLE [dbo].[user_memberships] ADD  DEFAULT ((0)) FOR [held_quota_courts]
-GO
-ALTER TABLE [dbo].[user_memberships] ADD  DEFAULT ((0)) FOR [used_quota_courts]
-GO
-ALTER TABLE [dbo].[user_memberships] ADD  DEFAULT ((0)) FOR [initial_quota_courts]
-GO
-ALTER TABLE [dbo].[users] ADD  DEFAULT ('ACTIVE') FOR [status]
-GO
-ALTER TABLE [dbo].[users] ADD  DEFAULT ((0)) FOR [require_password_change]
-GO
-ALTER TABLE [dbo].[users] ADD  DEFAULT (sysdatetime()) FOR [created_at]
-GO
-ALTER TABLE [dbo].[verification_tokens] ADD  DEFAULT (getdate()) FOR [created_at]
-GO
-ALTER TABLE [dbo].[verification_tokens] ADD  DEFAULT ((0)) FOR [failed_attempts]
-GO
-ALTER TABLE [dbo].[verification_tokens] ADD  DEFAULT ((0)) FOR [locked]
-GO
-ALTER TABLE [dbo].[vouchers] ADD  DEFAULT (N'PERCENT') FOR [discount_type]
-GO
-ALTER TABLE [dbo].[vouchers] ADD  DEFAULT ((0)) FOR [min_purchase]
-GO
-ALTER TABLE [dbo].[vouchers] ADD  DEFAULT ((100)) FOR [usage_limit]
-GO
-ALTER TABLE [dbo].[vouchers] ADD  DEFAULT ((0)) FOR [used_count]
-GO
-ALTER TABLE [dbo].[vouchers] ADD  DEFAULT (N'ALL') FOR [applies_to]
-GO
-ALTER TABLE [dbo].[vouchers] ADD  DEFAULT (N'ACTIVE') FOR [status]
-GO
-ALTER TABLE [dbo].[workout_plans] ADD  CONSTRAINT [DF_workout_plans_source]  DEFAULT ('COACH') FOR [source]
-GO
-ALTER TABLE [dbo].[workout_plans] ADD  CONSTRAINT [DF_workout_plans_created]  DEFAULT (sysdatetime()) FOR [created_at]
-GO
-ALTER TABLE [dbo].[bookings]  WITH CHECK ADD FOREIGN KEY([member_id])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[bookings]  WITH CHECK ADD FOREIGN KEY([session_id])
-REFERENCES [dbo].[class_sessions] ([session_id])
-GO
-ALTER TABLE [dbo].[bookings]  WITH CHECK ADD  CONSTRAINT [FK_bookings_membership] FOREIGN KEY([membership_id])
-REFERENCES [dbo].[user_memberships] ([um_id])
-GO
-ALTER TABLE [dbo].[bookings] CHECK CONSTRAINT [FK_bookings_membership]
-GO
-ALTER TABLE [dbo].[class_sessions]  WITH CHECK ADD FOREIGN KEY([coach_id])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[class_sessions]  WITH CHECK ADD FOREIGN KEY([facility_id])
-REFERENCES [dbo].[facilities] ([facility_id])
-GO
-ALTER TABLE [dbo].[class_sessions]  WITH CHECK ADD FOREIGN KEY([sport_id])
-REFERENCES [dbo].[sports] ([sport_id])
-GO
-ALTER TABLE [dbo].[coach_leave_requests]  WITH CHECK ADD  CONSTRAINT [FK_coach_leave_approver] FOREIGN KEY([approved_by])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[coach_leave_requests] CHECK CONSTRAINT [FK_coach_leave_approver]
-GO
-ALTER TABLE [dbo].[coach_leave_requests]  WITH CHECK ADD  CONSTRAINT [FK_coach_leave_coach] FOREIGN KEY([coach_id])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[coach_leave_requests] CHECK CONSTRAINT [FK_coach_leave_coach]
-GO
-ALTER TABLE [dbo].[coach_leave_requests]  WITH CHECK ADD  CONSTRAINT [FK_coach_leave_reassigned] FOREIGN KEY([reassigned_coach_id])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[coach_leave_requests] CHECK CONSTRAINT [FK_coach_leave_reassigned]
-GO
-ALTER TABLE [dbo].[court_bookings]  WITH CHECK ADD FOREIGN KEY([court_id])
-REFERENCES [dbo].[sports_courts] ([court_id])
-GO
-ALTER TABLE [dbo].[court_bookings]  WITH CHECK ADD FOREIGN KEY([payment_id])
-REFERENCES [dbo].[payment_transactions] ([payment_id])
-GO
-ALTER TABLE [dbo].[court_bookings]  WITH CHECK ADD  CONSTRAINT [fk_court_booking_membership] FOREIGN KEY([membership_id])
-REFERENCES [dbo].[user_memberships] ([um_id])
-GO
-ALTER TABLE [dbo].[court_bookings] CHECK CONSTRAINT [fk_court_booking_membership]
-GO
-ALTER TABLE [dbo].[equipment_loans]  WITH CHECK ADD  CONSTRAINT [FK_equipment_loans_item] FOREIGN KEY([item_id])
-REFERENCES [dbo].[equipments] ([item_id])
-GO
-ALTER TABLE [dbo].[equipment_loans] CHECK CONSTRAINT [FK_equipment_loans_item]
-GO
-ALTER TABLE [dbo].[equipment_loans]  WITH CHECK ADD  CONSTRAINT [FK_equipment_loans_member] FOREIGN KEY([member_id])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[equipment_loans] CHECK CONSTRAINT [FK_equipment_loans_member]
-GO
-ALTER TABLE [dbo].[equipment_loans]  WITH CHECK ADD  CONSTRAINT [FK_equipment_loans_recorder] FOREIGN KEY([recorded_by])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[equipment_loans] CHECK CONSTRAINT [FK_equipment_loans_recorder]
-GO
-ALTER TABLE [dbo].[facilities]  WITH CHECK ADD FOREIGN KEY([sport_id])
-REFERENCES [dbo].[sports] ([sport_id])
-GO
-ALTER TABLE [dbo].[feedbacks]  WITH CHECK ADD FOREIGN KEY([coach_id])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[feedbacks]  WITH CHECK ADD FOREIGN KEY([member_id])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[feedbacks]  WITH CHECK ADD FOREIGN KEY([session_id])
-REFERENCES [dbo].[class_sessions] ([session_id])
-GO
-ALTER TABLE [dbo].[member_check_ins]  WITH CHECK ADD  CONSTRAINT [FK_member_check_ins_member] FOREIGN KEY([member_id])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[member_check_ins] CHECK CONSTRAINT [FK_member_check_ins_member]
-GO
-ALTER TABLE [dbo].[member_check_ins]  WITH CHECK ADD  CONSTRAINT [FK_member_check_ins_recorder] FOREIGN KEY([recorded_by])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[member_check_ins] CHECK CONSTRAINT [FK_member_check_ins_recorder]
-GO
-ALTER TABLE [dbo].[member_health_profiles]  WITH CHECK ADD FOREIGN KEY([member_id])
-REFERENCES [dbo].[users] ([user_id])
-ON DELETE CASCADE
-GO
-ALTER TABLE [dbo].[membership_packages]  WITH CHECK ADD FOREIGN KEY([sport_id])
-REFERENCES [dbo].[sports] ([sport_id])
-GO
-ALTER TABLE [dbo].[payments]  WITH CHECK ADD FOREIGN KEY([approved_by])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[payments]  WITH CHECK ADD FOREIGN KEY([member_id])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[payments]  WITH CHECK ADD FOREIGN KEY([um_id])
-REFERENCES [dbo].[user_memberships] ([um_id])
-GO
-ALTER TABLE [dbo].[payments]  WITH CHECK ADD FOREIGN KEY([voucher_id])
-REFERENCES [dbo].[vouchers] ([voucher_id])
-GO
-ALTER TABLE [dbo].[refund_requests]  WITH CHECK ADD  CONSTRAINT [FK_refund_requests_approver] FOREIGN KEY([approved_by])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[refund_requests] CHECK CONSTRAINT [FK_refund_requests_approver]
-GO
-ALTER TABLE [dbo].[refund_requests]  WITH CHECK ADD  CONSTRAINT [FK_refund_requests_member] FOREIGN KEY([member_id])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[refund_requests] CHECK CONSTRAINT [FK_refund_requests_member]
-GO
-ALTER TABLE [dbo].[sports_courts]  WITH CHECK ADD FOREIGN KEY([sport_id])
-REFERENCES [dbo].[public_sports] ([sport_id])
-GO
-ALTER TABLE [dbo].[support_tickets]  WITH CHECK ADD  CONSTRAINT [FK_support_tickets_member] FOREIGN KEY([member_id])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[support_tickets] CHECK CONSTRAINT [FK_support_tickets_member]
-GO
-ALTER TABLE [dbo].[user_memberships]  WITH CHECK ADD FOREIGN KEY([package_id])
-REFERENCES [dbo].[membership_packages] ([package_id])
-GO
-ALTER TABLE [dbo].[user_memberships]  WITH CHECK ADD FOREIGN KEY([user_id])
-REFERENCES [dbo].[users] ([user_id])
-GO
-ALTER TABLE [dbo].[bookings]  WITH CHECK ADD  CONSTRAINT [CK_bookings_attendance_status] CHECK  (([attendance_status] IS NULL OR ([attendance_status]='UNEXCUSED_ABSENCE' OR [attendance_status]='EXCUSED_ABSENCE' OR [attendance_status]='PRESENT' OR [attendance_status]='PENDING')))
-GO
-ALTER TABLE [dbo].[bookings] CHECK CONSTRAINT [CK_bookings_attendance_status]
-GO
-ALTER TABLE [dbo].[bookings]  WITH CHECK ADD  CONSTRAINT [CK_bookings_status] CHECK  (([status]='CANCELLED' OR [status]='WAITLIST' OR [status]='CONFIRMED' OR [status]='BOOKED'))
-GO
-ALTER TABLE [dbo].[bookings] CHECK CONSTRAINT [CK_bookings_status]
-GO
-ALTER TABLE [dbo].[class_sessions]  WITH CHECK ADD CHECK  (([status]='CANCELLED' OR [status]='COMPLETED' OR [status]='IN_PROGRESS' OR [status]='SCHEDULED'))
-GO
-ALTER TABLE [dbo].[facilities]  WITH CHECK ADD CHECK  (([status]='MAINTENANCE' OR [status]='AVAILABLE'))
-GO
-ALTER TABLE [dbo].[feedbacks]  WITH CHECK ADD CHECK  (([rating]>=(1) AND [rating]<=(5)))
-GO
-ALTER TABLE [dbo].[member_check_ins]  WITH CHECK ADD CHECK  (([result]=N'REJECTED' OR [result]=N'VALID'))
-GO
-ALTER TABLE [dbo].[membership_packages]  WITH CHECK ADD CHECK  (([access_type]='OFF_PEAK' OR [access_type]='PEAK' OR [access_type]='ALL_DAY'))
-GO
-ALTER TABLE [dbo].[membership_packages]  WITH CHECK ADD CHECK  (([status]='INACTIVE' OR [status]='ACTIVE'))
-GO
-ALTER TABLE [dbo].[payments]  WITH CHECK ADD CHECK  (([payment_method]='POS' OR [payment_method]='TRANSFER' OR [payment_method]='CASH' OR [payment_method]='ONLINE'))
-GO
-ALTER TABLE [dbo].[payments]  WITH CHECK ADD CHECK  (([payment_status]='REFUNDED' OR [payment_status]='FAILED' OR [payment_status]='COMPLETED' OR [payment_status]='PENDING'))
-GO
-ALTER TABLE [dbo].[user_memberships]  WITH CHECK ADD  CONSTRAINT [CK_user_memberships_status] CHECK  (([status]='CANCELLED' OR [status]='REJECTED' OR [status]='FROZEN' OR [status]='EXPIRED' OR [status]='ACTIVE' OR [status]='PENDING_PAYMENT' OR [status]='PENDING_APPROVAL' OR [status]='PENDING'))
-GO
-ALTER TABLE [dbo].[user_memberships] CHECK CONSTRAINT [CK_user_memberships_status]
-GO
-ALTER TABLE [dbo].[users]  WITH CHECK ADD CHECK  (([role]='MEMBER' OR [role]='COACH' OR [role]='RECEPTIONIST' OR [role]='MANAGER'))
-GO
-ALTER TABLE [dbo].[users]  WITH CHECK ADD CHECK  (([status]='PENDING' OR [status]='LOCKED' OR [status]='INACTIVE' OR [status]='ACTIVE'))
-GO
-ALTER TABLE [dbo].[vouchers]  WITH CHECK ADD CHECK  (([discount_percent]>=(1) AND [discount_percent]<=(100)))
-GO
-ALTER TABLE [dbo].[vouchers]  WITH CHECK ADD  CONSTRAINT [CK_vouchers_status] CHECK  (([status]='EXPIRED' OR [status]='INACTIVE' OR [status]='ACTIVE'))
-GO
-ALTER TABLE [dbo].[vouchers] CHECK CONSTRAINT [CK_vouchers_status]
-GO
-USE [master]
-GO
-ALTER DATABASE [SportsCenterDB] SET  READ_WRITE 
+CREATE TABLE dbo.payment_attempts (
+    attempt_id         BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_payment_attempts PRIMARY KEY,
+    payment_id         BIGINT        NOT NULL,
+    gateway_reference  VARCHAR(100)  NOT NULL CONSTRAINT UQ_payment_attempts_ref UNIQUE,
+    amount             DECIMAL(12,2) NOT NULL,
+    status             VARCHAR(20)   NOT NULL,
+    payment_url        NVARCHAR(MAX) NULL,
+    created_at         DATETIME2(7)  NOT NULL,
+    expires_at         DATETIME2(7)  NOT NULL,
+    merchant_date      VARCHAR(14)   NULL,
+    CONSTRAINT FK_payment_attempt_order FOREIGN KEY (payment_id) REFERENCES dbo.payment_transactions(payment_id)
+);
+GO
+CREATE INDEX IX_payment_attempt_order ON dbo.payment_attempts(payment_id, status, created_at);
+GO
+
+CREATE TABLE dbo.gateway_receipts (
+    receipt_id              BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_gateway_receipts PRIMARY KEY,
+    payment_id              BIGINT        NOT NULL,
+    attempt_id              BIGINT        NOT NULL,
+    gateway_transaction_no  VARCHAR(100)  NOT NULL CONSTRAINT UQ_gateway_receipts_txno UNIQUE,
+    gateway_reference       VARCHAR(100)  NOT NULL,
+    amount                  DECIMAL(12,2) NOT NULL,
+    transaction_date        VARCHAR(14)   NULL,
+    status                  VARCHAR(24)   NOT NULL,
+    reconciliation_note     NVARCHAR(500) NULL,
+    created_at              DATETIME2(7)  NOT NULL,
+    resolved_at             DATETIME2(7)  NULL,
+    CONSTRAINT FK_gateway_receipt_order FOREIGN KEY (payment_id) REFERENCES dbo.payment_transactions(payment_id),
+    CONSTRAINT FK_gateway_receipt_attempt FOREIGN KEY (attempt_id) REFERENCES dbo.payment_attempts(attempt_id)
+);
+GO
+CREATE INDEX IX_gateway_receipt_review ON dbo.gateway_receipts(status, created_at);
+GO
+
+CREATE TABLE dbo.payments (
+    payment_id      BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_payments PRIMARY KEY,
+    member_id       BIGINT        NOT NULL,
+    um_id           BIGINT        NULL,
+    voucher_id      BIGINT        NULL,
+    amount          NUMERIC(38,2) NULL,
+    payment_method  VARCHAR(255)  NULL,
+    payment_status  VARCHAR(255)  NULL CONSTRAINT DF_payments_status DEFAULT 'PENDING',
+    approved_by     BIGINT        NULL,
+    created_at      DATETIME      NULL CONSTRAINT DF_payments_created DEFAULT GETDATE(),
+    CONSTRAINT FK_payments_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
+    CONSTRAINT FK_payments_membership FOREIGN KEY (um_id) REFERENCES dbo.user_memberships(um_id),
+    CONSTRAINT FK_payments_voucher FOREIGN KEY (voucher_id) REFERENCES dbo.vouchers(voucher_id),
+    CONSTRAINT FK_payments_approver FOREIGN KEY (approved_by) REFERENCES dbo.users(user_id),
+    CONSTRAINT CK_payments_method CHECK (payment_method IN ('ONLINE', 'CASH', 'TRANSFER', 'POS')),
+    CONSTRAINT CK_payments_status CHECK (payment_status IN ('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED'))
+);
+GO
+
+-- 1.10 Class Sessions, Bookings & Court Bookings
+CREATE TABLE dbo.class_sessions (
+    session_id    BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_class_sessions PRIMARY KEY,
+    class_name    NVARCHAR(100) NOT NULL,
+    sport_id      BIGINT        NOT NULL,
+    coach_id      BIGINT        NOT NULL,
+    facility_id   BIGINT        NOT NULL,
+    start_time    DATETIME      NOT NULL,
+    end_time      DATETIME      NOT NULL,
+    max_slots     INT           NOT NULL,
+    booked_slots  INT           NULL CONSTRAINT DF_class_sessions_booked_slots DEFAULT 0,
+    price_amount  DECIMAL(12,2) NOT NULL CONSTRAINT DF_class_sessions_price_amount DEFAULT 0,
+    status        VARCHAR(20)   NULL CONSTRAINT DF_class_sessions_status DEFAULT 'SCHEDULED',
+    CONSTRAINT FK_class_sessions_sports FOREIGN KEY (sport_id) REFERENCES dbo.sports(sport_id),
+    CONSTRAINT FK_class_sessions_coach FOREIGN KEY (coach_id) REFERENCES dbo.users(user_id),
+    CONSTRAINT FK_class_sessions_facility FOREIGN KEY (facility_id) REFERENCES dbo.facilities(facility_id),
+    CONSTRAINT CK_class_sessions_status CHECK (status IN ('SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'))
+);
+GO
+
+CREATE TABLE dbo.bookings (
+    booking_id             BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_bookings PRIMARY KEY,
+    member_id              BIGINT        NOT NULL,
+    session_id             BIGINT        NOT NULL,
+    booking_time           DATETIME      NULL CONSTRAINT DF_bookings_time DEFAULT GETDATE(),
+    status                 VARCHAR(20)   NULL CONSTRAINT DF_bookings_status DEFAULT 'BOOKED',
+    attendance_status      VARCHAR(30)   NULL CONSTRAINT DF_bookings_attendance DEFAULT 'PENDING',
+    coach_note             NVARCHAR(MAX) NULL,
+    homework_note          NVARCHAR(MAX) NULL,
+    uses_membership_quota  BIT           NULL CONSTRAINT DF_bookings_uses_membership_quota DEFAULT 0,
+    membership_id          BIGINT        NULL,
+    fee_amount             DECIMAL(12,2) NOT NULL CONSTRAINT DF_bookings_fee_amount DEFAULT 0,
+    payment_id             BIGINT        NULL,
+    quota_state            VARCHAR(24)   NULL,
+    CONSTRAINT FK_bookings_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
+    CONSTRAINT FK_bookings_session FOREIGN KEY (session_id) REFERENCES dbo.class_sessions(session_id),
+    CONSTRAINT FK_bookings_membership FOREIGN KEY (membership_id) REFERENCES dbo.user_memberships(um_id),
+    CONSTRAINT FK_bookings_payment FOREIGN KEY (payment_id) REFERENCES dbo.payment_transactions(payment_id),
+    CONSTRAINT CK_bookings_status CHECK (status IN ('BOOKED', 'CONFIRMED', 'WAITLIST', 'CANCELLED')),
+    CONSTRAINT CK_bookings_attendance_status CHECK (attendance_status IS NULL OR attendance_status IN ('PENDING', 'PRESENT', 'EXCUSED_ABSENCE', 'UNEXCUSED_ABSENCE', 'ABSENT'))
+);
+GO
+
+CREATE TABLE dbo.court_bookings (
+    court_booking_id       BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_court_bookings PRIMARY KEY,
+    member_id              BIGINT        NOT NULL,
+    court_id               BIGINT        NOT NULL,
+    start_time             DATETIME2(7)  NOT NULL,
+    end_time               DATETIME2(7)  NOT NULL,
+    amount_paid            DECIMAL(12,2) NOT NULL CONSTRAINT DF_court_bookings_amount DEFAULT 0,
+    payment_id             BIGINT        NULL,
+    status                 NVARCHAR(20)  NOT NULL,
+    created_at             DATETIME2(7)  NOT NULL CONSTRAINT DF_court_bookings_created DEFAULT SYSDATETIME(),
+    uses_membership_quota  BIT           NULL CONSTRAINT DF_court_bookings_uses_quota DEFAULT 0,
+    membership_id          BIGINT        NULL,
+    quota_hours_used       DECIMAL(4,2)  NULL CONSTRAINT DF_court_bookings_quota_hours DEFAULT 0,
+    quota_state            VARCHAR(24)   NULL,
+    CONSTRAINT FK_court_bookings_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
+    CONSTRAINT FK_court_bookings_sports_courts FOREIGN KEY (court_id) REFERENCES dbo.sports_courts(court_id),
+    CONSTRAINT FK_court_bookings_payment_transactions FOREIGN KEY (payment_id) REFERENCES dbo.payment_transactions(payment_id),
+    CONSTRAINT FK_court_bookings_membership FOREIGN KEY (membership_id) REFERENCES dbo.user_memberships(um_id)
+);
+GO
+
+-- 1.11 Health Profiles, Body Progress Logs & Workout Plans
+CREATE TABLE dbo.member_health_profiles (
+    profile_id      BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_member_health_profiles PRIMARY KEY,
+    member_id       BIGINT        NOT NULL CONSTRAINT UQ_member_health_profiles_member UNIQUE,
+    fitness_level   VARCHAR(30)   NULL CONSTRAINT DF_health_fitness_level DEFAULT 'BEGINNER',
+    fitness_goals   NVARCHAR(MAX) NULL,
+    injury_history  NVARCHAR(MAX) NULL,
+    weight_kg       DECIMAL(5,2)  NULL,
+    height_cm       DECIMAL(5,2)  NULL,
+    smm_kg          DECIMAL(5,2)  NULL,
+    pbf_percent     DECIMAL(5,2)  NULL,
+    bmi             DECIMAL(5,2)  NULL,
+    updated_at      DATETIME      NULL CONSTRAINT DF_health_updated DEFAULT GETDATE(),
+    CONSTRAINT FK_member_health_profiles_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id) ON DELETE CASCADE
+);
+GO
+
+CREATE TABLE dbo.body_progress_logs (
+    progress_id    BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_body_progress_logs PRIMARY KEY,
+    member_id      BIGINT        NOT NULL,
+    recorded_date  DATE          NOT NULL,
+    weight_kg      DECIMAL(5,2)  NULL,
+    height_cm      DECIMAL(5,2)  NULL,
+    smm_kg         DECIMAL(5,2)  NULL,
+    pbf_percent    DECIMAL(5,2)  NULL,
+    bmi            DECIMAL(5,2)  NULL,
+    max_lift_kg    DECIMAL(6,2)  NULL,
+    note           NVARCHAR(300) NULL,
+    created_at     DATETIME2(7)  NOT NULL CONSTRAINT DF_body_progress_created DEFAULT SYSDATETIME(),
+    CONSTRAINT FK_body_progress_logs_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id)
+);
+GO
+
+CREATE TABLE dbo.workout_plans (
+    plan_id         BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_workout_plans PRIMARY KEY,
+    member_id       BIGINT        NOT NULL,
+    coach_id        BIGINT        NULL,
+    coach_name      NVARCHAR(100) NULL,
+    title           NVARCHAR(200) NOT NULL,
+    goal            NVARCHAR(300) NULL,
+    exercises_json  NVARCHAR(MAX) NOT NULL,
+    session_result  NVARCHAR(MAX) NULL,
+    coach_feedback  NVARCHAR(MAX) NULL,
+    homework        NVARCHAR(MAX) NULL,
+    source          VARCHAR(20)   NOT NULL CONSTRAINT DF_workout_plans_source DEFAULT 'COACH',
+    created_at      DATETIME2(7)  NOT NULL CONSTRAINT DF_workout_plans_created DEFAULT SYSDATETIME(),
+    CONSTRAINT FK_workout_plans_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
+    CONSTRAINT FK_workout_plans_coach FOREIGN KEY (coach_id) REFERENCES dbo.users(user_id)
+);
+GO
+
+-- 1.12 Feedbacks, Check-ins, Coach Leave, Equipments & Loans
+CREATE TABLE dbo.feedbacks (
+    feedback_id  BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_feedbacks PRIMARY KEY,
+    member_id    BIGINT        NOT NULL,
+    session_id   BIGINT        NOT NULL,
+    coach_id     BIGINT        NOT NULL,
+    rating       INT           NULL,
+    comment      NVARCHAR(MAX) NULL,
+    created_at   DATETIME      NULL CONSTRAINT DF_feedbacks_created DEFAULT GETDATE(),
+    CONSTRAINT FK_feedbacks_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
+    CONSTRAINT FK_feedbacks_session FOREIGN KEY (session_id) REFERENCES dbo.class_sessions(session_id),
+    CONSTRAINT FK_feedbacks_coach FOREIGN KEY (coach_id) REFERENCES dbo.users(user_id),
+    CONSTRAINT CK_feedbacks_rating CHECK (rating BETWEEN 1 AND 5)
+);
+GO
+
+CREATE TABLE dbo.member_check_ins (
+    check_in_id    BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_member_check_ins PRIMARY KEY,
+    member_id      BIGINT       NOT NULL,
+    checked_in_at  DATETIME2(7) NOT NULL,
+    result         NVARCHAR(20) NOT NULL,
+    recorded_by    BIGINT       NOT NULL,
+    CONSTRAINT FK_member_check_ins_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
+    CONSTRAINT FK_member_check_ins_recorder FOREIGN KEY (recorded_by) REFERENCES dbo.users(user_id),
+    CONSTRAINT CK_member_check_ins_result CHECK (result IN (N'VALID', N'REJECTED'))
+);
+GO
+
+CREATE TABLE dbo.coach_leave_requests (
+    request_id               BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_coach_leave_requests PRIMARY KEY,
+    coach_id                 BIGINT         NOT NULL,
+    coach_name               NVARCHAR(100)  NULL,
+    leave_type               NVARCHAR(50)   NOT NULL,
+    start_date               DATE           NOT NULL,
+    end_date                 DATE           NOT NULL,
+    reason                   NVARCHAR(1000) NOT NULL,
+    status                   NVARCHAR(20)   NOT NULL CONSTRAINT DF_coach_leave_status DEFAULT N'PENDING',
+    approved_by              BIGINT         NULL,
+    affected_bookings_count  INT            NOT NULL CONSTRAINT DF_coach_leave_affected DEFAULT 0,
+    reassigned_coach_id      BIGINT         NULL,
+    created_at               DATETIME2(7)   NOT NULL CONSTRAINT DF_coach_leave_created DEFAULT SYSDATETIME(),
+    CONSTRAINT FK_coach_leave_coach FOREIGN KEY (coach_id) REFERENCES dbo.users(user_id),
+    CONSTRAINT FK_coach_leave_approver FOREIGN KEY (approved_by) REFERENCES dbo.users(user_id),
+    CONSTRAINT FK_coach_leave_reassigned FOREIGN KEY (reassigned_coach_id) REFERENCES dbo.users(user_id)
+);
+GO
+
+CREATE TABLE dbo.equipments (
+    item_id                BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_equipments PRIMARY KEY,
+    item_name              NVARCHAR(150) NOT NULL,
+    category               NVARCHAR(50)  NOT NULL,
+    rental_price_per_hour  DECIMAL(12,2) NOT NULL,
+    total_quantity         INT           NOT NULL,
+    available_quantity     INT           NOT NULL,
+    status                 NVARCHAR(20)  NOT NULL CONSTRAINT DF_equipments_status DEFAULT N'ACTIVE'
+);
+GO
+
+CREATE TABLE dbo.equipment_loans (
+    loan_id                BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_equipment_loans PRIMARY KEY,
+    member_id              BIGINT        NOT NULL,
+    member_name            NVARCHAR(100) NULL,
+    phone                  NVARCHAR(20)  NULL,
+    item_id                BIGINT        NOT NULL,
+    item_name              NVARCHAR(150) NULL,
+    quantity               INT           NOT NULL CONSTRAINT DF_equipment_loans_quantity DEFAULT 1,
+    rental_price_per_hour  DECIMAL(12,2) NOT NULL,
+    loaned_at              DATETIME2(7)  NOT NULL CONSTRAINT DF_equipment_loans_loaned DEFAULT SYSDATETIME(),
+    returned_at            DATETIME2(7)  NULL,
+    rental_fee             DECIMAL(12,2) NULL,
+    status                 NVARCHAR(20)  NOT NULL CONSTRAINT DF_equipment_loans_status DEFAULT N'BORROWED',
+    payment_method         NVARCHAR(20)  NULL,
+    recorded_by            BIGINT        NULL,
+    CONSTRAINT FK_equipment_loans_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
+    CONSTRAINT FK_equipment_loans_item FOREIGN KEY (item_id) REFERENCES dbo.equipments(item_id),
+    CONSTRAINT FK_equipment_loans_recorder FOREIGN KEY (recorded_by) REFERENCES dbo.users(user_id)
+);
+GO
+
+-- 1.13 Support Tickets, Refund Requests, Notifications, Audit Logs & System Settings
+CREATE TABLE dbo.support_tickets (
+    ticket_id       BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_support_tickets PRIMARY KEY,
+    member_id       BIGINT        NOT NULL,
+    member_name     NVARCHAR(100) NULL,
+    category        NVARCHAR(50)  NOT NULL,
+    title           NVARCHAR(200) NOT NULL,
+    description     NVARCHAR(MAX) NOT NULL,
+    severity        NVARCHAR(20)  NOT NULL CONSTRAINT DF_support_tickets_severity DEFAULT N'NORMAL',
+    status          NVARCHAR(20)  NOT NULL CONSTRAINT DF_support_tickets_status DEFAULT N'SUBMITTED',
+    admin_response  NVARCHAR(MAX) NULL,
+    created_at      DATETIME2(7)  NOT NULL CONSTRAINT DF_support_tickets_created DEFAULT SYSDATETIME(),
+    CONSTRAINT FK_support_tickets_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id)
+);
+GO
+
+CREATE TABLE dbo.refund_requests (
+    refund_id            BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_refund_requests PRIMARY KEY,
+    member_id            BIGINT         NOT NULL,
+    member_name          NVARCHAR(100)  NULL,
+    phone                NVARCHAR(20)   NULL,
+    transaction_id       BIGINT         NULL,
+    reference_code       NVARCHAR(50)   NULL,
+    booking_id           BIGINT         NULL,
+    booking_type         VARCHAR(20)    NULL,
+    booking_description  NVARCHAR(255)  NULL,
+    refund_amount        DECIMAL(12,2)  NOT NULL,
+    reason               NVARCHAR(1000) NOT NULL,
+    bank_name            NVARCHAR(100)  NULL,
+    bank_account         NVARCHAR(50)   NULL,
+    account_holder       NVARCHAR(100)  NULL,
+    status               NVARCHAR(20)   NOT NULL CONSTRAINT DF_refund_requests_status DEFAULT N'PENDING_APPROVAL',
+    approved_by          BIGINT         NULL,
+    decision_note        NVARCHAR(500)  NULL,
+    created_at           DATETIME2(7)   NOT NULL CONSTRAINT DF_refund_requests_created DEFAULT SYSDATETIME(),
+    CONSTRAINT FK_refund_requests_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
+    CONSTRAINT FK_refund_requests_transaction FOREIGN KEY (transaction_id) REFERENCES dbo.payment_transactions(payment_id),
+    CONSTRAINT FK_refund_requests_approver FOREIGN KEY (approved_by) REFERENCES dbo.users(user_id)
+);
+GO
+
+CREATE TABLE dbo.notifications (
+    notification_id  BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_notifications PRIMARY KEY,
+    user_id          BIGINT        NOT NULL,
+    title            NVARCHAR(200) NOT NULL,
+    message          NVARCHAR(MAX) NOT NULL,
+    type             VARCHAR(30)   NULL,
+    is_read          BIT           NOT NULL CONSTRAINT DF_notifications_read DEFAULT 0,
+    created_at       DATETIME2(7)  NOT NULL CONSTRAINT DF_notifications_created DEFAULT SYSDATETIME(),
+    CONSTRAINT FK_notifications_users FOREIGN KEY (user_id) REFERENCES dbo.users(user_id)
+);
+GO
+
+CREATE TABLE dbo.audit_logs (
+    log_id         BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_audit_logs PRIMARY KEY,
+    actor_id       BIGINT         NULL,
+    actor_name     NVARCHAR(100)  NULL,
+    actor_role     VARCHAR(20)    NULL,
+    action         VARCHAR(60)    NOT NULL,
+    log_type       VARCHAR(50)    NULL,
+    detail         NVARCHAR(1000) NULL,
+    user_email     VARCHAR(100)   NULL,
+    user_id        BIGINT         NULL,
+    ip_address     VARCHAR(50)    NULL,
+    user_agent     VARCHAR(500)   NULL,
+    action_detail  NVARCHAR(MAX)  NULL,
+    status         VARCHAR(20)    NULL,
+    error_message  NVARCHAR(500)  NULL,
+    created_at     DATETIME2(7)   NOT NULL CONSTRAINT DF_audit_logs_created DEFAULT SYSDATETIME()
+);
+GO
+CREATE INDEX IX_audit_logs_created_at ON dbo.audit_logs(created_at);
+CREATE INDEX IX_audit_logs_log_type ON dbo.audit_logs(log_type);
+CREATE INDEX IX_audit_logs_user_email ON dbo.audit_logs(user_email);
+GO
+
+CREATE TABLE dbo.system_settings (
+    setting_key    VARCHAR(60)   NOT NULL CONSTRAINT PK_system_settings PRIMARY KEY,
+    setting_value  NVARCHAR(MAX) NULL,
+    updated_at     DATETIME2(7)  NOT NULL CONSTRAINT DF_system_settings_updated DEFAULT SYSDATETIME()
+);
+GO
+
+/* ============================================================================
+   2. CLEAN REALISTIC SEED DATA (RELATIVE DATES FOR LIVE DEFENSE)
+   ============================================================================ */
+
+DECLARE @Now          DATETIME2(7) = SYSDATETIME();
+DECLARE @Today        DATE         = CAST(@Now AS DATE);
+DECLARE @PwdHash      NVARCHAR(100) = N'$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq'; -- SportHub@123
+DECLARE @FullWeekAvail NVARCHAR(MAX) = N'[{"day":"MONDAY","morning":true,"afternoon":true,"evening":true},{"day":"TUESDAY","morning":true,"afternoon":true,"evening":true},{"day":"WEDNESDAY","morning":true,"afternoon":true,"evening":true},{"day":"THURSDAY","morning":true,"afternoon":true,"evening":true},{"day":"FRIDAY","morning":true,"afternoon":true,"evening":true},{"day":"SATURDAY","morning":true,"afternoon":true,"evening":true},{"day":"SUNDAY","morning":true,"afternoon":true,"evening":true}]';
+
+-- ----------------------------------------------------------------------------
+-- 2.1 Users (16 accounts across all roles & states)
+-- ----------------------------------------------------------------------------
+SET IDENTITY_INSERT dbo.users ON;
+INSERT INTO dbo.users (user_id, full_name, email, password, phone, date_of_birth, gender, address, emergency_contact_name, emergency_contact_phone, role, status, require_password_change, created_at, rfid_code, specialty, experience_years, certifications, bio, availability_json)
+VALUES
+    -- Managers (1-2)
+    (1,  N'Nguyễn Văn Quản Lý', N'manager@sporthub.com',     @PwdHash, '0901234567', '1988-05-12', N'Nam', N'123 Nguyễn Văn Linh, Quận 7, TP.HCM',       N'Nguyễn Thị Lan',   '0901234500', 'MANAGER',      'ACTIVE', 0, DATEADD(DAY, -90, @Now), NULL, NULL, NULL, NULL, NULL, NULL),
+    (2,  N'Trần Thị Giám Đốc',  N'director@sporthub.com',    @PwdHash, '0909876543', '1985-09-20', N'Nữ',  N'45 Lê Lợi, Quận 1, TP.HCM',                 N'Trần Văn Hùng',    '0909876500', 'MANAGER',      'ACTIVE', 0, DATEADD(DAY, -90, @Now), NULL, NULL, NULL, NULL, NULL, NULL),
+
+    -- Receptionists (3-4)
+    (3,  N'Lê Thị Lễ Tân',      N'reception.le@sporthub.com', @PwdHash, '0912345678', '1999-03-18', N'Nữ',  N'88 Nguyễn Thị Thập, Quận 7, TP.HCM',        N'Lê Văn Tâm',       '0912345600', 'RECEPTIONIST', 'ACTIVE', 0, DATEADD(DAY, -60, @Now), NULL, NULL, NULL, NULL, NULL, NULL),
+    (4,  N'Phạm Minh Tú',       N'reception.tu@sporthub.com', @PwdHash, '0918765432', '2000-11-05', N'Nữ',  N'220 Huỳnh Tấn Phát, Quận 7, TP.HCM',        N'Phạm Thị Hoa',     '0918765400', 'RECEPTIONIST', 'ACTIVE', 0, DATEADD(DAY, -60, @Now), NULL, NULL, NULL, NULL, NULL, NULL),
+
+    -- Coaches (5-8 ACTIVE, 15 PENDING)
+    (5,  N'Trần Văn Minh',      N'coach.minh@sporthub.com',   @PwdHash, '0923456789', '1992-07-14', N'Nam', N'15 Phạm Hùng, Bình Chánh, TP.HCM',          N'Trần Thị Mai',     '0923456700', 'COACH',        'ACTIVE', 0, DATEADD(DAY, -60, @Now), NULL, N'Tennis, Pickleball, Bóng bàn · Thể Lực & Phục Hồi', 6, N'ITF Level 2, IPTPA Certified Pickleball Coach', N'6 năm kinh nghiệm huấn luyện Tennis, Pickleball và tối ưu thể lực thi đấu.', @FullWeekAvail),
+    (6,  N'Nguyễn Hoàng Nam',   N'coach.nam@sporthub.com',    @PwdHash, '0928765432', '1994-02-25', N'Nam', N'72 Tôn Dật Tiên, Quận 7, TP.HCM',           N'Nguyễn Văn Bình',  '0928765400', 'COACH',        'ACTIVE', 0, DATEADD(DAY, -60, @Now), NULL, N'Pickleball, Bơi lội, Bóng chuyền',                  5, N'Chứng chỉ HLV Bơi lội Quốc gia, PPR Level 1',       N'Chuyên đào tạo kỹ thuật bơi cơ bản đến nâng cao và Pickleball chiến thuật.', @FullWeekAvail),
+    (7,  N'Võ Tấn Phát',        N'coach.phat@sporthub.com',   @PwdHash, '0921112223', '1991-10-08', N'Nam', N'310 Nguyễn Hữu Thọ, Nhà Bè, TP.HCM',        N'Võ Thị Thu',       '0921112200', 'COACH',        'ACTIVE', 0, DATEADD(DAY, -60, @Now), NULL, N'Bóng đá, Điền kinh · Sức bền & Tốc độ',            7, N'AFC C Coaching Certificate, HLV Điền kinh Cấp I',   N'Phụ trách huấn luyện bóng đá sân 7 và phát triển sức bền tim mạch.', @FullWeekAvail),
+    (8,  N'Đặng Thu Thảo',      N'coach.thao@sporthub.com',   @PwdHash, '0923334445', '1996-06-30', N'Nữ',  N'54 Trần Xuân Soạn, Quận 7, TP.HCM',         N'Đặng Văn Long',    '0923334400', 'COACH',        'ACTIVE', 0, DATEADD(DAY, -60, @Now), NULL, N'Cầu lông, Yoga & Pilates',                          4, N'BWF Coach Level 1, Yoga Alliance RYT-200',          N'Huấn luyện kỹ thuật cầu lông phản xạ và phục hồi cơ khớp với Yoga.', @FullWeekAvail),
+
+    -- Members (9-14 ACTIVE, 16 LOCKED)
+    (9,  N'Nguyễn Anh Khoa',    N'khoa.member@gmail.com',     @PwdHash, '0934567890', '1998-08-19', N'Nam', N'102 Nguyễn Lương Bằng, Quận 7, TP.HCM',     N'Nguyễn Thị Hạnh',  '0934567800', 'MEMBER',       'ACTIVE', 0, DATEADD(DAY, -45, @Now), N'RFID-SH-0009', NULL, NULL, NULL, NULL, NULL),
+    (10, N'Hoàng Thị Ngọc',     N'ngoc.hoang@gmail.com',      @PwdHash, '0938765432', '1997-04-22', N'Nữ',  N'68 Hoàng Quốc Việt, Quận 7, TP.HCM',        N'Hoàng Văn Dũng',   '0938765400', 'MEMBER',       'ACTIVE', 0, DATEADD(DAY, -40, @Now), N'RFID-SH-0010', NULL, NULL, NULL, NULL, NULL),
+    (11, N'Bùi Huy Hoàng',      N'hoang.bui@gmail.com',       @PwdHash, '0931112233', '1995-12-03', N'Nam', N'19 Đường số 10, KDC Him Lam, Quận 7',       N'Bùi Thị Minh',     '0931112200', 'MEMBER',       'ACTIVE', 0, DATEADD(DAY, -50, @Now), N'RFID-SH-0011', NULL, NULL, NULL, NULL, NULL),
+    (12, N'Đỗ Phương Anh',      N'anh.do@gmail.com',          @PwdHash, '0934445566', '2001-01-15', N'Nữ',  N'420 Huỳnh Tấn Phát, Quận 7, TP.HCM',        N'Đỗ Văn Quang',     '0934445500', 'MEMBER',       'ACTIVE', 0, DATEADD(DAY, -30, @Now), N'RFID-SH-0012', NULL, NULL, NULL, NULL, NULL),
+    (13, N'Vũ Trọng Tuấn',      N'tuan.vu@gmail.com',         @PwdHash, '0937778899', '1999-09-09', N'Nam', N'14 Lê Văn Lương, Quận 7, TP.HCM',           N'Vũ Thị Nga',       '0937778800', 'MEMBER',       'ACTIVE', 0, DATEADD(DAY, -15, @Now), N'RFID-SH-0013', NULL, NULL, NULL, NULL, NULL),
+    (14, N'Lê Minh Châu',       N'chau.le@gmail.com',         @PwdHash, '0935556677', '2000-05-27', N'Nữ',  N'77 Mai Văn Vĩnh, Quận 7, TP.HCM',           N'Lê Quốc Tuấn',     '0935556600', 'MEMBER',       'ACTIVE', 0, DATEADD(DAY, -20, @Now), N'RFID-SH-0014', NULL, NULL, NULL, NULL, NULL),
+
+    -- Special workflow accounts for Defense Demo (Pending Coach & Locked Member)
+    (15, N'Trương Quốc Bảo',    N'bao.coach.pending@sporthub.com', @PwdHash, '0926667788', '1995-03-11', N'Nam', N'95 Lâm Văn Bền, Quận 7, TP.HCM',      N'Trương Văn An',    '0926667700', 'COACH',        'PENDING', 0, DATEADD(DAY, -1, @Now), NULL, N'Gym & Fitness, Cầu lông', 3, N'NASM-CPT', N'Ứng viên HLV mới đăng ký chờ Quản lý phê duyệt.', @FullWeekAvail),
+    (16, N'Ngô Thanh Sơn',      N'son.locked@gmail.com',      @PwdHash, '0939990011', '1996-11-28', N'Nam', N'18 Bế Văn Cấm, Quận 7, TP.HCM',             N'Ngô Thị Hương',    '0939990000', 'MEMBER',       'LOCKED',  0, DATEADD(DAY, -35, @Now), N'RFID-SH-0016', NULL, NULL, NULL, NULL, NULL);
+SET IDENTITY_INSERT dbo.users OFF;
+
+-- ----------------------------------------------------------------------------
+-- 2.2 Sports & Public Sports (IDs 1..10)
+-- ----------------------------------------------------------------------------
+SET IDENTITY_INSERT dbo.sports ON;
+INSERT INTO dbo.sports (sport_id, sport_name, description) VALUES
+    (1,  N'Gym & Fitness',  N'Khu vực tập Gym, Cardio và rèn luyện thể lực.'),
+    (2,  N'Pickleball',     N'Bộ môn thể thao hiện đại kết hợp giữa Tennis, Cầu lông và Bóng bàn. Phù hợp mọi lứa tuổi.'),
+    (3,  N'Tennis',         N'Bộ môn Tennis tiêu chuẩn thi đấu quốc tế, sân mặt cứng có đèn chiếu sáng ban đêm.'),
+    (4,  N'Yoga & Pilates', N'Phòng tập Yoga và Pilates yên tĩnh tiêu chuẩn.'),
+    (5,  N'Bóng đá',        N'Sân bóng đá cỏ nhân tạo 7 người đạt chuẩn, hệ thống thoát nước hiện đại.'),
+    (6,  N'Cầu lông',       N'Thảm cầu lông Yonex tiêu chuẩn trong nhà, hệ thống điều hòa thoáng mát.'),
+    (7,  N'Bóng chuyền',    N'Sân bóng chuyền đa năng phục vụ luyện tập và thi đấu.'),
+    (8,  N'Bóng bàn',       N'Khu bàn bóng bàn phục vụ luyện tập và thi đấu.'),
+    (9,  N'Bơi lội',        N'Hồ bơi và làn bơi phục vụ luyện tập các cấp độ.'),
+    (10, N'Điền kinh',      N'Đường chạy phục vụ luyện tập sức bền và điền kinh.');
+SET IDENTITY_INSERT dbo.sports OFF;
+
+SET IDENTITY_INSERT dbo.public_sports ON;
+INSERT INTO dbo.public_sports (sport_id, slug, name, subtitle, tag, description, icon, area, active) VALUES
+    (1,  N'gym-fitness',  N'Gym & Fitness',     N'Trang thiết bị hiện đại', N'Olympic Spec',      N'Máy tập Technogym và Hammer Strength, khu tạ tự do chuẩn Olympic cùng thiết bị hỗ trợ đo lường.', N'fitness_center',   N'Khu vực 800m²',    1),
+    (2,  N'pickleball',   N'Sân Pickleball',    N'Cụm 5 sân có mái che',   N'Hot Trend',         N'Mặt sân giảm chấn và hệ thống đèn phục vụ luyện tập, thi đấu cả ngày lẫn đêm.',                   N'sports_tennis',    N'Đạt chuẩn USAPA',  1),
+    (3,  N'tennis',       N'Quần vợt Tennis',   N'Sân chuẩn thi đấu',       N'Chuẩn ITF',         N'Sân đất nện nhân tạo và sân cứng, tích hợp máy bắn bóng cùng khu vực thay đồ.',                    N'sports_baseball',  N'7 sân',            1),
+    (4,  N'yoga-pilates', N'Yoga & Pilates',    N'Không gian tĩnh lặng',    N'Phục hồi',          N'Phòng tập yên tĩnh với thiết bị Reformer, phù hợp cho luyện tập và phục hồi thể chất.',            N'self_improvement', N'Lớp tối đa 8 người', 1),
+    (5,  N'football',     N'Bóng đá',           N'Sân bóng đá',             N'Thể thao đồng đội', N'Bộ môn bóng đá dành cho luyện tập và thi đấu theo nhóm.',                                         N'sports_soccer',    N'Sân bóng đá',      1),
+    (6,  N'badminton',    N'Cầu lông',          N'Sân cầu lông',            N'Phổ biến',          N'Bộ môn cầu lông dành cho luyện tập cá nhân và thi đấu đôi.',                                       N'sports_tennis',    N'Sân trong nhà',    1),
+    (7,  N'volleyball',   N'Bóng chuyền',       N'Sân bóng chuyền',         N'Thể thao đồng đội', N'Bộ môn bóng chuyền dành cho luyện tập và thi đấu theo đội.',                                       N'sports_volleyball',N'Sân bóng chuyền',  1),
+    (8,  N'table-tennis', N'Bóng bàn',          N'Bàn bóng bàn',            N'Phản xạ',           N'Bộ môn bóng bàn phù hợp cho luyện tập kỹ thuật và thi đấu đơn hoặc đôi.',                          N'table_restaurant', N'Khu bóng bàn',     1),
+    (9,  N'swimming',     N'Bơi lội',           N'Hồ bơi',                  N'Thể thao dưới nước',N'Bộ môn bơi lội dành cho luyện tập thể lực và cải thiện kỹ thuật bơi.',                             N'pool',             N'Hồ bơi',           1),
+    (10, N'athletics',    N'Điền kinh',         N'Đường chạy điền kinh',    N'Rèn thể lực',       N'Bộ môn điền kinh gồm các hoạt động chạy bộ và rèn luyện sức bền.',                                 N'directions_run',   N'Đường chạy',       1);
+SET IDENTITY_INSERT dbo.public_sports OFF;
+
+-- ----------------------------------------------------------------------------
+-- 2.3 Facilities, Public Facilities & Sports Courts (Canonical IDs matching FacilityCourtSyncService)
+-- ----------------------------------------------------------------------------
+SET IDENTITY_INSERT dbo.facilities ON;
+INSERT INTO dbo.facilities (facility_id, facility_name, sport_id, capacity, status) VALUES
+    (1,  N'Cụm Sân Pickleball - Sân P1 (Indoor)', 2,  4,  'AVAILABLE'),
+    (2,  N'Cụm Sân Pickleball - Sân P2 (Indoor)', 2,  4,  'AVAILABLE'),
+    (4,  N'Sân Tennis Đơn & Đôi - Sân T1',        3,  4,  'AVAILABLE'),
+    (5,  N'Sân Tennis Đơn & Đôi - Sân T2',        3,  4,  'AVAILABLE'),
+    (10, N'Sân Bóng Chuyền - Sân V1',             7,  12, 'AVAILABLE'),
+    (11, N'Khu Bóng Bàn - Bàn T1',                8,  4,  'AVAILABLE'),
+    (12, N'Hồ Bơi - Làn S1',                      9,  8,  'AVAILABLE'),
+    (13, N'Đường Chạy Điền Kinh - Khu A1',        10, 12, 'AVAILABLE'),
+    (14, N'Sân Bóng Đá 7 Người - Sân F1',         5,  14, 'AVAILABLE'),
+    (15, N'Sân Bóng Đá 7 Người - Sân F2',         5,  14, 'AVAILABLE'),
+    (16, N'Sân Cầu Lông Trong Nhà - Sân B1',      6,  4,  'AVAILABLE'),
+    (17, N'Sân Cầu Lông Trong Nhà - Sân B2',      6,  4,  'AVAILABLE'),
+    (18, N'Sân Bóng Chuyền - Sân V2',             7,  12, 'AVAILABLE'),
+    (19, N'Khu Bóng Bàn - Bàn T2',                8,  4,  'AVAILABLE'),
+    (20, N'Hồ Bơi - Làn S2',                      9,  8,  'AVAILABLE'),
+    (21, N'Đường Chạy Điền Kinh - Khu A2',        10, 12, 'AVAILABLE');
+SET IDENTITY_INSERT dbo.facilities OFF;
+
+SET IDENTITY_INSERT dbo.public_facilities ON;
+INSERT INTO dbo.public_facilities (facility_id, slug, name, description, icon, highlight, active) VALUES
+    (1,  N'booking-pickleball-01',   N'Cụm Sân Pickleball - Sân P1 (Indoor)', N'Cụm sân Pickleball tiêu chuẩn trong nhà.',                 N'sports_tennis',     N'Sân trong nhà',    1),
+    (2,  N'booking-pickleball-02',   N'Cụm Sân Pickleball - Sân P2 (Indoor)', N'Cụm sân Pickleball tiêu chuẩn trong nhà.',                 N'sports_tennis',     N'Sân trong nhà',    1),
+    (4,  N'booking-tennis-01',       N'Sân Tennis Đơn & Đôi - Sân T1',        N'Sân tennis mặt cứng tiêu chuẩn quốc tế ITF.',              N'sports_tennis',     N'Mặt sân ITF',      1),
+    (5,  N'booking-tennis-02',       N'Sân Tennis Đơn & Đôi - Sân T2',        N'Sân tennis có mái che và hệ thống đèn LED.',               N'sports_tennis',     N'Có mái che',       1),
+    (10, N'booking-volleyball-01',   N'Sân Bóng Chuyền - Sân V1',             N'Sân trong nhà phục vụ lớp học và luyện tập.',              N'sports_volleyball', N'Sân trong nhà',    1),
+    (11, N'booking-table-tennis-01', N'Bàn bóng bàn T1',                      N'Bàn bóng bàn khu luyện tập.',                              N'table_restaurant',  N'Bàn tiêu chuẩn',   1),
+    (12, N'booking-swimming-01',     N'Hồ bơi - Làn S1',                      N'Làn bơi tiêu chuẩn phục vụ lớp học và luyện tập.',         N'pool',              N'Làn bơi',          1),
+    (13, N'booking-athletics-01',    N'Đường chạy điền kinh A1',              N'Khu đường chạy phục vụ lớp học và luyện tập.',             N'directions_run',    N'Đường chạy',       1),
+    (14, N'booking-football-01',     N'Sân bóng đá 7 người - Sân F1',         N'Sân cỏ nhân tạo phục vụ lớp học và luyện tập.',            N'sports_soccer',     N'Sân cỏ nhân tạo',  1),
+    (15, N'booking-football-02',     N'Sân bóng đá 7 người - Sân F2',         N'Sân cỏ nhân tạo có đèn buổi tối.',                         N'sports_soccer',     N'Sân cỏ nhân tạo',  1),
+    (16, N'booking-badminton-01',    N'Sân cầu lông - Sân B1',                N'Sân cầu lông trong nhà phục vụ lớp học và luyện tập.',     N'sports_tennis',     N'Sân trong nhà',    1),
+    (17, N'booking-badminton-02',    N'Sân cầu lông - Sân B2',                N'Sân cầu lông trong nhà thảm tiêu chuẩn.',                  N'sports_tennis',     N'Sân trong nhà',    1),
+    (18, N'booking-volleyball-02',   N'Sân Bóng Chuyền - Sân V2',             N'Sân đa năng phục vụ luyện tập và thi đấu.',                N'sports_volleyball', N'Sân đa năng',      1),
+    (19, N'booking-table-tennis-02', N'Bàn bóng bàn T2',                      N'Bàn bóng bàn thi đấu.',                                    N'table_restaurant',  N'Bàn tiêu chuẩn',   1),
+    (20, N'booking-swimming-02',     N'Hồ bơi - Làn S2',                      N'Làn bơi khu luyện tập.',                                   N'pool',              N'Làn bơi',          1),
+    (21, N'booking-athletics-02',    N'Đường chạy điền kinh A2',              N'Khu đường chạy tiêu chuẩn.',                               N'directions_run',    N'Đường chạy',       1),
+    (22, N'check-in-qr',             N'Check-in QR & RFID',                   N'Hội viên chủ động check-in tại quầy bằng QR hoặc thẻ RFID, giúp việc vào trung tâm thuận tiện hơn.', N'lock_open', N'Check-in tự động', 1),
+    (23, N'coach',                   N'Đội ngũ huấn luyện viên',              N'Đội ngũ huấn luyện viên đồng hành, tư vấn và cá nhân hóa nội dung luyện tập theo mục tiêu hội viên.', N'verified_user', N'Kèm 1-1 chuyên sâu', 1),
+    (24, N'ai-assistant',            N'Trợ lý luyện tập thông minh',          N'Trợ lý hỗ trợ giải đáp, theo dõi thông tin thể trạng và gợi ý lộ trình luyện tập phù hợp.', N'smart_toy', N'Hỗ trợ luyện tập', 1),
+    (25, N'flexible-hours',          N'Thời gian tập linh hoạt',              N'Lịch hoạt động linh hoạt giúp hội viên chủ động sắp xếp thời gian đến tập và sử dụng dịch vụ.', N'access_time', N'Lịch linh hoạt', 1);
+SET IDENTITY_INSERT dbo.public_facilities OFF;
+
+SET IDENTITY_INSERT dbo.sports_courts ON;
+INSERT INTO dbo.sports_courts (court_id, sport_id, court_name, description, hourly_rate, opens_at, closes_at, active) VALUES
+    (1,  2,  N'Pickleball Court 01',   N'Sân có mái che, mặt sân tiêu chuẩn.',            180000, '06:00:00', '22:00:00', 1),
+    (2,  2,  N'Pickleball Court 02',   N'Sân mái che khu vực trung tâm.',                 200000, '06:00:00', '22:00:00', 1),
+    (3,  3,  N'Tennis Court 01',       N'Sân tennis ngoài trời, mặt sân tiêu chuẩn.',     320000, '06:00:00', '22:00:00', 1),
+    (4,  3,  N'Tennis Court 02',       N'Sân tennis có đèn chiếu sáng buổi tối.',         350000, '06:00:00', '22:00:00', 1),
+    (8,  5,  N'Sân bóng đá 7 người 01',N'Sân cỏ nhân tạo 7 người.',                       500000, '06:00:00', '22:00:00', 1),
+    (9,  5,  N'Sân bóng đá 7 người 02',N'Sân cỏ nhân tạo 7 người, có đèn buổi tối.',      550000, '06:00:00', '22:00:00', 1),
+    (10, 6,  N'Sân cầu lông 01',       N'Sân cầu lông trong nhà.',                        100000, '06:00:00', '22:00:00', 1),
+    (11, 6,  N'Sân cầu lông 02',       N'Sân cầu lông trong nhà, thảm tiêu chuẩn.',       120000, '06:00:00', '22:00:00', 1),
+    (12, 7,  N'Sân bóng chuyền 01',    N'Sân bóng chuyền trong nhà.',                     250000, '06:00:00', '22:00:00', 1),
+    (13, 7,  N'Sân bóng chuyền 02',    N'Sân bóng chuyền đa năng.',                       280000, '06:00:00', '22:00:00', 1),
+    (14, 8,  N'Bàn bóng bàn 01',       N'Bàn bóng bàn khu luyện tập.',                     50000, '06:00:00', '22:00:00', 1),
+    (15, 8,  N'Bàn bóng bàn 02',       N'Bàn bóng bàn thi đấu.',                           60000, '06:00:00', '22:00:00', 1),
+    (16, 9,  N'Làn bơi 01',            N'Làn bơi tiêu chuẩn.',                            180000, '06:00:00', '21:00:00', 1),
+    (17, 9,  N'Làn bơi 02',            N'Làn bơi khu luyện tập.',                         220000, '06:00:00', '21:00:00', 1),
+    (18, 10, N'Đường chạy 01',         N'Khu đường chạy luyện tập.',                       80000, '05:00:00', '21:00:00', 1),
+    (19, 10, N'Đường chạy 02',         N'Khu đường chạy tiêu chuẩn.',                     100000, '05:00:00', '21:00:00', 1);
+SET IDENTITY_INSERT dbo.sports_courts OFF;
+
+-- Scheduled future maintenance on Court 17 (Làn bơi 02) so Admin Maintenance page has sample data
+SET IDENTITY_INSERT dbo.court_maintenance ON;
+INSERT INTO dbo.court_maintenance (maintenance_id, court_id, start_time, end_time, reason, created_by, created_at)
+VALUES (1, 17, DATEADD(HOUR, 8, CAST(DATEADD(DAY, 7, @Today) AS DATETIME2)), DATEADD(HOUR, 12, CAST(DATEADD(DAY, 7, @Today) AS DATETIME2)), N'Bảo trì hệ thống lọc nước định kỳ và vệ sinh thành bể làn S2', 1, DATEADD(DAY, -1, @Now));
+SET IDENTITY_INSERT dbo.court_maintenance OFF;
+
+-- ----------------------------------------------------------------------------
+-- 2.4 Membership Packages & Vouchers
+-- ----------------------------------------------------------------------------
+SET IDENTITY_INSERT dbo.membership_packages ON;
+INSERT INTO dbo.membership_packages (package_id, name, sport_id, price, duration_days, access_type, description, status, package_type, quota_sessions, quota_courts) VALUES
+    (1, N'Thẻ Hội Viên VIP Diamond (Toàn Hệ Thống)', NULL, 2800000.00, 30, 'ALL_DAY',  N'Tập không giới hạn tất cả bộ môn, 30 buổi lớp/PT và 15 giờ đặt sân, miễn phí tủ đồ & khăn.', 'ACTIVE', 'VIP',   30, 15),
+    (2, N'Thẻ Hội Viên Vàng Off-Peak',              NULL, 1500000.00, 30, 'OFF_PEAK', N'Ưu đãi khung giờ 08:00 - 16:00, bao gồm 20 buổi lớp học và 10 giờ đặt sân.',               'ACTIVE', 'VIP',   20, 10),
+    (3, N'Khóa Học Pickleball Căn Bản (10 Buổi)',    2,    1800000.00, 45, 'ALL_DAY',  N'10 buổi học kỹ thuật cầm vợt, giao bóng, dink & chiến thuật đôi cùng HLV Pickleball.',         'ACTIVE', 'CLASS', 10,  0),
+    (4, N'Gói Tennis & Đặt Sân Giờ Vàng',            3,    2200000.00, 30, 'PEAK',     N'12 buổi tập Tennis và 15 giờ đặt sân khung giờ vàng (17:00 - 21:00).',                        'ACTIVE', 'PT',    12, 15),
+    (5, N'Gói Tập Cầu Lông Học Sinh / Sinh Viên',    6,     800000.00, 30, 'OFF_PEAK', N'15 buổi lớp cầu lông cơ bản & phản xạ dành riêng cho học sinh, sinh viên.',                  'ACTIVE', 'CLASS', 15,  0),
+    (6, N'Gói PT 1-1 Thể Lực & Phục Hồi (8 Buổi)',   1,    3200000.00, 45, 'ALL_DAY',  N'8 buổi kèm riêng 1-1 cùng HLV, đo chỉ số InBody và thiết kế giáo án cá nhân hóa.',           'ACTIVE', 'PT',     8,  0);
+SET IDENTITY_INSERT dbo.membership_packages OFF;
+
+SET IDENTITY_INSERT dbo.vouchers ON;
+INSERT INTO dbo.vouchers (voucher_id, code, discount_type, discount_value, discount_percent, discount_amount, max_discount_amount, min_purchase, valid_from, valid_until, usage_limit, used_count, applies_to, status) VALUES
+    (1, N'WELCOME2026', N'PERCENT', 20.00,    20,   200000.00, 200000.00, 0.00,      DATEADD(DAY, -30, @Today), '2026-12-31', 200,  12, N'ALL', N'ACTIVE'),
+    (2, N'SPORTSHUB10', N'PERCENT', 10.00,    10,   100000.00, 100000.00, 0.00,      DATEADD(DAY, -30, @Today), '2026-12-31', 150,  18, N'ALL', N'ACTIVE'),
+    (3, N'VIPMEMBER',   N'PERCENT', 15.00,    15,   300000.00, 300000.00, 0.00,      DATEADD(DAY, -30, @Today), '2026-12-31', 100,   6, N'ALL', N'ACTIVE'),
+    (4, N'TET2026',     N'PERCENT', 20.00,    20,   500000.00, 500000.00, 500000.00, DATEADD(DAY, -30, @Today), '2026-12-31', 200,  15, N'ALL', N'ACTIVE'),
+    (5, N'GIAM50K',     N'FIXED',   50000.00, NULL, 50000.00,  NULL,      150000.00, DATEADD(DAY, -30, @Today), '2026-12-31', 500,  48, N'ALL', N'ACTIVE'),
+    (6, N'WELCOME20',   N'PERCENT', 20.00,    20,   300000.00, 300000.00, 100000.00, DATEADD(DAY, -30, @Today), '2026-12-31', 1000, 89, N'ALL', N'ACTIVE'),
+    (7, N'SUMMEREND',   N'PERCENT', 30.00,    30,   500000.00, 500000.00, 0.00,      '2026-06-01',              '2026-09-30', 50,   50, N'ALL', N'EXPIRED');
+SET IDENTITY_INSERT dbo.vouchers OFF;
+
+-- ----------------------------------------------------------------------------
+-- 2.5 User Memberships (Clean state per demo member)
+-- ----------------------------------------------------------------------------
+SET IDENTITY_INSERT dbo.user_memberships ON;
+INSERT INTO dbo.user_memberships (um_id, user_id, package_id, start_date, end_date, status, remaining_quota_sessions, held_quota_sessions, used_quota_sessions, initial_quota_sessions, remaining_quota_courts, held_quota_courts, used_quota_courts, initial_quota_courts) VALUES
+    -- Khoa (9): Active Gold Off-Peak + Active Pickleball 10 sessions (gives VIP badge + active quota!)
+    (1, 9,  2, DATEADD(DAY, -10, @Today), DATEADD(DAY, 20, @Today),  'ACTIVE',           18, 1, 1, 20, 8, 1, 1, 10),
+    (2, 9,  3, DATEADD(DAY, -5,  @Today), DATEADD(DAY, 40, @Today),  'ACTIVE',            8, 1, 1, 10, 0, 0, 0,  0),
+    -- Ngọc (10): Active VIP Diamond
+    (3, 10, 1, DATEADD(DAY, -12, @Today), DATEADD(DAY, 18, @Today),  'ACTIVE',           27, 1, 2, 30, 14, 0, 1, 15),
+    -- Hoàng (11): Expired Tennis package (for Renewal demo)
+    (4, 11, 4, DATEADD(DAY, -45, @Today), DATEADD(DAY, -15, @Today), 'EXPIRED',           0, 0, 12, 12, 5, 0, 10, 15),
+    -- Phương Anh (12): Pending Manager Approval (ready to approve in /admin/staff-approvals!)
+    (5, 12, 5, @Today,                    DATEADD(DAY, 30, @Today),  'PENDING_APPROVAL',  0, 0, 0, 0,  0, 0, 0,  0),
+    -- Minh Châu (14): Active VIP Diamond
+    (6, 14, 1, DATEADD(DAY, -7,  @Today), DATEADD(DAY, 23, @Today),  'ACTIVE',           29, 0, 1, 30, 15, 0, 0, 15);
+SET IDENTITY_INSERT dbo.user_memberships OFF;
+
+-- ----------------------------------------------------------------------------
+-- 2.6 Payment Transactions, Payment Attempts, Gateway Receipts & Legacy Payments
+-- ----------------------------------------------------------------------------
+SET IDENTITY_INSERT dbo.payment_transactions ON;
+INSERT INTO dbo.payment_transactions (payment_id, member_id, membership_id, voucher_id, gateway_reference, booking_type, amount, payment_method, payment_status, reference_code, created_at, transaction_date, payment_completed_at, item_type, item_description) VALUES
+    -- Membership purchases (1..6)
+    (1,  9,  1, 2,    'VNP-MBR-100001', N'MEMBERSHIP_PACKAGE', 1350000.00, N'VNPAY',            N'PAID',     N'MBR-2026-0001', DATEADD(DAY, -10, @Now), FORMAT(DATEADD(DAY, -10, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -10, @Now), 'MEMBERSHIP', N'Thẻ Hội Viên Vàng Off-Peak'),
+    (2,  9,  2, NULL, 'VNP-MBR-100002', N'MEMBERSHIP_PACKAGE', 1800000.00, N'VNPAY',            N'PAID',     N'MBR-2026-0002', DATEADD(DAY, -5,  @Now), FORMAT(DATEADD(DAY, -5,  @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -5,  @Now), 'MEMBERSHIP', N'Khóa Học Pickleball Căn Bản (10 Buổi)'),
+    (3,  10, 3, 1,    NULL,             N'MEMBERSHIP_PACKAGE', 2600000.00, N'CASH',             N'PAID',     N'POS-2026-0003', DATEADD(DAY, -6,  @Now), FORMAT(DATEADD(DAY, -6,  @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -6,  @Now), 'MEMBERSHIP', N'Thẻ Hội Viên VIP Diamond (Toàn Hệ Thống)'),
+    (4,  11, 4, NULL, NULL,             N'MEMBERSHIP_PACKAGE', 2200000.00, N'CASH',             N'PAID',     N'POS-2026-0004', DATEADD(DAY, -45, @Now), FORMAT(DATEADD(DAY, -45, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -45, @Now), 'MEMBERSHIP', N'Gói Tennis & Đặt Sân Giờ Vàng'),
+    (5,  12, 5, NULL, NULL,             N'MEMBERSHIP_PACKAGE',  800000.00, N'CASH',             N'PAID',     N'POS-2026-0005', DATEADD(MINUTE, -45, @Now), FORMAT(DATEADD(MINUTE, -45, @Now), 'yyyyMMddHHmmss'), DATEADD(MINUTE, -45, @Now), 'MEMBERSHIP', N'Gói Tập Cầu Lông Học Sinh / Sinh Viên'),
+    (6,  14, 6, 3,    'VNP-MBR-100006', N'MEMBERSHIP_PACKAGE', 2500000.00, N'VNPAY',            N'PAID',     N'MBR-2026-0006', DATEADD(DAY, -3,  @Now), FORMAT(DATEADD(DAY, -3,  @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -3,  @Now), 'MEMBERSHIP', N'Thẻ Hội Viên VIP Diamond (Toàn Hệ Thống)'),
+
+    -- Class & Court payments (7..16)
+    (7,  9,  NULL, NULL, NULL,             N'CLASS',  200000.00, N'VNPAY',            N'PAID',     N'CLS-2026-0007', DATEADD(DAY, -4, @Now), FORMAT(DATEADD(DAY, -4, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -4, @Now), 'CLASS', N'Lớp Tennis Chuyên Kỹ Thuật Serve - HLV Trần Văn Minh'),
+    (8,  12, NULL, NULL, NULL,             N'CLASS',  200000.00, N'CASH',             N'PAID',     N'CLS-2026-0008', DATEADD(DAY, -4, @Now), FORMAT(DATEADD(DAY, -4, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -4, @Now), 'CLASS', N'Lớp Tennis Chuyên Kỹ Thuật Serve - HLV Trần Văn Minh'),
+    (9,  9,  NULL, NULL, NULL,             N'CLASS',       0.00, N'MEMBERSHIP_QUOTA', N'PAID',     N'QTA-2026-0009', DATEADD(DAY, -2, @Now), FORMAT(DATEADD(DAY, -2, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -2, @Now), 'CLASS', N'Lớp Pickleball Căn Bản K12 - HLV Trần Văn Minh'),
+    (10, 10, NULL, NULL, NULL,             N'CLASS',       0.00, N'MEMBERSHIP_QUOTA', N'PAID',     N'QTA-2026-0010', DATEADD(DAY, -2, @Now), FORMAT(DATEADD(DAY, -2, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -2, @Now), 'CLASS', N'Lớp Pickleball Căn Bản K12 - HLV Trần Văn Minh'),
+    (11, 10, NULL, NULL, NULL,             N'CLASS',       0.00, N'MEMBERSHIP_QUOTA', N'PAID',     N'QTA-2026-0011', DATEADD(DAY, -1, @Now), FORMAT(DATEADD(DAY, -1, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -1, @Now), 'CLASS', N'Lớp Bơi Lội Căn Bản - HLV Nguyễn Hoàng Nam'),
+    (12, 11, NULL, NULL, NULL,             N'CLASS',  180000.00, N'VNPAY',            N'PAID',     N'CLS-2026-0012', DATEADD(DAY, -3, @Now), FORMAT(DATEADD(DAY, -3, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -3, @Now), 'CLASS', N'Lớp Bóng Đá Cơ Bản - HLV Võ Tấn Phát'),
+    (13, 9,  NULL, 5,    'VNP-CLS-100013', N'CLASS',  150000.00, N'VNPAY',            N'PAID',     N'CLS-2026-0013', DATEADD(HOUR, -1, @Now), FORMAT(DATEADD(HOUR, -1, @Now), 'yyyyMMddHHmmss'), DATEADD(HOUR, -1, @Now), 'CLASS', N'Lớp Tennis Chiến Thuật Đánh Đôi - HLV Trần Văn Minh (Ngày mai)'),
+    (14, 9,  NULL, NULL, 'VNP-CRT-100014', N'COURT',  320000.00, N'VNPAY',            N'PAID',     N'CRT-2026-0014', DATEADD(MINUTE, -30, @Now), FORMAT(DATEADD(MINUTE, -30, @Now), 'yyyyMMddHHmmss'), DATEADD(MINUTE, -30, @Now), 'COURT', N'Tennis Court 01 - Ngày mai 18:00-19:00'),
+    (15, 11, NULL, NULL, 'VNP-CRT-100015', N'COURT',  350000.00, N'VNPAY',            N'PAID',     N'CRT-2026-0015', DATEADD(HOUR, -3, @Now), FORMAT(DATEADD(HOUR, -3, @Now), 'yyyyMMddHHmmss'), DATEADD(HOUR, -3, @Now), 'COURT', N'Tennis Court 02 - Ngày kia 19:00-20:00 (Đề nghị hoàn tiền)'),
+    (16, 10, NULL, NULL, 'VNP-CRT-100016', N'COURT',  180000.00, N'VNPAY',            N'REFUNDED', N'CRT-2026-0016', DATEADD(DAY, -2, @Now), FORMAT(DATEADD(DAY, -2, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -2, @Now), 'COURT', N'Pickleball Court 01 - Đã hoàn tiền'),
+    (17, 13, NULL, NULL, NULL,             N'COURT',  500000.00, N'CASH',             N'PAID',     N'CRT-2026-0017', DATEADD(DAY, -1, @Now), FORMAT(DATEADD(DAY, -1, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -1, @Now), 'COURT', N'Sân bóng đá 7 người 01 - 19:00-20:00'),
+    (18, 9,  NULL, NULL, NULL,             N'COURT',       0.00, N'MEMBERSHIP_QUOTA', N'PAID',     N'CRT-2026-0018', DATEADD(DAY, -3, @Now), FORMAT(DATEADD(DAY, -3, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -3, @Now), 'COURT', N'Pickleball Court 02 - Dùng quota hội viên');
+SET IDENTITY_INSERT dbo.payment_transactions OFF;
+
+-- Payment Attempts & Gateway Receipts (including 1 REVIEW_REQUIRED case for /admin/payment-reconciliation!)
+SET IDENTITY_INSERT dbo.payment_attempts ON;
+INSERT INTO dbo.payment_attempts (attempt_id, payment_id, gateway_reference, amount, status, payment_url, created_at, expires_at, merchant_date) VALUES
+    (1, 1,  'VNP-MBR-100001', 1350000.00, 'SUCCEEDED', NULL, DATEADD(DAY, -10, @Now), DATEADD(MINUTE, 15, DATEADD(DAY, -10, @Now)), FORMAT(DATEADD(DAY, -10, @Now), 'yyyyMMddHHmmss')),
+    (2, 2,  'VNP-MBR-100002', 1800000.00, 'SUCCEEDED', NULL, DATEADD(DAY, -5,  @Now), DATEADD(MINUTE, 15, DATEADD(DAY, -5,  @Now)), FORMAT(DATEADD(DAY, -5,  @Now), 'yyyyMMddHHmmss')),
+    (3, 6,  'VNP-MBR-100006', 2500000.00, 'SUCCEEDED', NULL, DATEADD(DAY, -3,  @Now), DATEADD(MINUTE, 15, DATEADD(DAY, -3,  @Now)), FORMAT(DATEADD(DAY, -3,  @Now), 'yyyyMMddHHmmss')),
+    (4, 13, 'VNP-CLS-100013',  150000.00, 'SUCCEEDED', NULL, DATEADD(HOUR, -1, @Now), DATEADD(MINUTE, 15, DATEADD(HOUR, -1, @Now)), FORMAT(DATEADD(HOUR, -1, @Now), 'yyyyMMddHHmmss')),
+    (5, 14, 'VNP-CRT-100014',  320000.00, 'SUCCEEDED', NULL, DATEADD(MINUTE, -30, @Now), DATEADD(MINUTE, -15, @Now),                  FORMAT(DATEADD(MINUTE, -30, @Now), 'yyyyMMddHHmmss')),
+    (6, 15, 'VNP-CRT-100015',  350000.00, 'SUCCEEDED', NULL, DATEADD(HOUR, -3, @Now), DATEADD(MINUTE, 15, DATEADD(HOUR, -3, @Now)), FORMAT(DATEADD(HOUR, -3, @Now), 'yyyyMMddHHmmss'));
+SET IDENTITY_INSERT dbo.payment_attempts OFF;
+
+SET IDENTITY_INSERT dbo.gateway_receipts ON;
+INSERT INTO dbo.gateway_receipts (receipt_id, payment_id, attempt_id, gateway_transaction_no, gateway_reference, amount, transaction_date, status, reconciliation_note, created_at, resolved_at) VALUES
+    (1, 1,  1, '14620001', 'VNP-MBR-100001', 1350000.00, FORMAT(DATEADD(DAY, -10, @Now), 'yyyyMMddHHmmss'), 'APPLIED',         N'Khớp lệnh tự động từ VNPay IPN',           DATEADD(DAY, -10, @Now), DATEADD(DAY, -10, @Now)),
+    (2, 2,  2, '14620002', 'VNP-MBR-100002', 1800000.00, FORMAT(DATEADD(DAY, -5,  @Now), 'yyyyMMddHHmmss'), 'APPLIED',         N'Khớp lệnh tự động từ VNPay IPN',           DATEADD(DAY, -5,  @Now), DATEADD(DAY, -5,  @Now)),
+    (3, 6,  3, '14620003', 'VNP-MBR-100006', 2500000.00, FORMAT(DATEADD(DAY, -3,  @Now), 'yyyyMMddHHmmss'), 'APPLIED',         N'Khớp lệnh tự động từ VNPay IPN',           DATEADD(DAY, -3,  @Now), DATEADD(DAY, -3,  @Now)),
+    (4, 13, 4, '14620004', 'VNP-CLS-100013',  150000.00, FORMAT(DATEADD(HOUR, -1, @Now), 'yyyyMMddHHmmss'), 'APPLIED',         N'Khớp lệnh thanh toán lớp Tennis',          DATEADD(HOUR, -1, @Now), DATEADD(HOUR, -1, @Now)),
+    (5, 14, 5, '14620005', 'VNP-CRT-100014',  320000.00, FORMAT(DATEADD(MINUTE, -30, @Now), 'yyyyMMddHHmmss'), 'APPLIED',       N'Khớp lệnh thanh toán đặt sân Tennis 01',   DATEADD(MINUTE, -30, @Now), DATEADD(MINUTE, -30, @Now)),
+    (6, 15, 6, '14620006', 'VNP-CRT-100015',  350000.00, FORMAT(DATEADD(HOUR, -3, @Now), 'yyyyMMddHHmmss'), 'REVIEW_REQUIRED', N'Cần đối soát hoàn tiền giao dịch Tennis 02', DATEADD(HOUR, -3, @Now), NULL);
+SET IDENTITY_INSERT dbo.gateway_receipts OFF;
+
+-- Legacy Reception Payments synced with Membership sales & POS Staff KPI
+SET IDENTITY_INSERT dbo.payments ON;
+INSERT INTO dbo.payments (payment_id, member_id, um_id, voucher_id, amount, payment_method, payment_status, approved_by, created_at) VALUES
+    (1, 9,  1, 2,    1350000.00, 'ONLINE',   'COMPLETED', 3, DATEADD(DAY, -10, @Now)),
+    (2, 9,  2, NULL, 1800000.00, 'ONLINE',   'COMPLETED', 3, DATEADD(DAY, -5,  @Now)),
+    (3, 10, 3, 1,    2600000.00, 'CASH',     'COMPLETED', 3, DATEADD(DAY, -6,  @Now)),
+    (4, 11, 4, NULL, 2200000.00, 'POS',      'COMPLETED', 4, DATEADD(DAY, -45, @Now)),
+    (5, 12, 5, NULL,  800000.00, 'TRANSFER', 'COMPLETED', 4, DATEADD(MINUTE, -45, @Now)),
+    (6, 14, 6, 3,    2500000.00, 'ONLINE',   'COMPLETED', 3, DATEADD(DAY, -3,  @Now));
+SET IDENTITY_INSERT dbo.payments OFF;
+
+-- ----------------------------------------------------------------------------
+-- 2.7 Class Sessions (Past COMPLETED + Today + Upcoming 5 days)
+-- ----------------------------------------------------------------------------
+SET IDENTITY_INSERT dbo.class_sessions ON;
+INSERT INTO dbo.class_sessions (session_id, class_name, sport_id, coach_id, facility_id, start_time, end_time, max_slots, booked_slots, price_amount, status) VALUES
+    -- Past completed sessions (for Coach Income, Attendance history & Member Feedbacks)
+    (1,  N'Lớp Tennis Chuyên Kỹ Thuật Serve',  3, 5, 4,  DATEADD(HOUR, 18, CAST(DATEADD(DAY, -4, @Today) AS DATETIME)), DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, -4, @Today) AS DATETIME)), 6,  2, 200000.00, 'COMPLETED'),
+    (2,  N'Lớp Pickleball Căn Bản K12',        2, 5, 1,  DATEADD(HOUR, 18, CAST(DATEADD(DAY, -2, @Today) AS DATETIME)), DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, -2, @Today) AS DATETIME)), 8,  2, 150000.00, 'COMPLETED'),
+    (3,  N'Lớp Bơi Lội Căn Bản',               9, 6, 12, DATEADD(HOUR, 17, CAST(DATEADD(DAY, -1, @Today) AS DATETIME)), DATEADD(MINUTE, 1110, CAST(DATEADD(DAY, -1, @Today) AS DATETIME)), 8,  2, 170000.00, 'COMPLETED'),
+    (4,  N'Lớp Bóng Đá Cơ Bản',                5, 7, 14, DATEADD(HOUR, 18, CAST(DATEADD(DAY, -3, @Today) AS DATETIME)), DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, -3, @Today) AS DATETIME)), 14, 2, 180000.00, 'COMPLETED'),
+
+    -- Today's sessions (for Receptionist Dashboard Today's Classes & Coach Attendance!)
+    (5,  N'Lớp Pickleball Nâng Cao K05',       2, 5, 2,  DATEADD(HOUR, 19, CAST(@Today AS DATETIME)),                   DATEADD(MINUTE, 1230, CAST(@Today AS DATETIME)),                   8,  2, 180000.00, 'SCHEDULED'),
+    (6,  N'Lớp Cầu Lông Phản Xạ Nhanh',        6, 8, 16, DATEADD(HOUR, 18, CAST(@Today AS DATETIME)),                   DATEADD(MINUTE, 1170, CAST(@Today AS DATETIME)),                   8,  1, 150000.00, 'SCHEDULED'),
+
+    -- Upcoming sessions (Day +1 to +4 for Booking, Reschedule & Cancel > 2h Demo!)
+    (7,  N'Lớp Tennis Chiến Thuật Đánh Đôi',   3, 5, 5,  DATEADD(HOUR, 18, CAST(DATEADD(DAY, 1, @Today) AS DATETIME)),  DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, 1, @Today) AS DATETIME)),  6,  2, 200000.00, 'SCHEDULED'),
+    (8,  N'Lớp Pickleball Kỹ Thuật Dink & Volley', 2, 6, 1, DATEADD(HOUR, 17, CAST(DATEADD(DAY, 2, @Today) AS DATETIME)), DATEADD(MINUTE, 1110, CAST(DATEADD(DAY, 2, @Today) AS DATETIME)), 8,  0, 160000.00, 'SCHEDULED'),
+    (9,  N'Lớp Bóng Đá Thể Lực & Phối Hợp',    5, 7, 14, DATEADD(HOUR, 19, CAST(DATEADD(DAY, 2, @Today) AS DATETIME)),  DATEADD(MINUTE, 1230, CAST(DATEADD(DAY, 2, @Today) AS DATETIME)),  14, 1, 180000.00, 'SCHEDULED'),
+    (10, N'Lớp Cầu Lông Đánh Đôi Nâng Cao',    6, 8, 17, DATEADD(HOUR, 18, CAST(DATEADD(DAY, 3, @Today) AS DATETIME)),  DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, 3, @Today) AS DATETIME)),  8,  0, 160000.00, 'SCHEDULED'),
+    (11, N'Lớp Điền Kinh Sức Bền Morning',     10,7, 13, DATEADD(HOUR, 7,  CAST(DATEADD(DAY, 4, @Today) AS DATETIME)),  DATEADD(MINUTE, 510,  CAST(DATEADD(DAY, 4, @Today) AS DATETIME)),  12, 0, 110000.00, 'SCHEDULED');
+SET IDENTITY_INSERT dbo.class_sessions OFF;
+
+-- ----------------------------------------------------------------------------
+-- 2.8 Class Bookings & Court Bookings
+-- ----------------------------------------------------------------------------
+SET IDENTITY_INSERT dbo.bookings ON;
+INSERT INTO dbo.bookings (booking_id, member_id, session_id, booking_time, status, attendance_status, coach_note, homework_note, uses_membership_quota, membership_id, fee_amount, payment_id, quota_state) VALUES
+    -- Session 1 (-4d, Coach 5): Khoa PRESENT (already reviewed), Phương Anh PRESENT (already reviewed)
+    (1, 9,  1, DATEADD(DAY, -5, @Now), 'CONFIRMED', 'PRESENT',         N'Tư thế giao bóng ổn định, lực cổ tay tốt.',              N'Tập tung bóng 15 phút mỗi ngày.', 0, NULL, 200000.00, 7,  NULL),
+    (2, 12, 1, DATEADD(DAY, -5, @Now), 'CONFIRMED', 'PRESENT',         N'Di chuyển linh hoạt, tiếp thu nhanh.',                  N'Luyện bước chân split-step.',     0, NULL, 200000.00, 8,  NULL),
+
+    -- Session 2 (-2d, Coach 5): Khoa PRESENT (ELIGIBLE FOR LIVE REVIEW DEMO!), Ngọc PRESENT
+    (3, 9,  2, DATEADD(DAY, -3, @Now), 'CONFIRMED', 'PRESENT',         N'Phản xạ trên lưới rất tốt, giữ nhịp độ trận đấu cao.',  N'Luyện cú dink chéo sân 50 lần.',  1, 2,    0.00,      9,  'USED'),
+    (4, 10, 2, DATEADD(DAY, -3, @Now), 'CONFIRMED', 'PRESENT',         N'Kiểm soát bóng ổn định.',                                N'Tập thêm backhand.',              1, 3,    0.00,      10, 'USED'),
+
+    -- Session 3 (-1d, Coach 6): Ngọc PRESENT, Minh Châu EXCUSED_ABSENCE
+    (5, 10, 3, DATEADD(DAY, -2, @Now), 'CONFIRMED', 'PRESENT',         N'Kỹ thuật thở sải đều và chuẩn nhịp.',                   N'Bơi 400m nhẹ thả lỏng.',          1, 3,    0.00,      11, 'USED'),
+    (6, 14, 3, DATEADD(DAY, -2, @Now), 'CONFIRMED', 'EXCUSED_ABSENCE', N'Học viên báo xin nghỉ phép trước buổi tập.',            NULL,                               0, NULL, 170000.00, NULL, NULL),
+
+    -- Session 4 (-3d, Coach 7): Hoàng PRESENT, Minh Châu PRESENT
+    (7, 11, 4, DATEADD(DAY, -4, @Now), 'CONFIRMED', 'PRESENT',         N'Thể lực tốt, phối hợp đồng đội ăn ý.',                  N'Chạy bền 3km.',                   0, NULL, 180000.00, 12, NULL),
+    (8, 14, 4, DATEADD(DAY, -4, @Now), 'CONFIRMED', 'PRESENT',         N'Chuyền bóng chính xác.',                                 NULL,                               0, NULL, 180000.00, NULL, NULL),
+
+    -- Session 5 (Today 19:00, Coach 5): Khoa & Ngọc PENDING (ready for Coach/Receptionist live attendance!)
+    (9,  9,  5, DATEADD(DAY, -1, @Now), 'CONFIRMED', 'PENDING', NULL, NULL, 1, 2,    0.00, NULL, 'HELD'),
+    (10, 10, 5, DATEADD(DAY, -1, @Now), 'CONFIRMED', 'PENDING', NULL, NULL, 1, 3,    0.00, NULL, 'HELD'),
+
+    -- Session 6 (Today 18:00, Coach 8): Ngọc PENDING
+    (11, 10, 6, DATEADD(DAY, -1, @Now), 'CONFIRMED', 'PENDING', NULL, NULL, 0, NULL, 150000.00, NULL, NULL),
+
+    -- Session 7 (Tomorrow 18:00, Coach 5): Khoa PAID (ready for live Cancel/Refund > 2h Demo!) & Minh Châu
+    (12, 9,  7, DATEADD(HOUR, -1, @Now), 'CONFIRMED', 'PENDING', NULL, NULL, 0, NULL, 150000.00, 13, NULL),
+    (13, 14, 7, DATEADD(HOUR, -2, @Now), 'CONFIRMED', 'PENDING', NULL, NULL, 0, NULL, 200000.00, NULL, NULL),
+
+    -- Session 9 (Day+2 19:00, Coach 7): Hoàng
+    (14, 11, 9, DATEADD(HOUR, -3, @Now), 'CONFIRMED', 'PENDING', NULL, NULL, 0, NULL, 180000.00, NULL, NULL);
+SET IDENTITY_INSERT dbo.bookings OFF;
+
+SET IDENTITY_INSERT dbo.court_bookings ON;
+INSERT INTO dbo.court_bookings (court_booking_id, member_id, court_id, start_time, end_time, amount_paid, payment_id, status, created_at, uses_membership_quota, membership_id, quota_hours_used, quota_state) VALUES
+    -- Past completed court bookings
+    (1, 9,  2, DATEADD(HOUR, 10, CAST(DATEADD(DAY, -3, @Today) AS DATETIME2)), DATEADD(HOUR, 11, CAST(DATEADD(DAY, -3, @Today) AS DATETIME2)), 0.00,      18, N'COMPLETED', DATEADD(DAY, -4, @Now), 1, 1,    1.00, 'USED'),
+    (2, 13, 8, DATEADD(HOUR, 19, CAST(DATEADD(DAY, -1, @Today) AS DATETIME2)), DATEADD(HOUR, 20, CAST(DATEADD(DAY, -1, @Today) AS DATETIME2)), 500000.00, 17, N'COMPLETED', DATEADD(DAY, -2, @Now), 0, NULL, 0.00, NULL),
+    -- Cancelled past booking (refunded)
+    (3, 10, 1, DATEADD(HOUR, 17, CAST(DATEADD(DAY, -2, @Today) AS DATETIME2)), DATEADD(HOUR, 18, CAST(DATEADD(DAY, -2, @Today) AS DATETIME2)), 180000.00, 16, N'CANCELLED', DATEADD(DAY, -3, @Now), 0, NULL, 0.00, NULL),
+    -- Upcoming future court bookings
+    (4, 9,  3, DATEADD(HOUR, 18, CAST(DATEADD(DAY, 1,  @Today) AS DATETIME2)), DATEADD(HOUR, 19, CAST(DATEADD(DAY, 1,  @Today) AS DATETIME2)), 320000.00, 14, N'CONFIRMED', DATEADD(MINUTE, -30, @Now), 0, NULL, 0.00, NULL),
+    (5, 11, 4, DATEADD(HOUR, 19, CAST(DATEADD(DAY, 2,  @Today) AS DATETIME2)), DATEADD(HOUR, 20, CAST(DATEADD(DAY, 2,  @Today) AS DATETIME2)), 350000.00, 15, N'CONFIRMED', DATEADD(HOUR, -3, @Now),    0, NULL, 0.00, NULL),
+    (6, 9,  1, DATEADD(HOUR, 9,  CAST(DATEADD(DAY, 3,  @Today) AS DATETIME2)), DATEADD(HOUR, 10, CAST(DATEADD(DAY, 3,  @Today) AS DATETIME2)), 0.00,      NULL, N'CONFIRMED', DATEADD(HOUR, -1, @Now), 1, 1, 1.00, 'HELD');
+SET IDENTITY_INSERT dbo.court_bookings OFF;
+
+-- ----------------------------------------------------------------------------
+-- 2.9 Health Profiles, Body Progress Logs & Workout Plans
+-- ----------------------------------------------------------------------------
+SET IDENTITY_INSERT dbo.member_health_profiles ON;
+INSERT INTO dbo.member_health_profiles (profile_id, member_id, fitness_level, fitness_goals, injury_history, weight_kg, height_cm, smm_kg, pbf_percent, bmi, updated_at) VALUES
+    (1, 9,  'AMATEUR',      N'Tăng cơ nạc, cải thiện sức bền và nâng 1RM Squat lên 125kg', N'Tiền sử lật cổ chân nhẹ năm 2024 (đã phục hồi)', 71.50, 175.00, 34.20, 16.50, 23.35, DATEADD(DAY, -1, @Now)),
+    (2, 10, 'INTERMEDIATE', N'Giảm mỡ cơ thể xuống 20% và cải thiện độ dẻo dai',             N'Không có',                                      56.00, 162.00, 23.40, 22.80, 21.34, DATEADD(DAY, -2, @Now)),
+    (3, 11, 'ADVANCED',     N'Thi đấu giải Tennis & Bóng đá phong trào cuối năm',           N'Đau nhẹ cơ vai phải khi giao bóng cường độ cao', 74.00, 178.00, 35.80, 15.20, 23.36, DATEADD(DAY, -5, @Now)),
+    (4, 12, 'BEGINNER',     N'Tăng phản xạ Cầu lông và rèn luyện cardio cơ bản',             N'Không có',                                      51.50, 159.00, 20.50, 24.00, 20.37, DATEADD(DAY, -3, @Now)),
+    (5, 13, 'BEGINNER',     N'Xây dựng thói quen vận động 3 buổi/tuần',                     N'Không có',                                      66.00, 170.00, 29.00, 19.80, 22.84, DATEADD(DAY, -7, @Now)),
+    (6, 14, 'INTERMEDIATE', N'Phát triển sức bền tim mạch và kỹ thuật bơi',                 N'Không có',                                      54.00, 164.00, 22.80, 21.00, 20.08, DATEADD(DAY, -4, @Now));
+SET IDENTITY_INSERT dbo.member_health_profiles OFF;
+
+SET IDENTITY_INSERT dbo.body_progress_logs ON;
+INSERT INTO dbo.body_progress_logs (progress_id, member_id, recorded_date, weight_kg, height_cm, smm_kg, pbf_percent, bmi, max_lift_kg, note, created_at) VALUES
+    -- Khoa (9): 4 progress points showing measurable improvement
+    (1, 9,  DATEADD(DAY, -42, @Today), 74.00, 175.00, 32.10, 19.80, 24.16, 95.00,  N'Đánh giá đầu vào InBody tháng trước',   DATEADD(DAY, -42, @Now)),
+    (2, 9,  DATEADD(DAY, -28, @Today), 73.20, 175.00, 32.90, 18.60, 23.90, 102.50, N'Cải thiện sức mạnh chân & core',        DATEADD(DAY, -28, @Now)),
+    (3, 9,  DATEADD(DAY, -14, @Today), 72.30, 175.00, 33.60, 17.40, 23.61, 110.00, N'Giảm mỡ tốt, tăng khối lượng cơ nạc',   DATEADD(DAY, -14, @Now)),
+    (4, 9,  DATEADD(DAY, -1,  @Today), 71.50, 175.00, 34.20, 16.50, 23.35, 117.50, N'Đạt kỷ lục 1RM mới trước tuần thi đấu', DATEADD(DAY, -1,  @Now)),
+    -- Ngọc (10): 2 progress points
+    (5, 10, DATEADD(DAY, -20, @Today), 57.50, 162.00, 22.80, 24.10, 21.91, 55.00,  N'Đo chỉ số tuần 1',                      DATEADD(DAY, -20, @Now)),
+    (6, 10, DATEADD(DAY, -2,  @Today), 56.00, 162.00, 23.40, 22.80, 21.34, 62.50,  N'Giảm 1.5kg mỡ, tăng 0.6kg cơ xương',    DATEADD(DAY, -2,  @Now));
+SET IDENTITY_INSERT dbo.body_progress_logs OFF;
+
+SET IDENTITY_INSERT dbo.workout_plans ON;
+INSERT INTO dbo.workout_plans (plan_id, member_id, coach_id, coach_name, title, goal, exercises_json, session_result, coach_feedback, homework, source, created_at) VALUES
+    (1, 9, 5, N'Trần Văn Minh',
+     N'Giáo án Sức Mạnh & Phản Xạ Pickleball (Tuần 3)',
+     N'Tối ưu lực phát bóng, tăng tốc độ di chuyển ngang và nâng 1RM Squat',
+     N'[{"name":"Barbell Back Squat","sets":4,"reps":8,"weightKg":75,"note":"Kiểm soát nhịp hạ tạ 3 giây","completed":true},{"name":"Romanian Deadlift (RDL)","sets":4,"reps":10,"weightKg":60,"note":"Siết cơ đùi sau và giữ thẳng lưng","completed":true},{"name":"Split-Step Agility Ladder","sets":4,"reps":20,"weightKg":0,"note":"Di chuyển nhanh bằng mũi chân","completed":false},{"name":"Cable Woodchopper (Xoay thân)","sets":3,"reps":12,"weightKg":15,"note":"Tăng lực xoay hông khi đánh Forehand","completed":false}]',
+     N'Hoàn thành tốt 2 bài compound đầu, độ sâu Squat chuẩn.',
+     N'Tiếp tục giữ nhịp thở đều khi hạ tạ và hoàn thành 2 bài bổ trợ cuối tuần.',
+     N'Chạy biến tốc HIIT 15 phút + giãn cơ cổ chân sau buổi tập.',
+     'COACH', DATEADD(DAY, -2, @Now)),
+    (2, 9, NULL, N'SportHub AI Coach',
+     N'Lộ trình Phục Hồi Cổ Chân & Cardio Bổ Trợ',
+     N'Tăng ổn định khớp cổ chân và sức bền tim mạch Zone 2',
+     N'[{"name":"Single-Leg Balance Hold","sets":3,"reps":30,"weightKg":0,"note":"Giữ thăng bằng 30 giây mỗi chân","completed":true},{"name":"Calf Raises (Nhón bắp chân)","sets":3,"reps":15,"weightKg":12,"note":"Lên chậm xuống chậm","completed":false},{"name":"Zone 2 Stationary Bike","sets":1,"reps":25,"weightKg":0,"note":"Duy trì nhịp tim 135-145 bpm trong 25 phút","completed":false}]',
+     NULL,
+     N'Kế hoạch tự động cá nhân hóa theo tiền sử lật cổ chân và mục tiêu InBody.',
+     N'Uống đủ 2.5L nước và chườm lạnh nếu cảm thấy căng cổ chân.',
+     'AI', DATEADD(DAY, -4, @Now)),
+    (3, 10, 6, N'Nguyễn Hoàng Nam',
+     N'Giáo án Core & Sức Bền Bơi Lội',
+     N'Tăng ổn định thân người khi bơi sải và giảm tỷ lệ mỡ PBF',
+     N'[{"name":"Front Plank Hold","sets":3,"reps":45,"weightKg":0,"note":"Siết bụng, giữ 45 giây","completed":true},{"name":"Lat Pulldown","sets":4,"reps":12,"weightKg":30,"note":"Kéo xô hỗ trợ quạt nước","completed":true},{"name":"Dumbbell Goblet Squat","sets":3,"reps":12,"weightKg":14,"note":"Tăng lực đạp chân","completed":false}]',
+     N'Kỹ thuật kéo xô cải thiện rõ rệt.',
+     N'Duy trì 3 buổi/tuần để đạt mục tiêu PBF 20%.',
+     N'Giãn vai 10 phút trước khi đi ngủ.',
+     'COACH', DATEADD(DAY, -1, @Now));
+SET IDENTITY_INSERT dbo.workout_plans OFF;
+
+-- ----------------------------------------------------------------------------
+-- 2.10 Feedbacks & Check-ins
+-- ----------------------------------------------------------------------------
+SET IDENTITY_INSERT dbo.feedbacks ON;
+INSERT INTO dbo.feedbacks (feedback_id, member_id, session_id, coach_id, rating, comment, created_at) VALUES
+    (1, 9,  1, 5, 5, N'HLV Minh hướng dẫn rất nhiệt tình, sửa dáng giao bóng chuẩn từng chút một!', DATEADD(DAY, -3, @Now)),
+    (2, 12, 1, 5, 5, N'Buổi tập vui vẻ, không khí lớp học năng động. Sân bãi sạch đẹp.',          DATEADD(DAY, -3, @Now)),
+    (3, 10, 3, 6, 5, N'HLV Nam chỉnh kỹ thuật thở khi bơi sải rất dễ hiểu, tiến bộ ngay buổi đầu.', DATEADD(HOUR, -12, @Now));
+SET IDENTITY_INSERT dbo.feedbacks OFF;
+
+SET IDENTITY_INSERT dbo.member_check_ins ON;
+INSERT INTO dbo.member_check_ins (check_in_id, member_id, checked_in_at, result, recorded_by) VALUES
+    (1, 9,  DATEADD(DAY, -2, @Now),    N'VALID',    3),
+    (2, 10, DATEADD(DAY, -1, @Now),    N'VALID',    3),
+    (3, 14, DATEADD(HOUR, -3, @Now),   N'VALID',    4),
+    (4, 16, DATEADD(HOUR, -2, @Now),   N'REJECTED', 3);
+SET IDENTITY_INSERT dbo.member_check_ins OFF;
+
+-- ----------------------------------------------------------------------------
+-- 2.11 Equipments & Equipment Loans (loan_id 501 belongs to real Member 9 Khoa!)
+-- ----------------------------------------------------------------------------
+SET IDENTITY_INSERT dbo.equipments ON;
+INSERT INTO dbo.equipments (item_id, item_name, category, rental_price_per_hour, total_quantity, available_quantity, status) VALUES
+    (1, N'Vợt Tennis Wilson Pro Staff',                  N'Vợt',  30000.00, 20, 19, N'ACTIVE'),
+    (2, N'Vợt Pickleball Franklin Ben Johns',            N'Vợt',  20000.00, 30, 30, N'ACTIVE'),
+    (3, N'Giày Thi Đấu Asics Court FF (Size 40-43)',     N'Giày', 40000.00, 15, 15, N'ACTIVE'),
+    (4, N'Khăn Thể Thao Cao Cấp F Sport',                N'Khăn',     0.00, 50, 50, N'ACTIVE'),
+    (5, N'Rổ Bóng Tennis 50 Quả (Tập phát bóng)',        N'Bóng', 50000.00, 10, 10, N'ACTIVE'),
+    (6, N'Vợt Cầu Lông Yonex Astrox 88D',                N'Vợt',  25000.00, 18, 18, N'ACTIVE');
+SET IDENTITY_INSERT dbo.equipments OFF;
+
+SET IDENTITY_INSERT dbo.equipment_loans ON;
+INSERT INTO dbo.equipment_loans (loan_id, member_id, member_name, phone, item_id, item_name, quantity, rental_price_per_hour, loaned_at, returned_at, rental_fee, status, payment_method, recorded_by) VALUES
+    (501, 9,  N'Nguyễn Anh Khoa', N'0934567890', 1, N'Vợt Tennis Wilson Pro Staff',       1, 30000.00, DATEADD(MINUTE, -90, @Now), NULL,                     NULL,     N'BORROWED', NULL,    3),
+    (502, 10, N'Hoàng Thị Ngọc',  N'0938765432', 2, N'Vợt Pickleball Franklin Ben Johns', 2, 20000.00, DATEADD(DAY, -1, @Now),     DATEADD(HOUR, -22, @Now), 40000.00, N'RETURNED', N'CASH', 4);
+SET IDENTITY_INSERT dbo.equipment_loans OFF;
+
+-- ----------------------------------------------------------------------------
+-- 2.12 Coach Leave Requests, Refund Requests & Support Tickets
+-- ----------------------------------------------------------------------------
+SET IDENTITY_INSERT dbo.coach_leave_requests ON;
+INSERT INTO dbo.coach_leave_requests (request_id, coach_id, coach_name, leave_type, start_date, end_date, reason, status, approved_by, affected_bookings_count, reassigned_coach_id, created_at) VALUES
+    (101, 6, N'Nguyễn Hoàng Nam', N'SICK_LEAVE',     DATEADD(DAY, 5, @Today),   DATEADD(DAY, 6, @Today),  N'Khám sức khỏe định kỳ và theo dõi sốt siêu vi', N'PENDING',  NULL, 0, NULL, DATEADD(HOUR, -6, @Now)),
+    (102, 8, N'Đặng Thu Thảo',    N'PERSONAL_LEAVE', DATEADD(DAY, -10, @Today), DATEADD(DAY, -9, @Today), N'Tham dự hội thảo chuyên môn Cầu lông toàn quốc', N'APPROVED', 1,    0, NULL, DATEADD(DAY, -12, @Now));
+SET IDENTITY_INSERT dbo.coach_leave_requests OFF;
+
+SET IDENTITY_INSERT dbo.refund_requests ON;
+INSERT INTO dbo.refund_requests (refund_id, member_id, member_name, phone, transaction_id, reference_code, booking_id, booking_type, booking_description, refund_amount, reason, bank_name, bank_account, account_holder, status, approved_by, decision_note, created_at) VALUES
+    (801, 11, N'Bùi Huy Hoàng',  '0931112233', 15, N'CRT-2026-0015', 5, 'COURT', N'Tennis Court 02 - Ngày kia 19:00-20:00', 350000.00, N'Đổi lịch công tác đột xuất, hủy sân trước giờ chơi hơn 48 tiếng theo đúng quy định', N'Vietcombank', N'0071000889911', N'BUI HUY HOANG', N'PENDING_APPROVAL', NULL, NULL, DATEADD(HOUR, -2, @Now)),
+    (802, 10, N'Hoàng Thị Ngọc', '0938765432', 16, N'CRT-2026-0016', 3, 'COURT', N'Pickleball Court 01 - Đã hoàn tiền',      180000.00, N'Hủy đặt sân hợp lệ trước giờ bắt đầu > 2 tiếng',                                      N'Techcombank', N'1903556677889', N'HOANG THI NGOC', N'APPROVED', 1, N'Đã phê duyệt hoàn tiền 100% về tài khoản hội viên', DATEADD(DAY, -2, @Now));
+SET IDENTITY_INSERT dbo.refund_requests OFF;
+
+SET IDENTITY_INSERT dbo.support_tickets ON;
+INSERT INTO dbo.support_tickets (ticket_id, member_id, member_name, category, title, description, severity, status, admin_response, created_at) VALUES
+    (1, 9,  N'Nguyễn Anh Khoa', N'FACILITY_ISSUE', N'Đề xuất bổ sung thêm tủ locker tại khu Pickleball', N'Vào khung giờ tối 18:00-20:00 khu Pickleball rất đông, mong trung tâm bổ sung thêm 1 dãy tủ khóa từ.', N'NORMAL', N'SUBMITTED', NULL, DATEADD(DAY, -1, @Now)),
+    (2, 10, N'Hoàng Thị Ngọc',  N'PAYMENT_ISSUE',  N'Xác nhận hóa đơn VAT gói VIP Diamond',            N'Nhờ bộ phận kế toán gửi giúp bản PDF biên lai thu tiền gói VIP Diamond qua email.',                      N'NORMAL', N'RESOLVED',  N'Lễ tân và Quản lý đã gửi biên lai điện tử qua email đăng ký của hội viên.', DATEADD(DAY, -4, @Now));
+SET IDENTITY_INSERT dbo.support_tickets OFF;
+
+-- ----------------------------------------------------------------------------
+-- 2.13 Notifications, Audit Logs & System Settings
+-- ----------------------------------------------------------------------------
+SET IDENTITY_INSERT dbo.notifications ON;
+INSERT INTO dbo.notifications (notification_id, user_id, title, message, type, is_read, created_at) VALUES
+    (1, 9,  N'Chào mừng Hội viên VIP SportHub',       N'Thẻ Hội Viên Vàng Off-Peak của bạn đang hoạt động với 18 buổi lớp và 8 giờ sân còn lại.',          'MEMBERSHIP',   1, DATEADD(DAY, -10, @Now)),
+    (2, 9,  N'HLV Trần Văn Minh đã giao giáo án mới', N'Giáo án "Sức Mạnh & Phản Xạ Pickleball (Tuần 3)" đã sẵn sàng. Hãy tích hoàn thành bài tập sau buổi tập!', 'WORKOUT_PLAN', 0, DATEADD(DAY, -2,  @Now)),
+    (3, 9,  N'Nhắc lịch lớp học hôm nay 19:00',       N'Bạn có lịch Lớp Pickleball Nâng Cao K05 lúc 19:00 tại Cụm Sân Pickleball - Sân P2 (Indoor).',     'BOOKING',      0, DATEADD(HOUR, -3, @Now)),
+    (4, 10, N'Đã hoàn tất yêu cầu hoàn tiền',        N'Yêu cầu hoàn 180.000đ cho giao dịch CRT-2026-0016 đã được Quản lý phê duyệt.',                   'REFUND',       0, DATEADD(DAY, -2,  @Now)),
+    (5, 5,  N'Nhận đánh giá 5 sao mới',               N'Học viên Nguyễn Anh Khoa đã chấm 5/5 sao cho lớp Tennis Chuyên Kỹ Thuật Serve.',                  'FEEDBACK',     0, DATEADD(DAY, -3,  @Now)),
+    (6, 5,  N'Lịch dạy hôm nay 19:00',                N'Bạn có ca dạy Lớp Pickleball Nâng Cao K05 (2 học viên đã đăng ký) tại Sân P2.',                 'SCHEDULE',     0, DATEADD(HOUR, -4, @Now)),
+    (7, 1,  N'Có 1 gói tập mới chờ phê duyệt',        N'Hội viên Đỗ Phương Anh vừa thanh toán Gói Cầu Lông HS-SV (800.000đ) và đang chờ kích hoạt.',      'APPROVAL',     0, DATEADD(MINUTE, -45, @Now)),
+    (8, 1,  N'Có 1 đơn xin nghỉ phép HLV mới',        N'HLV Nguyễn Hoàng Nam vừa gửi đơn xin nghỉ phép (SICK_LEAVE) cần Quản lý xem xét.',               'LEAVE',        0, DATEADD(HOUR, -6, @Now));
+SET IDENTITY_INSERT dbo.notifications OFF;
+
+SET IDENTITY_INSERT dbo.audit_logs ON;
+INSERT INTO dbo.audit_logs (log_id, actor_id, actor_name, actor_role, action, log_type, detail, user_email, user_id, ip_address, action_detail, status, created_at) VALUES
+    (1, 1, N'Nguyễn Văn Quản Lý', 'MANAGER',      'SYSTEM_INIT',            'SYSTEM',     N'Khởi tạo dữ liệu chuẩn hóa hệ thống SportHub',                  'manager@sporthub.com',      1, '127.0.0.1', N'Database seeded with 32 normalized tables', 'SUCCESS', DATEADD(DAY, -10, @Now)),
+    (2, 3, N'Lê Thị Lễ Tân',      'RECEPTIONIST', 'POS_MEMBERSHIP_SALE',    'PAYMENT',    N'Bán gói VIP Diamond tại quầy cho Hoàng Thị Ngọc (2.600.000đ)',  'reception.le@sporthub.com', 3, '127.0.0.1', N'POS sale um_id=3, method=CASH',             'SUCCESS', DATEADD(DAY, -6,  @Now)),
+    (3, 1, N'Nguyễn Văn Quản Lý', 'MANAGER',      'REFUND_APPROVED',        'REFUND',     N'Duyệt hoàn tiền 180.000đ cho Hoàng Thị Ngọc (CRT-2026-0016)',   'manager@sporthub.com',      1, '127.0.0.1', N'Approved refund_id=802',                    'SUCCESS', DATEADD(DAY, -2,  @Now)),
+    (4, 5, N'Trần Văn Minh',      'COACH',        'WORKOUT_PLAN_CREATED',   'COACHING',   N'Giao giáo án Sức Mạnh & Phản Xạ Pickleball cho Nguyễn Anh Khoa','coach.minh@sporthub.com',   5, '127.0.0.1', N'Created plan_id=1 for member_id=9',         'SUCCESS', DATEADD(DAY, -2,  @Now)),
+    (5, 3, N'Lê Thị Lễ Tân',      'RECEPTIONIST', 'EQUIPMENT_LOAN_CREATED', 'EQUIPMENT',  N'Cho hội viên Nguyễn Anh Khoa mượn Vợt Tennis Wilson Pro Staff', 'reception.le@sporthub.com', 3, '127.0.0.1', N'Created loan_id=501, item_id=1',            'SUCCESS', DATEADD(MINUTE, -90, @Now)),
+    (6, 1, N'Nguyễn Văn Quản Lý', 'MANAGER',      'MAINTENANCE_SCHEDULED',  'FACILITY',   N'Lên lịch bảo trì Hồ Bơi - Làn S2 (Làn bơi 02)',                 'manager@sporthub.com',      1, '127.0.0.1', N'Created maintenance_id=1 on court_id=17',   'SUCCESS', DATEADD(DAY, -1,  @Now));
+SET IDENTITY_INSERT dbo.audit_logs OFF;
+
+INSERT INTO dbo.system_settings (setting_key, setting_value, updated_at) VALUES
+    ('ai_enabled',        N'true', @Now),
+    ('ai_model',          N'gemini-flash-lite-latest', @Now),
+    ('ai_temperature',    N'0.7', @Now),
+    ('ai_system_prompt',  N'Bạn là Trợ lý AI Thể thao chuyên nghiệp của F-Sport Center (SportHub). Hãy tư vấn lịch tập, kỹ thuật thể thao, dinh dưỡng và phục hồi chấn thương dựa trên hồ sơ thể trạng của hội viên.', @Now),
+    ('SYSTEM_POLICIES',   N'{"bookingHoldTimeoutMinutes":10,"cancelRefundDeadlineHours":2,"coachCommissionPercent":40,"maxAdvanceBookingDays":14,"guestCourtDepositPercent":100,"checkInGracePeriodMinutes":15,"autoArchiveLogsDays":90,"allowSplitPayment":false}', @Now),
+    ('ROLE_PERMISSIONS',  N'[{"screenId":"MEM_MGMT","screenName":"Quản lý Hội viên & Hồ sơ sức khỏe","module":"Hội viên","roles":{"admin":{"view":true,"create":true,"edit":true,"delete":true},"receptionist":{"view":true,"create":true,"edit":true,"delete":false},"coach":{"view":true,"create":false,"edit":false,"delete":false},"member":{"view":false,"create":false,"edit":false,"delete":false}}},{"screenId":"COURT_CLASS_BOOKING","screenName":"Đặt Sân bãi & Đăng ký Lớp học","module":"Booking","roles":{"admin":{"view":true,"create":true,"edit":true,"delete":true},"receptionist":{"view":true,"create":true,"edit":true,"delete":true},"coach":{"view":true,"create":false,"edit":false,"delete":false},"member":{"view":true,"create":true,"edit":true,"delete":false}}},{"screenId":"ATTENDANCE_CHECKIN","screenName":"Điểm danh 3 trạng thái & Check-in RFID","module":"Vận hành","roles":{"admin":{"view":true,"create":true,"edit":true,"delete":true},"receptionist":{"view":true,"create":true,"edit":true,"delete":false},"coach":{"view":true,"create":true,"edit":true,"delete":false},"member":{"view":true,"create":false,"edit":false,"delete":false}}},{"screenId":"POS_BILLING","screenName":"Thu ngân POS, Hóa đơn & Bán lẻ","module":"Tài chính","roles":{"admin":{"view":true,"create":true,"edit":true,"delete":true},"receptionist":{"view":true,"create":true,"edit":false,"delete":false},"coach":{"view":false,"create":false,"edit":false,"delete":false},"member":{"view":false,"create":false,"edit":false,"delete":false}}}]', @Now);
+GO
+
+USE [master];
 GO

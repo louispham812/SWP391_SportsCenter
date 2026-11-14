@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SportHub (SWP391) — Final Capstone Presentation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0B0F19;
+      --card-dark: #111827;
+      --accent-emerald: #10B981;
+      --accent-cyan: #06B6D4;
+      --accent-indigo: #6366F1;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-dark);
+      color: #F9FAFB;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .slide {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(40px) scale(0.98);
+      transition: all 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 3.2rem 4.5rem 4.5rem 4.5rem;
+      background:
+        radial-gradient(circle at 88% 12%, rgba(16, 185, 129, 0.12), transparent 35%),
+        radial-gradient(circle at 12% 88%, rgba(99, 102, 241, 0.12), transparent 38%),
+        #0B0F19;
+    }
+    .slide.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0) scale(1);
+      z-index: 10;
+    }
+    .glass-card {
+      background: rgba(17, 24, 39, 0.78);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 1rem;
+    }
+    .badge-section {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.9rem;
+      border-radius: 9999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: rgba(16, 185, 129, 0.14);
+      color: #34D399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    /* Print / PDF support */
+    @media print {
+      body { overflow: visible; background: #0B0F19; }
+      .slide {
+        position: relative !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        transform: none !important;
+        page-break-after: always;
+        height: 100vh;
+        width: 100vw;
+      }
+      #controls, #notes-drawer { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== SLIDE 1: COVER ==================== -->
+  <section class="slide active" data-notes="Good morning/afternoon esteemed committee members. Today our team is proud to present our SWP391 Capstone Project: SportHub (F Sport Center) — a comprehensive Multi-Sport Center Management System.">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-extrabold text-xl">S</div>
+        <span class="font-bold tracking-wider text-slate-300">SPORTHUB • SWP391 CAPSTONE PROJECT</span>
+      </div>
+      <span class="mono text-xs px-3 py-1.5 rounded-full bg-slate-800/90 text-slate-300 border border-slate-700">FINAL DEFENSE DECK</span>
+    </div>
+
+    <div class="my-auto max-w-5xl">
+      <div class="badge-section mb-5">🏟️ All-in-One Sports Complex Platform</div>
+      <h1 class="text-6xl font-extrabold tracking-tight leading-tight text-white mb-6">
+        SportHub — Multi-Sport Center <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-cyan-400 to-indigo-400">Management System</span>
+      </h1>
+      <p class="text-xl text-slate-300 leading-relaxed max-w-3xl mb-10">
+        Streamlining online court reservations, membership quota management, 1-on-1 PT & class scheduling, walk-in POS thermal billing, equipment rental, and AI-powered fitness coaching.
+      </p>
+
+      <div class="grid grid-cols-4 gap-5 max-w-4xl">
+        <div class="glass-card p-4 border-l-4 border-l-emerald-400">
+          <div class="text-3xl font-extrabold text-white">10</div>
+          <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Sport Categories</div>
+        </div>
+        <div class="glass-card p-4 border-l-4 border-l-cyan-400">
+          <div class="text-3xl font-extrabold text-white">16</div>
+          <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Standard Courts</div>
+        </div>
+        <div class="glass-card p-4 border-l-4 border-l-indigo-400">
+          <div class="text-3xl font-extrabold text-white">4</div>
+          <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Role Portals</div>
+        </div>
+        <div class="glass-card p-4 border-l-4 border-l-amber-400">
+          <div class="text-3xl font-extrabold text-white">31</div>
+          <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Normalized DB Tables</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between text-sm text-slate-400 border-t border-slate-800/80 pt-4">
+      <div>Agenda: <span class="text-slate-200">1. Introduction • 2. System Design • 3. Actors & Features • 4. Demo Scenarios • 5. Conclusion • 6. Q&A</span></div>
+      <div class="mono text-xs text-emerald-400">Press [→] or [Space] to navigate • [S] Speaker Notes</div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 2: CONTEXT & PROBLEMS ==================== -->
+  <section class="slide" data-notes="Let's start with the context and pain points. Traditional multi-sport centers handle bookings via phone, Zalo, or paper spreadsheets. This leads to double-bookings, untrackable membership quotas, chaotic walk-in equipment rentals, and delayed refunds when courts require sudden maintenance.">
+    <div>
+      <span class="badge-section">01 • Project Introduction</span>
+      <h2 class="text-4xl font-extrabold mt-3">Context & Operational Pain Points</h2>
+      <p class="text-slate-400 mt-1">Why traditional multi-sport facilities struggle to scale across 10+ sports</p>
+    </div>
+
+    <div class="grid grid-cols-12 gap-6 my-auto">
+      <!-- Context Column -->
+      <div class="col-span-5 glass-card p-6 flex flex-col justify-between border-t-4 border-t-cyan-400">
+        <div>
+          <div class="text-xs font-bold uppercase tracking-widest text-cyan-400 mb-2">Market Context</div>
+          <h3 class="text-2xl font-bold text-white mb-4">Booming Demand for Multi-Sport Complexes</h3>
+          <p class="text-slate-300 text-sm leading-relaxed mb-4">
+            Modern sports centers no longer offer just one sport. Facilities like <strong>F Sport Center</strong> operate <strong>16 courts across 10 sports</strong> (Badminton, Pickleball, Tennis, Football, Swimming, Gym, Yoga, etc.) serving hundreds of daily walk-in and online members.
+          </p>
+        </div>
+        <div class="bg-slate-900/90 rounded-xl p-4 border border-slate-800">
+          <div class="text-xs text-slate-400 uppercase font-semibold mb-2">Core Operational Complexity</div>
+          <div class="flex flex-wrap gap-2 text-xs">
+            <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">Hourly Court Slots</span>
+            <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">1-on-1 PT & Group Classes</span>
+            <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">Quota Packages</span>
+            <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">Equipment Inventory</span>
+            <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">Counter POS</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 Problems -->
+      <div class="col-span-7 grid grid-cols-2 gap-4">
+        <div class="glass-card p-5 border-l-4 border-l-rose-500">
+          <div class="text-rose-400 font-bold text-sm mb-1">01. Slot Conflicts & Double Booking</div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Manual booking via phone/Zalo lacks real-time slot locking, leading to overlapping reservations and unpaid no-shows.
+          </p>
+        </div>
+        <div class="glass-card p-5 border-l-4 border-l-orange-500">
+          <div class="text-orange-400 font-bold text-sm mb-1">02. Fragmented Membership Quotas</div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Hard to track remaining free hours/sessions across VIP, PT, and Class packages or combine quotas with voucher discounts.
+          </p>
+        </div>
+        <div class="glass-card p-5 border-l-4 border-l-amber-500">
+          <div class="text-amber-400 font-bold text-sm mb-1">03. Manual POS & Equipment Loss</div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Receptionists lack unified QR/RFID check-in, K80 receipt printing, and real-time tracking of rented rackets, balls, and shoes.
+          </p>
+        </div>
+        <div class="glass-card p-5 border-l-4 border-l-purple-500">
+          <div class="text-purple-400 font-bold text-sm mb-1">04. Reactive Maintenance & PT Tracking</div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Sudden court maintenance fails to auto-lock slots or notify affected bookings; coach attendance and commissions are calculated manually.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-xs text-slate-500 flex justify-between">
+      <span>SWP391 • SportHub</span>
+      <span>Slide 2 / 12</span>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 3: PROPOSED SOLUTION ==================== -->
+  <section class="slide" data-notes="To solve these challenges, we propose SportHub — an end-to-end digital ecosystem that unifies online self-service with front-desk POS operations, automated quota deduction, VNPay digital payments, and a Gemini-powered AI workout assistant.">
+    <div>
+      <span class="badge-section">01 • Project Introduction</span>
+      <h2 class="text-4xl font-extrabold mt-3">Proposed Solution: SportHub Ecosystem</h2>
+      <p class="text-slate-400 mt-1">Bridging Online Self-Service & Offline Front-Desk Operations (O2O)</p>
+    </div>
+
+    <div class="grid grid-cols-3 gap-6 my-auto">
+      <div class="glass-card p-6 border-t-4 border-t-emerald-400">
+        <div class="w-11 h-11 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-lg mb-4">⚡</div>
+        <h3 class="text-xl font-bold mb-2">Smart Reservation & Quota Engine</h3>
+        <ul class="text-sm text-slate-300 space-y-2.5 leading-relaxed">
+          <li>• Real-time court & slot availability matrix across 16 courts.</li>
+          <li>• <strong>10-minute payment hold</strong> prevents race conditions.</li>
+          <li>• Automatic priority deduction from active <strong>VIP / PT / CLASS</strong> quotas or instant payment via <strong>VNPay Sandbox</strong>.</li>
+        </ul>
+      </div>
+
+      <div class="glass-card p-6 border-t-4 border-t-cyan-400">
+        <div class="w-11 h-11 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-lg mb-4">🧾</div>
+        <h3 class="text-xl font-bold mb-2">Front-Desk POS & QR/RFID Check-in</h3>
+        <ul class="text-sm text-slate-300 space-y-2.5 leading-relaxed">
+          <li>• Instant member lookup via Phone, <strong>QR Code</strong>, or <strong>RFID Card</strong>.</li>
+          <li>• Counter POS for walk-in package sales with standardized <strong>K80 Thermal Receipt</strong> printing.</li>
+          <li>• Equipment rental lifecycle with hourly fee calculation & live stock updates.</li>
+        </ul>
+      </div>
+
+      <div class="glass-card p-6 border-t-4 border-t-indigo-400">
+        <div class="w-11 h-11 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-lg mb-4">🤖</div>
+        <h3 class="text-xl font-bold mb-2">AI Coaching & Proactive Governance</h3>
+        <ul class="text-sm text-slate-300 space-y-2.5 leading-relaxed">
+          <li>• Personalized <strong>Body Metrics</strong> (BMI, SMM, PBF, 1RM) & 1-on-1 PT lesson checklists.</li>
+          <li>• <strong>Google Gemini AI Assistant</strong> for workout & nutrition guidance.</li>
+          <li>• Automated court maintenance slot-locking, conflict resolution & complete <strong>Audit Logs</strong>.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="glass-card p-4 flex items-center justify-between bg-emerald-950/30 border-emerald-500/30">
+      <span class="text-sm font-semibold text-emerald-300">🎯 Core Value Proposition:</span>
+      <span class="text-sm text-slate-200">Zero Double-Booking • 100% Transparent Quota & Revenue Tracking • Seamless 4-Portal Workflow</span>
+    </div>
+
+    <div class="text-xs text-slate-500 flex justify-between">
+      <span>SWP391 • SportHub</span>
+      <span>Slide 3 / 12</span>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 4: SYSTEM ARCHITECTURE ==================== -->
+  <section class="slide" data-notes="Moving to Section 2: System Design. SportHub adopts a decoupled Client-Server RESTful architecture. The React 19 Single Page Application communicates with a Spring Boot 4.1.2 backend secured by Bearer Token authentication, persisting data in a 31-table Microsoft SQL Server database and integrating with VNPay, Google Gemini, and Gmail SMTP.">
+    <div>
+      <span class="badge-section">02 • System Design</span>
+      <h2 class="text-4xl font-extrabold mt-3">System Architecture</h2>
+      <p class="text-slate-400 mt-1">Decoupled 3-Tier Client-Server Architecture with External Cloud Integrations</p>
+    </div>
+
+    <div class="grid grid-cols-12 gap-4 my-auto items-stretch">
+      <!-- Client Tier -->
+      <div class="col-span-3 glass-card p-5 flex flex-col justify-between border-t-4 border-t-cyan-400">
+        <div>
+          <div class="mono text-xs text-cyan-400 font-bold uppercase mb-1">1. Presentation Tier</div>
+          <h3 class="text-lg font-bold mb-3">React 19 SPA Client</h3>
+          <div class="space-y-2 text-xs text-slate-300">
+            <div class="p-2.5 rounded bg-slate-800/90 border border-slate-700"><strong>Member Portal</strong> (<code>/member</code>)</div>
+            <div class="p-2.5 rounded bg-slate-800/90 border border-slate-700"><strong>Receptionist POS</strong> (<code>/receptionist</code>)</div>
+            <div class="p-2.5 rounded bg-slate-800/90 border border-slate-700"><strong>Coach Workspace</strong> (<code>/coach</code>)</div>
+            <div class="p-2.5 rounded bg-slate-800/90 border border-slate-700"><strong>Manager Admin</strong> (<code>/admin</code>)</div>
+          </div>
+        </div>
+        <div class="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-400">
+          State: <code>AppContext</code> • Guarded Routes (React Router v7) • K80 Print Layout
+        </div>
+      </div>
+
+      <!-- Arrow -->
+      <div class="col-span-1 flex flex-col items-center justify-center text-center">
+        <div class="mono text-[10px] text-emerald-400 mb-1">HTTPS / JSON</div>
+        <div class="text-2xl text-emerald-400">⇄</div>
+        <div class="mono text-[10px] text-slate-400 mt-1">/api/v1/*<br/>Bearer Token</div>
+      </div>
+
+      <!-- Backend Tier -->
+      <div class="col-span-4 glass-card p-5 flex flex-col justify-between border-t-4 border-t-emerald-400">
+        <div>
+          <div class="mono text-xs text-emerald-400 font-bold uppercase mb-1">2. Application Tier</div>
+          <h3 class="text-lg font-bold mb-3">Spring Boot 4.1.2 (Java 21)</h3>
+          <div class="grid grid-cols-2 gap-2 text-xs text-slate-200">
+            <div class="p-2 rounded bg-slate-800/90"><strong>Spring Security</strong><br/><span class="text-slate-400">RBAC & Token Filter</span></div>
+            <div class="p-2 rounded bg-slate-800/90"><strong>REST Controllers</strong><br/><span class="text-slate-400">Domain APIs</span></div>
+            <div class="p-2 rounded bg-slate-800/90"><strong>Service Layer</strong><br/><span class="text-slate-400">Quota & POS Logic</span></div>
+            <div class="p-2 rounded bg-slate-800/90"><strong>Task Scheduler</strong><br/><span class="text-slate-400">10m Hold & Maintenance</span></div>
+          </div>
+        </div>
+        <div class="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-400">
+          ORM: Spring Data JPA / Hibernate • Transaction Management (<code>@Transactional</code>)
+        </div>
+      </div>
+
+      <!-- Data & External Tier -->
+      <div class="col-span-4 flex flex-col gap-4">
+        <div class="glass-card p-4 border-l-4 border-l-indigo-400 flex-1">
+          <div class="mono text-xs text-indigo-400 font-bold uppercase">3. Data Tier</div>
+          <h4 class="font-bold text-base mt-1">Microsoft SQL Server 2022</h4>
+          <p class="text-xs text-slate-300 mt-1">
+            <code>SportsCenterDB</code> — <strong>31 normalized tables</strong> (Users, Courts, Bookings, Memberships, Quotas, Equipment, POS Invoices, AuditLogs) with UTF-8 Vietnamese collation.
+          </p>
+        </div>
+
+        <div class="glass-card p-4 border-l-4 border-l-amber-400 flex-1">
+          <div class="mono text-xs text-amber-400 font-bold uppercase">4. External Cloud Services</div>
+          <ul class="text-xs text-slate-300 mt-2 space-y-1.5">
+            <li>💳 <strong>VNPay Sandbox:</strong> HMAC-SHA512 signed checkout & return webhook.</li>
+            <li>✨ <strong>Google Gemini API:</strong> <code>gemini-flash-lite-latest</code> AI fitness coach.</li>
+            <li>📧 <strong>Gmail SMTP:</strong> 6-digit OTP registration & password recovery.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-xs text-slate-500 flex justify-between">
+      <span>SWP391 • SportHub</span>
+      <span>Slide 4 / 12</span>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 5: TECHNOLOGY STACK ==================== -->
+  <section class="slide" data-notes="Here is our complete technology stack. We selected bleeding-edge, industry-standard tools: React 19 with Vite 8 and Tailwind CSS on the frontend, Java 21 with Spring Boot 4.1.2 on the backend, SQL Server for relational integrity, and JUnit 5 plus Playwright for automated quality assurance.">
+    <div>
+      <span class="badge-section">02 • System Design</span>
+      <h2 class="text-4xl font-extrabold mt-3">Technology Stack & Engineering Tooling</h2>
+      <p class="text-slate-400 mt-1">Modern, Type-Safe, and Production-Tested Stack</p>
+    </div>
+
+    <div class="grid grid-cols-3 gap-5 my-auto">
+      <div class="glass-card p-5">
+        <div class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-2">Frontend SPA</div>
+        <h3 class="text-xl font-bold mb-3">React 19 + Vite 8</h3>
+        <ul class="text-xs text-slate-300 space-y-2">
+          <li>• <strong>Tailwind CSS v3.4:</strong> Responsive dark/light UI & print media queries for K80 receipts.</li>
+          <li>• <strong>React Router DOM v7:</strong> Role-protected routes.</li>
+          <li>• <strong>Material Symbols:</strong> Consistent iconography.</li>
+        </ul>
+      </div>
+
+      <div class="glass-card p-5">
+        <div class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2">Backend API</div>
+        <h3 class="text-xl font-bold mb-3">Java 21 + Spring Boot 4.1.2</h3>
+        <ul class="text-xs text-slate-300 space-y-2">
+          <li>• <strong>Spring Security:</strong> Stateless token auth & role guards.</li>
+          <li>• <strong>Spring Data JPA:</strong> Complex relational queries across 31 entities.</li>
+          <li>• <strong>JavaMailSender:</strong> HTML OTP emails.</li>
+        </ul>
+      </div>
+
+      <div class="glass-card p-5">
+        <div class="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">Database & Storage</div>
+        <h3 class="text-xl font-bold mb-3">MS SQL Server 2022</h3>
+        <ul class="text-xs text-slate-300 space-y-2">
+          <li>• <strong>31 Normalized Tables:</strong> Strict foreign keys & check constraints.</li>
+          <li>• <strong>ACID Transactions:</strong> Prevents quota underflow & slot overbooking.</li>
+          <li>• <strong>Audit Trail:</strong> Immutable action logs.</li>
+        </ul>
+      </div>
+
+      <div class="glass-card p-5">
+        <div class="text-xs font-bold uppercase tracking-wider text-amber-400 mb-2">Payment & AI Integrations</div>
+        <h3 class="text-xl font-bold mb-3">VNPay + Gemini API</h3>
+        <ul class="text-xs text-slate-300 space-y-2">
+          <li>• <strong>VNPay Sandbox:</strong> Online payment with cryptographic checksum verification.</li>
+          <li>• <strong>Google Gemini Flash Lite:</strong> Context-aware workout & PT plan assistant.</li>
+        </ul>
+      </div>
+
+      <div class="glass-card p-5">
+        <div class="text-xs font-bold uppercase tracking-wider text-rose-400 mb-2">Automated Testing</div>
+        <h3 class="text-xl font-bold mb-3">JUnit 5 + Playwright E2E</h3>
+        <ul class="text-xs text-slate-300 space-y-2">
+          <li>• <strong>JUnit 5 & Mockito:</strong> Backend service & controller unit/integration tests.</li>
+          <li>• <strong>Playwright:</strong> End-to-end browser verification across all 4 user portals.</li>
+        </ul>
+      </div>
+
+      <div class="glass-card p-5">
+        <div class="text-xs font-bold uppercase tracking-wider text-purple-400 mb-2">Code Quality & DevOps</div>
+        <h3 class="text-xl font-bold mb-3">Git + Oxlint + Maven</h3>
+        <ul class="text-xs text-slate-300 space-y-2">
+          <li>• <strong>Oxlint / ESLint:</strong> Fast static code analysis for React 19 codebase.</li>
+          <li>• <strong>Maven Wrapper:</strong> Reproducible backend builds & migration scripts.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="text-xs text-slate-500 flex justify-between">
+      <span>SWP391 • SportHub</span>
+      <span>Slide 5 / 12</span>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 6: ACTORS & FEATURES (PART 1) ==================== -->
+  <section class="slide" data-notes="Section 3 covers our System Actors and Features. SportHub serves 4 primary authenticated actors plus public guests. On this slide, we detail the Member Portal and Receptionist POS Portal.">
+    <div>
+      <span class="badge-section">03 • Actors & Features</span>
+      <h2 class="text-4xl font-extrabold mt-3">Actors & Features — Customer & Front Desk</h2>
+      <p class="text-slate-400 mt-1">Role-Based Access Control across 4 specialized portals (Part 1/2)</p>
+    </div>
+
+    <div class="grid grid-cols-2 gap-6 my-auto">
+      <!-- Member -->
+      <div class="glass-card p-6 border-t-4 border-t-emerald-400">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <span class="mono text-xs text-emerald-400">ROLE_MEMBER • /member</span>
+            <h3 class="text-2xl font-bold text-white">1. Member (Customer)</h3>
+          </div>
+          <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300">Self-Service</span>
+        </div>
+        <ul class="text-sm text-slate-300 space-y-2.5">
+          <li>✅ <strong>Account & Auth:</strong> 6-digit email OTP registration, login via Email/Phone, profile management.</li>
+          <li>✅ <strong>Smart Court Booking:</strong> Filter 10 sports / 16 courts, 10-minute slot lock, pay via <strong>Membership Quota</strong> or <strong>VNPay</strong>.</li>
+          <li>✅ <strong>Class & 1-on-1 PT Registration:</strong> Enroll in group classes or book personal trainers.</li>
+          <li>✅ <strong>Membership & Vouchers:</strong> Buy/renew <code>VIP</code>, <code>PT</code>, or <code>CLASS</code> packages; apply discount vouchers; request cancellation/refunds.</li>
+          <li>✅ <strong>Digital Member Card & Fitness:</strong> View QR/RFID pass, track <strong>BMI, SMM, PBF, 1RM</strong>, check off PT homework, and chat with <strong>AI Assistant</strong>.</li>
+        </ul>
+      </div>
+
+      <!-- Receptionist -->
+      <div class="glass-card p-6 border-t-4 border-t-cyan-400">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <span class="mono text-xs text-cyan-400">ROLE_RECEPTIONIST • /receptionist</span>
+            <h3 class="text-2xl font-bold text-white">2. Receptionist (Front Desk)</h3>
+          </div>
+          <span class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300">Counter POS</span>
+        </div>
+        <ul class="text-sm text-slate-300 space-y-2.5">
+          <li>✅ <strong>Fast Multi-Modal Check-in:</strong> Instant check-in via Phone number, <strong>QR Code scan</strong>, or <strong>RFID tap</strong>.</li>
+          <li>✅ <strong>Counter POS & K80 Billing:</strong> Sell membership packages at counter (Cash / Bank Transfer / Card) & print <strong>K80 Thermal Receipts</strong>.</li>
+          <li>✅ <strong>Equipment Rental Management:</strong> Lend & receive sports gear (rackets, balls, shoes, towels) with automatic hourly fee & stock deduction.</li>
+          <li>✅ <strong>Walk-in Onboarding & Support:</strong> Register walk-in members/staff, proxy class attendance, update emergency SOS contacts.</li>
+          <li>✅ <strong>Shift Handover:</strong> Reconcile counter transactions & export <strong>End-of-Shift CSV Reports</strong>.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="text-xs text-slate-500 flex justify-between">
+      <span>SWP391 • SportHub</span>
+      <span>Slide 6 / 12</span>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 7: ACTORS & FEATURES (PART 2) ==================== -->
+  <section class="slide" data-notes="Continuing with our actors: the Coach portal empowers trainers to manage schedules, mark 3-state attendance, author AI-assisted workout plans, and track commissions. Meanwhile, the Manager/Admin portal provides executive revenue analytics, court maintenance conflict handling, a centralized approval center, and system-wide audit logs.">
+    <div>
+      <span class="badge-section">03 • Actors & Features</span>
+      <h2 class="text-4xl font-extrabold mt-3">Actors & Features — Coaching & Executive Governance</h2>
+      <p class="text-slate-400 mt-1">Role-Based Access Control across 4 specialized portals (Part 2/2)</p>
+    </div>
+
+    <div class="grid grid-cols-2 gap-6 my-auto">
+      <!-- Coach -->
+      <div class="glass-card p-6 border-t-4 border-t-amber-400">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <span class="mono text-xs text-amber-400">ROLE_COACH • /coach</span>
+            <h3 class="text-2xl font-bold text-white">3. Coach (Personal Trainer)</h3>
+          </div>
+          <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300">Training Ops</span>
+        </div>
+        <ul class="text-sm text-slate-300 space-y-2.5">
+          <li>✅ <strong>Teaching Schedule & Roster:</strong> Weekly calendar view of assigned group classes and 1-on-1 PT sessions.</li>
+          <li>✅ <strong>3-State Attendance Tracking:</strong> Mark students as <code>PRESENT</code>, <code>EXCUSED_ABSENCE</code>, or <code>UNEXCUSED_ABSENCE</code> with professional notes.</li>
+          <li>✅ <strong>AI-Assisted PT Lesson Plans:</strong> Design tailored training curriculums, assign homework, and record student body metrics.</li>
+          <li>✅ <strong>Availability & Leave Requests:</strong> Submit available time slots and request shift swaps or leave approvals.</li>
+          <li>✅ <strong>Commission & Ratings:</strong> Track personal teaching commission earnings and 5-star student feedback.</li>
+        </ul>
+      </div>
+
+      <!-- Manager / Admin -->
+      <div class="glass-card p-6 border-t-4 border-t-indigo-400">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <span class="mono text-xs text-indigo-400">ROLE_MANAGER • /admin</span>
+            <h3 class="text-2xl font-bold text-white">4. Manager & System Admin</h3>
+          </div>
+          <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300">Governance</span>
+        </div>
+        <ul class="text-sm text-slate-300 space-y-2.5">
+          <li>✅ <strong>Executive Analytics Dashboard:</strong> Real-time revenue charts, sport popularity breakdown, and court occupancy rates.</li>
+          <li>✅ <strong>16-Court & Maintenance Engine:</strong> Schedule maintenance windows (auto-locks slots, supports extensions & triggers reschedule/refund for affected bookings).</li>
+          <li>✅ <strong>Centralized Approval Center:</strong> Approve membership activations, refund requests, new staff accounts, and coach leave requests.</li>
+          <li>✅ <strong>Catalog, Vouchers & KPI:</strong> Configure packages, promotional vouchers, and staff commission KPIs.</li>
+          <li>✅ <strong>Broadcast, AI Config & Audit Logs:</strong> Send system-wide alerts, tune AI prompts, and inspect security <strong>Audit Logs</strong>.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="text-xs text-slate-500 flex justify-between">
+      <span>SWP391 • SportHub</span>
+      <span>Slide 7 / 12</span>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 8: DEMO SCENARIO 1 ==================== -->
+  <section class="slide" data-notes="In Section 4, we walk through 3 core End-to-End Demo Scenarios. Scenario 1 demonstrates a Member booking a court online, locking the slot for 10 minutes, applying either their Membership Quota or VNPay Sandbox payment, and receiving an instant QR check-in pass.">
+    <div>
+      <span class="badge-section">04 • Demo Scenarios</span>
+      <h2 class="text-4xl font-extrabold mt-3">Scenario 1: Online Court Booking & Quota / VNPay Checkout</h2>
+      <p class="text-slate-400 mt-1">Actor: <strong>Member</strong> (<code>member@sport.vn</code>) • Goal: Book a Pickleball/Badminton slot without conflict</p>
+    </div>
+
+    <div class="grid grid-cols-5 gap-4 my-auto">
+      <div class="glass-card p-5 border-t-4 border-t-emerald-400 flex flex-col justify-between">
+        <div>
+          <span class="mono text-xs text-emerald-400 font-bold">STEP 01</span>
+          <h4 class="font-bold text-base mt-1 mb-2">Discover & Filter</h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Member selects sport category (e.g., Pickleball / Badminton), date, and views real-time availability across 16 courts.
+          </p>
+        </div>
+        <div class="mono text-[11px] text-slate-400 mt-4 pt-2 border-t border-slate-800">GET /api/v1/courts</div>
+      </div>
+
+      <div class="glass-card p-5 border-t-4 border-t-cyan-400 flex flex-col justify-between">
+        <div>
+          <span class="mono text-xs text-cyan-400 font-bold">STEP 02</span>
+          <h4 class="font-bold text-base mt-1 mb-2">10-Min Slot Hold</h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Selecting a time slot creates a temporary reservation lock for <strong>10 minutes</strong> so no other user can double-book during checkout.
+          </p>
+        </div>
+        <div class="mono text-[11px] text-slate-400 mt-4 pt-2 border-t border-slate-800">Status: PENDING_PAYMENT</div>
+      </div>
+
+      <div class="glass-card p-5 border-t-4 border-t-indigo-400 flex flex-col justify-between">
+        <div>
+          <span class="mono text-xs text-indigo-400 font-bold">STEP 03</span>
+          <h4 class="font-bold text-base mt-1 mb-2">Quota vs. VNPay</h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            System checks active <code>VIP</code> package quota first; if covered, deducts hours automatically, or redirects to <strong>VNPay Sandbox</strong> with voucher support.
+          </p>
+        </div>
+        <div class="mono text-[11px] text-slate-400 mt-4 pt-2 border-t border-slate-800">HMAC-SHA512 Signed</div>
+      </div>
+
+      <div class="glass-card p-5 border-t-4 border-t-amber-400 flex flex-col justify-between">
+        <div>
+          <span class="mono text-xs text-amber-400 font-bold">STEP 04</span>
+          <h4 class="font-bold text-base mt-1 mb-2">Instant Confirmation</h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Upon VNPay return callback or quota deduction, booking transitions to <code>CONFIRMED</code> and generates a unique Digital QR Pass.
+          </p>
+        </div>
+        <div class="mono text-[11px] text-slate-400 mt-4 pt-2 border-t border-slate-800">GET /vnpay-return</div>
+      </div>
+
+      <div class="glass-card p-5 border-t-4 border-t-rose-400 flex flex-col justify-between">
+        <div>
+          <span class="mono text-xs text-rose-400 font-bold">STEP 05</span>
+          <h4 class="font-bold text-base mt-1 mb-2">Cancel / Refund Flow</h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            If cancelled before policy cutoff, member submits a refund/quota restoration request routed directly to Manager Approval Center.
+          </p>
+        </div>
+        <div class="mono text-[11px] text-slate-400 mt-4 pt-2 border-t border-slate-800">Audit Logged</div>
+      </div>
+    </div>
+
+    <div class="glass-card p-4 flex items-center justify-between text-xs text-slate-300">
+      <span>🛡️ <strong>Concurrency Safeguard:</strong> Scheduled background job automatically releases unpaid locks after 10 minutes.</span>
+      <span class="mono text-emerald-400">Result: 0% Overlapping Bookings</span>
+    </div>
+
+    <div class="text-xs text-slate-500 flex justify-between">
+      <span>SWP391 • SportHub</span>
+      <span>Slide 8 / 12</span>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 9: DEMO SCENARIO 2 ==================== -->
+  <section class="slide" data-notes="Scenario 2 showcases the Receptionist front-desk workflow: checking in a member via QR/RFID, selling a membership package via the Counter POS with an instant K80 thermal receipt, and managing equipment rental and return.">
+    <div>
+      <span class="badge-section">04 • Demo Scenarios</span>
+      <h2 class="text-4xl font-extrabold mt-3">Scenario 2: Counter Check-in, POS K80 Billing & Gear Rental</h2>
+      <p class="text-slate-400 mt-1">Actor: <strong>Receptionist</strong> (<code>reception@sport.vn</code>) • Goal: Fast front-desk service & accurate inventory/cash drawer</p>
+    </div>
+
+    <div class="grid grid-cols-12 gap-6 my-auto">
+      <div class="col-span-7 space-y-4">
+        <div class="glass-card p-4 border-l-4 border-l-cyan-400">
+          <div class="flex justify-between items-center">
+            <h4 class="font-bold text-white">1. Multi-Modal Member Check-in</h4>
+            <span class="mono text-xs text-cyan-400">&lt; 3 seconds</span>
+          </div>
+          <p class="text-xs text-slate-300 mt-1">
+            Receptionist scans Member's <strong>QR Code / RFID Card</strong> or enters Phone Number -> validates active booking/membership and logs arrival timestamp.
+          </p>
+        </div>
+
+        <div class="glass-card p-4 border-l-4 border-l-emerald-400">
+          <div class="flex justify-between items-center">
+            <h4 class="font-bold text-white">2. Counter POS Package Sale & K80 Thermal Receipt</h4>
+            <span class="mono text-xs text-emerald-400">Print-Ready CSS</span>
+          </div>
+          <p class="text-xs text-slate-300 mt-1">
+            Selects membership package (<code>VIP</code> / <code>PT</code> / <code>CLASS</code>), processes Cash/Transfer/POS payment, activates quota, and triggers browser print for a formatted <strong>80mm (K80) receipt</strong>.
+          </p>
+        </div>
+
+        <div class="glass-card p-4 border-l-4 border-l-amber-400">
+          <div class="flex justify-between items-center">
+            <h4 class="font-bold text-white">3. Equipment Rental, Return & Shift CSV Export</h4>
+            <span class="mono text-xs text-amber-400">Live Stock Sync</span>
+          </div>
+          <p class="text-xs text-slate-300 mt-1">
+            Issues rackets/shoes/balls -> deducts available inventory -> calculates hourly rental fee upon return -> exports <strong>End-of-Shift Revenue CSV</strong>.
+          </p>
+        </div>
+      </div>
+
+      <!-- Simulated K80 Receipt Preview -->
+      <div class="col-span-5 glass-card p-5 bg-slate-950 border border-slate-800 flex flex-col justify-between mono text-xs">
+        <div>
+          <div class="text-center border-b border-dashed border-slate-700 pb-3 mb-3">
+            <div class="font-bold text-sm text-white">F SPORT CENTER (SPORTHUB)</div>
+            <div class="text-[11px] text-slate-400">K80 Thermal POS Receipt Preview</div>
+          </div>
+          <div class="space-y-1.5 text-[11px] text-slate-300">
+            <div class="flex justify-between"><span>Invoice:</span><span class="text-white">#POS-2026-0891</span></div>
+            <div class="flex justify-between"><span>Cashier:</span><span>Receptionist 01</span></div>
+            <div class="flex justify-between"><span>Member:</span><span>Nguyen Van A (VIP)</span></div>
+            <div class="border-t border-dashed border-slate-700 my-2 pt-2 flex justify-between font-bold text-white">
+              <span>Item</span><span>Amount</span>
+            </div>
+            <div class="flex justify-between"><span>VIP Package (3 Months)</span><span>2,400,000 VND</span></div>
+            <div class="flex justify-between"><span>Yonex Racket Rental (2h)</span><span>60,000 VND</span></div>
+            <div class="flex justify-between text-emerald-400"><span>Voucher (SPORT10)</span><span>-240,000 VND</span></div>
+          </div>
+        </div>
+        <div class="border-t border-dashed border-slate-700 pt-3 mt-3">
+          <div class="flex justify-between font-bold text-sm text-emerald-400">
+            <span>TOTAL PAID (CASH)</span><span>2,220,000 VND</span>
+          </div>
+          <div class="text-center text-[10px] text-slate-500 mt-2">★★★ Thank you & Have a great workout! ★★★</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-xs text-slate-500 flex justify-between">
+      <span>SWP391 • SportHub</span>
+      <span>Slide 9 / 12</span>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 10: DEMO SCENARIO 3 ==================== -->
+  <section class="slide" data-notes="Scenario 3 demonstrates how Managers and Coaches collaborate: when a Manager schedules emergency court maintenance, the system locks affected slots and initiates refund/reschedule workflows. Meanwhile, Coaches track attendance, update student 1RM/BMI metrics, and generate AI-assisted PT plans.">
+    <div>
+      <span class="badge-section">04 • Demo Scenarios</span>
+      <h2 class="text-4xl font-extrabold mt-3">Scenario 3: Maintenance Conflict Resolution & Coach PT Flow</h2>
+      <p class="text-slate-400 mt-1">Actors: <strong>Manager</strong> (<code>manager@sport.vn</code>) & <strong>Coach</strong> (<code>coach@sport.vn</code>)</p>
+    </div>
+
+    <div class="grid grid-cols-12 gap-6 my-auto items-center">
+      <div class="col-span-6 space-y-4">
+        <div class="glass-card p-5 border-l-4 border-l-indigo-400">
+          <div class="text-xs font-bold uppercase text-indigo-400 mb-1">Flow A • Manager Maintenance & Approval</div>
+          <h4 class="text-lg font-bold text-white mb-2">Automated Slot Lock & Conflict Handling</h4>
+          <ol class="text-xs text-slate-300 space-y-1.5 list-decimal list-inside">
+            <li>Manager schedules maintenance on <strong>Badminton Court #2</strong>.</li>
+            <li>System automatically blocks new bookings during maintenance window.</li>
+            <li>Existing overlapping bookings are flagged for <strong>Reschedule or 100% Refund/Quota Return</strong> in Approval Center.</li>
+            <li>Every administrative action is recorded in <strong>Audit Logs</strong>.</li>
+          </ol>
+        </div>
+
+        <div class="glass-card p-5 border-l-4 border-t-amber-400 border-l-amber-400">
+          <div class="text-xs font-bold uppercase text-amber-400 mb-1">Flow B • Coach Attendance & AI PT Plan</div>
+          <h4 class="text-lg font-bold text-white mb-2">3-State Attendance & Body Metrics Progression</h4>
+          <ol class="text-xs text-slate-300 space-y-1.5 list-decimal list-inside">
+            <li>Coach marks session attendance (<code>PRESENT</code> / <code>EXCUSED</code> / <code>UNEXCUSED</code>).</li>
+            <li>Updates student metrics (<strong>BMI, SMM, PBF, 1RM</strong>) & generates PT exercises with <strong>Gemini AI</strong>.</li>
+            <li>Member checks off completed exercises & rates the Coach 5 stars.</li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- Chart.js Dashboard Preview -->
+      <div class="col-span-6 glass-card p-5">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <div class="text-xs font-bold uppercase text-emerald-400">Live Executive Analytics Preview</div>
+            <div class="text-sm font-bold text-white">Court Occupancy & Revenue by Sport</div>
+          </div>
+          <span class="mono text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Chart.js</span>
+        </div>
+        <div class="h-56">
+          <canvas id="revenueChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-xs text-slate-500 flex justify-between">
+      <span>SWP391 • SportHub</span>
+      <span>Slide 10 / 12</span>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 11: CONCLUSION (OUTCOME & LIMITATION) ==================== -->
+  <section class="slide" data-notes="In Section 5, we summarize our project outcomes and transparently discuss current limitations and future enhancements.">
+    <div>
+      <span class="badge-section">05 • Conclusion</span>
+      <h2 class="text-4xl font-extrabold mt-3">Project Outcomes, Limitations & Future Roadmap</h2>
+      <p class="text-slate-400 mt-1">Evaluating engineering deliverables and next steps</p>
+    </div>
+
+    <div class="grid grid-cols-2 gap-6 my-auto">
+      <!-- Outcomes -->
+      <div class="glass-card p-6 border-t-4 border-t-emerald-400">
+        <h3 class="text-2xl font-bold text-emerald-400 mb-4">🏆 Key Outcomes Achieved</h3>
+        <ul class="text-sm text-slate-200 space-y-3 leading-relaxed">
+          <li>✔️ <strong>Complete Full-Stack Delivery:</strong> 4 role-based portals backed by 31 normalized SQL Server tables and RESTful Spring Boot 4.1.2 APIs.</li>
+          <li>✔️ <strong>Solved Real Operational Bottlenecks:</strong> Eliminated double-booking via 10-minute slot locking and automated Membership Quota vs. VNPay checkout.</li>
+          <li>✔️ <strong>Unified O2O Experience:</strong> Connected online bookings with front-desk QR/RFID check-in, K80 thermal receipt printing, and equipment inventory tracking.</li>
+          <li>✔️ <strong>High Engineering Quality:</strong> Verified business rules and user journeys using <strong>JUnit 5</strong> unit tests and <strong>Playwright E2E</strong> automated browser tests.</li>
+        </ul>
+      </div>
+
+      <!-- Limitations & Future Work -->
+      <div class="space-y-4">
+        <div class="glass-card p-5 border-t-4 border-t-rose-400">
+          <h3 class="text-lg font-bold text-rose-400 mb-2">⚠️ Current Limitations</h3>
+          <ul class="text-xs text-slate-300 space-y-2 leading-relaxed">
+            <li>• <strong>Sandbox Payment Gateway:</strong> Online transactions currently run on VNPay Sandbox rather than live merchant production credentials.</li>
+            <li>• <strong>Hardware Simulation:</strong> QR/RFID check-in operates via web interface without physical turnstile gate or IoT smart-locker integration.</li>
+            <li>• <strong>Web-Only Client:</strong> Responsive web app, but lacks a dedicated native iOS/Android mobile app with background push notifications.</li>
+          </ul>
+        </div>
+
+        <div class="glass-card p-5 border-t-4 border-t-indigo-400">
+          <h3 class="text-lg font-bold text-indigo-400 mb-2">🚀 Future Enhancements</h3>
+          <ul class="text-xs text-slate-300 space-y-2 leading-relaxed">
+            <li>• Build a <strong>React Native Mobile App</strong> with Firebase Push Notifications for upcoming court & PT reminders.</li>
+            <li>• Integrate <strong>IoT Smart Turnstiles & Automated Court Lighting</strong> triggered directly by confirmed booking time slots.</li>
+            <li>• Upgrade <strong>AI Fitness Assistant</strong> with computer-vision posture analysis for PT homework verification.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-xs text-slate-500 flex justify-between">
+      <span>SWP391 • SportHub</span>
+      <span>Slide 11 / 12</span>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 12: Q&A ==================== -->
+  <section class="slide" data-notes="Thank you very much for your time and attention! Below are the live demo accounts for all 4 roles in SportHub. We are now happy to answer any questions from the review committee.">
+    <div class="my-auto text-center max-w-4xl mx-auto">
+      <span class="badge-section mb-4">06 • Questions & Answers</span>
+      <h1 class="text-6xl font-extrabold text-white mb-4">Thank You! Any Questions?</h1>
+      <p class="text-lg text-slate-300 mb-8">
+        We welcome feedback and questions from the SWP391 Evaluation Committee.
+      </p>
+
+      <!-- Demo Accounts Table -->
+      <div class="glass-card p-6 text-left mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">🔐 Live Demo Test Accounts (Password: 123456)</span>
+          <span class="mono text-xs text-slate-400">Frontend: localhost:5173 • Backend: localhost:8080</span>
+        </div>
+        <div class="grid grid-cols-4 gap-3 text-xs">
+          <div class="p-3 rounded-lg bg-slate-900/90 border border-slate-800">
+            <div class="font-bold text-emerald-400">1. Member Portal</div>
+            <div class="mono text-slate-200 mt-1">member@sport.vn</div>
+            <div class="text-slate-400 mt-0.5">Route: <code>/member</code></div>
+          </div>
+          <div class="p-3 rounded-lg bg-slate-900/90 border border-slate-800">
+            <div class="font-bold text-cyan-400">2. Receptionist POS</div>
+            <div class="mono text-slate-200 mt-1">reception@sport.vn</div>
+            <div class="text-slate-400 mt-0.5">Route: <code>/receptionist</code></div>
+          </div>
+          <div class="p-3 rounded-lg bg-slate-900/90 border border-slate-800">
+            <div class="font-bold text-amber-400">3. Coach Portal</div>
+            <div class="mono text-slate-200 mt-1">coach@sport.vn</div>
+            <div class="text-slate-400 mt-0.5">Route: <code>/coach</code></div>
+          </div>
+          <div class="p-3 rounded-lg bg-slate-900/90 border border-slate-800">
+            <div class="font-bold text-indigo-400">4. Manager / Admin</div>
+            <div class="mono text-slate-200 mt-1">manager@sport.vn</div>
+            <div class="text-slate-400 mt-0.5">Route: <code>/admin</code></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-xs text-slate-500 flex justify-between">
+      <span>SWP391 • SportHub Final Defense</span>
+      <span>Slide 12 / 12</span>
+    </div>
+  </section>
+
+  <!-- ==================== SPEAKER NOTES DRAWER ==================== -->
+  <div id="notes-drawer" class="fixed bottom-16 left-6 right-6 z-40 hidden glass-card p-4 border border-emerald-500/40 bg-slate-900/95 shadow-2xl">
+    <div class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1">🎙️ Speaker Notes (English Defense Script)</div>
+    <p id="notes-content" class="text-sm text-slate-200 leading-relaxed"></p>
+  </div>
+
+  <!-- ==================== BOTTOM NAVIGATION BAR ==================== -->
+  <div id="controls" class="fixed bottom-0 left-0 right-0 h-12 bg-slate-950/90 backdrop-blur border-t border-slate-800/80 z-50 flex items-center justify-between px-6">
+    <div class="flex items-center gap-3">
+      <span class="mono text-xs text-emerald-400 font-bold" id="slide-indicator">01 / 12</span>
+      <div class="w-40 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+        <div id="progress-bar" class="h-full bg-gradient-to-r from-emerald-400 to-cyan-400 transition-all duration-300" style="width: 8.33%"></div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button onclick="prevSlide()" class="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200">← Prev</button>
+      <button onclick="nextSlide()" class="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white">Next →</button>
+      <button onclick="toggleNotes()" class="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300">[S] Notes</button>
+      <button onclick="toggleFullscreen()" class="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300">[F] Fullscreen</button>
+      <button onclick="window.print()" class="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300">[P] Export PDF</button>
+    </div>
+  </div>
+
+  <script>
+    const slides = document.querySelectorAll('.slide');
+    const indicator = document.getElementById('slide-indicator');
+    const progressBar = document.getElementById('progress-bar');
+    const notesDrawer = document.getElementById('notes-drawer');
+    const notesContent = document.getElementById('notes-content');
+    let current = 0;
+    let chartInitialized = false;
+
+    function updateSlide(index) {
+      slides.forEach((s, i) => s.classList.toggle('active', i === index));
+      current = index;
+      indicator.textContent = `${String(current + 1).padStart(2, '0')} / ${slides.length}`;
+      progressBar.style.width = `${((current + 1) / slides.length) * 100}%`;
+      notesContent.textContent = slides[current].getAttribute('data-notes') || '';
+      if (current === 9 && !chartInitialized) {
+        initChart();
+        chartInitialized = true;
+      }
+    }
+
+    function nextSlide() {
+      if (current < slides.length - 1) updateSlide(current + 1);
+    }
+
+    function prevSlide() {
+      if (current > 0) updateSlide(current - 1);
+    }
+
+    function toggleNotes() {
+      notesDrawer.classList.toggle('hidden');
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextSlide(); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); prevSlide(); }
+      if (e.key === 's' || e.key === 'S') toggleNotes();
+      if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+      if (e.key === 'p' || e.key === 'P') window.print();
+    });
+
+    function initChart() {
+      const ctx = document.getElementById('revenueChart');
+      if (!ctx) return;
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Badminton', 'Pickleball', 'Tennis', 'Football', 'Gym & PT', 'Swimming'],
+          datasets: [
+            {
+              label: 'Monthly Revenue (Million VND)',
+              data: [68, 84, 52, 75, 95, 44],
+              backgroundColor: 'rgba(16, 185, 129, 0.75)',
+              borderColor: '#10B981',
+              borderWidth: 1,
+              borderRadius: 6
+            },
+            {
+              label: 'Court Occupancy (%)',
+              data: [82, 91, 68, 79, 88, 64],
+              backgroundColor: 'rgba(6, 182, 212, 0.65)',
+              borderColor: '#06B6D4',
+              borderWidth: 1,
+              borderRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#CBD5E1', font: { family: 'Plus Jakarta Sans', size: 11 } } }
+          },
+          scales: {
+            x: { ticks: { color: '#94A3B8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+            y: { ticks: { color: '#94A3B8' }, grid: { color: 'rgba(255,255,255,0.06)' } }
+          }
+        }
+      });
+    }
+
+    updateSlide(0);
+  </script>
+</body>
+</html>
