@@ -1063,7 +1063,11 @@ export default function AdminFacilitiesPage() {
                   className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 >
                   <option value="">Chọn bộ môn</option>
-                  {sports.map((sport) => <option key={sport.sportId} value={sport.sportId}>{sport.name}</option>)}
+                  {sports.map((sport) => (
+                    <option key={sport.sportId} value={sport.sportId}>
+                      {sport.sportName || sport.name}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="block text-xs font-bold text-slate-700">

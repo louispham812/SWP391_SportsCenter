@@ -1,5 +1,6 @@
 package com.sporthub.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,4 +23,9 @@ public class Sport {
 
     @Column(columnDefinition = "NVARCHAR(MAX)")
     private String description;
+
+    @JsonProperty("name")
+    public String getName() {
+        return sportName;
+    }
 }

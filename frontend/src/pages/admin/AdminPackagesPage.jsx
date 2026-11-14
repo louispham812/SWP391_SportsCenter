@@ -788,7 +788,7 @@ export default function AdminPackagesPage() {
                   <option value="">Tất cả bộ môn</option>
                   {sports.map((sport) => (
                     <option key={sport.sportId} value={sport.sportId}>
-                      {sport.name}
+                      {sport.sportName || sport.name}
                     </option>
                   ))}
                 </select>
@@ -1075,7 +1075,7 @@ export default function AdminPackagesPage() {
                   >
                     <option value="">-- Chọn bộ môn --</option>
                     {sports.map((s) => (
-                      <option key={s.sportId} value={s.sportId}>{s.name}</option>
+                      <option key={s.sportId} value={s.sportId}>{s.sportName || s.name}</option>
                     ))}
                     <option value="1">Tennis</option>
                     <option value="2">Pickleball</option>

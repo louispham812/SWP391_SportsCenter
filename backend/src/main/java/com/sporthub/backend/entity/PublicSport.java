@@ -40,4 +40,9 @@ public class PublicSport {
 
     @Column(nullable = false)
     private boolean active;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("sportName")
+    public String getSportName() {
+        return name;
+    }
 }
