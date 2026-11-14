@@ -12,6 +12,17 @@ import { getAvatarImageUrl } from '../../utils/avatarHelper';
 import FormattedAiText from '../../components/common/FormattedAiText';
 import { cleanMarkdownText } from '../../utils/markdownUtils';
 
+const SESSION_STATUS_META = {
+  PRESENT: { label: 'Có mặt', className: 'bg-emerald-100 text-emerald-800' },
+  EXCUSED_ABSENCE: { label: 'Vắng có phép', className: 'bg-amber-100 text-amber-800' },
+  UNEXCUSED_ABSENCE: { label: 'Vắng không phép', className: 'bg-rose-100 text-rose-800' },
+  ABSENT: { label: 'Vắng', className: 'bg-rose-100 text-rose-800' },
+  PENDING: { label: 'Chưa điểm danh', className: 'bg-slate-100 text-slate-700' },
+  BOOKED: { label: 'Đã đặt', className: 'bg-orange-100 text-orange-800' },
+  WAITLIST: { label: 'Danh sách chờ', className: 'bg-sky-100 text-sky-800' },
+  CANCELLED: { label: 'Đã hủy', className: 'bg-slate-200 text-slate-600' },
+};
+
 export default function CoachStudentsPage() {
   const [students, setStudents] = useState([]);
   const [rawBookings, setRawBookings] = useState([]);
@@ -745,23 +756,17 @@ export default function CoachStudentsPage() {
                                   })}
                                 </span>
                               </div>
-                              <span
-                                className={`shrink-0 font-bold px-2 py-0.5 rounded-full text-[10px] ${
-                                  session.status === 'PRESENT'
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : session.status === 'ABSENT'
-                                    ? 'bg-rose-100 text-rose-800'
-                                    : 'bg-orange-100 text-orange-800'
-                                }`}
-                              >
-                                {session.status === 'PRESENT'
-                                  ? 'Có mặt'
-                                  : session.status === 'ABSENT'
-                                  ? 'Vắng'
-                                  : session.status === 'BOOKED'
-                                  ? 'Đã đặt'
-                                  : session.status}
-                              </span>
+                              {(() => {
+                                const statusMeta = SESSION_STATUS_META[session.status] || {
+                                  label: session.status || 'Chưa rõ',
+                                  className: 'bg-slate-100 text-slate-700',
+                                };
+                                return (
+                                  <span className={`shrink-0 font-bold px-2 py-0.5 rounded-full text-[10px] ${statusMeta.className}`}>
+                                    {statusMeta.label}
+                                  </span>
+                                );
+                              })()}
                             </div>
 
                             <button
