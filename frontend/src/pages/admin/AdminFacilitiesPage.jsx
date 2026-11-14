@@ -385,11 +385,11 @@ export default function AdminFacilitiesPage() {
               Quản lý danh sách sân thi đấu, tình trạng sử dụng, xếp lịch lớp học và lên lịch bảo trì tạm khóa sân.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => setIsMaintenanceModalOpen(true)}
-              className="flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm transition-all cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm transition-all cursor-pointer whitespace-nowrap"
             >
               <span className="material-symbols-outlined text-[18px]">build</span>
               Lên lịch bảo trì sân
@@ -398,7 +398,7 @@ export default function AdminFacilitiesPage() {
               type="button"
               onClick={() => setShowAddClassModal(true)}
               disabled={!sports.length || !coaches.length || !availableFacilities.length}
-              className="flex items-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer whitespace-nowrap"
             >
               <span className="material-symbols-outlined text-[18px]">add_circle</span>
               Tạo lịch lớp mới
@@ -452,7 +452,7 @@ export default function AdminFacilitiesPage() {
               <div className="space-y-6">
                 {/* Thanh điều hướng / lọc nhanh theo môn thể thao */}
                 <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 max-w-full">
+                  <div className="flex flex-wrap items-center gap-2 max-w-full">
                     <button
                       type="button"
                       onClick={() => setSelectedSportFilter('ALL')}
@@ -1063,7 +1063,11 @@ export default function AdminFacilitiesPage() {
                   className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 >
                   <option value="">Chọn bộ môn</option>
-                  {sports.map((sport) => <option key={sport.sportId} value={sport.sportId}>{sport.name}</option>)}
+                  {sports.map((sport) => (
+                    <option key={sport.sportId} value={sport.sportId}>
+                      {sport.sportName || sport.name}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="block text-xs font-bold text-slate-700">

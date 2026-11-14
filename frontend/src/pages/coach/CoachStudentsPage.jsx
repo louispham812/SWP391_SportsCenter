@@ -12,6 +12,17 @@ import { getAvatarImageUrl } from '../../utils/avatarHelper';
 import FormattedAiText from '../../components/common/FormattedAiText';
 import { cleanMarkdownText } from '../../utils/markdownUtils';
 
+const SESSION_STATUS_META = {
+  PRESENT: { label: 'Có mặt', className: 'bg-emerald-100 text-emerald-800' },
+  EXCUSED_ABSENCE: { label: 'Vắng có phép', className: 'bg-amber-100 text-amber-800' },
+  UNEXCUSED_ABSENCE: { label: 'Vắng không phép', className: 'bg-rose-100 text-rose-800' },
+  ABSENT: { label: 'Vắng', className: 'bg-rose-100 text-rose-800' },
+  PENDING: { label: 'Chưa điểm danh', className: 'bg-slate-100 text-slate-700' },
+  BOOKED: { label: 'Đã đặt', className: 'bg-orange-100 text-orange-800' },
+  WAITLIST: { label: 'Danh sách chờ', className: 'bg-sky-100 text-sky-800' },
+  CANCELLED: { label: 'Đã hủy', className: 'bg-slate-200 text-slate-600' },
+};
+
 export default function CoachStudentsPage() {
   const [students, setStudents] = useState([]);
   const [rawBookings, setRawBookings] = useState([]);
@@ -388,7 +399,7 @@ export default function CoachStudentsPage() {
     }
     setSavingBodyLog(true);
     try {
-      await recordBodyProgress({
+      const savedLog = await recordBodyProgress({
         memberId: selectedStudentForPlan.id,
         weightKg: bodyLogForm.weightKg ? Number(bodyLogForm.weightKg) : null,
         heightCm: bodyLogForm.heightCm ? Number(bodyLogForm.heightCm) : null,
@@ -397,6 +408,21 @@ export default function CoachStudentsPage() {
         maxLiftKg: bodyLogForm.maxLiftKg ? Number(bodyLogForm.maxLiftKg) : null,
         note: bodyLogForm.note.trim() || 'HLV ghi nhận tiến độ',
       });
+      const nextWeight = savedLog?.weightKg ?? (bodyLogForm.weightKg ? Number(bodyLogForm.weightKg) : selectedStudentForPlan.weightKg);
+      const nextHeight = savedLog?.heightCm ?? (bodyLogForm.heightCm ? Number(bodyLogForm.heightCm) : selectedStudentForPlan.heightCm);
+      const nextBmi = savedLog?.bmi ?? (
+        nextWeight && nextHeight && Number(nextHeight) > 0
+          ? Number((Number(nextWeight) / Math.pow(Number(nextHeight) / 100, 2)).toFixed(2))
+          : selectedStudentForPlan.bmi
+      );
+      setSelectedStudentForPlan((prev) => (
+        prev ? { ...prev, weightKg: nextWeight, heightCm: nextHeight, bmi: nextBmi } : prev
+      ));
+      setStudents((prev) => prev.map((s) => (
+        s.id === selectedStudentForPlan.id
+          ? { ...s, weightKg: nextWeight, heightCm: nextHeight, bmi: nextBmi }
+          : s
+      )));
       showToast({ title: 'Thành công', message: `Đã ghi nhận chỉ số thể trạng & 1RM cho ${selectedStudentForPlan.name}!`, type: 'success' });
       setShowBodyLogForm(false);
       setBodyLogForm({ weightKg: '', heightCm: '', smmKg: '', pbfPercent: '', maxLiftKg: '', note: '' });
@@ -663,8 +689,8 @@ export default function CoachStudentsPage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-extrabold uppercase">
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-extrabold uppercase whitespace-nowrap">
                           ID: #{student.id}
                         </span>
                         {getFitnessLevelBadge(student.fitnessLevel)}
@@ -745,23 +771,17 @@ export default function CoachStudentsPage() {
                                   })}
                                 </span>
                               </div>
-                              <span
-                                className={`shrink-0 font-bold px-2 py-0.5 rounded-full text-[10px] ${
-                                  session.status === 'PRESENT'
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : session.status === 'ABSENT'
-                                    ? 'bg-rose-100 text-rose-800'
-                                    : 'bg-orange-100 text-orange-800'
-                                }`}
-                              >
-                                {session.status === 'PRESENT'
-                                  ? 'Có mặt'
-                                  : session.status === 'ABSENT'
-                                  ? 'Vắng'
-                                  : session.status === 'BOOKED'
-                                  ? 'Đã đặt'
-                                  : session.status}
-                              </span>
+                              {(() => {
+                                const statusMeta = SESSION_STATUS_META[session.status] || {
+                                  label: session.status || 'Chưa rõ',
+                                  className: 'bg-slate-100 text-slate-700',
+                                };
+                                return (
+                                  <span className={`shrink-0 font-bold px-2 py-0.5 rounded-full text-[10px] ${statusMeta.className}`}>
+                                    {statusMeta.label}
+                                  </span>
+                                );
+                              })()}
                             </div>
 
                             <button
@@ -851,10 +871,10 @@ export default function CoachStudentsPage() {
 
         {/* MODAL: SOẠN GIÁO ÁN & ĐÁNH GIÁ (CÁ NHÂN HOẶC CẢ LỚP) */}
         {(selectedStudentForPlan || planScope === 'class') && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto !m-0">
-            <div className="relative w-full max-w-3xl max-h-[92vh] my-auto overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl space-y-5">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-hidden !m-0">
+            <div className="relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-3xl bg-white shadow-2xl overflow-hidden">
               {/* Modal Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="shrink-0 flex items-center justify-between border-b border-slate-100 px-6 pt-6 pb-4 bg-white">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-black">
                     <span className="material-symbols-outlined text-[22px]">fitness_center</span>
@@ -883,6 +903,9 @@ export default function CoachStudentsPage() {
                   <span className="material-symbols-outlined text-[18px]">close</span>
                 </button>
               </div>
+
+              {/* Single Scrollable Modal Body */}
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
 
               {/* ITEM 3: PHẠM VI ÁP DỤNG GIÁO ÁN (CÁ NHÂN VS CẢ LỚP) */}
               <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1410,6 +1433,7 @@ export default function CoachStudentsPage() {
                   )}
                 </div>
               )}
+              </div>
             </div>
           </div>,
           document.body

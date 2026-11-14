@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { useApp } from '../../context/AppContext';
-import { generatePayment } from '../../services/apiClient';
+import { apiRequest, generatePayment } from '../../services/apiClient';
 import { getPublicPackages } from '../../services/publicContentApi';
 import { getMemberMemberships, purchaseMembership } from '../../services/memberApi';
+import { redirectToPayment } from '../../services/paymentNavigation';
 import PaymentMethodSelector from '../../components/common/PaymentMethodSelector';
 
 const formatMoney = (amount) =>
@@ -27,6 +28,28 @@ export default function MemberPackagesPage() {
   const [paymentMethod, setPaymentMethod] = useState('VNPAY');
   const [submitting, setSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState('');
+  const [voucherCode, setVoucherCode] = useState('');
+  const [voucherPreview, setVoucherPreview] = useState(null);
+  const pendingMemberships = memberships.filter((m) => ['PENDING_PAYMENT', 'PENDING_APPROVAL', 'PENDING'].includes(m.status));
+  const checkoutAmount = voucherPreview?.finalAmount ?? selectedPackage?.price;
+  const applyVoucher = async () => {
+    setCheckoutError('');
+    setVoucherPreview(null);
+    try {
+      const result = await apiRequest('/vouchers/validate', {
+        method: 'POST',
+        body: JSON.stringify({ code: voucherCode, amount: selectedPackage.price, appliesTo: 'MEMBERSHIP_ONLY' }),
+      });
+      if (!result.valid) throw new Error(result.message);
+      setVoucherPreview(result);
+    } catch (err) { setCheckoutError(err.message); }
+  };
+  const resumePayment = async (membership) => {
+    try {
+      const result = await generatePayment(membership.paymentId, 'VNPAY');
+      redirectToPayment(membership.paymentId, result.paymentUrl);
+    } catch (err) { showToast('Không thể thanh toán', err.message, 'error'); }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -69,6 +92,9 @@ export default function MemberPackagesPage() {
   };
 
   const handleOpenCheckout = (pkg, type) => {
+    if (pendingMemberships.some((m) => m.packageId === pkg.packageId)) return;
+    setVoucherCode('');
+    setVoucherPreview(null);
     setSelectedPackage(pkg);
     setActionType(type);
     setPaymentMethod('VNPAY');
@@ -108,7 +134,7 @@ export default function MemberPackagesPage() {
           
           // Show success popup
           const title = actionType === 'renew' ? 'Gia hạn thành công' : actionType === 'upgrade' ? 'Nâng cấp thành công' : 'Đăng ký thành công';
-          showToast(title, `Gói ${selectedPackage.name} đã được kích hoạt!`, 'success');
+          showToast(title, `Đã nhận thanh toán gói ${selectedPackage.name}. Gói đang chờ Quản lý duyệt.`, 'success');
           
           // Close modal and reload data
           setSelectedPackage(null);
@@ -134,24 +160,20 @@ export default function MemberPackagesPage() {
     setSubmitting(true);
     setCheckoutError('');
     try {
-      const result = await purchaseMembership(selectedPackage.packageId, paymentMethod);
+      const result = await purchaseMembership(selectedPackage.packageId, paymentMethod, voucherPreview?.voucher?.code);
 
       // Redirect to VNPay payment page
       if (paymentMethod === 'VNPAY' && result.paymentId && result.paymentStatus !== 'PAID') {
         try {
           const vnpayResult = await generatePayment(result.paymentId, 'VNPAY');
           
-          // Append bookingType to VNPay URL for return page navigation
-          const bookingType = vnpayResult.bookingType || 'MEMBERSHIP_PACKAGE';
-          const separator = vnpayResult.paymentUrl.includes('?') ? '&' : '?';
-          const paymentUrlWithType = `${vnpayResult.paymentUrl}${separator}bookingType=${encodeURIComponent(bookingType)}`;
-          
-          // Redirect to VNPay payment page
-          window.location.href = paymentUrlWithType;
+          redirectToPayment(result.paymentId, vnpayResult.paymentUrl);
           return;
         } catch (vnpayError) {
           console.error('[VNPAY] Exception:', vnpayError);
           showToast('Lỗi VNPay', vnpayError.message || 'Không thể chuyển đến trang thanh toán VNPay. Vui lòng thử lại.', 'error');
+          setSelectedPackage(null);
+          await loadData();
           setSubmitting(false);
           return;
         }
@@ -159,13 +181,17 @@ export default function MemberPackagesPage() {
 
       // Các phương thức khác (CASH_COUNTER, SANDBOX) hoặc không có paymentId
       const title = actionType === 'renew' ? 'Gia hạn thành công' : actionType === 'upgrade' ? 'Nâng cấp thành công' : 'Đăng ký thành công';
-      const message = `Gói ${selectedPackage.name} đang chờ Quản lý phê duyệt. Mã GD: ${result?.referenceCode || 'VQR-PKG'}`;
+      const message = result.paymentStatus === 'PAID'
+        ? `Gói ${selectedPackage.name} đã thanh toán và đang chờ Quản lý phê duyệt.`
+        : `Gói ${selectedPackage.name} đang chờ thanh toán tại quầy trong 10 phút. Gói chưa được kích hoạt.`;
       showToast(title, message, 'success');
       setSelectedPackage(null);
       await loadData();
     } catch (err) {
       console.error('[PACKAGE] Purchase error:', err);
       showToast('Thao tác không thành công', err.message || 'Không thể thực hiện giao dịch gói tập.', 'error');
+      setSelectedPackage(null);
+      await loadData();
     } finally {
       setSubmitting(false);
     }
@@ -199,6 +225,20 @@ export default function MemberPackagesPage() {
             <span className="material-symbols-outlined text-[20px]">error</span>
             <span>{error}</span>
           </div>
+        )}
+
+        {pendingMemberships.length > 0 && (
+          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+            <h2 className="font-bold text-amber-900">Yêu cầu gói tập đang xử lý</h2>
+            {pendingMemberships.map((m) => (
+              <div key={m.membershipId} className="flex items-center justify-between gap-3 text-sm">
+                <span>{m.packageName} — {m.status === 'PENDING_PAYMENT' ? 'Chờ thanh toán (giữ yêu cầu 10 phút)' : 'Đã thanh toán · Đang chờ duyệt'}</span>
+                {m.status === 'PENDING_PAYMENT' && m.paymentMethod === 'VNPAY' && m.paymentId && (
+                  <button type="button" onClick={() => resumePayment(m)} className="font-bold text-orange-700 underline">Tiếp tục thanh toán</button>
+                )}
+              </div>
+            ))}
+          </section>
         )}
 
         {/* Current Active Membership Banner */}
@@ -300,6 +340,7 @@ export default function MemberPackagesPage() {
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {packages.map((pkg) => {
+                const pending = pendingMemberships.find((m) => m.packageId === pkg.packageId);
                 const pkgPrice = Number(pkg.price || 0);
                 const currentPrice = currentPackage ? Number(currentPackage.price || 0) : 0;
                 const isCurrent = currentMembership && (pkg.name === currentMembership.packageName);
@@ -320,17 +361,17 @@ export default function MemberPackagesPage() {
                   >
                     <div>
                       {/* Top Badges */}
-                      <div className="flex items-center justify-between gap-2 mb-4">
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-700">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-700 whitespace-nowrap">
                           {pkg.accessType === 'ALL_DAY' ? 'Toàn Thời Gian (24/7)' : 'Khung Giờ Tiêu Chuẩn'}
                         </span>
                         {isCurrent && (
-                          <span className="rounded-full bg-orange-500 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-xs">
+                          <span className="rounded-full bg-orange-500 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-xs whitespace-nowrap">
                             Gói đang dùng
                           </span>
                         )}
                         {isHigher && (
-                          <span className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                          <span className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">
                             Nâng cấp VIP
                           </span>
                         )}
@@ -369,7 +410,11 @@ export default function MemberPackagesPage() {
 
                     {/* Actions */}
                     <div className="mt-6 pt-4 border-t border-slate-100">
-                      {isCurrent ? (
+                      {pending ? (
+                        <button type="button" disabled className="w-full rounded-xl bg-amber-100 py-3 text-xs font-bold text-amber-800">
+                          {pending.status === 'PENDING_PAYMENT' ? 'Đang chờ thanh toán' : 'Đang chờ duyệt'}
+                        </button>
+                      ) : isCurrent ? (
                         <button
                           type="button"
                           onClick={() => handleOpenCheckout(pkg, 'renew')}
@@ -471,22 +516,30 @@ export default function MemberPackagesPage() {
                   <div className="flex justify-between text-sm pt-2 border-t border-slate-200">
                     <span className="font-bold text-slate-900">Tổng thanh toán:</span>
                     <span className="text-xl font-extrabold text-orange-600">
-                      {formatMoney(selectedPackage.price)}
+                      {formatMoney(checkoutAmount)}
                     </span>
                   </div>
                 </div>
 
+                <div className="space-y-2">
+                  <label htmlFor="package-voucher" className="text-xs font-bold">Mã ưu đãi gói tập</label>
+                  <div className="flex gap-2">
+                    <input id="package-voucher" value={voucherCode} onChange={(e) => { setVoucherCode(e.target.value.toUpperCase()); setVoucherPreview(null); }} className="flex-1 min-w-0 rounded-xl border p-2 text-sm" />
+                    <button type="button" onClick={applyVoucher} disabled={!voucherCode.trim() || submitting} className="rounded-xl border px-3 text-sm font-bold">Áp dụng</button>
+                  </div>
+                  {voucherPreview && <p className="text-xs text-emerald-700">Giảm {formatMoney(voucherPreview.discountAmount)} · Còn {formatMoney(checkoutAmount)}</p>}
+                </div>
                 {/* Payment Method Selector */}
                 <PaymentMethodSelector
                   selectedMethod={paymentMethod}
                   onChange={setPaymentMethod}
-                  amount={selectedPackage.price}
+                  amount={checkoutAmount}
                   transferMemo={`VQRPKG${selectedPackage.packageId}`}
                 />
 
                 <div className="rounded-xl bg-blue-50 p-3 text-[11px] text-blue-900 flex items-center gap-2">
                   <span className="material-symbols-outlined text-sm text-blue-600 shrink-0">info</span>
-                  <span>Quyền lợi hội viên và ưu đãi giảm giá khóa học / thuê sân sẽ được kích hoạt ngay sau khi hoàn tất.</span>
+                  <span>Quyền lợi hội viên được kích hoạt sau khi thanh toán hợp lệ và Quản lý duyệt gói.</span>
                 </div>
 
                 {/* Inline Error Alert */}
@@ -522,7 +575,7 @@ export default function MemberPackagesPage() {
                     ? 'Đăng Ký (Trả Tại Quầy)'
                     : paymentMethod === 'VNPAY'
                     ? 'Thanh Toán Qua VNPAY'
-                    : 'Xác Nhận & Kích Hoạt'}
+                    : 'Xác Nhận Đăng Ký'}
                 </button>
               </div>
             </div>

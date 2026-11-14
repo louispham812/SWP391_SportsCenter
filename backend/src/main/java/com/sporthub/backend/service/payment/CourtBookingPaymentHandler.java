@@ -40,6 +40,7 @@ public class CourtBookingPaymentHandler implements BookingPaymentHandler {
     @Override
     @Transactional
     public PaymentConfirmationResult handlePaymentConfirmation(PaymentTransaction payment, Double transferAmount) {
+        if (!"PAID".equals(payment.getPaymentStatus())) throw new IllegalStateException("Giao dịch chưa được thanh toán.");
         Long paymentId = payment.getPaymentId();
         CourtBooking courtBooking = courtBookingRepository.findByPaymentId(paymentId);
         

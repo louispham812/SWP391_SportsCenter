@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { createManagerUser } from '../../services/managerApi';
 import { createReceptionistUser } from '../../services/receptionistApi';
@@ -29,11 +29,27 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
   const [emergencyContactName, setEmergencyContactName] = useState('');
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
 
-  useEffect(() => {
-    if (isOpen) {
-      setError('');
-    }
-  }, [isOpen]);
+  const resetForm = () => {
+    setRole('MEMBER');
+    setFullName('');
+    setPhone('');
+    setEmail('');
+    setPassword('SportHub@123');
+    setShowPassword(false);
+    setShowOptionalFields(false);
+    setDateOfBirth('');
+    setGender('');
+    setAddress('');
+    setRfidCode('');
+    setEmergencyContactName('');
+    setEmergencyContactPhone('');
+    setError('');
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -79,7 +95,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
         'success'
       );
       if (onSuccess) onSuccess();
-      onClose();
+      handleClose();
     } catch (err) {
       setError(err.message || 'Không thể tạo tài khoản người dùng.');
     } finally {
@@ -105,7 +121,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -125,7 +141,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
             <label htmlFor="create-user-role" className="text-xs uppercase tracking-wider text-slate-700 font-extrabold flex items-center justify-between">
               <span>ĐĂNG KÝ VỚI VAI TRÒ *</span>
               <span className="text-[10px] text-slate-400 font-semibold normal-case">
-                {isManager ? 'Quyền Manager (4 vai trò)' : 'Quyền Lễ tân (3 vai trò)'}
+                {isManager ? 'Quyền Quản lý (5 vai trò)' : 'Quyền Lễ tân (3 vai trò)'}
               </span>
             </label>
             <div className="relative">
@@ -139,7 +155,10 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
                 <option value="COACH">Huấn luyện viên (COACH)</option>
                 <option value="RECEPTIONIST">Nhân viên lễ tân (RECEPTIONIST)</option>
                 {isManager && (
-                  <option value="MANAGER">Quản lý hệ thống (MANAGER)</option>
+                  <>
+                    <option value="MANAGER">Quản lý hệ thống (MANAGER)</option>
+                    <option value="ADMIN">Quản trị viên (ADMIN)</option>
+                  </>
                 )}
               </select>
               <span className="material-symbols-outlined absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 text-[18px]">
@@ -337,7 +356,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
           <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={submitting}
               className="px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
             >

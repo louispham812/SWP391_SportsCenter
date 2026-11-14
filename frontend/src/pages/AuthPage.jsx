@@ -40,13 +40,12 @@ export default function AuthPage() {
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
-  // Register form state (4 fields required only according to spec + optional staff role)
+  // Register form state (chỉ hỗ trợ tự đăng ký tài khoản MEMBER)
   const [regForm, setRegForm] = useState({
     fullName: '',
     phone: '',
     email: '',
     password: '',
-    role: 'MEMBER',
     agreeTerms: true,
   });
 
@@ -201,18 +200,13 @@ export default function AuthPage() {
           phone: regForm.phone.trim(),
           email: regForm.email.trim(),
           password: regForm.password,
-          role: regForm.role || 'MEMBER',
+          role: 'MEMBER',
         }),
       });
       if (!response.ok) {
         throw new Error(await getErrorMessage(response));
       }
       const user = await response.json();
-      if (regForm.role === 'COACH' || regForm.role === 'RECEPTIONIST') {
-        setAuthNotice(user.message || 'Đăng ký tài khoản nhân sự thành công! Tài khoản đang chờ Quản trị viên phê duyệt kích hoạt.');
-        setActiveTab('login', true);
-        return;
-      }
       // Điều hướng trực tiếp sang trang OTP Screen theo yêu cầu của team backend
       navigate('/verify-otp', {
         state: {
@@ -591,33 +585,6 @@ export default function AuthPage() {
                         <span className="text-[11px] text-slate-400 uppercase tracking-wider font-bold">
                           * Bắt buộc điền
                         </span>
-                      </div>
-
-                      {/* Chọn loại tài khoản */}
-                      <div className="flex flex-col gap-1.5 pb-1">
-                        <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
-                          Loại tài khoản đăng ký *
-                        </label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {[
-                            { value: 'MEMBER', label: 'Hội viên' },
-                            { value: 'COACH', label: 'Huấn luyện viên' },
-                            { value: 'RECEPTIONIST', label: 'Lễ tân' },
-                          ].map((r) => (
-                            <button
-                              key={r.value}
-                              type="button"
-                              onClick={() => setRegForm({ ...regForm, role: r.value })}
-                              className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                                (regForm.role || 'MEMBER') === r.value
-                                  ? 'bg-orange-50 border-orange-500 text-orange-600 ring-1 ring-orange-500'
-                                  : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
-                              }`}
-                            >
-                              {r.label}
-                            </button>
-                          ))}
-                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">

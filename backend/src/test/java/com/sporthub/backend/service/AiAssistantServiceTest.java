@@ -175,9 +175,13 @@ class AiAssistantServiceTest {
         assertNotNull(answer);
     }
 
+    private boolean isValidApiKey(String key) {
+        return key != null && !key.isBlank() && key.startsWith("AIza") && !key.contains("your_");
+    }
+
     private String resolveApiKey() {
         String key = System.getenv("GEMINI_API_KEY");
-        if (key != null && !key.isBlank()) {
+        if (isValidApiKey(key)) {
             return key.trim();
         }
         try {
@@ -185,15 +189,18 @@ class AiAssistantServiceTest {
             if (!java.nio.file.Files.exists(envPath)) {
                 envPath = java.nio.file.Paths.get("backend/.env");
             }
+            if (!java.nio.file.Files.exists(envPath)) {
+                envPath = java.nio.file.Paths.get("../.env");
+            }
             if (java.nio.file.Files.exists(envPath)) {
                 for (String line : java.nio.file.Files.readAllLines(envPath)) {
                     if (line.startsWith("GEMINI_API_KEY=")) {
                         String val = line.substring("GEMINI_API_KEY=".length()).trim();
-                        if (!val.isBlank()) return val;
+                        if (isValidApiKey(val)) return val;
                     }
                     if (line.startsWith("app.openai.api-key=")) {
                         String val = line.substring("app.openai.api-key=".length()).trim();
-                        if (!val.isBlank()) return val;
+                        if (isValidApiKey(val)) return val;
                     }
                 }
             }

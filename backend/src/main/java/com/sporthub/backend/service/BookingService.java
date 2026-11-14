@@ -91,6 +91,10 @@ public class BookingService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private VoucherService voucherService;
     @org.springframework.beans.factory.annotation.Autowired(required = false) private CoachAvailabilityService coachAvailability;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.sporthub.backend.repository.MemberHealthProfileRepository healthProfileRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.sporthub.backend.repository.BodyProgressLogRepository bodyProgressLogRepository;
 
     public BookingService(
             BookingRepository bookingRepository,
@@ -218,12 +222,20 @@ public class BookingService {
 
     @Transactional(readOnly = true)
     public List<ClassSessionResponse> getUpcomingClasses(Long actorId, String actorRole) {
-        List<ClassSession> sessions = classSessionRepository.findAll().stream()
-                .filter(session -> "SCHEDULED".equalsIgnoreCase(session.getStatus()))
-                .filter(session -> session.getStartTime() != null && session.getStartTime().isAfter(LocalDateTime.now()))
-                .filter(session -> !"COACH".equals(actorRole) || session.getCoachId().equals(actorId))
-                .sorted((left, right) -> left.getStartTime().compareTo(right.getStartTime()))
-                .toList();
+        List<ClassSession> sessions;
+        if ("COACH".equals(actorRole)) {
+            sessions = classSessionRepository.findByCoachIdOrderByStartTimeAsc(actorId).stream()
+                    .filter(session -> !"CANCELLED".equalsIgnoreCase(session.getStatus()))
+                    .filter(session -> session.getStartTime() != null)
+                    .sorted((left, right) -> left.getStartTime().compareTo(right.getStartTime()))
+                    .toList();
+        } else {
+            sessions = classSessionRepository.findAll().stream()
+                    .filter(session -> "SCHEDULED".equalsIgnoreCase(session.getStatus()))
+                    .filter(session -> session.getStartTime() != null && session.getStartTime().isAfter(LocalDateTime.now()))
+                    .sorted((left, right) -> left.getStartTime().compareTo(right.getStartTime()))
+                    .toList();
+        }
         Map<Long, Booking> bookingsBySession = bookingRepository.findByMemberIdAndStatusIn(actorId, ALL_ACTIVE_STATUSES).stream()
                 .collect(Collectors.toMap(Booking::getSessionId, Function.identity(), (first, second) -> first));
         
@@ -234,10 +246,10 @@ public class BookingService {
                 refundRequestRepository.findByMemberIdOrderByCreatedAtDesc(actorId);
             
             for (com.sporthub.backend.entity.RefundRequest r : refundRequests) {
-                if (r.getBookingId() != null && "CLASS".equals(r.getBookingType())) {
+                if (r.getBookingId() != null && ("CLASS".equalsIgnoreCase(r.getBookingType()) || "PT".equalsIgnoreCase(r.getBookingType()))) {
                     // Only map active refund states
                     if ("PENDING_APPROVAL".equals(r.getStatus()) || "APPROVED".equals(r.getStatus())) {
-                        refundStatusMap.put(String.valueOf(r.getBookingId()), r.getStatus());
+                        refundStatusMap.putIfAbsent(String.valueOf(r.getBookingId()), r.getStatus());
                     }
                 }
             }
@@ -348,6 +360,28 @@ public class BookingService {
         Map<Long, User> members = userRepository.findAllById(
                         distinctBookings.values().stream().map(Booking::getMemberId).distinct().toList()).stream()
                 .collect(Collectors.toMap(User::getUserId, Function.identity()));
+        List<Long> memberIds = members.keySet().stream().toList();
+        Map<Long, com.sporthub.backend.entity.MemberHealthProfile> healthProfiles =
+                (healthProfileRepository == null || memberIds.isEmpty())
+                        ? Map.of()
+                        : healthProfileRepository.findByMemberIdIn(memberIds).stream()
+                                .collect(Collectors.toMap(
+                                        com.sporthub.backend.entity.MemberHealthProfile::getMemberId,
+                                        Function.identity(),
+                                        (left, right) -> left));
+        Map<Long, com.sporthub.backend.entity.BodyProgressLog> latestBodyLogs = new java.util.HashMap<>();
+        if (bodyProgressLogRepository != null) {
+            for (Long memberId : memberIds) {
+                com.sporthub.backend.entity.MemberHealthProfile hp = healthProfiles.get(memberId);
+                if (hp == null || hp.getWeightKg() == null || hp.getHeightCm() == null || hp.getBmi() == null) {
+                    List<com.sporthub.backend.entity.BodyProgressLog> logs =
+                            bodyProgressLogRepository.findByMemberIdOrderByRecordedDateDesc(memberId);
+                    if (!logs.isEmpty()) {
+                        latestBodyLogs.put(memberId, logs.get(0));
+                    }
+                }
+            }
+        }
         return distinctBookings.values().stream()
                 .sorted((left, right) -> {
                     int sessionOrder = sessionsById.get(left.getSessionId()).getStartTime()
@@ -360,6 +394,11 @@ public class BookingService {
                 .map(booking -> {
                     ClassSession session = sessionsById.get(booking.getSessionId());
                     User member = members.get(booking.getMemberId());
+                    com.sporthub.backend.entity.MemberHealthProfile hp = healthProfiles.get(booking.getMemberId());
+                    com.sporthub.backend.entity.BodyProgressLog latestLog = latestBodyLogs.get(booking.getMemberId());
+                    BigDecimal weightKg = hp != null && hp.getWeightKg() != null ? hp.getWeightKg() : (latestLog != null ? latestLog.getWeightKg() : null);
+                    BigDecimal heightCm = hp != null && hp.getHeightCm() != null ? hp.getHeightCm() : (latestLog != null ? latestLog.getHeightCm() : null);
+                    BigDecimal bmi = hp != null && hp.getBmi() != null ? hp.getBmi() : (latestLog != null ? latestLog.getBmi() : null);
                     return new CoachStudentBookingResponse(
                             booking.getBookingId(),
                             booking.getMemberId(),
@@ -371,7 +410,13 @@ public class BookingService {
                             session.getClassName(),
                             session.getStartTime(),
                             booking.getStatus(),
-                            booking.getAttendanceStatus() == null ? null : booking.getAttendanceStatus().name());
+                            booking.getAttendanceStatus() == null ? null : booking.getAttendanceStatus().name(),
+                            hp == null ? null : hp.getFitnessLevel(),
+                            hp == null ? null : hp.getFitnessGoals(),
+                            hp == null ? null : hp.getInjuryHistory(),
+                            weightKg,
+                            heightCm,
+                            bmi);
                 })
                 .toList();
     }
@@ -1117,6 +1162,9 @@ public class BookingService {
                     User coach = coaches.get(session.getCoachId());
                     boolean isCancelled = "CANCELLED".equalsIgnoreCase(booking.getStatus());
                     String refundStatus = refundStatusMap.get("CLASS_" + booking.getBookingId());
+                    if (refundStatus == null) {
+                        refundStatus = refundStatusMap.get("PT_" + booking.getBookingId());
+                    }
                     if (refundStatus == null && isCancelled) {
                         refundStatus = "REFUNDED";
                     }
@@ -1431,6 +1479,10 @@ public class BookingService {
         if (booking.getAttendanceStatus() != null && booking.getAttendanceStatus() != AttendanceStatus.PENDING)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Buổi học đã được điểm danh.");
         boolean timely = !session.getStartTime().minusHours(2).isBefore(LocalDateTime.now()) || "CANCELLED".equals(session.getStatus()) || isSessionUnderMaintenance(session);
+        CancelBookingResponse response = cancellationResult("CLASS", bookingId, userId, booking.getPaymentId(), session.getClassName(), session.getStartTime(), timely);
+        if ("PENDING_APPROVAL".equals(response.getStatus()) || "ALREADY_REQUESTED".equals(response.getStatus())) {
+            return response;
+        }
         if (Boolean.TRUE.equals(booking.getUsesMembershipQuota()) && booking.getMembershipId() != null) {
             if (timely) membershipService.refundQuotaForExcusedAbsence(booking.getMembershipId(), 1, session.getStartTime());
             else membershipService.consumeQuota(booking.getMembershipId(), 1);
@@ -1440,7 +1492,7 @@ public class BookingService {
         releasePtSession(booking, session);
         session.setBookedSlots((int) bookingRepository.countBySessionIdAndStatusIn(session.getSessionId(), ACTIVE_STATUSES));
         classSessionRepository.save(session);
-        return cancellationResult("CLASS", bookingId, userId, booking.getPaymentId(), session.getClassName(), session.getStartTime(), timely);
+        return response;
     }
 
     @Transactional
@@ -1450,6 +1502,11 @@ public class BookingService {
         if (!List.of("PENDING", "CONFIRMED").contains(booking.getStatus())) throw new ResponseStatusException(HttpStatus.CONFLICT, "Lịch không thể hủy.");
         boolean timely = !booking.getStartTime().minusHours(2).isBefore(LocalDateTime.now())
             || courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(booking.getCourtId(), booking.getEndTime(), booking.getStartTime());
+        String title = sportsCourtRepository.findById(booking.getCourtId()).map(SportsCourt::getCourtName).orElse("Sân thể thao");
+        CancelBookingResponse response = cancellationResult("COURT", id, userId, booking.getPaymentId(), title, booking.getStartTime(), timely);
+        if ("PENDING_APPROVAL".equals(response.getStatus()) || "ALREADY_REQUESTED".equals(response.getStatus())) {
+            return response;
+        }
         if (Boolean.TRUE.equals(booking.getUsesMembershipQuota()) && booking.getMembershipId() != null) {
             double hours = booking.getQuotaHoursUsed().doubleValue();
             if (timely) membershipService.releaseCourtQuota(booking.getMembershipId(), hours);
@@ -1457,8 +1514,7 @@ public class BookingService {
             booking.setQuotaState(timely ? "RELEASED" : "USED");
         }
         booking.setStatus("CANCELLED"); courtBookingRepository.save(booking);
-        String title = sportsCourtRepository.findById(booking.getCourtId()).map(SportsCourt::getCourtName).orElse("Sân thể thao");
-        return cancellationResult("COURT", id, userId, booking.getPaymentId(), title, booking.getStartTime(), timely);
+        return response;
     }
 
     private CancelBookingResponse cancellationResult(String type, Long id, Long user, Long paymentId, String title, LocalDateTime start, boolean timely) {
@@ -1492,7 +1548,7 @@ public class BookingService {
     public boolean isRefundEligible(PaymentTransaction payment) {
         if (payment.getMembershipId() != null) {
             return userMembershipRepository.findById(payment.getMembershipId()).map(m ->
-                List.of("PENDING_APPROVAL", "REJECTED").contains(m.getStatus())
+                List.of("PENDING_APPROVAL", "REJECTED", "CANCELLED").contains(m.getStatus())
                 || ("ACTIVE".equals(m.getStatus()) && m.getUsedQuotaSessions() == 0 && m.getHeldQuotaSessions() == 0 && m.getUsedQuotaCourts() == 0 && m.getHeldQuotaCourts() == 0)).orElse(false);
         }
         if ("COURT".equals(payment.getBookingType())) {
@@ -1517,7 +1573,7 @@ public class BookingService {
     public void prepareRefund(PaymentTransaction payment) {
         if (payment.getMembershipId() != null) {
             UserMembership m = userMembershipRepository.findByIdForUpdate(payment.getMembershipId()).orElseThrow();
-            if (!List.of("ACTIVE", "PENDING_APPROVAL", "REJECTED").contains(m.getStatus())
+            if (!List.of("ACTIVE", "PENDING_APPROVAL", "REJECTED", "CANCELLED").contains(m.getStatus())
                     || (m.getUsedQuotaSessions() != null && m.getUsedQuotaSessions() > 0)
                     || (m.getHeldQuotaSessions() != null && m.getHeldQuotaSessions() > 0)
                     || (m.getUsedQuotaCourts() != null && m.getUsedQuotaCourts() > 0)
@@ -1539,7 +1595,7 @@ public class BookingService {
 
     @Transactional
     public void cancelBookingAfterRefund(Long id, String type, Long refundId) {
-        if ("COURT".equals(type)) {
+        if ("COURT".equalsIgnoreCase(type)) {
             CourtBooking booking = courtBookingRepository.findByIdForUpdate(id).orElseThrow();
             if ("CANCELLED".equals(booking.getStatus())) return;
             if ("CHECKED_IN".equals(booking.getStatus())) throw new ResponseStatusException(HttpStatus.CONFLICT, "Sân đã check-in, cần đối soát.");
@@ -1551,6 +1607,39 @@ public class BookingService {
             ClassSession session = classSessionRepository.findByIdForUpdate(booking.getSessionId()).orElseThrow();
             releasePtSession(booking, session);
             session.setBookedSlots((int) bookingRepository.countBySessionIdAndStatusIn(session.getSessionId(), ACTIVE_STATUSES)); classSessionRepository.save(session);
+        }
+    }
+
+    /**
+     * Khôi phục trạng thái đăng ký lớp / đặt sân khi yêu cầu hoàn tiền bị từ chối (REJECTED).
+     */
+    @Transactional
+    public void restoreBookingAfterRefundRejection(Long id, String type) {
+        if (id == null || type == null) return;
+        if ("COURT".equalsIgnoreCase(type)) {
+            courtBookingRepository.findByIdForUpdate(id).ifPresent(booking -> {
+                if ("CANCELLED".equalsIgnoreCase(booking.getStatus())) {
+                    booking.setStatus("CONFIRMED");
+                    courtBookingRepository.save(booking);
+                }
+            });
+        } else {
+            bookingRepository.findByIdForUpdate(id).ifPresent(booking -> {
+                if ("CANCELLED".equalsIgnoreCase(booking.getStatus())) {
+                    booking.setStatus("CONFIRMED");
+                    bookingRepository.save(booking);
+                    classSessionRepository.findByIdForUpdate(booking.getSessionId()).ifPresent(session -> {
+                        boolean isPt = "PT".equalsIgnoreCase(type) || (booking.getPaymentId() != null
+                                && paymentTransactionRepository.findById(booking.getPaymentId())
+                                        .map(p -> "PT".equals(p.getBookingType())).orElse(false));
+                        if (isPt && "CANCELLED".equalsIgnoreCase(session.getStatus())) {
+                            session.setStatus("SCHEDULED");
+                        }
+                        session.setBookedSlots((int) bookingRepository.countBySessionIdAndStatusIn(session.getSessionId(), ACTIVE_STATUSES));
+                        classSessionRepository.save(session);
+                    });
+                }
+            });
         }
     }
 

@@ -371,11 +371,21 @@ public class WorkoutProgressController {
             }
         }
 
-        // Tự động tính BMI nếu chưa có nhưng có weight và height
+        com.sporthub.backend.entity.MemberHealthProfile existingProfile = healthProfileRepository != null
+                ? healthProfileRepository.findByMemberId(targetMemberId).orElse(null)
+                : null;
+        BigDecimal effectiveWeight = (req != null && req.weightKg() != null)
+                ? req.weightKg()
+                : (existingProfile != null ? existingProfile.getWeightKg() : null);
+        BigDecimal effectiveHeight = (req != null && req.heightCm() != null)
+                ? req.heightCm()
+                : (existingProfile != null ? existingProfile.getHeightCm() : null);
+
+        // Tự động tính BMI nếu chưa có nhưng có weight và height (kể cả lấy height sẵn có từ hồ sơ)
         BigDecimal bmi = req != null ? req.bmi() : null;
-        if (bmi == null && req != null && req.weightKg() != null && req.heightCm() != null && req.heightCm().compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal heightM = req.heightCm().divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
-            bmi = req.weightKg().divide(heightM.multiply(heightM), 2, RoundingMode.HALF_UP);
+        if (bmi == null && effectiveWeight != null && effectiveHeight != null && effectiveHeight.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal heightM = effectiveHeight.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
+            bmi = effectiveWeight.divide(heightM.multiply(heightM), 2, RoundingMode.HALF_UP);
         }
 
         BodyProgressLog log = BodyProgressLog.builder()
@@ -395,17 +405,18 @@ public class WorkoutProgressController {
 
         if (healthProfileRepository != null && req != null) {
             try {
-                com.sporthub.backend.entity.MemberHealthProfile hp = healthProfileRepository.findByMemberId(targetMemberId)
-                        .orElseGet(() -> {
-                            com.sporthub.backend.entity.MemberHealthProfile created = new com.sporthub.backend.entity.MemberHealthProfile();
-                            created.setMemberId(targetMemberId);
-                            return created;
-                        });
+                com.sporthub.backend.entity.MemberHealthProfile hp = existingProfile != null
+                        ? existingProfile
+                        : new com.sporthub.backend.entity.MemberHealthProfile();
+                if (hp.getMemberId() == null) {
+                    hp.setMemberId(targetMemberId);
+                }
                 if (req.weightKg() != null) hp.setWeightKg(req.weightKg());
                 if (req.heightCm() != null) hp.setHeightCm(req.heightCm());
                 if (req.smmKg() != null) hp.setSmmKg(req.smmKg());
                 if (req.pbfPercent() != null) hp.setPbfPercent(req.pbfPercent());
                 if (bmi != null) hp.setBmi(bmi);
+                hp.setUpdatedAt(LocalDateTime.now());
                 healthProfileRepository.save(hp);
             } catch (Exception ignored) {}
         }

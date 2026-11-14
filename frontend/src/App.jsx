@@ -62,6 +62,7 @@ import AdminAuditLogPage from './pages/admin/AdminAuditLogPage';
 import AdminMaintenancePage from './pages/admin/AdminMaintenancePage';
 import AdminPaymentReconciliationPage from './pages/admin/AdminPaymentReconciliationPage';
 import ToastContainer from './components/ToastContainer';
+import PaymentResumeBoundary from './components/PaymentResumeBoundary';
 
 import { AppProvider, useApp } from './context/AppContext';
 
@@ -84,6 +85,7 @@ function App() {
     <AppProvider>
       <BrowserRouter>
         <ToastContainer />
+        <PaymentResumeBoundary>
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
@@ -102,6 +104,7 @@ function App() {
           <Route path="/verify-otp" element={<OtpVerificationPage />} />
           <Route path="/otp" element={<OtpVerificationPage />} />
           <Route path="/payment/return" element={<VNPayReturnPage />} />
+          <Route path="/vnpay-return" element={<VNPayReturnPage />} />
 
           {/* Member Routes */}
           <Route path="/member" element={<RequireRole role="member"><MemberDashboardPage /></RequireRole>} />
@@ -168,6 +171,7 @@ function App() {
           {/* Fallback Route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </PaymentResumeBoundary>
       </BrowserRouter>
     </AppProvider>
   );

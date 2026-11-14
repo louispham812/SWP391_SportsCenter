@@ -12,6 +12,7 @@ import {
   getMemberBookingSchedule,
 } from '../../services/bookingApi';
 import { apiRequest, generatePayment } from '../../services/apiClient';
+import { redirectToPayment } from '../../services/paymentNavigation';
 import PaymentMethodSelector from '../../components/common/PaymentMethodSelector';
 import { getSportMedia } from '../../utils/mediaMap';
 
@@ -649,7 +650,7 @@ function ClassPicker({ sportId }) {
                   onClick={() => navigate(`/member/book/checkout/class/${classSession.sessionId}`)}
                   className="mt-5 w-full rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/20 transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
                 >
-                  {alreadyBooked ? 'Bạn đã đăng ký lớp này' : remaining < 1 ? 'Lớp đã hết chỗ' : 'Chọn lớp & thanh toán'}
+                  {alreadyBooked ? (classSession.memberBookingStatus === 'BOOKED' ? 'Đang chờ thanh toán' : 'Bạn đã đăng ký lớp này') : remaining < 1 ? 'Lớp đã hết chỗ' : 'Chọn lớp & thanh toán'}
                 </button>
               </article>
             );
@@ -961,10 +962,10 @@ function CheckoutPage({ bookingType, itemId }) {
     try {
       const res = await apiRequest('/vouchers/validate', {
         method: 'POST',
-        body: JSON.stringify({ code, amount: originalPrice, appliesTo: 'BOOKING_ONLY' }),
+        body: JSON.stringify({ code, amount: Math.max(0, originalPrice - systemDiscount), appliesTo: 'BOOKING_ONLY' }),
       });
       if (res && res.valid && res.voucher) {
-        setAppliedVoucher(res.voucher);
+        setAppliedVoucher({ ...res.voucher, calculatedDiscount: res.discountAmount });
       } else {
         setVoucherError(res?.message || 'Mã ưu đãi không hợp lệ.');
       }
@@ -995,14 +996,7 @@ function CheckoutPage({ bookingType, itemId }) {
   const originalPrice = quote?.originalAmount ?? quote?.amount ?? 0;
   const systemDiscount = quote?.discountAmount ?? 0;
 
-  let voucherDiscount = 0;
-  if (paymentMode === 'RETAIL' && appliedVoucher) {
-    if (appliedVoucher.discountType === 'PERCENT') {
-      voucherDiscount = Math.round((originalPrice * appliedVoucher.discountValue) / 100);
-    } else if (appliedVoucher.discountType === 'FIXED') {
-      voucherDiscount = Math.min(originalPrice, appliedVoucher.discountValue);
-    }
-  }
+  const voucherDiscount = paymentMode === 'RETAIL' ? Number(appliedVoucher?.calculatedDiscount || 0) : 0;
 
   const finalRetailPrice = Math.max(0, originalPrice - systemDiscount - voucherDiscount);
   const finalPrice = paymentMode === 'QUOTA' ? 0 : finalRetailPrice;
@@ -1059,13 +1053,7 @@ function CheckoutPage({ bookingType, itemId }) {
         try {
           const vnpayResult = await generatePayment(confirmation.paymentId, 'VNPAY');
           
-          // Append bookingType to VNPay URL for return page navigation
-          const bookingType = vnpayResult.bookingType || bookingType.toUpperCase();
-          const separator = vnpayResult.paymentUrl.includes('?') ? '&' : '?';
-          const paymentUrlWithType = `${vnpayResult.paymentUrl}${separator}bookingType=${encodeURIComponent(bookingType)}`;
-          
-          // Redirect to VNPay payment page
-          window.location.href = paymentUrlWithType;
+          redirectToPayment(confirmation.paymentId, vnpayResult.paymentUrl);
           return;
         } catch (vnpayError) {
           console.error('[VNPAY] Exception:', vnpayError);
@@ -1079,21 +1067,6 @@ function CheckoutPage({ bookingType, itemId }) {
       navigate('/member/book/confirmation', { replace: true, state: { confirmation } });
       
     } catch (requestError) {
-      if (bookingType.toLowerCase() === 'pt') {
-        const confirmation = {
-          referenceCode: `BK-PT-${Date.now().toString().slice(-6)}`,
-          itemName: quote.itemName,
-          sportName: quote.sportName,
-          location: quote.location,
-          startTime: quote.startTime,
-          endTime: quote.endTime,
-          amountPaid: finalPrice,
-          paymentStatus: paymentMethod === 'CASH_COUNTER' ? 'CHỜ THANH TOÁN TẠI QUẦY' : 'THÀNH CÔNG',
-          paymentMethod,
-        };
-        navigate('/member/book/confirmation', { replace: true, state: { confirmation } });
-        return;
-      }
       setError(requestError.message || 'Thanh toán booking thất bại.');
       setSubmitting(false);
     }
@@ -1518,11 +1491,11 @@ function BookingConfirmationPage() {
     );
   }
   return (
-    <PageFrame title="Booking đã xác nhận" description="Giao dịch và lịch hẹn của bạn đã được xác nhận thành công trên hệ thống.">
+    <PageFrame title={confirmation.paymentStatus === 'PAID' ? 'Booking đã xác nhận' : 'Booking chờ thanh toán'} description={confirmation.paymentStatus === 'PAID' ? 'Giao dịch và lịch hẹn đã được xác nhận.' : 'Chỗ được giữ tối đa 10 phút. Lịch chỉ được xác nhận sau khi lễ tân thu tiền hoặc ngân hàng xác nhận thanh toán.'}>
       <div className="mx-auto max-w-2xl rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm sm:p-8 space-y-4">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold uppercase tracking-wider">
           <span className="material-symbols-outlined text-[16px]">check_circle</span>
-          {confirmation.paymentStatus} · {confirmation.referenceCode}
+          {confirmation.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chờ thanh toán'} · {confirmation.referenceCode}
         </div>
         <h2 className="text-2xl font-bold text-slate-900">{confirmation.itemName}</h2>
         <p className="text-sm text-slate-500">{confirmation.sportName} · {confirmation.location}</p>

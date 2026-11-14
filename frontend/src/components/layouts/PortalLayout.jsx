@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { getMemberNotifications } from '../../services/memberApi';
 import { getNotifications, markNotificationRead } from '../../services/engagementApi';
 import { getAvatarImageUrl, getAvatarInitials } from '../../utils/avatarHelper';
+import { getPortalHomePath } from '../../utils/portalRoute';
 
 const parseNotifications = (data) => {
   const rawList = Array.isArray(data)
@@ -44,7 +45,8 @@ export default function PortalLayout({
   const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useApp();
+  const { currentRole, logout } = useApp();
+  const portalHomePath = getPortalHomePath(role, getPortalHomePath(currentRole, '/'));
 
   const searchInputRef = useRef(null);
 
@@ -146,16 +148,20 @@ export default function PortalLayout({
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex flex-col">
+        <div className="flex flex-col min-h-0 flex-1 overflow-y-auto pb-3">
           {/* Brand Header */}
           <div className="px-5 pt-4 pb-3">
-            <Link to="/" className="flex items-center gap-2.5 group">
+            <Link
+              to={portalHomePath}
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2.5 group"
+            >
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 shadow-md shadow-orange-500/25 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
                 <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-white drop-shadow-sm" xmlns="http://www.w3.org/2000/svg">
                   <path d="M7 4H19L17.5 8H11.5L10.5 11H16.5L15 15H10L8.5 20H4.5L7 4Z" fill="currentColor" />
                 </svg>
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col min-h-0 flex-1 overflow-y-auto pb-3">
                 <span className="font-headline-sm text-[15px] text-slate-900 tracking-tight font-black leading-tight">
                   F SPORT <span className="text-orange-500">CENTER</span>
                 </span>
@@ -218,7 +224,7 @@ export default function PortalLayout({
         </div>
 
         {/* User Card & Logout Bottom */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200">
+        <div className="p-4 bg-slate-50 border-t border-slate-200 shrink-0">
           <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-slate-200 shadow-sm">
             <div className="w-10 h-10 rounded-full bg-slate-900 text-orange-400 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm overflow-hidden">
               {getAvatarImageUrl(currentUser?.avatar) ? (
@@ -261,13 +267,13 @@ export default function PortalLayout({
       {/* =========================================
           2. FIXED TOP HEADER (Synchronized Across Roles)
          ========================================= */}
-      <div className="lg:pl-72 flex-1 flex flex-col min-h-screen">
+      <div className="lg:pl-72 flex-1 flex flex-col min-h-screen min-w-0">
         <header className="sticky top-0 h-14 bg-white/95 backdrop-blur-xl z-40 border-b border-slate-200 shadow-[0_1px_4px_rgba(0,0,0,0.03)] flex items-center justify-between px-4 lg:px-6">
           {/* Left: Mobile Toggle + Search Trigger Button */}
-          <div className="flex items-center gap-3 flex-1 max-w-xl">
+          <div className="flex items-center gap-3 flex-1 min-w-0 max-w-xl">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 cursor-pointer"
+              className="lg:hidden w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 cursor-pointer shrink-0"
               type="button"
               aria-label="Toggle menu"
             >
@@ -277,7 +283,7 @@ export default function PortalLayout({
             {/* Clickable Quick Search Bar that opens Command Palette */}
             <div
               onClick={() => setSearchOpen(true)}
-              className="relative flex items-center w-full h-9 px-3 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-500 text-xs cursor-pointer transition-all shadow-inner select-none"
+              className="relative flex items-center w-full min-w-0 h-9 px-3 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-500 text-xs cursor-pointer transition-all shadow-inner select-none"
             >
               <span className="material-symbols-outlined text-slate-400 text-[18px] mr-2.5">
                 search
@@ -335,7 +341,7 @@ export default function PortalLayout({
 
               {/* Notification Flyout Menu */}
               {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="pb-3 border-b border-slate-100 flex items-center justify-between">
                     <h3 className="font-headline-sm text-sm font-bold text-slate-900">Thông báo</h3>
                     <button

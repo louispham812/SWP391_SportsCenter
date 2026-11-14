@@ -375,10 +375,10 @@ export default function MemberWorkoutPlansPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               onClick={() => setShowAddLogModal(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-md transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-md transition cursor-pointer whitespace-nowrap"
               type="button"
             >
               <span className="material-symbols-outlined text-[18px]">add_chart</span>
@@ -386,7 +386,7 @@ export default function MemberWorkoutPlansPage() {
             </button>
             <button
               onClick={() => setEditHealthMode(!editHealthMode)}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-md shadow-orange-500/20 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-md shadow-orange-500/20 transition cursor-pointer whitespace-nowrap"
               type="button"
             >
               <span className="material-symbols-outlined text-[18px]">

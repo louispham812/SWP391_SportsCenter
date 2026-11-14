@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
 import { apiRequest, generatePayment } from '../../services/apiClient';
+import { redirectToPayment } from '../../services/paymentNavigation';
 import QrCodeSvg from '../../components/common/QrCodeSvg';
 
 const formatPrice = (amount) => new Intl.NumberFormat('vi-VN', {
@@ -108,7 +109,7 @@ export default function ReceptionPOSPage() {
           
           // Redirect to VNPay payment page (same tab - giữ sessionStorage)
           // VNPay sẽ redirect về /payment/return sau khi thanh toán
-          window.location.href = vnpayResult.paymentUrl;
+          redirectToPayment(result.paymentId, vnpayResult.paymentUrl);
           return; // Stop execution after redirect
         } catch (vnpayError) {
           setError(vnpayError.message || 'Không thể tạo thanh toán VNPay. Vui lòng thử lại.');

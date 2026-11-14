@@ -112,6 +112,13 @@ export default function MemberNotificationsPage() {
           badge: 'Đánh Giá HLV',
           badgeColor: 'bg-emerald-100 text-emerald-800',
         };
+      case 'REFUND':
+        return {
+          icon: 'currency_exchange',
+          color: 'bg-indigo-50 text-indigo-600 border-indigo-200',
+          badge: 'Hoàn Tiền',
+          badgeColor: 'bg-indigo-100 text-indigo-800',
+        };
       default:
         return {
           icon: 'campaign',
@@ -185,6 +192,7 @@ export default function MemberNotificationsPage() {
             { id: 'CLASS_REMINDER', label: 'Lịch học' },
             { id: 'MEMBERSHIP_EXPIRY', label: 'Gói thành viên' },
             { id: 'COACH_FEEDBACK', label: 'Đánh giá HLV' },
+            { id: 'REFUND', label: 'Hoàn tiền' },
             { id: 'SYSTEM', label: 'Hệ thống' },
           ].map((tab) => (
             <button

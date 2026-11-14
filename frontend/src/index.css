@@ -3,6 +3,14 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    font-size: 17px;
+  }
+  @media (min-width: 1440px) {
+    html {
+      font-size: 18px;
+    }
+  }
   html, body {
     margin: 0;
     padding: 0;
@@ -10,6 +18,16 @@
     background-color: #f7f9fb;
     color: #0f172a;
     font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+}
+
+/* Scale up tiny 9-11px utility labels for readability on large demo screens */
+@layer utilities {
+  .text-\[9px\],
+  .text-\[10px\],
+  .text-\[11px\] {
+    font-size: 0.75rem !important;
+    line-height: 1rem !important;
   }
 }
 

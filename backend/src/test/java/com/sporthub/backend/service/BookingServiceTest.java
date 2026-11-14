@@ -528,6 +528,30 @@ class BookingServiceTest {
         org.junit.jupiter.api.Assertions.assertFalse(hasSlotInMaint, "Slots must exclude maintenance period");
     }
 
+    @Test
+    void coachCanViewOngoingAndAssignedClassesEvenIfStarted() {
+        LocalDateTime startedAnHourAgo = LocalDateTime.now().minusHours(1);
+        ClassSession ongoingSession = ClassSession.builder()
+                .sessionId(101L)
+                .className("Ongoing Class")
+                .coachId(7L)
+                .sportId(1L)
+                .facilityId(1L)
+                .startTime(startedAnHourAgo)
+                .endTime(startedAnHourAgo.plusHours(2))
+                .status("SCHEDULED")
+                .maxSlots(10)
+                .priceAmount(BigDecimal.valueOf(100000))
+                .build();
+        when(classSessionRepository.findByCoachIdOrderByStartTimeAsc(7L)).thenReturn(List.of(ongoingSession));
+        when(userRepository.findAllById(any())).thenReturn(List.of(User.builder().userId(7L).fullName("Coach Phat").build()));
+
+        var result = bookingService.getUpcomingClasses(7L, "COACH");
+        assertEquals(1, result.size());
+        assertEquals(101L, result.get(0).sessionId());
+        assertEquals("Ongoing Class", result.get(0).className());
+    }
+
     private SportsCourt court() {
         SportsCourt court = new SportsCourt();
         court.setCourtId(33L);

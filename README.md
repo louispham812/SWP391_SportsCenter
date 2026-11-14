@@ -38,7 +38,7 @@ Trung tâm thể thao đa năng **F Sport Center (SportHub)** phục vụ 10 b�
 | **Routing** | **React Router DOM v7** | Quản lý điều hướng trang và bảo vệ route theo phân quyền đăng nhập |
 | **Backend** | **Java 21**, **Spring Boot 4.1.2**, **Spring Data JPA**, **Spring Security** | Cung cấp hệ thống RESTful API (`/api/v1`), xác thực Bearer Token, gửi OTP qua Gmail SMTP |
 | **Tích hợp mở rộng** | **VNPay Sandbox**, **Google Gemini API** (`gemini-flash-lite-latest`) | Thanh toán trực tuyến có chữ ký số & Trợ lý AI tư vấn tập luyện |
-| **Cơ sở dữ liệu** | **Microsoft SQL Server** (2019 / 2022) | Lưu trữ dữ liệu chuẩn hóa 30 bảng (`SportsCenterDB`), mã hóa UTF-8 |
+| **Cơ sở dữ liệu** | **Microsoft SQL Server** (2019 / 2022) | Lưu trữ dữ liệu chuẩn hóa 32 bảng (`SportsCenterDB`), mã hóa UTF-8 |
 | **Kiểm thử & Công cụ** | **JUnit 5**, **Playwright E2E**, **Oxlint**, **Git / GitHub** | Kiểm thử Unit/Integration Backend và kiểm thử tự động luồng giao diện E2E |
 
 ---
@@ -86,27 +86,42 @@ SWP391_SportsCenter/
 │   │   │   ├── receptionist/            # Giao diện Lễ tân (Check-in, Quầy POS, Thiết bị, Lớp học, Kết ca...)
 │   │   │   ├── coach/                   # Giao diện HLV (Lịch dạy, Học viên/Giáo án, Điểm danh, Đánh giá...)
 │   │   │   ├── admin/                   # Giao diện Quản lý & Admin (Dashboard, Sân, Bảo trì, Duyệt, Audit...)
+│   │   │   ├── AboutPage.jsx            # Trang giới thiệu trung tâm
 │   │   │   ├── AuthPage.jsx             # Màn hình Đăng nhập / Đăng ký
-│   │   │   ├── OtpVerificationPage.jsx  # Màn hình xác thực OTP 6 số
+│   │   │   ├── ChangePasswordPage.jsx   # Màn hình đổi mật khẩu
 │   │   │   ├── ForgotPasswordPage.jsx   # Màn hình quên mật khẩu
-│   │   │   ├── VNPayReturnPage.jsx      # Màn hình kết quả thanh toán VNPay
-│   │   │   └── LandingPage.jsx          # Trang chủ giới thiệu trung tâm
+│   │   │   ├── LandingPage.jsx          # Trang chủ giới thiệu trung tâm
+│   │   │   ├── OtpVerificationPage.jsx  # Màn hình xác thực OTP 6 số
+│   │   │   ├── PricingPage.jsx          # Trang bảng giá gói tập & dịch vụ
+│   │   │   ├── PublicContentPage.jsx    # Trang nội dung công khai
+│   │   │   ├── ResetPasswordPage.jsx    # Màn hình đặt lại mật khẩu
+│   │   │   ├── VerifyCodePage.jsx       # Màn hình xác minh mã
+│   │   │   └── VNPayReturnPage.jsx      # Màn hình kết quả thanh toán VNPay
 │   │   ├── services/                    # Các hàm gọi REST API kết nối tới Backend
 │   │   ├── App.jsx                      # Cấu hình Routing và Route Guards bảo vệ theo vai trò
 │   │   └── main.jsx                     # Entry point của ứng dụng React
-│   ├── e2e/                             # 6 bộ kịch bản kiểm thử tự động Playwright E2E
+│   ├── e2e/                             # 9 bộ kịch bản kiểm thử tự động Playwright E2E (.spec.js)
 │   └── package.json
 │
 ├── backend/                             # Mã nguồn Backend (Spring Boot 4.1.2 - Java 21)
 │   ├── src/main/java/com/sporthub/      # Controller, Service, Repository, Entity, DTO, Security
 │   ├── src/main/resources/              # Cấu hình application.properties & schema.sql
-│   ├── src/test/                        # 18 bộ kiểm thử Unit & Integration (JUnit 5)
+│   ├── src/test/                        # 29 bộ kiểm thử Unit & Integration (JUnit 5)
 │   └── pom.xml
 │
-├── docs/                                # Tài liệu đặc tả 23 Quy tắc Nghiệp vụ (BUSINESS_RULES.md)
-├── DATABASEchuan.sql                    # Script khởi tạo Cơ sở dữ liệu SQL Server chuẩn hóa (30 bảng)
+├── docs/                                # Tài liệu dự án & hồ sơ bảo vệ
+│   ├── BUSINESS_RULES.md                # Đặc tả 23 Quy tắc Nghiệp vụ & BUSINESS_RULES.csv
+│   ├── demo/                            # Kịch bản bảo vệ hội đồng (KICH_BAN_DEMO_BAO_VE.md & .docx)
+│   ├── specs/                           # Tài liệu đặc tả SRD (SRD_Document.md) & theo dõi dự án (PROJECT_TRACKING_FINAL.csv)
+│   ├── diagrams/                        # Sơ đồ kiến trúc hệ thống, ERD (.drawio/.png) & Usecase
+│   └── slides/                          # Slide thuyết trình (SWP391_SportHub_Presentation.html, SportHub_Presentation.pptx)
+├── postman/                             # Bộ collection kiểm thử API bằng Postman
+├── DATABASEchuan.sql                    # Script khởi tạo Cơ sở dữ liệu SQL Server chuẩn hóa (32 bảng)
+├── vercel.json                          # Cấu hình rewrite SPA khi deploy lên Vercel
 └── .env.example                         # Mẫu cấu hình biến môi trường (DB, Mail SMTP, Gemini AI)
 ```
+
+> 📘 **Tài liệu Demo Bảo vệ Hội đồng:** Xem [`docs/demo/KICH_BAN_DEMO_BAO_VE.md`](./docs/demo/KICH_BAN_DEMO_BAO_VE.md) hoặc bản Word [`docs/demo/KICH_BAN_DEMO_BAO_VE.docx`](./docs/demo/KICH_BAN_DEMO_BAO_VE.docx).
 
 ---
 

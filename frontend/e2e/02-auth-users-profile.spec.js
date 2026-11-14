@@ -15,7 +15,7 @@ test.describe('SUITE 2: Xác Thực, Phân Quyền Người Dùng & Hồ Sơ Cá
     await expect(page.getByRole('heading', { name: new RegExp(member.name, 'i') })).toBeVisible();
   });
 
-  test('2. Tuyển dụng nhân sự mới (Staff Onboarding) -> Admin Duyệt -> Đăng nhập đúng phân quyền', async ({ browser, baseURL }) => {
+  test('2. Tự đăng ký chỉ cho phép Hội viên & Admin tạo nhân sự COACH đúng phân quyền', async ({ browser, baseURL }) => {
     const registerContext = await browser.newContext({ baseURL });
     const registerPage = await registerContext.newPage();
     const adminContext = await browser.newContext({ baseURL });
@@ -26,55 +26,54 @@ test.describe('SUITE 2: Xác Thực, Phân Quyền Người Dùng & Hồ Sơ Cá
     const timestamp = Date.now();
     const staffEmail = `coach.e2e.${timestamp}@sporthub.com`;
     const staffPhone = `098${timestamp.toString().slice(-7)}`;
-    const staffPassword = 'SportHub@123';
+    const tempPassword = 'SportHub@123';
+    const newPassword = 'CoachNew@1234';
     const staffName = `HLV Kiểm Thử ${timestamp.toString().slice(-4)}`;
 
     try {
-      // 1. Nộp hồ sơ nhân sự mới trên trang Đăng ký UI thực tế
+      // 1. Trang tự đăng ký chỉ cho phép Hội viên (không còn nút chọn Huấn luyện viên / Lễ tân)
       await registerPage.goto('/register');
       await expect(registerPage.getByRole('heading', { name: /Chào Mừng Đến Với F Sport/i })).toBeVisible({ timeout: 7000 });
+      await expect(registerPage.getByRole('button', { name: 'Huấn luyện viên' })).toHaveCount(0);
+      await expect(registerPage.getByRole('button', { name: 'Lễ tân' })).toHaveCount(0);
 
-      // Chọn loại tài khoản Huấn luyện viên
-      const coachRoleBtn = registerPage.getByRole('button', { name: 'Huấn luyện viên' });
-      await expect(coachRoleBtn).toBeVisible({ timeout: 5000 });
-      await coachRoleBtn.click();
-
-      // Điền thông tin đăng ký
-      await registerPage.getByPlaceholder('Nguyễn Văn A').fill(staffName);
-      await registerPage.getByPlaceholder('0912 345 678').fill(staffPhone);
-      await registerPage.getByPlaceholder('name@example.com').fill(staffEmail);
-      await registerPage.getByPlaceholder('••••••••').fill(staffPassword);
-
-      const agreeCheckbox = registerPage.locator('input[type="checkbox"]');
-      if (await agreeCheckbox.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await agreeCheckbox.check();
-      }
-
-      await registerPage.getByRole('button', { name: /ĐĂNG KÝ TÀI KHOẢN NGAY/i }).click();
-      await expect(registerPage.getByText(/Đăng ký tài khoản nhân sự thành công|chờ Quản trị viên/i).first()).toBeVisible({ timeout: 7000 });
-
-      // 2. Admin vào /admin/staff-approvals duyệt nhân sự
+      // 2. Admin/Manager vào /admin/staff tạo tài khoản COACH trực tiếp
       await loginManager(adminPage);
-      await adminPage.goto('/admin/staff-approvals');
-      await expect(adminPage).toHaveURL(/\/admin\/staff-approvals/);
+      await adminPage.goto('/admin/staff');
+      await expect(adminPage).toHaveURL(/\/admin\/staff/);
+
+      await adminPage.getByRole('button', { name: /Thêm người dùng mới/i }).click();
+      await adminPage.locator('#create-user-role').selectOption('COACH');
+      await adminPage.getByPlaceholder('Ví dụ: Trần Văn Nam').fill(staffName);
+      await adminPage.getByPlaceholder('0912 345 678').fill(staffPhone);
+      await adminPage.getByPlaceholder('user@example.com').fill(staffEmail);
+      await adminPage.getByRole('button', { name: /TẠO TÀI KHOẢN/i }).click();
 
       const staffRow = adminPage.locator('tr').filter({ hasText: staffEmail }).first();
       await expect(staffRow).toBeVisible({ timeout: 10000 });
+      await expect(staffRow).toContainText(/Coach/i);
 
-      const activateBtn = staffRow.getByRole('button', { name: /Phê duyệt|Kích hoạt|Duyệt|ACTIVE/i });
-      await expect(activateBtn).toBeVisible({ timeout: 5000 });
-      await activateBtn.click();
-      await expect(adminPage.getByText(/Đã duyệt tài khoản|Đã kích hoạt|thành công/i).first()).toBeVisible({ timeout: 7000 });
-
-      // F5 reload Admin page: trang ổn định
+      // F5 reload Admin page: tài khoản vẫn hiển thị đúng role Coach
       await adminPage.reload();
-      await expect(adminPage.locator('main').first()).toBeVisible({ timeout: 10000 });
+      await expect(adminPage.locator('tr').filter({ hasText: staffEmail }).first()).toContainText(/Coach/i, { timeout: 10000 });
 
-      // 3. Nhân sự mới đăng nhập hệ thống và vào đúng Dashboard Coach
+      // 3. Nhân sự COACH mới đăng nhập lần đầu -> đổi mật khẩu -> vào đúng Dashboard Coach
       await newStaffPage.goto('/login');
       await newStaffPage.getByPlaceholder('name@example.com / 0912...').fill(staffEmail);
-      await newStaffPage.getByPlaceholder('••••••••').fill(staffPassword);
+      await newStaffPage.getByPlaceholder('••••••••').fill(tempPassword);
       await newStaffPage.getByRole('button', { name: /ĐĂNG NHẬP NGAY/i }).click();
+
+      await expect(newStaffPage).toHaveURL(/\/change-password/);
+      await newStaffPage.getByPlaceholder(/Nhập mật khẩu tạm từ email/i).fill(tempPassword);
+      await newStaffPage.getByPlaceholder(/Tối thiểu 8 ký tự/i).fill(newPassword);
+      await newStaffPage.getByPlaceholder(/Nhập lại mật khẩu mới/i).fill(newPassword);
+      await newStaffPage.getByRole('button', { name: /XÁC NHẬN ĐỔI MẬT KHẨU/i }).click();
+
+      await expect(newStaffPage).toHaveURL(/\/login/, { timeout: 10000 });
+      await newStaffPage.getByPlaceholder('name@example.com / 0912...').fill(staffEmail);
+      await newStaffPage.getByPlaceholder('••••••••').fill(newPassword);
+      await newStaffPage.getByRole('button', { name: /ĐĂNG NHẬP NGAY/i }).click();
+
       await expect(newStaffPage).toHaveURL(/\/coach/);
       await expect(newStaffPage.getByRole('heading', { name: new RegExp(staffName, 'i') }).first()).toBeVisible({ timeout: 10000 });
     } finally {

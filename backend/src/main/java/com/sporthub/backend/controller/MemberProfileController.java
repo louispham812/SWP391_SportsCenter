@@ -78,6 +78,7 @@ public class MemberProfileController {
     private final PublicSportRepository publicSportRepository;
     private final PaymentService paymentService;
     @Autowired private com.sporthub.backend.service.MembershipService entitlementService;
+    @Autowired private com.sporthub.backend.service.VoucherService voucherService;
 
     public MemberProfileController(
             UserRepository userRepository,
@@ -220,12 +221,17 @@ public class MemberProfileController {
                 .map(membership -> {
                     MembershipPackage membershipPackage = packageRepository.findById(membership.getPackageId())
                             .orElse(null);
+                    PaymentTransaction transaction = paymentTransactionRepository
+                            .findFirstByMembershipIdOrderByCreatedAtDesc(membership.getMembershipId()).orElse(null);
                     return new MemberMembershipResponse(
                             membership.getMembershipId(),
                             membershipPackage == null ? "Gói tập" : membershipPackage.getName(),
                             membership.getStartDate(),
                             membership.getEndDate(),
-                            membership.getStatus());
+                            membership.getStatus(),
+                            membership.getPackageId(),
+                            transaction == null ? null : transaction.getPaymentId(),
+                            transaction == null ? null : transaction.getPaymentMethod());
                 })
                 .toList();
     }
@@ -400,6 +406,13 @@ public class MemberProfileController {
                 .filter(item -> "ACTIVE".equalsIgnoreCase(item.getStatus()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Gói tập không còn được mở bán."));
 
+        // Serialize purchases by member so repeated clicks cannot create multiple charges.
+        userRepository.findByIdForUpdate(userId);
+        if (membershipRepository.existsByUserIdAndPackageIdAndStatusIn(userId, request.packageId(),
+                List.of("PENDING_PAYMENT", "PENDING", "PENDING_APPROVAL"))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Gói tập này đang chờ thanh toán hoặc chờ duyệt. Vui lòng kiểm tra yêu cầu hiện có.");
+        }
+
         // Each purchase is independent; the currently active term is never overwritten.
         UserMembership targetMembership = new UserMembership();
         targetMembership.setUserId(userId);
@@ -437,6 +450,12 @@ public class MemberProfileController {
                 membershipPackage.getPrice(), 
                 method);
         savedTransaction.setMembershipId(targetMembership.getMembershipId());
+        if (request.voucherCode() != null && !request.voucherCode().isBlank()) {
+            voucherService.apply(savedTransaction, request.voucherCode());
+            savedPayment.setAmount(savedTransaction.getAmount());
+            savedPayment.setPaymentStatus("PAID".equals(savedTransaction.getPaymentStatus()) ? "COMPLETED" : "PENDING");
+            paymentRepository.save(savedPayment);
+        }
         paymentTransactionRepository.save(savedTransaction);
         if ("PAID".equals(savedTransaction.getPaymentStatus())) {
             targetMembership.setStatus("PENDING_APPROVAL");

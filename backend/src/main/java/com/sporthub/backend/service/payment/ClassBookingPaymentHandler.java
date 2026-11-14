@@ -18,6 +18,7 @@ public class ClassBookingPaymentHandler implements BookingPaymentHandler {
     @Override public String getSupportedBookingType() { return "CLASS"; }
     @Override @Transactional
     public PaymentConfirmationResult handlePaymentConfirmation(PaymentTransaction payment, Double amount) {
+        if (!"PAID".equals(payment.getPaymentStatus())) throw new IllegalStateException("Giao dịch chưa được thanh toán.");
         Booking candidate = bookings.findByPaymentId(payment.getPaymentId());
         if (candidate == null) return null;
         Booking booking = bookings.findByIdForUpdate(candidate.getBookingId()).orElseThrow();

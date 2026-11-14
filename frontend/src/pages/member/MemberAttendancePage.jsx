@@ -222,11 +222,11 @@ export default function MemberAttendancePage() {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           {/* Tabs & Filters */}
           <div className="p-4 sm:p-6 border-b border-slate-200 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setActiveTab('classes')}
                 type="button"
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === 'classes'
                     ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/20'
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
@@ -238,7 +238,7 @@ export default function MemberAttendancePage() {
               <button
                 onClick={() => setActiveTab('courts')}
                 type="button"
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === 'courts'
                     ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/20'
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
@@ -250,7 +250,7 @@ export default function MemberAttendancePage() {
               <button
                 onClick={() => setActiveTab('gate')}
                 type="button"
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === 'gate'
                     ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/20'
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'

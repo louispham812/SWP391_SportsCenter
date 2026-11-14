@@ -3,6 +3,7 @@ package com.sporthub.backend.service.gateway;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -211,14 +212,25 @@ public class VNPayGateway implements PaymentGateway {
      * @return true if signature is valid
      */
     public boolean verifySignature(Map<String, String> params, String receivedHash) {
-        Map<String, String> sortedParams = new TreeMap<>(params);
+        if (params == null || receivedHash == null || receivedHash.isBlank()) {
+            return false;
+        }
+        Map<String, String> sortedParams = new TreeMap<>();
+        params.forEach((k, v) -> {
+            if (k != null && k.startsWith("vnp_") && v != null && !v.isEmpty()) {
+                sortedParams.put(k, v);
+            }
+        });
         sortedParams.remove("vnp_SecureHash");
         sortedParams.remove("vnp_SecureHashType");
-        
+
         String hashData = buildHashData(sortedParams);
         String calculatedHash = hmacSHA512(hashSecret, hashData);
-        
-        return calculatedHash.equalsIgnoreCase(receivedHash);
+
+        return MessageDigest.isEqual(
+            calculatedHash.toLowerCase(java.util.Locale.ROOT).getBytes(StandardCharsets.UTF_8),
+            receivedHash.toLowerCase(java.util.Locale.ROOT).getBytes(StandardCharsets.UTF_8)
+        );
     }
     
     /**

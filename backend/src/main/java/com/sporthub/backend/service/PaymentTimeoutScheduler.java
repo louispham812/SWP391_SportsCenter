@@ -16,6 +16,7 @@ public class PaymentTimeoutScheduler {
     private final EngagementService engagement;
     @org.springframework.beans.factory.annotation.Autowired private ClassSessionRepository sessions;
     @org.springframework.beans.factory.annotation.Autowired private UserMembershipRepository memberships;
+    @org.springframework.beans.factory.annotation.Autowired private ReceptionPaymentRepository receipts;
     @org.springframework.beans.factory.annotation.Autowired private VoucherService vouchers;
     public PaymentTimeoutScheduler(BookingRepository bookings, CourtBookingRepository courts, PaymentTransactionRepository payments, EngagementService engagement) {
         this.bookings = bookings; this.courts = courts; this.payments = payments; this.engagement = engagement;
@@ -41,12 +42,19 @@ public class PaymentTimeoutScheduler {
             if (!"PENDING".equals(booking.getStatus()) || payment == null || !List.of("PENDING", "FAILED").contains(payment.getPaymentStatus())) continue;
             booking.setStatus("CANCELLED"); courts.save(booking); fail(payment);
         }
-        for (PaymentTransaction candidate : payments.findByBookingTypeAndPaymentStatusIgnoreCaseAndCreatedAtBefore("MEMBERSHIP_PACKAGE", "PENDING", cutoff)) {
+        for (PaymentTransaction candidate : java.util.stream.Stream.concat(
+                payments.findByBookingTypeAndPaymentStatusIgnoreCaseAndCreatedAtBefore("MEMBERSHIP_PACKAGE", "PENDING", cutoff).stream(),
+                payments.findByBookingTypeAndPaymentStatusIgnoreCaseAndCreatedAtBefore("MEMBERSHIP_PACKAGE", "FAILED", cutoff).stream()).toList()) {
             PaymentTransaction payment = payments.findByIdForUpdate(candidate.getPaymentId()).orElseThrow();
-            if (!"PENDING".equals(payment.getPaymentStatus())) continue;
+            if (!List.of("PENDING", "FAILED").contains(payment.getPaymentStatus())) continue;
             fail(payment);
             if (memberships != null && payment.getMembershipId() != null) memberships.findByIdForUpdate(payment.getMembershipId()).ifPresent(m -> {
                 if ("PENDING_PAYMENT".equals(m.getStatus())) { m.setStatus("CANCELLED"); memberships.save(m); }
+                if (receipts != null) {
+                    receipts.findByMemberIdOrderByCreatedAtDesc(Math.toIntExact(payment.getMemberId())).stream()
+                        .filter(r -> r.getMembershipId() != null && r.getMembershipId().longValue() == m.getMembershipId())
+                        .forEach(r -> { r.setPaymentStatus("FAILED"); receipts.save(r); });
+                }
             });
         }
     }

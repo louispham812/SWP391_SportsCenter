@@ -195,18 +195,29 @@ class ManagerControllerTest {
 
     @Test
     void managerCanCreateAnyRoleUser() {
-        com.sporthub.backend.dto.CreateUserRequest request = new com.sporthub.backend.dto.CreateUserRequest(
-                "Trần Quản Lý Mới", "manager.new@example.com", "0911222333", "SportHub@123", "MANAGER");
-        when(userRepository.existsByEmailIgnoreCase("manager.new@example.com")).thenReturn(false);
+        var adminAuth = new UsernamePasswordAuthenticationToken(
+                "10", "", List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User u = invocation.getArgument(0);
             u.setUserId(99L);
             return u;
         });
 
-        var res = controller.createUser(request, manager);
-        assertEquals("MANAGER", res.role());
-        assertEquals("ACTIVE", res.status());
+        for (String role : List.of("MEMBER", "COACH", "RECEPTIONIST", "MANAGER", "ADMIN")) {
+            String email = role.toLowerCase() + ".new@example.com";
+            when(authService.findUserByEmail(email)).thenReturn(Optional.empty());
+            var req = new com.sporthub.backend.dto.CreateUserRequest(
+                    "User " + role, email, "0911222333", "SportHub@123", role.toLowerCase());
+
+            var actor = "ADMIN".equals(role) ? adminAuth : manager;
+            var res = controller.createUser(req, actor);
+            assertEquals(role, res.role());
+            assertEquals("ACTIVE", res.status());
+        }
+
+        var invalidReq = new com.sporthub.backend.dto.CreateUserRequest(
+                "Invalid Role", "invalid@example.com", "0911222334", "SportHub@123", "OWNER");
+        assertThrows(ResponseStatusException.class, () -> controller.createUser(invalidReq, manager));
     }
 
     @Test

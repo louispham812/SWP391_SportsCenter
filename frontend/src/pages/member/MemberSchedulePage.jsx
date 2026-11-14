@@ -13,6 +13,8 @@ import { ScheduleSkeleton } from '../../components/common/Skeleton';
 import { useApp } from '../../context/AppContext';
 import { getAvatarImageUrl, getAvatarInitials } from '../../utils/avatarHelper';
 
+const isUnpaidBooking = (entry) => ['BOOKED', 'PENDING'].includes(entry?.status);
+
 const WEEKDAYS = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
 
 const formatMoney = (amount) =>
@@ -252,7 +254,7 @@ export default function MemberSchedulePage() {
     const startMs = new Date(entry.startTime).getTime();
     const diffHours = (startMs - nowMs) / (1000 * 60 * 60);
     // Can cancel if: (>= 2h before start OR isMaintenanceAffected), not cancelled/refunded, and NOT already have pending refund request
-    return (entry.isMaintenanceAffected || diffHours >= 2) && 
+    return ((isUnpaidBooking(entry) && diffHours > 0) || entry.isMaintenanceAffected || diffHours >= 2) &&
            entry.status !== 'CANCELLED' && 
            entry.status !== 'REFUNDED' && 
            entry.refundStatus !== 'PENDING_APPROVAL' &&
@@ -342,7 +344,7 @@ export default function MemberSchedulePage() {
           <span className="material-symbols-outlined text-orange-600 text-[20px] shrink-0 mt-0.5">policy</span>
           <div className="leading-relaxed">
             <strong className="block font-bold mb-0.5">Chính sách hủy lịch &amp; hoàn phí tự động 100%:</strong>
-            Bạn có thể hủy lịch đặt sân hoặc lớp học trực tuyến <strong>trước giờ bắt đầu ít nhất 2 tiếng</strong> để nhận hoàn trả 100% học phí/tiền sân vào sổ giao dịch điện tử. Trong vòng 2 tiếng trước giờ diễn ra, tính năng hủy trực tuyến sẽ đóng để đảm bảo công tác vận hành sân bãi và huấn luyện viên.
+            Yêu cầu chưa thanh toán có thể hủy để trả lại chỗ giữ. Với đơn đã thanh toán, hủy <strong>trước giờ bắt đầu ít nhất 2 tiếng</strong> sẽ tạo yêu cầu hoàn tiền để Quản lý duyệt; đơn dùng gói tập được xử lý quota theo quy định.
           </div>
         </div>
 
@@ -653,7 +655,9 @@ export default function MemberSchedulePage() {
                               {/* Status Badge */}
                               <div>
                                 {/* Check if refund request pending approval */}
-                                {entry.refundStatus === 'PENDING_APPROVAL' ? (
+                                {['BOOKED', 'PENDING'].includes(entry.status) ? (
+                                  <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">Chờ thanh toán · Chưa xác nhận</span>
+                                ) : entry.refundStatus === 'PENDING_APPROVAL' ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-800 border border-yellow-300">
                                     <span className="material-symbols-outlined text-[12px]">schedule</span>
                                     Chờ duyệt hoàn tiền
@@ -705,7 +709,7 @@ export default function MemberSchedulePage() {
                                     onClick={() => setCancelingBooking(entry)}
                                     className="text-[10px] font-bold text-red-600 hover:text-red-700 hover:underline cursor-pointer"
                                   >
-                                    Hủy {entry.isMaintenanceAffected && Number(entry.amountPaid) > 0 ? '(Hoàn 100%)' : 'lịch'}
+                                    {isUnpaidBooking(entry) ? 'Hủy yêu cầu' : entry.isMaintenanceAffected && Number(entry.amountPaid) > 0 ? 'Hủy (Hoàn 100%)' : 'Hủy lịch'}
                                   </button>
                                 )}
                               </div>
@@ -897,7 +901,9 @@ export default function MemberSchedulePage() {
                             {/* Bottom row: Attendance & Cancel Action */}
                             <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
                               <div>
-                                {isPast ? (
+                                {['BOOKED', 'PENDING'].includes(entry.status) ? (
+                                  <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">Chờ thanh toán · Chưa xác nhận</span>
+                                ) : isPast ? (
                                   isAttended ? (
                                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                                       <span className="material-symbols-outlined text-[14px]">check_circle</span>
@@ -945,7 +951,7 @@ export default function MemberSchedulePage() {
                                     className="px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 border border-red-200"
                                   >
                                     <span className="material-symbols-outlined text-[16px]">cancel</span>
-                                    <span>Hủy {Number(entry.amountPaid) > 0 ? '(Hoàn 100%)' : 'lịch'}</span>
+                                    <span>{isUnpaidBooking(entry) ? 'Hủy yêu cầu' : Number(entry.amountPaid) > 0 ? 'Hủy (Hoàn 100%)' : 'Hủy lịch'}</span>
                                   </button>
                                 ) : (
                                   !isPast && (
@@ -1082,7 +1088,7 @@ export default function MemberSchedulePage() {
               </div>
 
               <div className="text-center space-y-1">
-                <h3 className="text-lg font-black text-slate-900">Xác Nhận Hủy Lịch Tập?</h3>
+                <h3 className="text-lg font-black text-slate-900">{isUnpaidBooking(cancelingBooking) ? 'Hủy Yêu Cầu Giữ Chỗ?' : 'Xác Nhận Hủy Lịch Tập?'}</h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
                   Bạn có chắc muốn hủy <strong>"{cancelingBooking.title}"</strong> vào lúc{' '}
                   <strong>{formatTime(cancelingBooking.startTime)}</strong> ngày{' '}
@@ -1090,7 +1096,11 @@ export default function MemberSchedulePage() {
                 </p>
               </div>
 
-              {cancelingBooking.isMaintenanceAffected ? (
+              {isUnpaidBooking(cancelingBooking) ? (
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-700">
+                  Yêu cầu này chưa thanh toán. Hủy yêu cầu sẽ trả lại chỗ giữ và bạn có thể đăng ký lại.
+                </div>
+              ) : cancelingBooking.isMaintenanceAffected ? (
                 <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-1 text-xs">
                   <div className="flex items-center gap-1.5 font-bold text-amber-800">
                     <span className="material-symbols-outlined text-[16px]">engineering</span>
@@ -1143,7 +1153,7 @@ export default function MemberSchedulePage() {
                       <span>Đang xử lý...</span>
                     </>
                   ) : (
-                    <span>{Number(cancelingBooking.amountPaid) > 0 ? 'Xác Nhận Hủy (Hoàn 100%)' : 'Xác Nhận Hủy Lịch'}</span>
+                    <span>{isUnpaidBooking(cancelingBooking) ? 'Xác Nhận Hủy Yêu Cầu' : Number(cancelingBooking.amountPaid) > 0 ? 'Xác Nhận Hủy (Hoàn 100%)' : 'Xác Nhận Hủy Lịch'}</span>
                   )}
                 </button>
               </div>

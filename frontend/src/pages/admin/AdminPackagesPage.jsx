@@ -99,7 +99,7 @@ export default function AdminPackagesPage() {
         getManagerPackages(),
         getManagerSports(),
         getManagerCoaches().catch(() => ({ content: [] })),
-        apiRequest('/manager/vouchers').catch(() => []),
+        apiRequest('/manager/vouchers'),
       ]);
       const pkgList = Array.isArray(packageData) ? packageData : [];
       const sptList = Array.isArray(sportData) ? sportData : [];
@@ -506,7 +506,7 @@ export default function AdminPackagesPage() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[760px] text-left text-sm">
-                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 font-bold">
+                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 font-bold whitespace-nowrap">
                       <tr>
                         <th className="px-5 py-3">Gói tập</th>
                         <th className="px-5 py-3">Bộ môn</th>
@@ -527,25 +527,25 @@ export default function AdminPackagesPage() {
                               <p className="font-semibold text-slate-900">{membershipPackage.name}</p>
                               <p className="mt-0.5 text-xs text-slate-400">Mã gói: #{membershipPackage.packageId}</p>
                             </td>
-                            <td className="px-5 py-4 text-slate-700">{sportName(membershipPackage.sportId)}</td>
-                            <td className="px-5 py-4 font-bold text-orange-600">{formatPrice(membershipPackage.price)}</td>
-                            <td className="px-5 py-4 text-slate-700">{formatDuration(membershipPackage.durationDays)}</td>
-                            <td className="px-5 py-4 text-slate-700">{ACCESS_LABELS[membershipPackage.accessType] || membershipPackage.accessType}</td>
-                            <td className="px-5 py-4">
+                            <td className="px-5 py-4 text-slate-700 whitespace-nowrap">{sportName(membershipPackage.sportId)}</td>
+                            <td className="px-5 py-4 font-bold text-orange-600 whitespace-nowrap">{formatPrice(membershipPackage.price)}</td>
+                            <td className="px-5 py-4 text-slate-700 whitespace-nowrap">{formatDuration(membershipPackage.durationDays)}</td>
+                            <td className="px-5 py-4 text-slate-700 whitespace-nowrap">{ACCESS_LABELS[membershipPackage.accessType] || membershipPackage.accessType}</td>
+                            <td className="px-5 py-4 whitespace-nowrap">
                               <span
-                                className={`rounded-full px-3 py-1 text-xs font-bold ${
+                                className={`inline-flex rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap ${
                                   isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
                                 }`}
                               >
                                 {isActive ? 'Đang mở bán' : 'Tạm ngưng'}
                               </span>
                             </td>
-                            <td className="px-5 py-4 text-right">
+                            <td className="px-5 py-4 text-right whitespace-nowrap">
                               <div className="flex items-center justify-end gap-2">
                                 <button
                                   type="button"
                                   onClick={() => openEditForm(membershipPackage)}
-                                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer whitespace-nowrap"
                                 >
                                   Sửa
                                 </button>
@@ -553,7 +553,7 @@ export default function AdminPackagesPage() {
                                   type="button"
                                   onClick={() => togglePackageStatus(membershipPackage)}
                                   disabled={isProcessing}
-                                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold cursor-pointer ${
+                                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold cursor-pointer whitespace-nowrap ${
                                     isActive
                                       ? 'border border-amber-300 text-amber-700 hover:bg-amber-50'
                                       : 'bg-emerald-600 text-white hover:bg-emerald-700'
@@ -788,7 +788,7 @@ export default function AdminPackagesPage() {
                   <option value="">Tất cả bộ môn</option>
                   {sports.map((sport) => (
                     <option key={sport.sportId} value={sport.sportId}>
-                      {sport.name}
+                      {sport.sportName || sport.name}
                     </option>
                   ))}
                 </select>
@@ -917,7 +917,7 @@ export default function AdminPackagesPage() {
                   >
                     <option value="PERCENT">Giảm theo % (PERCENT)</option>
                     <option value="FIXED">Giảm tiền mặt VNĐ (FIXED)</option>
-                    <option value="EXTEND_DURATION">Tặng tháng gia hạn (EXTEND_DURATION)</option>
+                    <option value="EXTEND_DURATION" disabled>Tặng tháng gia hạn (chưa hỗ trợ)</option>
                   </select>
                 </div>
               </div>
@@ -1006,7 +1006,7 @@ export default function AdminPackagesPage() {
                   <option value="ALL">Tất cả dịch vụ (ALL)</option>
                   <option value="MEMBERSHIP_ONLY">Chỉ áp dụng mua gói thẻ (MEMBERSHIP_ONLY)</option>
                   <option value="BOOKING_ONLY">Chỉ áp dụng đặt sân &amp; lớp (BOOKING_ONLY)</option>
-                  <option value="RETAIL_ONLY">Chỉ áp dụng mua dụng cụ bán lẻ (RETAIL_ONLY)</option>
+
                 </select>
               </div>
 
@@ -1075,7 +1075,7 @@ export default function AdminPackagesPage() {
                   >
                     <option value="">-- Chọn bộ môn --</option>
                     {sports.map((s) => (
-                      <option key={s.sportId} value={s.sportId}>{s.name}</option>
+                      <option key={s.sportId} value={s.sportId}>{s.sportName || s.name}</option>
                     ))}
                     <option value="1">Tennis</option>
                     <option value="2">Pickleball</option>

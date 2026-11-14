@@ -44,7 +44,7 @@ public class VoucherService {
     @Transactional
     public void apply(PaymentTransaction payment, String code) {
         Voucher v = vouchers.findByCodeForUpdate(code.trim()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy voucher."));
-        BigDecimal off = discount(v, payment.getAmount(), "BOOKING_ONLY");
+        BigDecimal off = discount(v, payment.getAmount(), "MEMBERSHIP_PACKAGE".equals(payment.getBookingType()) ? "MEMBERSHIP_ONLY" : "BOOKING_ONLY");
         payment.setAmount(payment.getAmount().subtract(off)); payment.setVoucherId(v.getVoucherId());
         v.setUsedCount(v.getUsedCount() + 1); vouchers.save(v);
         if (payment.getAmount().signum() == 0) { payment.setPaymentStatus("PAID"); payment.setPaymentCompletedAt(java.time.LocalDateTime.now()); }

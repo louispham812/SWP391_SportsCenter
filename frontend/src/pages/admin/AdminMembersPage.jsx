@@ -194,7 +194,7 @@ export default function AdminMembersPage() {
             <>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[760px] text-left text-sm">
-                  <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">
                     <tr>
                       <th className="px-5 py-3">Mã HV</th>
                       <th className="px-5 py-3">Họ và tên</th>
@@ -211,15 +211,15 @@ export default function AdminMembersPage() {
                       const isProcessing = processingId === member.userId;
                       return (
                         <tr key={member.userId} className="transition-colors hover:bg-slate-50/70">
-                          <td className="px-5 py-4 font-mono font-bold text-slate-800">#{member.userId}</td>
-                          <td className="px-5 py-4 font-bold text-slate-900">{member.fullName}</td>
+                          <td className="px-5 py-4 font-mono font-bold text-slate-800 whitespace-nowrap">#{member.userId}</td>
+                          <td className="px-5 py-4 font-bold text-slate-900 whitespace-nowrap">{member.fullName}</td>
                           <td className="px-5 py-4">
-                            <div className="text-slate-800">{member.phone || '—'}</div>
+                            <div className="text-slate-800 whitespace-nowrap">{member.phone || '—'}</div>
                             <div className="mt-0.5 text-xs text-slate-400">{member.email}</div>
                           </td>
-                          <td className="px-5 py-4 text-slate-600">{formatDate(member.createdAt)}</td>
-                          <td className="px-5 py-4">
-                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${
+                          <td className="px-5 py-4 text-slate-600 whitespace-nowrap">{formatDate(member.createdAt)}</td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase whitespace-nowrap ${
                               STATUS_STYLES[status] || STATUS_STYLES.INACTIVE
                             }`}>
                               {STATUS_LABELS[status] || member.status || 'Không rõ'}

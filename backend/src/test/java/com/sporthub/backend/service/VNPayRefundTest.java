@@ -76,7 +76,44 @@ class VNPayRefundTest {
         when(refunds.save(any())).thenAnswer(i -> { RefundRequest r = i.getArgument(0); r.setRefundId(1L); return r; });
         BookingService service = new BookingService(bookingRepo, sessions, users, mock(PublicSportRepository.class), mock(PublicFacilityRepository.class), mock(SportsCourtRepository.class), mock(CourtBookingRepository.class), mock(CourtMaintenanceRepository.class), payments, mock(UserMembershipRepository.class), mock(MembershipPackageRepository.class), memberships, null, null, null, gateway, refunds, null);
         CancelBookingResponse result = service.cancelClassBooking(3L, 9L);
-        assertEquals("PENDING_APPROVAL", result.getStatus()); assertEquals("CANCELLED", b.getStatus()); assertEquals("PAID", p.getPaymentStatus());
+        assertEquals("PENDING_APPROVAL", result.getStatus()); assertEquals("CONFIRMED", b.getStatus()); assertEquals("PAID", p.getPaymentStatus());
         verifyNoInteractions(gateway);
+    }
+    @Test void rejectingRefundSendsVietnameseNotificationAndRestoresBooking() {
+        EngagementService engagement = mock(EngagementService.class);
+        RefundRequestController ctrl = new RefundRequestController(refunds, users, payments, mock(ReceptionPaymentRepository.class), engagement, gateway, bookings, memberships);
+        RefundRequest r = request();
+        ctrl.decideRefund(1L, new RefundDecisionRequest(false, "Không đủ điều kiện"), manager);
+        assertEquals("REJECTED", r.getStatus());
+        verify(bookings).restoreBookingAfterRefundRejection(3L, "COURT");
+        verify(bookings, never()).cancelBookingAfterRefund(any(), any(), any());
+        verify(engagement).notifyUser(9L, "Kết quả yêu cầu hoàn tiền", "Yêu cầu hoàn tiền #1 đã bị từ chối. Lý do: Không đủ điều kiện", "REFUND");
+    }
+    @Test void approvingRefundSendsVietnameseNotification() {
+        EngagementService engagement = mock(EngagementService.class);
+        RefundRequestController ctrl = new RefundRequestController(refunds, users, payments, mock(ReceptionPaymentRepository.class), engagement, gateway, bookings, memberships);
+        payment(); RefundRequest r = request();
+        when(gateway.refundPayment(any(), any(), any())).thenReturn(Map.of("vnp_ResponseCode", "00"));
+        ctrl.decideRefund(1L, new RefundDecisionRequest(true, "OK"), manager);
+        assertEquals("APPROVED", r.getStatus());
+        verify(engagement).notifyUser(9L, "Kết quả yêu cầu hoàn tiền", "Yêu cầu hoàn tiền #1 đã được phê duyệt.", "REFUND");
+    }
+    @Test void restoreBookingAfterRefundRejectionRestoresClassAndCourtBookings() {
+        BookingRepository bookingRepo = mock(BookingRepository.class);
+        ClassSessionRepository sessions = mock(ClassSessionRepository.class);
+        CourtBookingRepository courtBookings = mock(CourtBookingRepository.class);
+        Booking b = Booking.builder().bookingId(3L).memberId(9L).sessionId(4L).status("CANCELLED").paymentId(2L).build();
+        ClassSession session = ClassSession.builder().sessionId(4L).status("SCHEDULED").bookedSlots(0).build();
+        CourtBooking cb = new CourtBooking(); cb.setCourtBookingId(5L); cb.setStatus("CANCELLED");
+        when(bookingRepo.findByIdForUpdate(3L)).thenReturn(Optional.of(b));
+        when(sessions.findByIdForUpdate(4L)).thenReturn(Optional.of(session));
+        when(bookingRepo.countBySessionIdAndStatusIn(eq(4L), any())).thenReturn(1L);
+        when(courtBookings.findByIdForUpdate(5L)).thenReturn(Optional.of(cb));
+        BookingService service = new BookingService(bookingRepo, sessions, users, mock(PublicSportRepository.class), mock(PublicFacilityRepository.class), mock(SportsCourtRepository.class), courtBookings, mock(CourtMaintenanceRepository.class), payments, mock(UserMembershipRepository.class), mock(MembershipPackageRepository.class), memberships, null, null, null, gateway, refunds, null);
+        service.restoreBookingAfterRefundRejection(3L, "CLASS");
+        assertEquals("CONFIRMED", b.getStatus());
+        assertEquals(1, session.getBookedSlots());
+        service.restoreBookingAfterRefundRejection(5L, "COURT");
+        assertEquals("CONFIRMED", cb.getStatus());
     }
 }
