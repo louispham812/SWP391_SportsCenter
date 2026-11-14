@@ -91,6 +91,10 @@ public class BookingService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private VoucherService voucherService;
     @org.springframework.beans.factory.annotation.Autowired(required = false) private CoachAvailabilityService coachAvailability;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.sporthub.backend.repository.MemberHealthProfileRepository healthProfileRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.sporthub.backend.repository.BodyProgressLogRepository bodyProgressLogRepository;
 
     public BookingService(
             BookingRepository bookingRepository,
@@ -356,6 +360,28 @@ public class BookingService {
         Map<Long, User> members = userRepository.findAllById(
                         distinctBookings.values().stream().map(Booking::getMemberId).distinct().toList()).stream()
                 .collect(Collectors.toMap(User::getUserId, Function.identity()));
+        List<Long> memberIds = members.keySet().stream().toList();
+        Map<Long, com.sporthub.backend.entity.MemberHealthProfile> healthProfiles =
+                (healthProfileRepository == null || memberIds.isEmpty())
+                        ? Map.of()
+                        : healthProfileRepository.findByMemberIdIn(memberIds).stream()
+                                .collect(Collectors.toMap(
+                                        com.sporthub.backend.entity.MemberHealthProfile::getMemberId,
+                                        Function.identity(),
+                                        (left, right) -> left));
+        Map<Long, com.sporthub.backend.entity.BodyProgressLog> latestBodyLogs = new java.util.HashMap<>();
+        if (bodyProgressLogRepository != null) {
+            for (Long memberId : memberIds) {
+                com.sporthub.backend.entity.MemberHealthProfile hp = healthProfiles.get(memberId);
+                if (hp == null || hp.getWeightKg() == null || hp.getHeightCm() == null || hp.getBmi() == null) {
+                    List<com.sporthub.backend.entity.BodyProgressLog> logs =
+                            bodyProgressLogRepository.findByMemberIdOrderByRecordedDateDesc(memberId);
+                    if (!logs.isEmpty()) {
+                        latestBodyLogs.put(memberId, logs.get(0));
+                    }
+                }
+            }
+        }
         return distinctBookings.values().stream()
                 .sorted((left, right) -> {
                     int sessionOrder = sessionsById.get(left.getSessionId()).getStartTime()
@@ -368,6 +394,11 @@ public class BookingService {
                 .map(booking -> {
                     ClassSession session = sessionsById.get(booking.getSessionId());
                     User member = members.get(booking.getMemberId());
+                    com.sporthub.backend.entity.MemberHealthProfile hp = healthProfiles.get(booking.getMemberId());
+                    com.sporthub.backend.entity.BodyProgressLog latestLog = latestBodyLogs.get(booking.getMemberId());
+                    BigDecimal weightKg = hp != null && hp.getWeightKg() != null ? hp.getWeightKg() : (latestLog != null ? latestLog.getWeightKg() : null);
+                    BigDecimal heightCm = hp != null && hp.getHeightCm() != null ? hp.getHeightCm() : (latestLog != null ? latestLog.getHeightCm() : null);
+                    BigDecimal bmi = hp != null && hp.getBmi() != null ? hp.getBmi() : (latestLog != null ? latestLog.getBmi() : null);
                     return new CoachStudentBookingResponse(
                             booking.getBookingId(),
                             booking.getMemberId(),
@@ -379,7 +410,13 @@ public class BookingService {
                             session.getClassName(),
                             session.getStartTime(),
                             booking.getStatus(),
-                            booking.getAttendanceStatus() == null ? null : booking.getAttendanceStatus().name());
+                            booking.getAttendanceStatus() == null ? null : booking.getAttendanceStatus().name(),
+                            hp == null ? null : hp.getFitnessLevel(),
+                            hp == null ? null : hp.getFitnessGoals(),
+                            hp == null ? null : hp.getInjuryHistory(),
+                            weightKg,
+                            heightCm,
+                            bmi);
                 })
                 .toList();
     }

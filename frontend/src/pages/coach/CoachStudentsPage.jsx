@@ -399,7 +399,7 @@ export default function CoachStudentsPage() {
     }
     setSavingBodyLog(true);
     try {
-      await recordBodyProgress({
+      const savedLog = await recordBodyProgress({
         memberId: selectedStudentForPlan.id,
         weightKg: bodyLogForm.weightKg ? Number(bodyLogForm.weightKg) : null,
         heightCm: bodyLogForm.heightCm ? Number(bodyLogForm.heightCm) : null,
@@ -408,6 +408,21 @@ export default function CoachStudentsPage() {
         maxLiftKg: bodyLogForm.maxLiftKg ? Number(bodyLogForm.maxLiftKg) : null,
         note: bodyLogForm.note.trim() || 'HLV ghi nhận tiến độ',
       });
+      const nextWeight = savedLog?.weightKg ?? (bodyLogForm.weightKg ? Number(bodyLogForm.weightKg) : selectedStudentForPlan.weightKg);
+      const nextHeight = savedLog?.heightCm ?? (bodyLogForm.heightCm ? Number(bodyLogForm.heightCm) : selectedStudentForPlan.heightCm);
+      const nextBmi = savedLog?.bmi ?? (
+        nextWeight && nextHeight && Number(nextHeight) > 0
+          ? Number((Number(nextWeight) / Math.pow(Number(nextHeight) / 100, 2)).toFixed(2))
+          : selectedStudentForPlan.bmi
+      );
+      setSelectedStudentForPlan((prev) => (
+        prev ? { ...prev, weightKg: nextWeight, heightCm: nextHeight, bmi: nextBmi } : prev
+      ));
+      setStudents((prev) => prev.map((s) => (
+        s.id === selectedStudentForPlan.id
+          ? { ...s, weightKg: nextWeight, heightCm: nextHeight, bmi: nextBmi }
+          : s
+      )));
       showToast({ title: 'Thành công', message: `Đã ghi nhận chỉ số thể trạng & 1RM cho ${selectedStudentForPlan.name}!`, type: 'success' });
       setShowBodyLogForm(false);
       setBodyLogForm({ weightKg: '', heightCm: '', smmKg: '', pbfPercent: '', maxLiftKg: '', note: '' });
@@ -856,10 +871,10 @@ export default function CoachStudentsPage() {
 
         {/* MODAL: SOẠN GIÁO ÁN & ĐÁNH GIÁ (CÁ NHÂN HOẶC CẢ LỚP) */}
         {(selectedStudentForPlan || planScope === 'class') && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto !m-0">
-            <div className="relative w-full max-w-3xl max-h-[92vh] my-auto overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl space-y-5">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-hidden !m-0">
+            <div className="relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-3xl bg-white shadow-2xl overflow-hidden">
               {/* Modal Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="shrink-0 flex items-center justify-between border-b border-slate-100 px-6 pt-6 pb-4 bg-white">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-black">
                     <span className="material-symbols-outlined text-[22px]">fitness_center</span>
@@ -888,6 +903,9 @@ export default function CoachStudentsPage() {
                   <span className="material-symbols-outlined text-[18px]">close</span>
                 </button>
               </div>
+
+              {/* Single Scrollable Modal Body */}
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
 
               {/* ITEM 3: PHẠM VI ÁP DỤNG GIÁO ÁN (CÁ NHÂN VS CẢ LỚP) */}
               <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1415,6 +1433,7 @@ export default function CoachStudentsPage() {
                   )}
                 </div>
               )}
+              </div>
             </div>
           </div>,
           document.body
