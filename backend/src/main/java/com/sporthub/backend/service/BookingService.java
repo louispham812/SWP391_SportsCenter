@@ -218,12 +218,20 @@ public class BookingService {
 
     @Transactional(readOnly = true)
     public List<ClassSessionResponse> getUpcomingClasses(Long actorId, String actorRole) {
-        List<ClassSession> sessions = classSessionRepository.findAll().stream()
-                .filter(session -> "SCHEDULED".equalsIgnoreCase(session.getStatus()))
-                .filter(session -> session.getStartTime() != null && session.getStartTime().isAfter(LocalDateTime.now()))
-                .filter(session -> !"COACH".equals(actorRole) || session.getCoachId().equals(actorId))
-                .sorted((left, right) -> left.getStartTime().compareTo(right.getStartTime()))
-                .toList();
+        List<ClassSession> sessions;
+        if ("COACH".equals(actorRole)) {
+            sessions = classSessionRepository.findByCoachIdOrderByStartTimeAsc(actorId).stream()
+                    .filter(session -> !"CANCELLED".equalsIgnoreCase(session.getStatus()))
+                    .filter(session -> session.getStartTime() != null)
+                    .sorted((left, right) -> left.getStartTime().compareTo(right.getStartTime()))
+                    .toList();
+        } else {
+            sessions = classSessionRepository.findAll().stream()
+                    .filter(session -> "SCHEDULED".equalsIgnoreCase(session.getStatus()))
+                    .filter(session -> session.getStartTime() != null && session.getStartTime().isAfter(LocalDateTime.now()))
+                    .sorted((left, right) -> left.getStartTime().compareTo(right.getStartTime()))
+                    .toList();
+        }
         Map<Long, Booking> bookingsBySession = bookingRepository.findByMemberIdAndStatusIn(actorId, ALL_ACTIVE_STATUSES).stream()
                 .collect(Collectors.toMap(Booking::getSessionId, Function.identity(), (first, second) -> first));
         

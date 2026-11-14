@@ -27,7 +27,15 @@ export default function CoachAttendancePage() {
       .then((classRows) => {
         if (!isCurrent) return;
         setClasses(classRows);
-        setSelectedSessionId(classRows[0]?.sessionId?.toString() || '');
+        if (classRows && classRows.length > 0) {
+          const now = new Date();
+          const activeSession = classRows.find((c) => new Date(c.startTime) <= now && new Date(c.endTime) >= now)
+            || classRows.find((c) => new Date(c.startTime) >= now)
+            || classRows[classRows.length - 1];
+          setSelectedSessionId(activeSession?.sessionId?.toString() || classRows[0].sessionId.toString());
+        } else {
+          setSelectedSessionId('');
+        }
       })
       .catch((requestError) => {
         if (isCurrent) setError(requestError.message || 'Không thể tải các lớp được phân công.');
