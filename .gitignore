@@ -68,3 +68,4 @@ uploads/
 *.mov
 *.webm
 recordings_pure/
+local/
