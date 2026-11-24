@@ -3,8 +3,11 @@ import { apiRequest } from './apiClient';
 export const getPendingStaffRegistrations = () =>
   apiRequest('/manager/staff-registrations');
 
-export const approveStaffRegistration = (userId) =>
-  apiRequest(`/manager/staff-registrations/${userId}/approve`, { method: 'PATCH' });
+export const approveStaffRegistration = (userId, payload) =>
+  apiRequest(`/manager/staff-registrations/${userId}/approve`, {
+    method: 'PATCH',
+    ...(payload ? { body: JSON.stringify(payload) } : {}),
+  });
 
 export const rejectStaffRegistration = (userId) =>
   apiRequest(`/manager/staff-registrations/${userId}/reject`, { method: 'PATCH' });
@@ -25,6 +28,21 @@ export const lockManagerMember = (userId) =>
 export const unlockManagerMember = (userId) =>
   apiRequest(`/manager/members/${userId}/unlock`, { method: 'PATCH' });
 
+export const updateManagerUser = (userId, data) =>
+  apiRequest(`/manager/users/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+
+export const lockManagerUser = (userId) =>
+  apiRequest(`/manager/users/${userId}/lock`, { method: 'PATCH' });
+
+export const unlockManagerUser = (userId) =>
+  apiRequest(`/manager/users/${userId}/unlock`, { method: 'PATCH' });
+
+export const deleteManagerUser = (userId) =>
+  apiRequest(`/manager/users/${userId}`, { method: 'DELETE' });
+
 export const getManagerPackages = () => apiRequest('/manager/packages');
 
 export const getManagerSports = () => apiRequest('/manager/sports');
@@ -34,7 +52,7 @@ export const getManagerFacilities = () => apiRequest('/manager/facilities');
 export const getManagerDomainSports = () => apiRequest('/manager/domain-sports');
 
 export const getManagerCoaches = () =>
-  apiRequest('/manager/users?role=COACH&page=0&size=50');
+  apiRequest('/manager/users?role=COACH&staffOnly=true&page=0&size=50');
 
 export const updateManagerFacilityStatus = (facilityId, status) =>
   apiRequest(`/manager/facilities/${facilityId}/status`, {
@@ -72,6 +90,12 @@ export const createManagerUser = (userData) =>
     body: JSON.stringify(userData),
   });
 
+export const updateManagerCoachSports = (coachId, data) =>
+  apiRequest(`/manager/coaches/${coachId}/sports`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+
 export const getManagerClassSessions = () =>
   apiRequest('/manager/class-sessions');
 
@@ -98,4 +122,17 @@ export const updateAiConfig = (config) =>
     body: JSON.stringify(config),
   });
 
+export const getManagerTickets = () =>
+  apiRequest('/manager/tickets');
 
+export const createManagerTicket = (data) =>
+  apiRequest('/manager/tickets', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+export const replyManagerTicket = (ticketId, data) =>
+  apiRequest(`/manager/tickets/${encodeURIComponent(ticketId)}/reply`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });

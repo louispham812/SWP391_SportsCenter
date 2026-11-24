@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
 import { useApp } from '../../context/AppContext';
 import QrCodeSvg from '../../components/common/QrCodeSvg';
@@ -22,7 +22,7 @@ export default function ReceptionProfilePage() {
   const { currentUser, updateProfile, showToast } = useApp();
 
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'avatar' | 'security'
-  const [loading, setLoading] = useState(true);
+
   const [saving, setSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
@@ -47,7 +47,6 @@ export default function ReceptionProfilePage() {
 
   const loadProfile = async () => {
     try {
-      setLoading(true);
       const data = await getReceptionistProfile();
       setProfileData(data);
       setProfileForm({
@@ -65,8 +64,6 @@ export default function ReceptionProfilePage() {
         message: err.message || 'Không thể tải thông tin nhân viên lễ tân.',
         type: 'error',
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -106,6 +103,15 @@ export default function ReceptionProfilePage() {
   const handleAvatarFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      showToast({
+        title: 'Tệp quá lớn',
+        message: 'Vui lòng chọn ảnh có dung lượng tối đa 5MB.',
+        type: 'warning',
+      });
+      if (e.target) e.target.value = '';
+      return;
+    }
 
     try {
       setAvatarUploading(true);

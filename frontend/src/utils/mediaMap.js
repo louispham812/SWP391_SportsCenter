@@ -1,5 +1,5 @@
 // Map hình ảnh minh họa chất lượng cao cho các bộ môn và tiện ích thể thao
-export const SPORT_MEDIA_MAP = {
+const SPORT_MEDIA_MAP = {
   'gym-fitness': {
     image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80',
     banner: 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?auto=format&fit=crop&w=1600&q=80',
@@ -62,7 +62,7 @@ export const SPORT_MEDIA_MAP = {
   },
 };
 
-export const FACILITY_MEDIA_MAP = {
+const FACILITY_MEDIA_MAP = {
   // --- CỤM SÂN PICKLEBALL ---
   'booking-pickleball-01': {
     image: 'https://images.unsplash.com/photo-1791856526498-6bfabcc0dd8c?auto=format&fit=crop&w=800&q=80',

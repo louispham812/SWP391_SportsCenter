@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
@@ -34,6 +34,12 @@ const formatDate = (value) =>
     minute: '2-digit',
   });
 
+const formatDurationMinutes = (startTime, endTime) => {
+  if (!startTime || !endTime) return null;
+  const diffMin = Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000);
+  return diffMin > 0 ? diffMin : null;
+};
+
 export default function MemberClassesPage() {
   const navigate = useNavigate();
   const { showToast } = useApp();
@@ -53,7 +59,6 @@ export default function MemberClassesPage() {
 
   // Modals
   const [selectedCoach, setSelectedCoach] = useState(null);
-  const [coachLoading, setCoachLoading] = useState(false);
 
   const [cancelingBooking, setCancelingBooking] = useState(null);
   const [submittingCancel, setSubmittingCancel] = useState(false);
@@ -66,12 +71,6 @@ export default function MemberClassesPage() {
   const [submittingRegister, setSubmittingRegister] = useState(false);
   const [registerError, setRegisterError] = useState('');
 
-  // QR Modal & Polling State
-  const [showQrModal, setShowQrModal] = useState(false);
-  const [qrData, setQrData] = useState(null);
-  const [pollingPayment, setPollingPayment] = useState(false);
-  const [pollingInterval, setPollingInterval] = useState(null);
-
   // Member Quota State - fetch from API
   const [memberQuota, setMemberQuota] = useState({
     packageName: 'Đang tải...',
@@ -81,13 +80,11 @@ export default function MemberClassesPage() {
     remainingQuota: 0,
     canUseForBooking: false,
   });
-  const [quotaLoading, setQuotaLoading] = useState(true);
 
   // Fetch member quota from API
   useEffect(() => {
     const fetchQuota = async () => {
       try {
-        setQuotaLoading(true);
         const data = await apiRequest('/members/me/quota');
         setMemberQuota({
           packageName: data.packageName || 'Chưa có gói tập',
@@ -97,7 +94,7 @@ export default function MemberClassesPage() {
           remainingQuota: data.remainingQuota || 0,
           canUseForBooking: data.canUseForBooking || false,
         });
-      } catch (err) {
+      } catch {
         setMemberQuota({
           packageName: 'Chưa có gói tập',
           initialQuota: 0,
@@ -106,11 +103,9 @@ export default function MemberClassesPage() {
           remainingQuota: 0,
           canUseForBooking: false,
         });
-      } finally {
-        setQuotaLoading(false);
       }
     };
-    
+
     fetchQuota();
   }, []); // Chỉ gọi 1 lần khi mount
 
@@ -119,7 +114,7 @@ export default function MemberClassesPage() {
   const [appliedVoucher, setAppliedVoucher] = useState(null);
   const [voucherError, setVoucherError] = useState('');
 
-  // Load quote with active membership discount whenever a session is selected
+  // Load quote with active membership discount and sport-specific quota whenever a session is selected
   useEffect(() => {
     if (registeringSession) {
       setRegisterError('');
@@ -129,9 +124,23 @@ export default function MemberClassesPage() {
       setAppliedVoucher(null);
       setVoucherCode('');
       setVoucherError('');
-      getBookingQuote('CLASS', registeringSession.sessionId)
-        .then((q) => setSessionQuote(q))
-        .catch(() => setSessionQuote(null))
+      Promise.all([
+        getBookingQuote('CLASS', registeringSession.sessionId).catch(() => null),
+        apiRequest(`/members/me/quota?bookingType=CLASS&itemId=${encodeURIComponent(registeringSession.sessionId)}`).catch(() => null),
+      ])
+        .then(([q, quotaData]) => {
+          setSessionQuote(q);
+          if (quotaData) {
+            setMemberQuota({
+              packageName: quotaData.packageName || 'Chưa có gói tập',
+              initialQuota: quotaData.initialQuota || 0,
+              usedQuota: quotaData.usedQuota || 0,
+              heldQuota: quotaData.heldQuota || 0,
+              remainingQuota: quotaData.remainingQuota || 0,
+              canUseForBooking: quotaData.canUseForBooking || false,
+            });
+          }
+        })
         .finally(() => setQuoteLoading(false));
     } else {
       setSessionQuote(null);
@@ -216,14 +225,12 @@ export default function MemberClassesPage() {
   // Xem chi tiết HLV
   const handleViewCoach = async (coachId) => {
     if (!coachId) return;
-    setCoachLoading(true);
+
     try {
       const coachProfile = await getCoachPublicProfile(coachId);
       setSelectedCoach(coachProfile);
     } catch (err) {
       showToast('Huấn luyện viên', err.message || 'Không thể tải hồ sơ huấn luyện viên.', 'warning');
-    } finally {
-      setCoachLoading(false);
     }
   };
 
@@ -286,12 +293,13 @@ export default function MemberClassesPage() {
           'MEMBERSHIP_QUOTA',
           true  // useQuota = true
         );
-        
+
         showToast(
           'Đăng ký thành công!',
           confirmation.quotaMessage || `Lớp "${registeringSession.className}" đã được thêm vào Thời khóa biểu! Đã trừ ${requiredQuota} buổi từ gói hội viên.`,
           'success'
         );
+        window.dispatchEvent(new Event('sporthub:notifications-updated'));
         setRegisteringSession(null);
         await loadData();
       } catch (err) {
@@ -320,7 +328,7 @@ export default function MemberClassesPage() {
       if (paymentMethod === 'VNPAY' && confirmation.paymentStatus !== 'PAID') {
         try {
           const vnpayResult = await generatePayment(confirmation.paymentId, 'VNPAY');
-          
+
           redirectToPayment(confirmation.paymentId, vnpayResult.paymentUrl);
           return;
         } catch (vnpayError) {
@@ -349,55 +357,13 @@ export default function MemberClassesPage() {
     }
   };
 
-  // Polling payment status từ backend
-  const startPollingPayment = (paymentId, confirmation) => {
-    setPollingPayment(true);
-    
-    const interval = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/v1/payments/${paymentId}`);
-        const payment = await response.json();
-        
-        if (payment.paymentStatus === 'PAID') {
-          // Thanh toán thành công
-          clearInterval(interval);
-          setPollingInterval(null);
-          setPollingPayment(false);
-          setShowQrModal(false);
-          
-          // Show success popup
-          showToast(
-            'Thanh toán thành công!',
-            `Lớp "${registeringSession.className}" đã được thêm vào Thời khóa biểu!`,
-            'success'
-          );
-          
-          // Close modal and reload data
-          setRegisteringSession(null);
-          await loadData();
-        }
-      } catch (err) {
-        console.error('Polling error:', err);
-      }
-    }, 3000); // Poll mỗi 3 giây
-    
-    setPollingInterval(interval);
-    
-    // Timeout sau 5 phút (300s)
-    setTimeout(() => {
-      clearInterval(interval);
-      setPollingInterval(null);
-      setPollingPayment(false);
-    }, 300000);
-  };
-
   // Xác nhận hủy đăng ký lớp
   const handleConfirmCancel = async () => {
     if (!cancelingBooking) return;
     setSubmittingCancel(true);
     try {
       const response = await cancelMemberBooking('CLASS', cancelingBooking.bookingId);
-      
+
       // Check if refund is pending approval or already requested
       if (response.refundStatus === 'PENDING_APPROVAL') {
         showToast(
@@ -413,8 +379,9 @@ export default function MemberClassesPage() {
           'success'
         );
       }
-      
+
       setCancelingBooking(null);
+      window.dispatchEvent(new Event('sporthub:notifications-updated'));
       await loadData();
     } catch (err) {
       showToast('Không thể hủy lớp', err.message || 'Chỉ được hủy trước giờ bắt đầu ít nhất 2 tiếng.', 'error');
@@ -422,15 +389,6 @@ export default function MemberClassesPage() {
       setSubmittingCancel(false);
     }
   };
-
-  // Cleanup polling khi unmount
-  useEffect(() => {
-    return () => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-      }
-    };
-  }, [pollingInterval]);
 
   return (
     <MemberLayout>
@@ -660,7 +618,8 @@ export default function MemberClassesPage() {
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-500">Thời lượng:</span>
                         <span className="font-semibold text-slate-800">
-                          {new Date(cls.endTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} (60 phút)
+                          {new Date(cls.endTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                          {formatDurationMinutes(cls.startTime, cls.endTime) ? ` (${formatDurationMinutes(cls.startTime, cls.endTime)} phút)` : ''}
                         </span>
                       </div>
 
@@ -782,7 +741,7 @@ export default function MemberClassesPage() {
                 <div className="mt-4 space-y-2 text-xs text-left border-t border-slate-100 pt-3">
                   <div className="flex justify-between text-slate-600">
                     <span>Số điện thoại:</span>
-                    <strong className="text-slate-900">{selectedCoach.phone || '0901.888.xxx'}</strong>
+                    <strong className="text-slate-900">{selectedCoach.phone || 'Chưa cập nhật'}</strong>
                   </div>
                   <div className="flex justify-between text-slate-600">
                     <span>Email liên hệ:</span>
@@ -879,7 +838,10 @@ export default function MemberClassesPage() {
                           {new Date(registeringSession.endTime).toLocaleTimeString('vi-VN', { 
                             hour: '2-digit', 
                             minute: '2-digit' 
-                          })} (60 phút)
+                          })}
+                          {formatDurationMinutes(registeringSession.startTime, registeringSession.endTime)
+                            ? ` (${formatDurationMinutes(registeringSession.startTime, registeringSession.endTime)} phút)`
+                            : ''}
                         </dd>
                       </div>
 
@@ -932,16 +894,6 @@ export default function MemberClassesPage() {
                             Voucher ưu đãi ({appliedVoucher.code}):
                           </span>
                           <strong className="font-bold text-emerald-700">-{formatMoney(voucherDiscount)}</strong>
-                        </div>
-                      )}
-
-                      {paymentMode === 'RETAIL' && appliedVoucher?.discountType === 'EXTEND_DURATION' && (
-                        <div className="flex justify-between items-center rounded-lg bg-blue-50 px-3 py-1.5 text-xs text-blue-800">
-                          <span className="flex items-center gap-1.5 font-semibold">
-                            <span className="material-symbols-outlined text-sm text-blue-600">more_time</span>
-                            Ưu đãi Voucher ({appliedVoucher.code}):
-                          </span>
-                          <strong className="font-bold text-blue-700">Tặng thêm 30 ngày thời hạn gói</strong>
                         </div>
                       )}
 
@@ -1033,7 +985,7 @@ export default function MemberClassesPage() {
                       <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
                         <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                           <span className="material-symbols-outlined text-[16px] text-orange-500">confirmation_number</span>
-                          Mã Giảm Giá / Voucher (MGR-18)
+                          Mã Giảm Giá / Voucher
                         </label>
 
                         {appliedVoucher ? (
@@ -1193,114 +1145,6 @@ export default function MemberClassesPage() {
           document.body
         )}
 
-        {/* QR Payment Modal */}
-        {showQrModal && qrData && createPortal(
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200 !m-0">
-            <div className="w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-2xl text-orange-500">qr_code_2</span>
-                  <h3 className="text-lg font-bold text-slate-900">Quét Mã QR Để Thanh Toán</h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowQrModal(false);
-                    if (pollingInterval) {
-                      clearInterval(pollingInterval);
-                      setPollingInterval(null);
-                    }
-                    setPollingPayment(false);
-                  }}
-                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                >
-                  <span className="material-symbols-outlined text-[20px]">close</span>
-                </button>
-              </div>
-
-              <div className="my-6 text-center space-y-4">
-                {/* QR Code Image */}
-                <div className="mx-auto w-64 h-64 rounded-2xl overflow-hidden border-4 border-orange-500 shadow-lg bg-white p-2">
-                  <img
-                    src={qrData.qrUrl}
-                    alt="VNPay QR Payment"
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-
-                {/* Bank Info */}
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between items-center px-4 py-2 bg-slate-50 rounded-xl">
-                    <span className="text-slate-600">Ngân hàng:</span>
-                    <span className="font-bold text-slate-900">BIDV</span>
-                  </div>
-                  <div className="flex justify-between items-center px-4 py-2 bg-slate-50 rounded-xl">
-                    <span className="text-slate-600">Số tài khoản:</span>
-                    <span className="font-bold text-slate-900 font-mono">962470DS8D</span>
-                  </div>
-                  <div className="flex justify-between items-center px-4 py-2 bg-slate-50 rounded-xl">
-                    <span className="text-slate-600">Chủ tài khoản:</span>
-                    <span className="font-bold text-slate-900">F SPORT CENTER</span>
-                  </div>
-                  <div className="flex justify-between items-center px-4 py-2 bg-orange-50 rounded-xl border border-orange-200">
-                    <span className="text-orange-700 font-semibold">Số tiền:</span>
-                    <span className="font-bold text-orange-600 text-lg">{formatMoney(qrData.amount)}</span>
-                  </div>
-                  <div className="flex justify-between items-center px-4 py-2 bg-blue-50 rounded-xl border border-blue-200">
-                    <span className="text-blue-700 font-semibold">Nội dung CK:</span>
-                    <span className="font-bold text-blue-900 font-mono text-xs">{qrData.addInfo}</span>
-                  </div>
-                </div>
-
-                {/* Polling Status */}
-                {pollingPayment && (
-                  <div className="flex items-center justify-center gap-2 text-sm text-orange-600 bg-orange-50 border border-orange-200 rounded-xl py-3 px-4">
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-orange-600 border-t-transparent"></div>
-                    <span className="font-semibold">Đang chờ thanh toán...</span>
-                  </div>
-                )}
-
-                {/* Instructions */}
-                <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-xl p-3 text-left space-y-1">
-                  <div className="font-bold text-slate-800 mb-2">Hướng dẫn:</div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-orange-500 font-bold shrink-0">1.</span>
-                    <span>Mở ứng dụng ngân hàng của bạn</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-orange-500 font-bold shrink-0">2.</span>
-                    <span>Chọn chức năng quét mã QR hoặc chuyển khoản</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-orange-500 font-bold shrink-0">3.</span>
-                    <span>Quét mã QR trên màn hình này</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-orange-500 font-bold shrink-0">4.</span>
-                    <span>Xác nhận chuyển khoản (hệ thống tự động xác nhận sau vài giây)</span>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowQrModal(false);
-                  if (pollingInterval) {
-                    clearInterval(pollingInterval);
-                    setPollingInterval(null);
-                  }
-                  setPollingPayment(false);
-                  setRegisteringSession(null);
-                }}
-                className="w-full rounded-xl bg-slate-200 hover:bg-slate-300 py-3 text-xs font-bold text-slate-700 transition"
-              >
-                Hủy và Đóng
-              </button>
-            </div>
-          </div>,
-          document.body
-        )}
       </div>
     </MemberLayout>
   );

@@ -1,7 +1,23 @@
-import React from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+const POLICY_DETAILS = {
+  membership: {
+    title: 'Chính sách Hội viên',
+    content: 'Gói tập sau khi thanh toán trực tuyến hoặc tại quầy sẽ được Quản lý xét duyệt kích hoạt. Gia hạn gói cùng hạng sẽ nối tiếp thời hạn sử dụng hiện có.',
+  },
+  terms: {
+    title: 'Điều khoản sử dụng',
+    content: 'Hội viên có thể hủy hoặc đổi lịch đặt sân trước giờ chơi tối thiểu theo quy định hệ thống (mặc định 2 giờ). Vui lòng đến check-in đúng giờ bằng thẻ RFID hoặc mã QR.',
+  },
+  privacy: {
+    title: 'Bảo mật thông tin',
+    content: 'Dữ liệu cá nhân, chỉ số sức khỏe và lịch sử giao dịch được mã hóa phiên xác thực và chỉ phục vụ vận hành dịch vụ thể thao tại F Sport Center.',
+  },
+};
+
 export default function Footer() {
+  const [activePolicy, setActivePolicy] = useState(null);
   return (
     <footer className="w-full bg-white border-t border-slate-200 font-body-md text-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -43,9 +59,21 @@ export default function Footer() {
               Quy định & Chính sách
             </h4>
             <ul className="space-y-2 text-xs text-slate-600 font-medium">
-              <li><a href="#chinh-sach" className="hover:text-orange-600">Chính sách Hội viên</a></li>
-              <li><a href="#dieu-khoan" className="hover:text-orange-600">Điều khoản sử dụng</a></li>
-              <li><a href="#bao-mat" className="hover:text-orange-600">Bảo mật thông tin</a></li>
+              <li>
+                <button type="button" onClick={() => setActivePolicy('membership')} className="hover:text-orange-600 cursor-pointer text-left">
+                  Chính sách Hội viên
+                </button>
+              </li>
+              <li>
+                <button type="button" onClick={() => setActivePolicy('terms')} className="hover:text-orange-600 cursor-pointer text-left">
+                  Điều khoản sử dụng
+                </button>
+              </li>
+              <li>
+                <button type="button" onClick={() => setActivePolicy('privacy')} className="hover:text-orange-600 cursor-pointer text-left">
+                  Bảo mật thông tin
+                </button>
+              </li>
             </ul>
           </div>
 
@@ -66,6 +94,45 @@ export default function Footer() {
           <span className="font-bold text-orange-600 uppercase tracking-wider">PERFORMANCE FIRST</span>
         </div>
       </div>
+
+      {activePolicy && POLICY_DETAILS[activePolicy] && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="footer-policy-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+          onClick={() => setActivePolicy(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl bg-white border border-slate-200 shadow-2xl p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h3 id="footer-policy-title" className="text-base font-black text-slate-900 uppercase">
+                {POLICY_DETAILS[activePolicy].title}
+              </h3>
+              <button
+                type="button"
+                aria-label="Đóng"
+                onClick={() => setActivePolicy(null)}
+                className="w-8 h-8 rounded-xl text-slate-500 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+              {POLICY_DETAILS[activePolicy].content}
+            </p>
+            <button
+              type="button"
+              onClick={() => setActivePolicy(null)}
+              className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black uppercase tracking-wider cursor-pointer"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
     </footer>
   );
 }

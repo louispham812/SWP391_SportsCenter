@@ -73,6 +73,24 @@ public class CheckInService {
 
     @Transactional
     public void checkInBooking(Long memberId, Long bookingId) {
+        CourtBooking booking = validateBooking(memberId, bookingId);
+        if (booking != null) {
+            if (Boolean.TRUE.equals(booking.getUsesMembershipQuota())) {
+                membershipService.consumeCourtQuota(booking.getMembershipId(), booking.getQuotaHoursUsed().doubleValue());
+                booking.setQuotaState("USED");
+            }
+            booking.setStatus("CHECKED_IN");
+            courtBookingRepository.save(booking);
+        }
+    }
+
+    /** Preview the same admission rules without recording attendance or consuming quota. */
+    @Transactional
+    public void validateCheckIn(Long memberId, Long bookingId) {
+        validateBooking(memberId, bookingId);
+    }
+
+    private CourtBooking validateBooking(Long memberId, Long bookingId) {
         User member = userRepository.findByIdForUpdate(memberId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         if (!"ACTIVE".equals(member.getStatus())) throw new ResponseStatusException(HttpStatus.CONFLICT, "Tài khoản không hoạt động.");
         LocalDateTime now = LocalDateTime.now();
@@ -93,13 +111,9 @@ public class CheckInService {
             if (classes.isEmpty()) throw new ResponseStatusException(HttpStatus.CONFLICT, "Không có lịch đã xác nhận trong khung giờ hiện tại.");
             // Admission does not replace the coach's attendance or consume class/PT quota.
             for (var booking : classes) eligibility.validateClass(booking, memberId, now);
+            return null;
         } else {
-            CourtBooking booking = eligibility.validateCourt(courts.getFirst(), memberId, now);
-            if (Boolean.TRUE.equals(booking.getUsesMembershipQuota())) {
-                membershipService.consumeCourtQuota(booking.getMembershipId(), booking.getQuotaHoursUsed().doubleValue());
-                booking.setQuotaState("USED");
-            }
-            booking.setStatus("CHECKED_IN"); courtBookingRepository.save(booking);
+            return eligibility.validateCourt(courts.getFirst(), memberId, now);
         }
     }
 }

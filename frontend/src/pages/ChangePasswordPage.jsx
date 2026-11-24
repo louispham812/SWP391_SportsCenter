@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 
@@ -10,9 +10,14 @@ export default function ChangePasswordPage() {
   const location = useLocation();
   const { currentUser, authSession, showToast, logout } = useApp();
 
-  // Email: lấy từ currentUser, location.state, hoặc query param
+  // Email: lấy từ currentUser, location.state, query param, hoặc localStorage tạm
   const queryParams = new URLSearchParams(location.search);
-  const initialEmail = currentUser?.email || location.state?.email || queryParams.get('email') || '';
+  const initialEmail =
+    currentUser?.email ||
+    location.state?.email ||
+    queryParams.get('email') ||
+    localStorage.getItem('tempUserEmail') ||
+    '';
 
   const [email, setEmail] = useState(initialEmail);
   const [oldPassword, setOldPassword] = useState(location.state?.tempPassword || '');
@@ -28,18 +33,19 @@ export default function ChangePasswordPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Password strength calculation
+  // Password strength calculation (aligned with backend AuthService.validatePasswordStrength)
   const getPasswordStrength = (pass) => {
     if (!pass) return { score: 0, label: 'Chưa nhập', color: 'bg-slate-200' };
     let score = 0;
     if (pass.length >= 8) score += 1;
     if (/[A-Z]/.test(pass)) score += 1;
+    if (/[a-z]/.test(pass)) score += 1;
     if (/[0-9]/.test(pass)) score += 1;
-    if (/[^A-Za-z0-9]/.test(pass)) score += 1;
+    if (/[@$!%*?&#]/.test(pass)) score += 1;
 
-    if (score <= 1) return { score: 1, label: 'Yếu', color: 'bg-red-500' };
-    if (score === 2) return { score: 2, label: 'Trung bình', color: 'bg-amber-500' };
-    if (score === 3) return { score: 3, label: 'Khá mạnh', color: 'bg-blue-500' };
+    if (score <= 2) return { score: 1, label: 'Yếu', color: 'bg-red-500' };
+    if (score === 3) return { score: 2, label: 'Trung bình', color: 'bg-amber-500' };
+    if (score === 4) return { score: 3, label: 'Khá mạnh', color: 'bg-blue-500' };
     return { score: 4, label: 'Rất mạnh', color: 'bg-emerald-500' };
   };
 
@@ -64,6 +70,10 @@ export default function ChangePasswordPage() {
       setErrorMessage('Mật khẩu mới phải có tối thiểu 8 ký tự.');
       return;
     }
+    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[@$!%*?&#]/.test(newPassword)) {
+      setErrorMessage('Mật khẩu mới yêu cầu tối thiểu 1 chữ hoa, chữ thường, chữ số và ký tự đặc biệt (@$!%*?&#).');
+      return;
+    }
     if (newPassword !== confirmPassword) {
       setErrorMessage('Xác nhận mật khẩu mới không khớp với mật khẩu mới.');
       return;
@@ -77,8 +87,9 @@ export default function ChangePasswordPage() {
 
     try {
       const headers = { 'Content-Type': 'application/json' };
-      if (authSession?.token) {
-        headers['Authorization'] = `Bearer ${authSession.token}`;
+      const activeToken = authSession?.token || localStorage.getItem('authToken');
+      if (activeToken) {
+        headers['Authorization'] = `Bearer ${activeToken}`;
       }
 
       const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
@@ -104,6 +115,8 @@ export default function ChangePasswordPage() {
         throw new Error(parsedMessage || 'Đổi mật khẩu không thành công.');
       }
 
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('tempUserEmail');
       setSuccessMessage('Đổi mật khẩu thành công! Tài khoản của bạn đã được cập nhật bảo mật.');
       showToast('Thành công', 'Đã đổi mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.');
 
@@ -124,7 +137,7 @@ export default function ChangePasswordPage() {
 
   return (
     <div className="min-h-screen bg-[#f7f9fb] font-body-md text-slate-800 antialiased selection:bg-orange-500 selection:text-white flex flex-col justify-between">
-      
+
       {/* Top Simple Header */}
       <header className="w-full bg-white border-b border-slate-200/80 px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-xs">
         <Link to="/" className="flex items-center gap-2.5 group">
@@ -160,7 +173,7 @@ export default function ChangePasswordPage() {
       {/* Main Container */}
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-10 my-4">
         <div className="w-full max-w-xl bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-          
+
           {/* Header Banner */}
           <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-6 sm:p-8 relative overflow-hidden">
             <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-orange-500/10 rounded-full blur-2xl pointer-events-none"></div>
@@ -187,7 +200,7 @@ export default function ChangePasswordPage() {
 
           {/* Form Content */}
           <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
-            
+
             {/* Alert Messages */}
             {errorMessage && (
               <div className="p-4 rounded-2xl bg-red-50 border border-red-200 flex items-start gap-3 text-red-700 text-xs font-bold animate-in fade-in">
@@ -288,14 +301,14 @@ export default function ChangePasswordPage() {
                   minLength={8}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Tối thiểu 8 ký tự (chữ hoa, chữ thường, số)"
+                  placeholder="Tối thiểu 8 ký tự (chữ hoa, thường, số, @$!%*?&#)"
                   className="w-full bg-white text-slate-900 pl-11 pr-11 py-3 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all shadow-2xs"
                 />
                 <button
                   type="button"
+                  aria-label={showNew ? 'Ẩn mật khẩu mới' : 'Hiện mật khẩu mới'}
                   onClick={() => setShowNew(!showNew)}
                   className="absolute right-3.5 text-slate-400 hover:text-slate-700 transition-colors flex items-center cursor-pointer"
-                  tabIndex={-1}
                 >
                   <span className="material-symbols-outlined text-[20px]">
                     {showNew ? 'visibility_off' : 'visibility'}
@@ -368,12 +381,11 @@ export default function ChangePasswordPage() {
             <div className="p-3.5 rounded-2xl bg-orange-50/70 border border-orange-200/60 text-slate-700 text-xs space-y-1">
               <div className="flex items-center gap-2 text-orange-700 font-bold">
                 <span className="material-symbols-outlined text-[16px]">verified_user</span>
-                <span>Yêu cầu mật khẩu chuẩn hệ thống SportHub:</span>
+                <span>Yêu cầu mật khẩu chuẩn hệ thống F Sport Center:</span>
               </div>
               <ul className="list-disc list-inside text-[11px] text-slate-600 space-y-0.5 pl-1 font-medium">
-                <li>Tối thiểu 8 ký tự.</li>
+                <li>Tối thiểu 8 ký tự, gồm chữ hoa, chữ thường, chữ số và ký tự đặc biệt (@$!%*?&amp;#).</li>
                 <li>Khác với mật khẩu tạm nhận qua email.</li>
-                <li>Nên kết hợp chữ cái và số để đạt độ an toàn cao nhất.</li>
               </ul>
             </div>
 

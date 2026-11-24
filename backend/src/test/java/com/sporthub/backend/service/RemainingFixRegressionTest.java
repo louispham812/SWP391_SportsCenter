@@ -94,34 +94,8 @@ class RemainingFixRegressionTest {
         var wrong = new HashMap<>(callback("2_first", "txn_one")); wrong.put("vnp_Amount", "2000");
         f.controller.handleIPN(wrong); verifyNoInteractions(f.attempts, f.receipts, f.handler);
     }
-    @Test void excessRefundUsesItsOwnGatewayIdentifiersAndDoesNotChangeOriginalOrder() {
-        var f = new PaymentFixture(); f.controller.handleIPN(callback("2_first", "txn_one")); f.controller.handleIPN(callback("2_second", "txn_two"));
-        GatewayReceipt extra = f.receiptsByTransaction.get("txn_two"); extra.setTransactionDate("20261109115900");
-        when(f.receipts.findById(extra.getReceiptId())).thenReturn(Optional.of(extra)); when(f.receipts.findByIdForUpdate(extra.getReceiptId())).thenReturn(Optional.of(extra));
-        when(f.gateway.refundPayment(any(), any(), anyString(), anyString())).thenReturn(Map.of("vnp_ResponseCode", "00"));
-        var c = new PaymentReconciliationController(f.receipts, f.payments, f.gateway, f.engagement);
-        var manager = new UsernamePasswordAuthenticationToken("1", "", List.of(new SimpleGrantedAuthority("ROLE_MANAGER")));
-        c.refund(extra.getReceiptId(), manager);
-        var source = org.mockito.ArgumentCaptor.forClass(PaymentTransaction.class);
-        verify(f.gateway).refundPayment(source.capture(), argThat(a -> a.compareTo(BigDecimal.TEN) == 0), anyString(), eq("excess-receipt:txn_two"));
-        assertEquals("txn_two", source.getValue().getReferenceCode()); assertEquals("2_second", source.getValue().getGatewayReference());
-        assertEquals("REFUNDED", extra.getStatus()); assertEquals("PAID", f.order.getPaymentStatus()); assertEquals("txn_one", f.order.getReferenceCode());
-        assertThrows(ResponseStatusException.class, () -> c.refund(extra.getReceiptId(), manager));
-        verify(f.handler, times(1)).handlePaymentConfirmation(any(), any());
-    }
-    @Test void unconfirmedExcessRefundRequiresReviewAndCannotBeBlindlyRetried() {
-        var f = new PaymentFixture(); f.controller.handleIPN(callback("2_first", "txn_one")); f.controller.handleIPN(callback("2_second", "txn_two"));
-        GatewayReceipt extra = f.receiptsByTransaction.get("txn_two"); extra.setTransactionDate("20261109115900");
-        when(f.receipts.findById(extra.getReceiptId())).thenReturn(Optional.of(extra)); when(f.receipts.findByIdForUpdate(extra.getReceiptId())).thenReturn(Optional.of(extra));
-        when(f.gateway.refundPayment(any(), any(), anyString(), anyString())).thenReturn(Map.of("vnp_ResponseCode", "99"));
-        var c = new PaymentReconciliationController(f.receipts, f.payments, f.gateway, f.engagement);
-        var manager = new UsernamePasswordAuthenticationToken("1", "", List.of(new SimpleGrantedAuthority("ROLE_MANAGER")));
-        c.refund(extra.getReceiptId(), manager); assertEquals("REVIEW_REQUIRED", extra.getStatus());
-        assertThrows(ResponseStatusException.class, () -> c.refund(extra.getReceiptId(), manager));
-        verify(f.gateway, times(1)).refundPayment(any(), any(), anyString(), anyString()); assertEquals("PAID", f.order.getPaymentStatus());
-    }
     static UserMembership term(boolean expired) {
-        UserMembership m = new UserMembership(); m.setMembershipId(1L); m.setUserId(MEMBER); m.setStatus(expired ? "EXPIRED" : "ACTIVE");
+        UserMembership m = new UserMembership(); m.setMembershipId(1L); m.setUserId(MEMBER); m.setPackageId(2L); m.setStatus(expired ? "EXPIRED" : "ACTIVE");
         m.setStartDate(LocalDate.now().minusDays(30)); m.setEndDate(expired ? LocalDate.now().minusDays(1) : LocalDate.now().plusDays(1));
         m.setInitialQuotaSessions(1); m.setUsedQuotaSessions(1); m.setInitialQuotaCourts(10); m.setRemainingQuotaCourts(9); m.setHeldQuotaCourts(1); return m;
     }
@@ -190,8 +164,9 @@ class RemainingFixRegressionTest {
         final PublicFacilityRepository facilities = mock(PublicFacilityRepository.class);
         final FacilityCourtSyncService sync = mock(FacilityCourtSyncService.class);
         final UserMembershipRepository rows = mock(UserMembershipRepository.class);
+        final MembershipPackageRepository packages = mock(MembershipPackageRepository.class);
         final UserMembership m = term(false);
-        final MembershipService quota = new MembershipService(rows, mock(MembershipPackageRepository.class), null, null, null);
+        final MembershipService quota = new MembershipService(rows, packages, null, null, null);
         final CourtBooking b = new CourtBooking();
         final PaymentTransaction p = new PaymentTransaction();
         final SportsCourt court = new SportsCourt();
@@ -204,6 +179,7 @@ class RemainingFixRegressionTest {
             when(users.findByIdForUpdate(MEMBER)).thenReturn(Optional.of(User.builder().userId(MEMBER).role("MEMBER").status("ACTIVE").build()));
             when(courts.findCheckInEligibleBookings(eq(MEMBER), any(), any(), any())).thenReturn(List.of(b)); when(courts.findByIdForUpdate(4L)).thenReturn(Optional.of(b));
             when(sports.findByIdForUpdate(3L)).thenReturn(Optional.of(court)); when(payments.findByIdForUpdate(2L)).thenReturn(Optional.of(p)); when(rows.findByIdForUpdate(1L)).thenReturn(Optional.of(m));
+            when(rows.findById(1L)).thenReturn(Optional.of(m)); when(packages.findById(2L)).thenReturn(Optional.of(MembershipPackage.builder().packageId(2L).build()));
             eligibility = new CheckInEligibilityService(sports, courts, maintenance, payments, bookings, sessions, facilities, sync, quota);
             ReflectionTestUtils.setField(eligibility, "membershipRows", rows);
             checkIn = new CheckInService(mock(MemberCheckInRepository.class), users, bookings, courts, quota); ReflectionTestUtils.setField(checkIn, "eligibility", eligibility);

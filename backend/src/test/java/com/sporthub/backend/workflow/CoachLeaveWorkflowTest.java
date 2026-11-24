@@ -14,11 +14,15 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -36,6 +40,9 @@ class CoachLeaveWorkflowTest {
     private ClassSessionRepository classSessionRepository;
     private BookingRepository bookingRepository;
     private EngagementService engagementService;
+    private SportRepository sportRepository;
+    private Sport gymSport;
+    private Sport pickleballSport;
     private Authentication auth;
 
     @BeforeEach
@@ -45,7 +52,16 @@ class CoachLeaveWorkflowTest {
         classSessionRepository = mock(ClassSessionRepository.class);
         bookingRepository = mock(BookingRepository.class);
         engagementService = mock(EngagementService.class);
+        sportRepository = mock(SportRepository.class);
         auth = mock(Authentication.class);
+
+        gymSport = new Sport();
+        gymSport.setSportId(1L);
+        gymSport.setSportName("Gym & Fitness");
+        pickleballSport = new Sport();
+        pickleballSport.setSportId(2L);
+        pickleballSport.setSportName("Pickleball");
+        lenient().when(sportRepository.findAllByOrderBySportIdAsc()).thenReturn(List.of(gymSport, pickleballSport));
 
         controller = new CoachLeaveController(
                 leaveRepository,
@@ -54,6 +70,7 @@ class CoachLeaveWorkflowTest {
                 bookingRepository,
                 engagementService
         );
+        ReflectionTestUtils.setField(controller, "sportRepository", sportRepository);
     }
 
     /**
@@ -174,23 +191,37 @@ class CoachLeaveWorkflowTest {
         replacementCoach.setFullName("Coach Trần Văn B");
         replacementCoach.setRole("COACH");
         replacementCoach.setStatus("ACTIVE");
+        replacementCoach.setSpecialty("Gym & Fitness");
+        replacementCoach.setCoachedSports(Set.of(gymSport));
         lenient().when(userRepository.findById(reassignedCoachId)).thenReturn(Optional.of(replacementCoach));
         lenient().when(userRepository.findByIdForUpdate(reassignedCoachId)).thenReturn(Optional.of(replacementCoach));
 
         ClassSession session1 = new ClassSession();
         session1.setSessionId(10L); session1.setSportId(1L);
+        session1.setClassName("Gym Buổi Sáng");
         session1.setCoachId(coachId);
         session1.setStatus("SCHEDULED");
         session1.setStartTime(LocalDateTime.now().plusDays(8));
+        session1.setEndTime(LocalDateTime.now().plusDays(8).plusHours(1));
 
         ClassSession session2 = new ClassSession();
         session2.setSessionId(11L); session2.setSportId(1L);
+        session2.setClassName("Gym Buổi Chiều");
         session2.setCoachId(coachId);
         session2.setStatus("SCHEDULED");
         session2.setStartTime(LocalDateTime.now().plusDays(9));
+        session2.setEndTime(LocalDateTime.now().plusDays(9).plusHours(1));
 
+        when(leaveRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(leaveRequest));
         when(classSessionRepository.findAll()).thenReturn(List.of(session1, session2));
-        when(classSessionRepository.findByCoachIdOrderByStartTimeAsc(reassignedCoachId)).thenReturn(List.of(session1));
+
+        var managerList = controller.getAllLeaveRequestsForManager().getBody();
+        assertNotNull(managerList);
+        assertEquals(1, managerList.size());
+        assertEquals(2, managerList.get(0).affectedSessions().size());
+        assertEquals(1L, managerList.get(0).affectedSessions().get(0).sportId());
+        assertEquals("Gym & Fitness", managerList.get(0).affectedSessions().get(0).sportName());
+
         when(classSessionRepository.saveAll(anyList())).thenReturn(List.of(session1, session2));
 
         Booking booking1 = new Booking();
@@ -320,5 +351,99 @@ class CoachLeaveWorkflowTest {
         assertEquals(coachId, coachCaptor.getValue());
         assertTrue(titleCaptor.getValue().contains("bị từ chối"));
         assertTrue(bodyCaptor.getValue().contains("Lịch giảng dạy quá kín"));
+    }
+
+    @Test
+    void testManagerApproveLeaveRequest_RejectsWrongSportAndLeavingCoach() {
+        when(auth.getName()).thenReturn("100");
+        LocalDate day = LocalDate.now().plusDays(5);
+        CoachLeaveRequest leaveRequest = CoachLeaveRequest.builder()
+                .requestId(2L)
+                .coachId(2L)
+                .coachName("Coach Nghỉ")
+                .startDate(day)
+                .endDate(day)
+                .status("PENDING")
+                .build();
+        when(leaveRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(leaveRequest));
+
+        User leavingCoach = User.builder()
+                .userId(2L).fullName("Coach Nghỉ").role("COACH").status("ACTIVE")
+                .specialty("Gym & Fitness").coachedSports(Set.of(gymSport))
+                .build();
+        User wrongSportCoach = User.builder()
+                .userId(4L).fullName("Coach Pickleball").role("COACH").status("ACTIVE")
+                .specialty("Pickleball").coachedSports(Set.of(pickleballSport))
+                .build();
+        when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(leavingCoach));
+        when(userRepository.findByIdForUpdate(4L)).thenReturn(Optional.of(wrongSportCoach));
+
+        ClassSession gymSession = ClassSession.builder()
+                .sessionId(30L).className("Gym Sáng").sportId(1L).coachId(2L)
+                .status("SCHEDULED").startTime(day.atTime(8, 0)).endTime(day.atTime(9, 0))
+                .build();
+        when(classSessionRepository.findAll()).thenReturn(List.of(gymSession));
+
+        ResponseStatusException selfEx = assertThrows(ResponseStatusException.class, () ->
+                controller.decideLeaveRequest(2L, new LeaveDecisionRequest(true, 2L, null), auth));
+        assertEquals(HttpStatus.BAD_REQUEST, selfEx.getStatusCode());
+
+        ResponseStatusException sportEx = assertThrows(ResponseStatusException.class, () ->
+                controller.decideLeaveRequest(2L, new LeaveDecisionRequest(true, 4L, null), auth));
+        assertEquals(HttpStatus.CONFLICT, sportEx.getStatusCode());
+        assertTrue(sportEx.getReason().contains("chuyên môn"));
+        verify(classSessionRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void testManagerApproveLeaveRequest_SupportsPerSessionReassignmentsBySport() {
+        when(auth.getName()).thenReturn("100");
+        LocalDate day = LocalDate.now().plusDays(6);
+        CoachLeaveRequest leaveRequest = CoachLeaveRequest.builder()
+                .requestId(3L)
+                .coachId(2L)
+                .coachName("Coach Đa Môn")
+                .startDate(day)
+                .endDate(day)
+                .status("PENDING")
+                .build();
+        when(leaveRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(leaveRequest));
+
+        User gymCoach = User.builder()
+                .userId(3L).fullName("Coach Gym").role("COACH").status("ACTIVE")
+                .specialty("Gym & Fitness").coachedSports(Set.of(gymSport))
+                .build();
+        User pickleCoach = User.builder()
+                .userId(4L).fullName("Coach Pickleball").role("COACH").status("ACTIVE")
+                .specialty("Pickleball").coachedSports(Set.of(pickleballSport))
+                .build();
+        when(userRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(gymCoach));
+        when(userRepository.findByIdForUpdate(4L)).thenReturn(Optional.of(pickleCoach));
+
+        ClassSession s1 = ClassSession.builder()
+                .sessionId(31L).className("Gym Sáng").sportId(1L).coachId(2L)
+                .status("SCHEDULED").startTime(day.atTime(8, 0)).endTime(day.atTime(9, 0))
+                .build();
+        ClassSession s2 = ClassSession.builder()
+                .sessionId(32L).className("Pickleball Tối").sportId(2L).coachId(2L)
+                .status("SCHEDULED").startTime(day.atTime(18, 0)).endTime(day.atTime(19, 0))
+                .build();
+        when(classSessionRepository.findAll()).thenReturn(List.of(s1, s2));
+        when(classSessionRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+        when(leaveRepository.save(any(CoachLeaveRequest.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Booking b1 = Booking.builder().bookingId(51L).memberId(70L).sessionId(31L).status("CONFIRMED").build();
+        Booking b2 = Booking.builder().bookingId(52L).memberId(71L).sessionId(32L).status("BOOKED").build();
+        when(bookingRepository.findBySessionIdInAndStatusIn(anyList(), anyList())).thenReturn(List.of(b1, b2));
+
+        LeaveDecisionRequest decision = new LeaveDecisionRequest(
+                true, 3L, null, Map.of(31L, 3L, 32L, 4L));
+        ResponseEntity<CoachLeaveRequestDTO> res = controller.decideLeaveRequest(3L, decision, auth);
+
+        assertEquals(HttpStatus.OK, res.getStatusCode());
+        assertEquals(3L, s1.getCoachId());
+        assertEquals(4L, s2.getCoachId());
+        verify(engagementService).notifyUser(eq(70L), eq("Thay đổi Huấn luyện viên"), contains("Coach Gym"), eq("SCHEDULE"));
+        verify(engagementService).notifyUser(eq(71L), eq("Thay đổi Huấn luyện viên"), contains("Coach Pickleball"), eq("SCHEDULE"));
     }
 }

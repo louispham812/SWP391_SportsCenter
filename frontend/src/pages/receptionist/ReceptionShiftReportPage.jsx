@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
 import { getReceptionistReport } from '../../services/receptionistApi';
+import { useApp } from '../../context/AppContext';
 import { StatCardSkeleton } from '../../components/common/Skeleton';
 import { exportToCsv } from '../../utils/csvExporter';
 
@@ -17,21 +18,25 @@ const currency = (value) => new Intl.NumberFormat('vi-VN', {
 }).format(value || 0);
 
 export default function ReceptionShiftReportPage() {
+  const { currentUser } = useApp();
   const [date, setDate] = useState(todayKey);
+  const [refreshTick, setRefreshTick] = useState(0);
   const [reportResponse, setReportResponse] = useState(null);
-  const loading = reportResponse?.key !== date;
-  const report = reportResponse?.key === date ? reportResponse.data : null;
-  const error = reportResponse?.key === date ? reportResponse.error : '';
+  const currentKey = `${date}:${refreshTick}`;
+  const loading = reportResponse?.key !== currentKey;
+  const report = reportResponse?.key === currentKey ? reportResponse.data : null;
+  const error = reportResponse?.key === currentKey ? reportResponse.error : '';
 
   useEffect(() => {
     let active = true;
+    const key = `${date}:${refreshTick}`;
     getReceptionistReport(date)
       .then((data) => {
-        if (active) setReportResponse({ key: date, data, error: '' });
+        if (active) setReportResponse({ key, data, error: '' });
       })
       .catch((requestError) => {
         if (active) setReportResponse({
-          key: date,
+          key,
           data: null,
           error: requestError.message || 'Không thể tải báo cáo doanh thu.',
         });
@@ -39,13 +44,14 @@ export default function ReceptionShiftReportPage() {
     return () => {
       active = false;
     };
-  }, [date]);
+  }, [date, refreshTick]);
 
   const handleExportCsv = () => {
     if (!report) return;
     const rows = [
       ['BÁO CÁO DOANH THU & CA TRỰC LỄ TÂN F SPORT'],
       ['Ngày ca trực', date],
+      ['Nhân viên lễ tân', currentUser?.name || currentUser?.fullName || 'Lễ tân'],
       ['Tổng doanh thu đã thu (VNĐ)', report.totalRevenue || 0],
       ['Giao dịch hoàn tất', report.completedPayments || 0],
       ['Hội viên đăng ký mới', report.newMembers || 0],
@@ -55,8 +61,9 @@ export default function ReceptionShiftReportPage() {
       ...(report.paymentMethods || []).map((m) => [m.method, m.amount, m.count]),
       [],
       ['DANH SÁCH CHI TIẾT GIAO DỊCH TRONG CA'],
-      ['Hội viên', 'Thời gian', 'Phương thức', 'Trạng thái', 'Số tiền (VNĐ)'],
+      ['Mã giao dịch', 'Hội viên', 'Thời gian', 'Phương thức', 'Trạng thái', 'Số tiền (VNĐ)'],
       ...(report.payments || []).map((p) => [
+        p.paymentId || '',
         p.memberName || 'Khách vãng lai',
         p.createdAt ? new Date(p.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
         p.method || '',
@@ -77,9 +84,18 @@ export default function ReceptionShiftReportPage() {
               F SPORT RECEPTION · BÁO CÁO CA TRỰC
             </div>
             <h1 className="font-headline-xl text-2xl font-bold text-slate-900 sm:text-3xl">Báo cáo ca trực &amp; doanh thu</h1>
-            <p className="text-sm text-slate-500">Tổng hợp biên lai giao dịch thực tế theo ca và theo ngày của quầy lễ tân.</p>
+            <p className="text-sm text-slate-500">Tổng hợp doanh thu cá nhân (Tiền mặt &amp; VNPay) và các giao dịch bạn đã trực tiếp xử lý trong ngày.</p>
           </div>
           <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setRefreshTick((v) => v + 1)}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
+            >
+              <span className={`material-symbols-outlined text-[18px] ${loading ? 'animate-spin' : ''}`}>refresh</span>
+              <span>Làm mới</span>
+            </button>
             <button
               type="button"
               onClick={handleExportCsv}
@@ -154,18 +170,26 @@ export default function ReceptionShiftReportPage() {
 
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-100 px-5 py-4">
-                <h2 className="font-bold uppercase tracking-wider text-slate-900">Giao dịch trong ngày</h2>
-                <p className="mt-0.5 text-xs text-slate-500">Các khoản đang chờ duyệt không được cộng vào doanh thu đã thu.</p>
+                <h2 className="font-bold uppercase tracking-wider text-slate-900">Giao dịch bạn xử lý trong ngày</h2>
+                <p className="mt-0.5 text-xs text-slate-500">Chỉ hiển thị các giao dịch do bạn xử lý (Tiền mặt &amp; VNPay). Các khoản đang chờ thanh toán không được cộng vào doanh thu đã thu.</p>
               </div>
               {report.payments.length ? (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[640px] text-left text-xs">
                     <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
-                      <tr><th className="px-5 py-3.5">Hội viên</th><th className="px-5 py-3.5">Thời gian</th><th className="px-5 py-3.5">Phương thức</th><th className="px-5 py-3.5">Trạng thái</th><th className="px-5 py-3.5 text-right">Số tiền</th></tr>
+                      <tr><th className="px-5 py-3.5">Mã GD</th><th className="px-5 py-3.5">Hội viên</th><th className="px-5 py-3.5">Thời gian</th><th className="px-5 py-3.5">Phương thức</th><th className="px-5 py-3.5">Trạng thái</th><th className="px-5 py-3.5 text-right">Số tiền</th></tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {report.payments.map((payment) => (
                         <tr key={payment.paymentId} className="hover:bg-slate-50/70">
+                          <td className="px-5 py-4 font-mono text-slate-600">
+                            <span>{payment.paymentId}</span>
+                            {String(payment.paymentId || '').startsWith('equip-') && (
+                              <span className="ml-1.5 rounded-md bg-orange-50 px-1.5 py-0.5 text-[10px] font-sans font-bold text-orange-700 border border-orange-200">
+                                Thuê đồ
+                              </span>
+                            )}
+                          </td>
                           <td className="px-5 py-4 font-bold text-slate-900">{payment.memberName}</td>
                           <td className="px-5 py-4 text-slate-500">{payment.createdAt ? new Date(payment.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
                           <td className="px-5 py-4 text-slate-600 font-medium">{payment.method}</td>

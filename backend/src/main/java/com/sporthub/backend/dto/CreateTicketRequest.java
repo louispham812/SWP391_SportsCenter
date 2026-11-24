@@ -4,5 +4,14 @@ public record CreateTicketRequest(
         String category,
         String title,
         String description,
-        String severity) {
+        String severity,
+        Long memberId) {
+
+    public CreateTicketRequest(
+            String category,
+            String title,
+            String description,
+            String severity) {
+        this(category, title, description, severity, null);
+    }
 }

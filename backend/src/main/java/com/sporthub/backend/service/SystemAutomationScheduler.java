@@ -1,8 +1,5 @@
 package com.sporthub.backend.service;
 
-import com.sporthub.backend.entity.Booking;
-import com.sporthub.backend.entity.ClassSession;
-import com.sporthub.backend.entity.CourtBooking;
 import com.sporthub.backend.entity.EquipmentLoan;
 import com.sporthub.backend.entity.UserMembership;
 import com.sporthub.backend.repository.BookingRepository;

@@ -26,6 +26,7 @@ public class BookingLifecycleService {
     private org.springframework.transaction.PlatformTransactionManager transactionManager;
     @org.springframework.beans.factory.annotation.Autowired(required = false) private CourtMaintenanceRepository maintenance;
     @org.springframework.beans.factory.annotation.Autowired(required = false) private FacilityCourtSyncService facilitySync;
+    @org.springframework.beans.factory.annotation.Autowired(required = false) private RefundRequestRepository refundRequests;
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BookingLifecycleService.class);
     public BookingLifecycleService(BookingRepository bookings, CourtBookingRepository courts, ClassSessionRepository sessions,
             SportsCourtRepository sportsCourts, UserMembershipRepository memberships, MembershipService quotas, PaymentService payments, EngagementService engagement) {
@@ -45,8 +46,11 @@ public class BookingLifecycleService {
             if (candidate.getEndDate() != null && candidate.getEndDate().isBefore(LocalDate.now()))
                 attempt("membership=" + candidate.getMembershipId(), () -> expire(candidate.getMembershipId(), now));
         }
-        for (UserMembership candidate : memberships.findByStatusIgnoreCase("EXPIRED"))
-            attempt("membership=" + candidate.getMembershipId(), () -> expire(candidate.getMembershipId(), now));
+        for (UserMembership candidate : memberships.findByStatusIgnoreCase("EXPIRED")) {
+            if (nz(candidate.getHeldQuotaCourts()) > 0 || nz(candidate.getHeldQuotaSessions()) > 0) {
+                attempt("membership=" + candidate.getMembershipId(), () -> expire(candidate.getMembershipId(), now));
+            }
+        }
     }
 
     private void attempt(String item, Runnable task) {
@@ -66,6 +70,7 @@ public class BookingLifecycleService {
     private void courtNoShow(Long id, LocalDateTime now) {
         CourtBooking b = courts.findByIdForUpdate(id).orElseThrow();
         if (!"CONFIRMED".equals(b.getStatus()) || b.getEndTime().isAfter(now)) return;
+        if (hasOpenRefundRequest(b.getPaymentId())) return;
         if (maintenance != null && maintenance.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(b.getCourtId(), b.getEndTime(), b.getStartTime())) return;
         if (Boolean.TRUE.equals(b.getUsesMembershipQuota())) {
             if (b.getQuotaState() != null && !"HELD".equals(b.getQuotaState())) throw new IllegalStateException("Booking sân không ở trạng thái giữ quota.");
@@ -79,6 +84,7 @@ public class BookingLifecycleService {
         Booking b = bookings.findByIdForUpdate(id).orElseThrow();
         ClassSession session = sessions.findById(b.getSessionId()).orElse(null);
         if (session == null || session.getEndTime() == null || session.getEndTime().isAfter(now) || "CANCELLED".equals(session.getStatus())) return;
+        if (hasOpenRefundRequest(b.getPaymentId())) return;
         if (maintenance != null && facilitySync != null && session.getFacilityId() != null
                 && facilitySync.getCourtIdsForFacility(session.getFacilityId(), session.getSportId(), null).stream()
                     .anyMatch(courtId -> maintenance.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(courtId, session.getEndTime(), session.getStartTime()))) return;
@@ -176,6 +182,13 @@ public class BookingLifecycleService {
         engagement.notifyUser(user, "Lịch bị hủy do bảo trì", "Lịch #" + booking + " đã đóng và quyết toán quota; không tính no-show. Gói đã hết hạn nên quota không được dùng lại.", "BOOKING");
     }
     private int nz(Integer value) { return value == null ? 0 : value; }
+    private boolean hasOpenRefundRequest(Long paymentId) {
+        if (refundRequests == null || paymentId == null) {
+            return false;
+        }
+        return refundRequests.findByTransactionId(paymentId).stream()
+                .anyMatch(r -> r != null && !"REJECTED".equalsIgnoreCase(r.getStatus()));
+    }
     private void notifyExpiry(Long user, Long paymentId) {
         engagement.notifyUser(user, "Gói hết hạn: lịch chuyển sang giá lẻ", "Giao dịch #" + paymentId + " cần thanh toán trong 10 phút để tiếp tục giữ chỗ.", "PAYMENT");
         engagement.audit(user, "SYSTEM", "EXPIRED_QUOTA_CONVERTED", "paymentId=" + paymentId);

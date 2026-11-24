@@ -1,18 +1,27 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import CreateUserModal from '../../components/common/CreateUserModal';
+import CoachSportSelector from '../../components/common/CoachSportSelector';
 import { TableSkeleton } from '../../components/common/Skeleton';
 import Pagination from '../../components/common/Pagination';
 import { apiRequest } from '../../services/apiClient';
-import { getStaffPerformance } from '../../services/managerApi';
+import {
+  deleteManagerUser,
+  getManagerDomainSports,
+  getStaffPerformance,
+  lockManagerUser,
+  unlockManagerUser,
+  updateManagerCoachSports,
+  updateManagerUser,
+} from '../../services/managerApi';
+import { useApp } from '../../context/AppContext';
+import { resolveCoachSportIds } from '../../utils/coachSport';
 
 const PAGE_SIZE = 12;
 const ROLE_LABELS = {
-  MANAGER: 'Quản lý',
-  ADMIN: 'Quản trị viên',
   COACH: 'Coach',
   RECEPTIONIST: 'Lễ tân',
-  MEMBER: 'Hội viên',
+  MANAGER: 'Quản lý',
 };
 
 const STATUS_STYLES = {
@@ -21,6 +30,16 @@ const STATUS_STYLES = {
   INACTIVE: 'bg-slate-100 text-slate-700',
   LOCKED: 'bg-red-100 text-red-800',
 };
+
+const STATUS_LABELS = {
+  ACTIVE: 'Đang hoạt động',
+  PENDING: 'Chờ duyệt',
+  INACTIVE: 'Ngừng hoạt động',
+  LOCKED: 'Đã khóa',
+};
+
+const ACTION_BTN_BASE =
+  'inline-flex h-8 w-full shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-1.5 text-xs font-bold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40';
 
 const formatDate = (value) => {
   if (!value) return '—';
@@ -31,6 +50,7 @@ const formatDate = (value) => {
 };
 
 export default function AdminStaffPage() {
+  const { showToast } = useApp();
   const [usersPage, setUsersPage] = useState({
     content: [],
     number: 0,
@@ -51,6 +71,69 @@ export default function AdminStaffPage() {
   const [performanceLoading, setPerformanceLoading] = useState(false);
   const [performanceError, setPerformanceError] = useState('');
 
+  // Edit Coach Sports Modal State
+  const [sports, setSports] = useState([]);
+  const [sportsLoading, setSportsLoading] = useState(false);
+  const [editingCoach, setEditingCoach] = useState(null);
+  const [editSportIds, setEditSportIds] = useState([]);
+  const [editSportError, setEditSportError] = useState('');
+  const [savingCoachSports, setSavingCoachSports] = useState(false);
+
+  // Edit / Lock / Delete Staff State
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [editForm, setEditForm] = useState({ fullName: '', phone: '', role: 'COACH', sportIds: [] });
+  const [editStaffError, setEditStaffError] = useState('');
+  const [savingStaff, setSavingStaff] = useState(false);
+  const [deletingStaff, setDeletingStaff] = useState(null);
+  const [busyUserId, setBusyUserId] = useState(null);
+
+  const openEditCoachSports = async (coachUser) => {
+    setEditingCoach(coachUser);
+    setEditSportError('');
+    let loadedSports = sports;
+    if (loadedSports.length === 0) {
+      setSportsLoading(true);
+      try {
+        loadedSports = await getManagerDomainSports();
+        setSports(Array.isArray(loadedSports) ? loadedSports : []);
+      } catch (err) {
+        loadedSports = [];
+        setEditSportError(err.message || 'Không thể tải danh sách bộ môn.');
+      } finally {
+        setSportsLoading(false);
+      }
+    }
+    setEditSportIds(resolveCoachSportIds(coachUser, loadedSports));
+  };
+
+  const handleSaveCoachSports = async (e) => {
+    e.preventDefault();
+    if (!editingCoach) return;
+    if (editSportIds.length === 0) {
+      setEditSportError('Vui lòng chọn ít nhất một bộ môn giảng dạy cho Huấn luyện viên.');
+      return;
+    }
+    setSavingCoachSports(true);
+    setEditSportError('');
+    try {
+      await updateManagerCoachSports(editingCoach.userId, {
+        sportIds: editSportIds.map(Number),
+      });
+      showToast(
+        'Cập nhật bộ môn thành công',
+        `Đã cập nhật bộ môn giảng dạy cho HLV "${editingCoach.fullName}".`,
+        'success'
+      );
+      setEditingCoach(null);
+      await loadUsers({ silent: true });
+      if (performanceData) loadPerformance();
+    } catch (err) {
+      setEditSportError(err.message || 'Không thể cập nhật bộ môn của Huấn luyện viên.');
+    } finally {
+      setSavingCoachSports(false);
+    }
+  };
+
   const loadPerformance = useCallback(async () => {
     setPerformanceLoading(true);
     setPerformanceError('');
@@ -70,12 +153,15 @@ export default function AdminStaffPage() {
     }
   }, [activeTab, loadPerformance]);
 
-  const loadUsers = useCallback(async () => {
-    setLoading(true);
+  const loadUsers = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setError('');
     try {
       const params = new URLSearchParams({
         query,
+        staffOnly: 'true',
         page: String(page),
         size: String(PAGE_SIZE),
       });
@@ -83,15 +169,105 @@ export default function AdminStaffPage() {
       const data = await apiRequest(`/manager/users?${params}`);
       setUsersPage(data);
     } catch (requestError) {
-      setError(requestError.message || 'Không thể tải danh sách tài khoản.');
+      setError(requestError.message || 'Không thể tải danh sách nhân sự.');
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [page, query, role]);
 
+  const openEditStaff = async (user) => {
+    const normalizedRole = user.role?.toUpperCase() === 'ADMIN' ? 'MANAGER' : user.role?.toUpperCase() || 'COACH';
+    let loadedSports = sports;
+    if (loadedSports.length === 0) {
+      setSportsLoading(true);
+      try {
+        loadedSports = await getManagerDomainSports();
+        setSports(Array.isArray(loadedSports) ? loadedSports : []);
+      } catch {
+        loadedSports = [];
+      } finally {
+        setSportsLoading(false);
+      }
+    }
+    setEditingStaff(user);
+    setEditForm({
+      fullName: user.fullName || '',
+      phone: user.phone || '',
+      role: normalizedRole,
+      sportIds: normalizedRole === 'COACH' ? resolveCoachSportIds(user, loadedSports) : [],
+    });
+    setEditStaffError('');
+  };
+
+  const handleSaveStaff = async (e) => {
+    e.preventDefault();
+    if (!editingStaff) return;
+    if (!editForm.fullName.trim()) {
+      setEditStaffError('Họ tên không được để trống.');
+      return;
+    }
+    if (editForm.role === 'COACH' && (!editForm.sportIds || editForm.sportIds.length === 0)) {
+      setEditStaffError('Vui lòng chọn ít nhất một bộ môn giảng dạy cho Huấn luyện viên.');
+      return;
+    }
+    setSavingStaff(true);
+    setEditStaffError('');
+    try {
+      await updateManagerUser(editingStaff.userId, {
+        fullName: editForm.fullName.trim(),
+        phone: editForm.phone.trim(),
+        role: editForm.role,
+        sportIds: editForm.role === 'COACH' ? editForm.sportIds.map(Number) : [],
+      });
+      showToast('Thành công', `Đã cập nhật thông tin cho ${editForm.fullName.trim()}.`, 'success');
+      setEditingStaff(null);
+      await loadUsers({ silent: true });
+    } catch (err) {
+      setEditStaffError(err.message || 'Không thể cập nhật thông tin nhân sự.');
+    } finally {
+      setSavingStaff(false);
+    }
+  };
+
+  const handleToggleLock = async (user) => {
+    const isLocked = user.status?.toUpperCase() === 'LOCKED';
+    setBusyUserId(user.userId);
+    try {
+      if (isLocked) {
+        await unlockManagerUser(user.userId);
+        showToast('Đã mở khóa', `Tài khoản ${user.fullName} đã được kích hoạt lại.`, 'success');
+      } else {
+        await lockManagerUser(user.userId);
+        showToast('Đã khóa tài khoản', `Tài khoản ${user.fullName} đã bị khóa.`, 'success');
+      }
+      await loadUsers({ silent: true });
+    } catch (err) {
+      showToast('Thao tác thất bại', err.message || 'Không thể thay đổi trạng thái tài khoản.', 'error');
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
+  const handleDeleteStaff = async () => {
+    if (!deletingStaff) return;
+    setBusyUserId(deletingStaff.userId);
+    try {
+      const res = await deleteManagerUser(deletingStaff.userId);
+      showToast('Đã xóa nhân sự', res?.message || `Đã xóa tài khoản ${deletingStaff.fullName}.`, 'success');
+      setDeletingStaff(null);
+      await loadUsers({ silent: true });
+    } catch (err) {
+      showToast('Không thể xóa', err.message || 'Không thể xóa tài khoản nhân sự.', 'error');
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
   useEffect(() => {
     loadUsers();
-    const handleWindowFocus = () => loadUsers();
+    const handleWindowFocus = () => loadUsers({ silent: true });
     window.addEventListener('focus', handleWindowFocus);
     return () => window.removeEventListener('focus', handleWindowFocus);
   }, [loadUsers]);
@@ -107,6 +283,19 @@ export default function AdminStaffPage() {
     setRole(event.target.value);
   };
 
+  const staffRows = usersPage.content || [];
+  const hasCoachRow = staffRows.some((u) => u.role?.toUpperCase() === 'COACH');
+  const hasManageableRow = staffRows.some(
+    (u) => !['MANAGER', 'ADMIN'].includes(u.role?.toUpperCase()),
+  );
+  const actionGridCols = [
+    hasCoachRow ? '4.5rem' : null,
+    '3.625rem',
+    hasManageableRow ? '5.25rem 3.625rem' : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <AdminLayout>
       <main className="space-y-6">
@@ -116,9 +305,9 @@ export default function AdminStaffPage() {
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
               F SPORT ADMIN · NHÂN SỰ &amp; NGƯỜI DÙNG
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Nhân sự &amp; Khách</h1>
+            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Quản lý nhân sự</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Danh sách nhân viên và hội viên được tải trực tiếp từ cơ sở dữ liệu F Sport.
+              Danh sách nhân sự được tải trực tiếp từ cơ sở dữ liệu F Sport.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -132,7 +321,7 @@ export default function AdminStaffPage() {
             </button>
             <button
               type="button"
-              onClick={loadUsers}
+              onClick={() => loadUsers()}
               disabled={loading}
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 shadow-sm cursor-pointer"
             >
@@ -154,7 +343,7 @@ export default function AdminStaffPage() {
             }`}
           >
             <span className="material-symbols-outlined text-[18px]">group</span>
-            <span>Danh Sách Nhân Sự &amp; Khách ({usersPage.totalElements})</span>
+            <span>Danh Sách Nhân Sự ({usersPage.totalElements})</span>
           </button>
           <button
             type="button"
@@ -227,37 +416,130 @@ export default function AdminStaffPage() {
             <>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[760px] text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                  <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 whitespace-nowrap">
                     <tr>
-                      <th className="px-5 py-3 font-semibold">Tài khoản</th>
-                      <th className="px-5 py-3 font-semibold">Vai trò</th>
-                      <th className="px-5 py-3 font-semibold">Số điện thoại</th>
-                      <th className="px-5 py-3 font-semibold">Trạng thái</th>
-                      <th className="px-5 py-3 font-semibold">Ngày tạo</th>
+                      <th className="pl-4 pr-2 py-3 font-semibold">Tài khoản</th>
+                      <th className="px-2 py-3 font-semibold">Vai trò &amp; Bộ môn</th>
+                      <th className="px-2 py-3 font-semibold">Số điện thoại</th>
+                      <th className="px-2 py-3 font-semibold">Trạng thái</th>
+                      <th className="px-2 py-3 font-semibold">Ngày tạo</th>
+                      <th className="pl-2 pr-4 py-3 font-semibold text-center">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {usersPage.content.map((user) => (
+                    {usersPage.content.map((user) => {
+                      const normalizedRole = user.role?.toUpperCase();
+                      const normalizedStatus = user.status?.toUpperCase();
+                      const isCoach = normalizedRole === 'COACH';
+                      const isManageable = !['MANAGER', 'ADMIN'].includes(normalizedRole);
+                      const isLocked = normalizedStatus === 'LOCKED';
+                      const canToggleLock = ['ACTIVE', 'LOCKED'].includes(normalizedStatus);
+                      const isBusy = busyUserId === user.userId;
+                      return (
                       <tr key={user.userId} className="hover:bg-slate-50/70">
-                        <td className="px-5 py-4">
+                        <td className="pl-4 pr-2 py-4">
                           <p className="font-semibold text-slate-900">{user.fullName}</p>
-                          <p className="mt-0.5 text-slate-500">{user.email}</p>
+                          <p className="mt-0.5 text-xs text-slate-500">{user.email}</p>
                           <p className="mt-0.5 text-xs text-slate-400">Mã tài khoản: {user.userId}</p>
                         </td>
-                        <td className="px-5 py-4 text-slate-700">
-                          {ROLE_LABELS[user.role?.toUpperCase()] || user.role}
+                        <td className="px-2 py-4 text-slate-700">
+                          <span className="font-medium block whitespace-nowrap">
+                            {ROLE_LABELS[normalizedRole === 'ADMIN' ? 'MANAGER' : normalizedRole] || user.role}
+                          </span>
+                          {isCoach && (
+                            <span className={`mt-1 inline-block max-w-[155px] rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                              user.specialty
+                                ? 'bg-orange-50 text-orange-800 border border-orange-200'
+                                : 'bg-amber-50 text-amber-800 border border-amber-200'
+                            }`}>
+                              {user.specialty || 'Chưa gán bộ môn'}
+                            </span>
+                          )}
                         </td>
-                        <td className="px-5 py-4 text-slate-600">{user.phone || '—'}</td>
-                        <td className="px-5 py-4">
-                          <span className={`rounded-full px-3 py-1 text-xs font-bold ${
-                            STATUS_STYLES[user.status?.toUpperCase()] || 'bg-slate-100 text-slate-700'
+                        <td className="px-2 py-4 text-xs text-slate-600 whitespace-nowrap tabular-nums">{user.phone || '—'}</td>
+                        <td className="px-2 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${
+                            STATUS_STYLES[normalizedStatus] || 'bg-slate-100 text-slate-700'
                           }`}>
-                            {user.status || 'Không rõ'}
+                            {STATUS_LABELS[normalizedStatus] || user.status || 'Không rõ'}
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-slate-600">{formatDate(user.createdAt)}</td>
+                        <td className="px-2 py-4 text-xs text-slate-600 max-w-[92px] tabular-nums">
+                          {formatDate(user.createdAt)}
+                        </td>
+                        <td className="pl-2 pr-4 py-4 text-right whitespace-nowrap">
+                          <div
+                            className="inline-grid items-center gap-1"
+                            style={{ gridTemplateColumns: actionGridCols }}
+                          >
+                            {hasCoachRow && (
+                              isCoach ? (
+                                <button
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() => openEditCoachSports(user)}
+                                  title="Gán bộ môn"
+                                  className={`${ACTION_BTN_BASE} border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100`}
+                                >
+                                  <span className="material-symbols-outlined text-[15px] leading-none">sports</span>
+                                  Bộ môn
+                                </button>
+                              ) : (
+                                <span aria-hidden="true" />
+                              )
+                            )}
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => openEditStaff(user)}
+                              title="Sửa thông tin"
+                              className={`${ACTION_BTN_BASE} border-slate-200 bg-white text-slate-700 hover:bg-slate-50`}
+                            >
+                              <span className="material-symbols-outlined text-[15px] leading-none">edit</span>
+                              Sửa
+                            </button>
+                            {hasManageableRow && (
+                              isManageable ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={isBusy || !canToggleLock}
+                                    onClick={() => handleToggleLock(user)}
+                                    title={isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản'}
+                                    className={`${ACTION_BTN_BASE} ${
+                                      isLocked
+                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                                        : 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                                    }`}
+                                  >
+                                    <span className="material-symbols-outlined text-[15px] leading-none">
+                                      {isBusy ? 'hourglass_top' : isLocked ? 'lock_open' : 'lock'}
+                                    </span>
+                                    {isLocked ? 'Mở khóa' : 'Khóa'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={isBusy}
+                                    onClick={() => setDeletingStaff(user)}
+                                    title="Xóa tài khoản"
+                                    className={`${ACTION_BTN_BASE} border-red-200 bg-red-50 text-red-700 hover:bg-red-100`}
+                                  >
+                                    <span className="material-symbols-outlined text-[15px] leading-none">delete</span>
+                                    Xóa
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <span aria-hidden="true" />
+                                  <span aria-hidden="true" />
+                                </>
+                              )
+                            )}
+                          </div>
+                        </td>
                       </tr>
-                    ))}
+                    );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -438,7 +720,7 @@ export default function AdminStaffPage() {
               <div className="p-5 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                  <h2 className="text-base font-bold text-slate-900">KPI Hiệu Suất Nhân Viên Lễ Tân &amp; Bán Hàng (REC-KPI)</h2>
+                  <h2 className="text-base font-bold text-slate-900">KPI Hiệu Suất Nhân Viên Lễ Tân &amp; Bán Hàng</h2>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Thống kê số lượt kiểm soát check-in, số giao dịch POS và doanh số bán gói thành viên trực tiếp
@@ -498,8 +780,187 @@ export default function AdminStaffPage() {
       <CreateUserModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        onSuccess={loadUsers}
+        onSuccess={() => loadUsers({ silent: true })}
+        staffOnly
       />
+
+      {editingStaff && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs !m-0">
+          <div className="relative w-full max-w-md overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Sửa thông tin nhân sự</h2>
+                <p className="text-xs text-slate-500">{editingStaff.email}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingStaff(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleSaveStaff} className="p-6 space-y-4">
+              {editStaffError && (
+                <div role="alert" className="p-3 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700">
+                  {editStaffError}
+                </div>
+              )}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Họ và tên *</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.fullName}
+                  onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Số điện thoại</label>
+                <input
+                  type="text"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Vai trò</label>
+                <select
+                  value={editForm.role}
+                  onChange={(e) => setEditForm((f) => ({
+                    ...f,
+                    role: e.target.value,
+                    sportIds: e.target.value === 'COACH' ? f.sportIds : [],
+                  }))}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-orange-500"
+                >
+                  <option value="COACH">Huấn luyện viên (COACH)</option>
+                  <option value="RECEPTIONIST">Nhân viên lễ tân (RECEPTIONIST)</option>
+                  <option value="MANAGER">Quản lý hệ thống (MANAGER)</option>
+                </select>
+              </div>
+              {editForm.role === 'COACH' && (
+                <CoachSportSelector
+                  sports={sports}
+                  selectedIds={editForm.sportIds}
+                  onChange={(ids) => setEditForm((f) => ({ ...f, sportIds: ids }))}
+                  loading={sportsLoading}
+                />
+              )}
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingStaff(null)}
+                  disabled={savingStaff}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingStaff}
+                  className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm disabled:opacity-50 cursor-pointer"
+                >
+                  {savingStaff ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {deletingStaff && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs !m-0">
+          <div className="relative w-full max-w-sm overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[22px]">delete_forever</span>
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Xác nhận xóa nhân sự</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Bạn có chắc muốn xóa tài khoản <strong>{deletingStaff.fullName}</strong> ({deletingStaff.email})?
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeletingStaff(null)}
+                disabled={busyUserId === deletingStaff.userId}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteStaff}
+                disabled={busyUserId === deletingStaff.userId}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-sm disabled:opacity-50 cursor-pointer"
+              >
+                {busyUserId === deletingStaff.userId ? 'Đang xóa...' : 'Xác nhận xóa'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingCoach && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs !m-0">
+          <div className="relative w-full max-w-md overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Gán bộ môn cho HLV</h2>
+                <p className="text-xs text-slate-500">
+                  {editingCoach.fullName} ({editingCoach.email})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingCoach(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCoachSports} className="p-6 space-y-4">
+              {editSportError && (
+                <div role="alert" className="p-3 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700">
+                  {editSportError}
+                </div>
+              )}
+
+              <CoachSportSelector
+                sports={sports}
+                selectedIds={editSportIds}
+                onChange={setEditSportIds}
+                loading={sportsLoading}
+              />
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingCoach(null)}
+                  disabled={savingCoachSports}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingCoachSports || sportsLoading}
+                  className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm disabled:opacity-50 cursor-pointer"
+                >
+                  {savingCoachSports ? 'Đang lưu...' : 'Lưu bộ môn'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

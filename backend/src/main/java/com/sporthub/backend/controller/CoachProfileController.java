@@ -12,9 +12,17 @@ import com.sporthub.backend.entity.PublicSport;
 import com.sporthub.backend.entity.User;
 import com.sporthub.backend.repository.BookingRepository;
 import com.sporthub.backend.repository.ClassSessionRepository;
+import com.sporthub.backend.repository.FacilityRepository;
 import com.sporthub.backend.repository.FeedbackRepository;
+import com.sporthub.backend.repository.PublicFacilityRepository;
 import com.sporthub.backend.repository.PublicSportRepository;
+import com.sporthub.backend.repository.SportRepository;
+import com.sporthub.backend.repository.SystemSettingRepository;
 import com.sporthub.backend.repository.UserRepository;
+import com.sporthub.backend.entity.Facility;
+import com.sporthub.backend.entity.PublicFacility;
+import com.sporthub.backend.entity.Sport;
+import com.sporthub.backend.util.SystemPolicyHelper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -24,6 +32,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -42,6 +51,18 @@ public class CoachProfileController {
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.sporthub.backend.service.EngagementService engagementService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private FacilityRepository facilityRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private PublicFacilityRepository publicFacilityRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SystemSettingRepository systemSettingRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SportRepository domainSportRepository;
 
     public CoachProfileController(
             UserRepository userRepository,
@@ -121,12 +142,18 @@ public class CoachProfileController {
     @PutMapping("/availability")
     @Transactional
     public ResponseEntity<Map<String, Object>> updateAvailability(
-            @RequestBody Map<String, String> request,
+            @RequestBody(required = false) Map<String, String> request,
             Authentication auth) {
         Long coachId = getActorId(auth);
         User coach = findCoach(coachId);
-        String json = request.get("availabilityJson");
-        coach.setAvailabilityJson(json != null ? json : "{}");
+        String targetJson = (request != null && request.get("availabilityJson") != null)
+                ? request.get("availabilityJson")
+                : "{}";
+        com.sporthub.backend.service.CoachAvailabilityService.validateUpdateAgainstSessions(
+                coach.getAvailabilityJson(),
+                targetJson,
+                classSessionRepository.findByCoachIdOrderByStartTimeAsc(coachId));
+        coach.setAvailabilityJson(targetJson);
         userRepository.save(coach);
         Map<String, Object> res = new LinkedHashMap<>();
         res.put("coachId", coachId);
@@ -141,11 +168,31 @@ public class CoachProfileController {
         Long coachId = getActorId(auth);
         findCoach(coachId);
 
-        List<ClassSession> sessions = classSessionRepository.findByCoachIdOrderByStartTimeAsc(coachId);
+        LocalDateTime now = LocalDateTime.now();
+        List<ClassSession> sessions = classSessionRepository.findByCoachIdOrderByStartTimeAsc(coachId).stream()
+                .filter(s -> !"CANCELLED".equalsIgnoreCase(s.getStatus()))
+                .filter(s -> s.getStartTime() == null || !s.getStartTime().isAfter(now))
+                .toList();
+
+        Map<Long, String> sportNames = new LinkedHashMap<>();
+        if (domainSportRepository != null) {
+            domainSportRepository.findAll().forEach(sp -> sportNames.put(sp.getSportId(), sp.getSportName()));
+        } else {
+            publicSportRepository.findAll().forEach(sp -> sportNames.put(sp.getSportId(), sp.getName()));
+        }
+
+        Map<Long, String> courtNames = new LinkedHashMap<>();
+        if (facilityRepository != null) {
+            facilityRepository.findAll().forEach(f -> courtNames.put(f.getFacilityId(), f.getFacilityName()));
+        } else if (publicFacilityRepository != null) {
+            publicFacilityRepository.findAll().forEach(f -> courtNames.put(f.getFacilityId(), f.getName()));
+        }
+
         BigDecimal totalRevenue = BigDecimal.ZERO;
         BigDecimal totalIncome = BigDecimal.ZERO;
         int totalStudents = 0;
-        BigDecimal commissionRate = BigDecimal.valueOf(40); // 40% hoa hồng
+        BigDecimal commissionRate = BigDecimal.valueOf(
+                SystemPolicyHelper.coachCommissionPercent(systemSettingRepository));
 
         List<CoachIncomeResponse.SessionIncomeDetail> details = new ArrayList<>();
         for (ClassSession s : sessions) {
@@ -158,7 +205,7 @@ public class CoachProfileController {
             BigDecimal sessionRevenue = price.multiply(BigDecimal.valueOf(students));
             totalRevenue = totalRevenue.add(sessionRevenue);
 
-            // Thù lao 40% doanh thu lớp hoặc tối thiểu 200,000đ/ca nếu lớp không bị hủy
+            // Thù lao theo cấu hình hệ thống (mặc định 40%) hoặc tối thiểu 200,000đ/ca nếu lớp không bị hủy
             BigDecimal commission = sessionRevenue.multiply(commissionRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             if (commission.compareTo(BigDecimal.valueOf(200000)) < 0 && !"CANCELLED".equalsIgnoreCase(s.getStatus())) {
                 commission = BigDecimal.valueOf(200000);
@@ -174,7 +221,9 @@ public class CoachProfileController {
                     students,
                     price,
                     sessionRevenue,
-                    commission
+                    commission,
+                    sportNames.get(s.getSportId()),
+                    courtNames.get(s.getFacilityId())
             ));
         }
 
@@ -253,6 +302,21 @@ public class CoachProfileController {
             User student = userRepository.findById(request.memberId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy học viên."));
 
+            if (!"MANAGER".equalsIgnoreCase(coach.getRole()) && !"ADMIN".equalsIgnoreCase(coach.getRole())) {
+                Set<Long> coachSessionIds = classSessionRepository.findByCoachIdOrderByStartTimeAsc(coachId).stream()
+                        .filter(s -> !"CANCELLED".equalsIgnoreCase(s.getStatus()))
+                        .map(ClassSession::getSessionId)
+                        .collect(Collectors.toSet());
+                boolean isAssignedStudent = !coachSessionIds.isEmpty()
+                        && bookingRepository.findByMemberId(student.getUserId()).stream()
+                                .anyMatch(b -> coachSessionIds.contains(b.getSessionId())
+                                        && !"CANCELLED".equalsIgnoreCase(b.getStatus()));
+                if (!isAssignedStudent) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                            "Bạn chỉ có thể gửi thông báo cho học viên đang học trong lớp của mình.");
+                }
+            }
+
             engagementService.notifyUser(student.getUserId(), title, message, "COACH_NOTICE");
 
             engagementService.audit(coachId, "COACH", "COACH_SEND_STUDENT_NOTICE",
@@ -276,9 +340,20 @@ public class CoachProfileController {
                 .filter(session -> !"CANCELLED".equalsIgnoreCase(session.getStatus()))
                 .toList();
 
+        List<String> coachedSportNames = coach.getCoachedSports() == null ? List.of()
+                : coach.getCoachedSports().stream()
+                        .map(Sport::getSportName)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .toList();
         List<Long> sportIds = activeSessions.stream().map(ClassSession::getSportId).distinct().toList();
-        List<String> sportsTaught = sportIds.isEmpty() ? List.of("Huấn luyện thể thao chuyên nghiệp") :
-                publicSportRepository.findAllById(sportIds).stream().map(PublicSport::getName).toList();
+        List<String> sportsTaught = !coachedSportNames.isEmpty()
+                ? coachedSportNames
+                : (sportIds.isEmpty()
+                        ? List.of("Huấn luyện thể thao chuyên nghiệp")
+                        : (domainSportRepository != null
+                                ? domainSportRepository.findAllById(sportIds).stream().map(Sport::getSportName).toList()
+                                : publicSportRepository.findAllById(sportIds).stream().map(PublicSport::getName).toList()));
 
         List<Long> sessionIds = activeSessions.stream().map(ClassSession::getSessionId).toList();
         List<Booking> bookings = sessionIds.isEmpty() ? List.of() :
@@ -287,7 +362,7 @@ public class CoachProfileController {
 
         List<Feedback> feedbacks = feedbackRepository.findByCoachIdOrderByCreatedAtDesc(coachId);
         int totalReviewsCount = feedbacks.size();
-        Double averageRating = 5.0;
+        Double averageRating = 0.0;
         if (!feedbacks.isEmpty()) {
             double sum = feedbacks.stream()
                     .filter(f -> f.getRating() != null)

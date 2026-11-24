@@ -24,7 +24,7 @@ function setupAudit(page, title) {
     async check(urlPath, name) {
       await page.goto(urlPath, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(300);
-      expect(page.url()).toContain(urlPath.split('?')[0]);
+      expect(page.url(), `${title}: ${name}`).toContain(urlPath.split('?')[0]);
       await expect(page.locator('body')).toBeVisible();
     },
     getErrors() {
@@ -82,12 +82,13 @@ test.describe('SUITE 1: Kiểm Thử Toàn Bộ 59 Routes & Phân Quyền 5 Vai 
     }
   });
 
-  test('4. Coach Portal: Khảo sát 8 routes huấn luyện viên & không phát sinh lỗi', async ({ page }) => {
+  test('4. Coach Portal: Khảo sát 9 routes huấn luyện viên & không phát sinh lỗi', async ({ page }) => {
     await loginCoach(page);
     const audit = setupAudit(page, 'COACH');
     const coachRoutes = [
       ['/coach', 'Dashboard'],
       ['/coach/schedule', 'Schedule'],
+      ['/coach/leave', 'Leave'],
       ['/coach/students', 'Students'],
       ['/coach/attendance', 'Attendance'],
       ['/coach/income', 'Income'],
@@ -128,7 +129,8 @@ test.describe('SUITE 1: Kiểm Thử Toàn Bộ 59 Routes & Phân Quyền 5 Vai 
     await expect(page).toHaveURL(/\/receptionist$/);
 
     await page.goto('/', { waitUntil: 'domcontentloaded' });
-    const backToPortal = page.locator('header').getByRole('link', { name: /Về Portal/i });
+    await page.locator('header').getByRole('button', { name: /Menu tài khoản/i }).click();
+    const backToPortal = page.locator('header').getByRole('menuitem', { name: /Về Portal/i });
     await expect(backToPortal).toBeVisible();
     await backToPortal.click();
     await expect(page).toHaveURL(/\/receptionist$/);

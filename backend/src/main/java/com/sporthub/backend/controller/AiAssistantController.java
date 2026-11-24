@@ -70,7 +70,4 @@ public class AiAssistantController {
         }
     }
 
-    private void requireRole(Authentication authentication, String expectedRole) {
-        requireAnyRole(authentication, expectedRole);
-    }
 }

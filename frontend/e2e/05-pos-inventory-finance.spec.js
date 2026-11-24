@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { apiBaseUrl, loginReceptionist, loginManager, loginMember } from './helpers.js';
+import { loginReceptionist, loginManager, loginMember } from './helpers.js';
 
 test.describe('SUITE 5: Điểm Bán Hàng POS, Dụng Cụ Kho, Gói Tập & Tài Chính (POS, Inventory & Finance)', () => {
   test('1. POS bán hàng quầy lễ tân -> Bền vững sau F5 -> Đồng bộ tức thì sang Doanh thu Admin & Nhật ký Audit', async ({ browser, baseURL }) => {
@@ -63,7 +63,7 @@ test.describe('SUITE 5: Điểm Bán Hàng POS, Dụng Cụ Kho, Gói Tập & T�
       await expect(adminPage).toHaveURL(/\/admin/);
       await expect(adminPage.locator('main').first()).toBeVisible({ timeout: 10000 });
 
-      const adminRevMetric = adminPage.locator('article').filter({ hasText: 'Doanh thu đã thu' }).locator('strong').first();
+      const adminRevMetric = adminPage.locator('article').filter({ hasText: 'Doanh thu đã thu' }).locator('p').first();
       await expect(adminRevMetric).toBeVisible({ timeout: 10000 });
       const adminRevNum = Number((await adminRevMetric.innerText()).replace(/[^\d]/g, '')) || 0;
       expect(adminRevNum).toBe(revAfterRecepNum);
@@ -73,6 +73,22 @@ test.describe('SUITE 5: Điểm Bán Hàng POS, Dụng Cụ Kho, Gói Tập & T�
       await expect(adminPage).toHaveURL(/\/admin\/audit-logs/);
       await expect(adminPage.locator('table, tbody').first()).toBeVisible({ timeout: 10000 });
       await expect(adminPage.getByText(/PAYMENT|MEMBERSHIP|CHECKIN|POS|STAFF/i).first()).toBeVisible();
+
+      // Dọn trạng thái PENDING_APPROVAL mới tạo cho member 9 để lần chạy sau không bị trùng gói
+      const adminSession = await adminPage.evaluate(() => JSON.parse(sessionStorage.getItem('sports-center-auth-session') || 'null'));
+      if (adminSession?.token) {
+        const pendingRes = await adminPage.request.get('http://127.0.0.1:8080/api/v1/manager/memberships/pending', {
+          headers: { Authorization: `Bearer ${adminSession.token}` },
+        });
+        if (pendingRes.ok()) {
+          const pendingList = await pendingRes.json();
+          for (const item of pendingList.filter((m) => Number(m.memberId) === 9)) {
+            await adminPage.request.post(`http://127.0.0.1:8080/api/v1/manager/memberships/${item.membershipId}/approve`, {
+              headers: { Authorization: `Bearer ${adminSession.token}` },
+            });
+          }
+        }
+      }
     } finally {
       await recepContext.close();
       await adminContext.close();
@@ -185,12 +201,14 @@ test.describe('SUITE 5: Điểm Bán Hàng POS, Dụng Cụ Kho, Gói Tập & T�
         testPrice = '10000000';
       }
 
-      await adminPage.getByRole('button', { name: /Thêm gói tập mới/i }).click();
-      await adminPage.getByPlaceholder('Ví dụ: Gói Gold 3 Tháng').fill(pkgName);
-      await adminPage.locator('input[type="number"]').first().fill(testPrice);
-      await adminPage.locator('input[type="number"]').nth(1).fill('90');
-      await adminPage.locator('textarea').fill('Gói Deep State Persistence E2E Test');
-      await adminPage.getByRole('button', { name: /Lưu gói tập/i }).click();
+      await adminPage.getByRole('button', { name: /Thêm hạng hội viên/i }).click();
+      await adminPage.getByLabel('Tên hạng hội viên', { exact: true }).fill(pkgName);
+      await adminPage.getByLabel('Giá niêm yết', { exact: true }).fill(testPrice);
+      await adminPage.getByLabel('Thời hạn ngày', { exact: true }).fill('90');
+      await adminPage.getByLabel('Số buổi tập', { exact: true }).fill('10');
+      await adminPage.getByLabel('Số giờ sân', { exact: true }).fill('5');
+      await adminPage.getByLabel('Mô tả gói', { exact: true }).fill('Gói Deep State Persistence E2E Test');
+      await adminPage.getByRole('button', { name: 'Lưu hạng hội viên', exact: true }).click();
       await expect(adminPage.getByText(pkgName, { exact: true })).toBeVisible({ timeout: 7000 });
 
       // F5 kiểm tra gói tồn tại bền vững trên Admin
@@ -202,14 +220,28 @@ test.describe('SUITE 5: Điểm Bán Hàng POS, Dụng Cụ Kho, Gói Tập & T�
       await memberPage.goto('/member/packages');
       await expect(memberPage).toHaveURL(/\/member\/packages/);
 
-      const pkgCard = memberPage.locator('.rounded-3xl', { hasText: pkgName }).first();
+      const pkgCard = memberPage.locator('div.rounded-2xl', { hasText: pkgName }).first();
       await expect(pkgCard).toBeVisible({ timeout: 7000 });
 
-      await pkgCard.getByRole('button', { name: /Nâng Cấp Lên Gói Này|Đăng Ký Gói Này|Gia Hạn Gói Này/i }).click();
+      await pkgCard.getByRole('button', { name: /Nâng lên hạng này|Đăng ký hạng này|Gia hạn thêm/i }).click();
       await memberPage.getByRole('button', { name: /Thanh toán tại quầy/i }).click();
       const confirmBuyBtn = memberPage.getByRole('button', { name: /Đăng Ký \(Trả Tại Quầy\)|Đăng Ký|Xác Nhận/i }).last();
       await confirmBuyBtn.click();
-      await expect(memberPage.getByText(/phê duyệt|thành công/i).first()).toBeVisible({ timeout: 7000 });
+      await expect(memberPage.getByText(/chờ thanh toán|phê duyệt|thành công/i).first()).toBeVisible({ timeout: 7000 });
+
+      // 2b. Lễ tân thu tiền mặt tại quầy POS -> chuyển sang chờ Quản lý duyệt
+      await loginReceptionist(recepPage);
+      await recepPage.goto('/receptionist/pos');
+      await expect(recepPage).toHaveURL(/\/receptionist\/pos/);
+      const formattedPrice = new Intl.NumberFormat('vi-VN').format(Number(testPrice));
+      const cashRow = recepPage.locator('div.rounded-xl', { hasText: 'Hội viên #9' }).filter({
+        hasText: formattedPrice,
+      }).filter({
+        has: recepPage.getByRole('button', { name: /Đã thu đủ tiền mặt/i }),
+      }).first();
+      await expect(cashRow).toBeVisible({ timeout: 7000 });
+      await cashRow.getByRole('button', { name: /Đã thu đủ tiền mặt/i }).click();
+      await expect(recepPage.getByText(/Đã xác nhận thu tiền mặt/i).first()).toBeVisible({ timeout: 7000 });
 
       // 3. Admin duyệt yêu cầu mua gói
       await adminPage.goto('/admin/staff-approvals');
@@ -222,12 +254,11 @@ test.describe('SUITE 5: Điểm Bán Hàng POS, Dụng Cụ Kho, Gói Tập & T�
       await expect(adminPage.getByText(/Kích hoạt gói thành công|Đã duyệt gói/i).first()).toBeVisible({ timeout: 7000 });
 
       // 4. Member F5 reload & kiểm tra quyền lợi đã kích hoạt
-      await memberPage.goto('/member');
+      await memberPage.goto('/member/packages');
       await memberPage.reload();
       await expect(memberPage.getByText(pkgName).first()).toBeVisible({ timeout: 7000 });
 
       // 5. Lễ tân tra cứu hội viên tại quầy check-in thấy hội viên hoạt động
-      await loginReceptionist(recepPage);
       await recepPage.goto('/receptionist/checkin');
       await expect(recepPage).toHaveURL(/\/receptionist\/checkin/);
       const rfidInput = recepPage.getByPlaceholder(/Quét mã QR thẻ hội viên hoặc quẹt thẻ từ RFID/i);
@@ -235,6 +266,26 @@ test.describe('SUITE 5: Điểm Bán Hàng POS, Dụng Cụ Kho, Gói Tập & T�
       await recepPage.getByRole('button', { name: /Tra Cứu Thẻ/i }).click();
       await expect(recepPage.getByText(/Nguyễn Anh Khoa/i).first()).toBeVisible({ timeout: 7000 });
     } finally {
+      try {
+        const adminSession = await adminPage.evaluate(() => JSON.parse(sessionStorage.getItem('sports-center-auth-session') || 'null')).catch(() => null);
+        if (adminSession?.token) {
+          const listRes = await adminPage.request.get('http://127.0.0.1:8080/api/v1/manager/packages', {
+            headers: { Authorization: `Bearer ${adminSession.token}` },
+          });
+          if (listRes.ok()) {
+            const list = await listRes.json();
+            const created = list.find((p) => p.name === pkgName);
+            if (created?.packageId) {
+              await adminPage.request.patch(`http://127.0.0.1:8080/api/v1/manager/packages/${created.packageId}/status`, {
+                headers: { Authorization: `Bearer ${adminSession.token}` },
+                data: { status: 'INACTIVE' },
+              });
+            }
+          }
+        }
+      } catch {
+        // ignore cleanup errors
+      }
       await adminContext.close();
       await memberContext.close();
       await recepContext.close();

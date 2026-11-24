@@ -17,13 +17,13 @@ import com.sporthub.backend.repository.PaymentTransactionRepository;
  */
 @Service
 public class PaymentService {
-    
+
     private final PaymentTransactionRepository paymentTransactionRepository;
-    
+
     public PaymentService(PaymentTransactionRepository paymentTransactionRepository) {
         this.paymentTransactionRepository = paymentTransactionRepository;
     }
-    
+
     /**
      * Create payment transaction với đúng status và reference code
      * 
@@ -38,13 +38,13 @@ public class PaymentService {
             String bookingType,
             BigDecimal amount,
             String paymentMethod) {
-        
+
         // Normalize payment method
         String normalizedMethod = normalizePaymentMethod(paymentMethod);
         if (amount == null || amount.signum() < 0 || ("MEMBERSHIP_QUOTA".equals(normalizedMethod) && amount.signum() != 0)) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Số tiền thanh toán không hợp lệ.");
         }
-        
+
         PaymentTransaction payment = new PaymentTransaction();
         payment.setMemberId(memberId);
         payment.setBookingType(bookingType);
@@ -56,7 +56,7 @@ public class PaymentService {
         payment.setReferenceCode(generateReferenceCode(bookingType));
         payment.setCreatedAt(LocalDateTime.now());
         if ("PAID".equals(payment.getPaymentStatus())) payment.setPaymentCompletedAt(LocalDateTime.now());
-        
+
         return paymentTransactionRepository.save(payment);
     }
 
@@ -76,13 +76,13 @@ public class PaymentService {
             String itemDescription,
             BigDecimal amount,
             String paymentMethod) {
-        
+
         // Normalize payment method
         String normalizedMethod = normalizePaymentMethod(paymentMethod);
         if (amount == null || amount.signum() < 0 || ("MEMBERSHIP_QUOTA".equals(normalizedMethod) && amount.signum() != 0)) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Số tiền thanh toán không hợp lệ.");
         }
-        
+
         PaymentTransaction payment = new PaymentTransaction();
         payment.setMemberId(memberId);
         payment.setBookingType(bookingType);
@@ -94,7 +94,7 @@ public class PaymentService {
         payment.setReferenceCode(generateReferenceCode(bookingType));
         payment.setCreatedAt(LocalDateTime.now());
         if ("PAID".equals(payment.getPaymentStatus())) payment.setPaymentCompletedAt(LocalDateTime.now());
-        
+
         return paymentTransactionRepository.save(payment);
     }
 
@@ -108,7 +108,7 @@ public class PaymentService {
      */
     private String mapBookingTypeToItemType(String bookingType) {
         if (bookingType == null) return null;
-        
+
         return switch (bookingType.toUpperCase(Locale.ROOT)) {
             case "MEMBERSHIP_PACKAGE" -> "MEMBERSHIP";
             case "COURT", "CLASS", "PT" -> bookingType.toUpperCase(Locale.ROOT);
@@ -118,7 +118,7 @@ public class PaymentService {
             default -> bookingType;
         };
     }
-    
+
     /**
      * Normalize payment method (handle aliases like CASH → CASH_COUNTER)
      */
@@ -126,9 +126,9 @@ public class PaymentService {
         if (method == null || method.isBlank()) {
             return PaymentConstants.METHOD_CASH_COUNTER;
         }
-        
+
         String normalized = method.toUpperCase(Locale.ROOT);
-        
+
         // Handle aliases
         return switch (normalized) {
             case "CASH" -> PaymentConstants.METHOD_CASH_COUNTER;
@@ -136,34 +136,7 @@ public class PaymentService {
             default -> throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Phương thức thanh toán không được hỗ trợ.");
         };
     }
-    
-    /**
-     * Create refund transaction
-     * 
-     * @param memberId User ID
-     * @param refundType CLASS_REFUND, COURT_REFUND, or MEMBERSHIP_REFUND
-     * @param amount Refund amount
-     * @param originalPaymentMethod Original payment method
-     * @return Saved refund transaction
-     */
-    public PaymentTransaction createRefund(
-            Long memberId,
-            String refundType,
-            BigDecimal amount,
-            String originalPaymentMethod) {
-        
-        PaymentTransaction refund = new PaymentTransaction();
-        refund.setMemberId(memberId);
-        refund.setBookingType(refundType);
-        refund.setAmount(amount);
-        refund.setPaymentMethod(originalPaymentMethod != null ? originalPaymentMethod : "SANDBOX");
-        refund.setPaymentStatus(PaymentConstants.PAYMENT_STATUS_REFUNDED);
-        refund.setReferenceCode(generateRefundReferenceCode(refundType));
-        refund.setCreatedAt(LocalDateTime.now());
-        
-        return paymentTransactionRepository.save(refund);
-    }
-    
+
     /**
      * Generate unique reference code theo format:
      * CLS-XXXXXXXXXX (CLASS)
@@ -177,36 +150,14 @@ public class PaymentService {
             case PaymentConstants.BOOKING_TYPE_MEMBERSHIP -> "PKG";
             default -> "PAY";
         };
-        
+
         String uuid = UUID.randomUUID()
             .toString()
             .replace("-", "")
             .substring(0, 10)
             .toUpperCase(Locale.ROOT);
-        
+
         return prefix + "-" + uuid;
     }
-    
-    /**
-     * Generate refund reference code theo format:
-     * RFD-CLS-XXXXXXXXXX (CLASS_REFUND)
-     * RFD-CRT-XXXXXXXXXX (COURT_REFUND)
-     * RFD-PKG-XXXXXXXXXX (MEMBERSHIP_REFUND)
-     */
-    private String generateRefundReferenceCode(String refundType) {
-        String prefix = switch (refundType) {
-            case "CLASS_REFUND" -> "RFD-CLS";
-            case "COURT_REFUND" -> "RFD-CRT";
-            case "MEMBERSHIP_REFUND" -> "RFD-PKG";
-            default -> "RFD-PAY";
-        };
-        
-        String uuid = UUID.randomUUID()
-            .toString()
-            .replace("-", "")
-            .substring(0, 10)
-            .toUpperCase(Locale.ROOT);
-        
-        return prefix + "-" + uuid;
-    }
+
 }

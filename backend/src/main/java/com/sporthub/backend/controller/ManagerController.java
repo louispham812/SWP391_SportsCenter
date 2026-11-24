@@ -9,18 +9,22 @@ import com.sporthub.backend.dto.PendingStaffRegistrationResponse;
 import com.sporthub.backend.entity.MembershipPackage;
 import com.sporthub.backend.entity.PaymentTransaction;
 import com.sporthub.backend.entity.PublicSport;
+import com.sporthub.backend.entity.Sport;
 import com.sporthub.backend.entity.User;
 import com.sporthub.backend.entity.UserMembership;
 import com.sporthub.backend.repository.MembershipPackageRepository;
 import com.sporthub.backend.repository.PaymentTransactionRepository;
 import com.sporthub.backend.repository.PublicSportRepository;
+import com.sporthub.backend.repository.SportRepository;
 import com.sporthub.backend.repository.UserMembershipRepository;
 import com.sporthub.backend.repository.UserRepository;
 import com.sporthub.backend.service.AuditLogService;
 import com.sporthub.backend.service.AuthService;
 import com.sporthub.backend.service.EmailService;
 import com.sporthub.backend.service.MembershipService;
+import com.sporthub.backend.util.CoachSportHelper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -59,6 +63,9 @@ public class ManagerController {
     @Autowired(required = false)
     private PaymentTransactionRepository paymentTransactionRepository;
 
+    @Autowired(required = false)
+    private SportRepository domainSportRepository;
+
     @Autowired
     public ManagerController(
             UserRepository userRepository,
@@ -91,7 +98,8 @@ public class ManagerController {
                         user.getEmail(),
                         user.getPhone(),
                         user.getRole(),
-                        user.getCreatedAt()))
+                        user.getCreatedAt(),
+                        user.getSpecialty()))
                 .toList();
     }
 
@@ -100,6 +108,7 @@ public class ManagerController {
     public Page<ManagerUserResponse> searchUsers(
             @RequestParam(defaultValue = "") String query,
             @RequestParam(required = false) String role,
+            @RequestParam(defaultValue = "false") boolean staffOnly,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size,
             Authentication authentication) {
@@ -115,18 +124,26 @@ public class ManagerController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vai trò không hợp lệ.");
         }
 
-        return userRepository.searchManagerUsers(
+        List<Sport> allSports = loadDomainSports();
+        Page<User> users = staffOnly
+                ? userRepository.searchManagerStaff(
                         query.trim(),
                         normalizedRole,
                         PageRequest.of(page, Math.min(Math.max(size, 1), 50)))
-                .map(user -> new ManagerUserResponse(
-                        user.getUserId(),
-                        user.getFullName(),
-                        user.getEmail(),
-                        user.getPhone(),
-                        user.getRole(),
-                        user.getStatus(),
-                        user.getCreatedAt()));
+                : userRepository.searchManagerUsers(
+                        query.trim(),
+                        normalizedRole,
+                        PageRequest.of(page, Math.min(Math.max(size, 1), 50)));
+        return users.map(user -> toUserResponse(user, allSports));
+    }
+
+    public Page<ManagerUserResponse> searchUsers(
+            String query,
+            String role,
+            int page,
+            int size,
+            Authentication authentication) {
+        return searchUsers(query, role, false, page, size, authentication);
     }
 
     @GetMapping("/members")
@@ -185,7 +202,10 @@ public class ManagerController {
         validatePackage(request);
         MembershipPackage membershipPackage = new MembershipPackage();
         applyPackageRequest(membershipPackage, request);
-        return packageRepository.save(membershipPackage);
+        validateTierAvailability(membershipPackage);
+        MembershipPackage saved = packageRepository.save(membershipPackage);
+        auditManagerAction(authentication, "CREATE_PACKAGE", "packageId=" + saved.getPackageId() + ", name=" + saved.getName());
+        return saved;
     }
 
     @PutMapping("/packages/{packageId}")
@@ -200,7 +220,10 @@ public class ManagerController {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Không tìm thấy gói tập."));
         applyPackageRequest(membershipPackage, request);
-        return packageRepository.save(membershipPackage);
+        validateTierAvailability(membershipPackage);
+        MembershipPackage saved = packageRepository.save(membershipPackage);
+        auditManagerAction(authentication, "UPDATE_PACKAGE", "packageId=" + saved.getPackageId() + ", name=" + saved.getName());
+        return saved;
     }
 
     @PatchMapping("/packages/{packageId}/status")
@@ -218,7 +241,10 @@ public class ManagerController {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Không tìm thấy gói tập."));
         membershipPackage.setStatus(request.status().trim().toUpperCase(Locale.ROOT));
-        return packageRepository.save(membershipPackage);
+        validateTierAvailability(membershipPackage);
+        MembershipPackage saved = packageRepository.save(membershipPackage);
+        auditManagerAction(authentication, "UPDATE_PACKAGE_STATUS", "packageId=" + packageId + ", status=" + saved.getStatus());
+        return saved;
     }
 
     @PatchMapping("/members/{userId}/lock")
@@ -236,7 +262,9 @@ public class ManagerController {
         if ("MANAGER".equalsIgnoreCase(targetUser.getRole()) || "ADMIN".equalsIgnoreCase(targetUser.getRole())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Không thể khóa tài khoản có vai trò Quản lý hoặc Quản trị viên (BR-03).");
         }
-        return updateMemberStatus(userId, "ACTIVE", "LOCKED");
+        ManagerMemberResponse res = updateMemberStatus(userId, "ACTIVE", "LOCKED");
+        auditManagerAction(authentication, "LOCK_MEMBER", "userId=" + userId);
+        return res;
     }
 
     @PatchMapping("/members/{userId}/unlock")
@@ -245,16 +273,27 @@ public class ManagerController {
             @PathVariable Long userId,
             Authentication authentication) {
         requireManager(authentication);
-        return updateMemberStatus(userId, "LOCKED", "ACTIVE");
+        ManagerMemberResponse res = updateMemberStatus(userId, "LOCKED", "ACTIVE");
+        auditManagerAction(authentication, "UNLOCK_MEMBER", "userId=" + userId);
+        return res;
     }
 
     @PatchMapping("/staff-registrations/{userId}/approve")
     @Transactional
     public PendingStaffRegistrationResponse approveRegistration(
             @PathVariable Long userId,
+            @RequestBody(required = false) UpdateCoachSportsRequest request,
             Authentication authentication) {
         requireManager(authentication);
-        return decide(userId, "ACTIVE");
+        PendingStaffRegistrationResponse res = decide(userId, "ACTIVE", request);
+        auditManagerAction(authentication, "APPROVE_STAFF_REGISTRATION", "userId=" + userId + ", role=" + res.role());
+        return res;
+    }
+
+    public PendingStaffRegistrationResponse approveRegistration(
+            Long userId,
+            Authentication authentication) {
+        return approveRegistration(userId, null, authentication);
     }
 
     @PatchMapping("/staff-registrations/{userId}/reject")
@@ -263,7 +302,9 @@ public class ManagerController {
             @PathVariable Long userId,
             Authentication authentication) {
         requireManager(authentication);
-        return decide(userId, "INACTIVE");
+        PendingStaffRegistrationResponse res = decide(userId, "INACTIVE", null);
+        auditManagerAction(authentication, "REJECT_STAFF_REGISTRATION", "userId=" + userId + ", role=" + res.role());
+        return res;
     }
 
     @GetMapping("/memberships/pending")
@@ -289,11 +330,13 @@ public class ManagerController {
 
             MembershipPackage pkg = packageRepository.findById(um.getPackageId()).orElse(null);
             row.put("packageName", pkg != null ? pkg.getName() : "Gói tập #" + um.getPackageId());
-            row.put("packageType", pkg != null ? pkg.getAccessType() : "VIP");
+            row.put("packageType", pkg != null && pkg.getPackageType() != null ? pkg.getPackageType().name() : "VIP");
+            row.put("accessType", pkg != null ? pkg.getAccessType() : "ALL_DAY");
+            row.put("membershipTier", pkg != null ? pkg.getMembershipTier() : null);
             row.put("price", pkg != null ? pkg.getPrice() : 0);
             row.put("paymentMethod", "VNPAY");
             row.put("referenceCode", "VNP-MBR-" + um.getMembershipId());
-            row.put("quotaCourtHours", pkg != null && pkg.getQuotaSessions() != null ? pkg.getQuotaSessions() : 0);
+            row.put("quotaCourtHours", pkg != null && pkg.getQuotaCourts() != null ? pkg.getQuotaCourts() : 0);
             row.put("quotaClassSessions", pkg != null && pkg.getQuotaSessions() != null ? pkg.getQuotaSessions() : 0);
             row.put("quotaPtSessions", 0);
             row.put("status", um.getStatus());
@@ -301,19 +344,25 @@ public class ManagerController {
             LocalDateTime createdTime = null;
             if (paymentTransactionRepository != null) {
                 List<PaymentTransaction> txs = paymentTransactionRepository.findByMemberIdOrderByCreatedAtDesc(um.getUserId());
-                for (PaymentTransaction tx : txs) {
-                    if ("MEMBERSHIP".equalsIgnoreCase(tx.getBookingType()) || "MEMBERSHIP".equalsIgnoreCase(tx.getItemType())) {
-                        createdTime = tx.getCreatedAt();
-                        if (tx.getReferenceCode() != null && !tx.getReferenceCode().isBlank()) {
-                            row.put("referenceCode", tx.getReferenceCode());
-                        }
-                        if (tx.getPaymentMethod() != null && !tx.getPaymentMethod().isBlank()) {
-                            row.put("paymentMethod", tx.getPaymentMethod());
-                        }
-                        if (tx.getAmount() != null) {
-                            row.put("price", tx.getAmount());
-                        }
-                        break;
+                PaymentTransaction matched = txs.stream()
+                        .filter(tx -> tx.getMembershipId() != null && tx.getMembershipId().equals(um.getMembershipId()))
+                        .findFirst()
+                        .orElseGet(() -> txs.stream()
+                                .filter(tx -> tx.getMembershipId() == null
+                                        && ("MEMBERSHIP".equalsIgnoreCase(tx.getBookingType())
+                                                || "MEMBERSHIP".equalsIgnoreCase(tx.getItemType())))
+                                .findFirst()
+                                .orElse(null));
+                if (matched != null) {
+                    createdTime = matched.getCreatedAt();
+                    if (matched.getReferenceCode() != null && !matched.getReferenceCode().isBlank()) {
+                        row.put("referenceCode", matched.getReferenceCode());
+                    }
+                    if (matched.getPaymentMethod() != null && !matched.getPaymentMethod().isBlank()) {
+                        row.put("paymentMethod", matched.getPaymentMethod());
+                    }
+                    if (matched.getAmount() != null) {
+                        row.put("price", matched.getAmount());
                     }
                 }
             }
@@ -344,10 +393,25 @@ public class ManagerController {
         Long managerId = resolveManagerId(authentication);
 
         membershipService.approveMembership(membershipId, managerId);
+        auditManagerAction(authentication, "APPROVE_MEMBERSHIP", "membershipId=" + membershipId);
 
+        UserMembership approved = userMembershipRepository != null
+                ? userMembershipRepository.findById(membershipId).orElse(null)
+                : null;
+        MembershipPackage pkg = (approved != null && approved.getPackageId() != null)
+                ? packageRepository.findById(approved.getPackageId()).orElse(null)
+                : null;
+        if (approved != null) {
+            return new MembershipQuotaResponse(
+                    membershipId,
+                    pkg != null && pkg.getName() != null ? pkg.getName() : "Membership Package",
+                    approved.getRemainingQuotaCourts() != null ? approved.getRemainingQuotaCourts() : 0,
+                    approved.getRemainingQuotaSessions() != null ? approved.getRemainingQuotaSessions() : 0
+            );
+        }
         return new MembershipQuotaResponse(
                 membershipId,
-                "Membership Package", 
+                "Membership Package",
                 0,
                 0
         );
@@ -378,6 +442,7 @@ public class ManagerController {
                 : (reason != null && !reason.isBlank() ? reason.trim() : "Không đạt yêu cầu duyệt");
         
         membershipService.rejectMembership(membershipId, rejectReason, managerId);
+        auditManagerAction(authentication, "REJECT_MEMBERSHIP", "membershipId=" + membershipId + ", reason=" + rejectReason);
 
         return Map.of("message", "Membership đã bị từ chối thành công", "success", true);
     }
@@ -420,8 +485,14 @@ public class ManagerController {
         if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Địa chỉ email không hợp lệ.");
         }
+        if (!phone.matches("^[0-9]{10,15}$")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số điện thoại phải gồm 10 đến 15 chữ số.");
+        }
         if (password.length() < 8) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mật khẩu phải có ít nhất 8 ký tự.");
+        }
+        if (userRepository.existsByPhone(phone)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Số điện thoại này đã được sử dụng bởi tài khoản khác.");
         }
         
         Optional<User> existingUser = authService.findUserByEmail(email);
@@ -445,17 +516,31 @@ public class ManagerController {
 
         boolean isManagerUser = isManager(authentication);
         if (!isManagerUser) {
-            if (!List.of("MEMBER", "COACH", "RECEPTIONIST").contains(targetRole)) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Lễ tân chỉ có quyền tạo tài khoản Hội viên, Huấn luyện viên hoặc Lễ tân.");
+            if (!"MEMBER".equals(targetRole)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Lễ tân chỉ được phép tạo tài khoản Hội viên (MEMBER).");
             }
         } else {
-            if (!List.of("MEMBER", "COACH", "RECEPTIONIST", "MANAGER", "ADMIN").contains(targetRole)) {
+            if ("ADMIN".equals(targetRole)) {
+                targetRole = "MANAGER";
+            }
+            if (!List.of("MEMBER", "COACH", "RECEPTIONIST", "MANAGER").contains(targetRole)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vai trò không hợp lệ.");
             }
         }
 
-        boolean requirePasswordChange = true;
+        String cleanRfid = request.rfidCode() == null || request.rfidCode().isBlank() ? null : request.rfidCode().trim();
+        if (cleanRfid != null && userRepository.existsByRfidCodeAndUserIdNot(cleanRfid, -1L)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Mã thẻ RFID này đã được cấp cho tài khoản khác.");
+        }
+        String cleanGender = request.gender() == null || request.gender().isBlank() ? null : request.gender().trim().toUpperCase(Locale.ROOT);
+        String cleanAddress = request.address() == null || request.address().isBlank() ? null : request.address().trim();
+        String cleanEmergencyName = request.emergencyContactName() == null || request.emergencyContactName().isBlank() ? null : request.emergencyContactName().trim();
+        String cleanEmergencyPhone = request.emergencyContactPhone() == null || request.emergencyContactPhone().isBlank() ? null : request.emergencyContactPhone().trim();
+        if (cleanEmergencyPhone != null && !cleanEmergencyPhone.matches("^[0-9]{10,15}$")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số điện thoại liên hệ khẩn cấp phải gồm 10 đến 15 chữ số.");
+        }
 
+        boolean requirePasswordChange = true;
         User user = User.builder()
                 .fullName(fullName)
                 .email(email)
@@ -464,7 +549,17 @@ public class ManagerController {
                 .role(targetRole)
                 .status("ACTIVE")
                 .requirePasswordChange(requirePasswordChange)
+                .dateOfBirth(request.dateOfBirth())
+                .gender(cleanGender)
+                .address(cleanAddress)
+                .rfidCode(cleanRfid)
+                .emergencyContactName(cleanEmergencyName)
+                .emergencyContactPhone(cleanEmergencyPhone)
                 .build();
+        if ("COACH".equals(targetRole)) {
+            CoachSportHelper.syncCoachSports(
+                    user, request.sportIds(), request.specialty(), domainSportRepository, true);
+        }
 
         User savedUser = userRepository.save(user);
         
@@ -479,20 +574,42 @@ public class ManagerController {
                     e.getMessage());
         }
         
-        return new ManagerUserResponse(
-                savedUser.getUserId(),
-                savedUser.getFullName(),
-                savedUser.getEmail(),
-                savedUser.getPhone(),
-                savedUser.getRole(),
-                savedUser.getStatus(),
-                savedUser.getCreatedAt());
+        return toUserResponse(savedUser, loadDomainSports());
+    }
+
+    @PutMapping("/coaches/{coachId}/sports")
+    @Transactional
+    public ManagerUserResponse updateCoachSports(
+            @PathVariable Long coachId,
+            @RequestBody UpdateCoachSportsRequest request,
+            Authentication authentication) {
+        requireManager(authentication);
+        User coach = userRepository.findById(coachId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy huấn luyện viên."));
+        if (!"COACH".equalsIgnoreCase(coach.getRole())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Người dùng này không phải Huấn luyện viên.");
+        }
+        CoachSportHelper.syncCoachSports(
+                coach,
+                request != null ? request.sportIds() : null,
+                request != null ? request.specialty() : null,
+                domainSportRepository,
+                true);
+        User saved = userRepository.save(coach);
+        return toUserResponse(saved, loadDomainSports());
     }
 
     private void validatePackage(ManagerPackageRequest request) {
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thông tin gói tập không hợp lệ.");
+        }
         if (request.name() == null || request.name().isBlank() || request.name().trim().length() > 100) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Tên gói tập là bắt buộc và tối đa 100 ký tự.");
+        }
+        if (request.membershipTier() != null && request.membershipTier().trim().length() > 100) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Mã hạng hội viên tối đa 100 ký tự.");
         }
         if (request.price() == null || request.price().signum() <= 0
                 || request.price().scale() > 2 || request.price().precision() > 10) {
@@ -511,17 +628,54 @@ public class ManagerController {
                 || !List.of("ACTIVE", "INACTIVE").contains(request.status().trim().toUpperCase(Locale.ROOT))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trạng thái gói tập không hợp lệ.");
         }
+        if (request.quotaSessions() != null && request.quotaSessions() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số buổi tập không được âm.");
+        }
+        if (request.quotaCourts() != null && request.quotaCourts() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số giờ sân không được âm.");
+        }
         if (request.sportId() != null && !sportRepository.existsById(request.sportId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không tìm thấy bộ môn đã chọn.");
         }
     }
 
+    private void validateTierAvailability(MembershipPackage membershipPackage) {
+        if (!"ACTIVE".equals(membershipPackage.getStatus())) return;
+        long excludeId = membershipPackage.getPackageId() == null ? -1L : membershipPackage.getPackageId();
+        if (membershipPackage.getMembershipTier() != null && !membershipPackage.getMembershipTier().isBlank()
+                && packageRepository.existsByMembershipTierIgnoreCaseAndStatusAndPackageIdNot(
+                        membershipPackage.getMembershipTier(), "ACTIVE", excludeId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Hạng này đã mở bán. Hãy cập nhật cấu hình hiện có.");
+        }
+        if (packageRepository.existsByNameIgnoreCaseAndStatusAndPackageIdNot(
+                membershipPackage.getName(), "ACTIVE", excludeId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tên hạng hội viên này đã mở bán. Vui lòng chọn tên khác hoặc cập nhật gói hiện có.");
+        }
+    }
+
     private void applyPackageRequest(MembershipPackage membershipPackage, ManagerPackageRequest request) {
+        if (request.membershipTier() != null) {
+            membershipPackage.setMembershipTier(com.sporthub.backend.enums.MembershipTier.normalize(request.membershipTier()));
+        }
         membershipPackage.setName(request.name().trim());
-        membershipPackage.setSportId(request.sportId());
+        boolean presetTier = com.sporthub.backend.enums.MembershipTier.fromString(membershipPackage.getMembershipTier()).isPresent();
+        if (membershipPackage.getPackageType() == null || presetTier) {
+            membershipPackage.setPackageType(com.sporthub.backend.enums.PackageType.VIP);
+        }
+        membershipPackage.setSportId(presetTier ? null : request.sportId());
         membershipPackage.setPrice(request.price());
         membershipPackage.setDurationDays(request.durationDays());
         membershipPackage.setAccessType(request.accessType().trim().toUpperCase(Locale.ROOT));
+        if (request.quotaSessions() != null) {
+            membershipPackage.setQuotaSessions(request.quotaSessions());
+        } else if (membershipPackage.getQuotaSessions() == null) {
+            membershipPackage.setQuotaSessions(0);
+        }
+        if (request.quotaCourts() != null) {
+            membershipPackage.setQuotaCourts(request.quotaCourts());
+        } else if (membershipPackage.getQuotaCourts() == null) {
+            membershipPackage.setQuotaCourts(0);
+        }
         membershipPackage.setDescription(
                 request.description() == null || request.description().isBlank()
                         ? null
@@ -529,7 +683,10 @@ public class ManagerController {
         membershipPackage.setStatus(request.status().trim().toUpperCase(Locale.ROOT));
     }
 
-    private PendingStaffRegistrationResponse decide(Long userId, String status) {
+    private PendingStaffRegistrationResponse decide(
+            Long userId,
+            String status,
+            UpdateCoachSportsRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Không tìm thấy đăng ký nhân viên."));
@@ -537,6 +694,24 @@ public class ManagerController {
                 || !STAFF_ROLES.contains(user.getRole().toUpperCase(Locale.ROOT))) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Đăng ký này đã được xử lý hoặc không hợp lệ.");
+        }
+
+        if ("ACTIVE".equals(status) && "COACH".equalsIgnoreCase(user.getRole())) {
+            if (request != null) {
+                if ((request.sportIds() == null || request.sportIds().isEmpty())
+                        && (request.specialty() == null || request.specialty().isBlank())) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Vui lòng chọn ít nhất một bộ môn giảng dạy cho Huấn luyện viên.");
+                }
+                CoachSportHelper.applyCoachSports(
+                        user, request.sportIds(), request.specialty(), domainSportRepository, true);
+            } else if ((user.getCoachedSports() == null || user.getCoachedSports().isEmpty())
+                    && (user.getSpecialty() == null || user.getSpecialty().isBlank())) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Vui lòng chọn ít nhất một bộ môn giảng dạy cho Huấn luyện viên.");
+            }
         }
 
         user.setStatus(status);
@@ -547,7 +722,8 @@ public class ManagerController {
                 savedUser.getEmail(),
                 savedUser.getPhone(),
                 savedUser.getRole(),
-                savedUser.getCreatedAt());
+                savedUser.getCreatedAt(),
+                savedUser.getSpecialty());
     }
 
     private ManagerMemberResponse updateMemberStatus(Long userId, String expectedStatus, String status) {
@@ -609,5 +785,163 @@ public class ManagerController {
         }
     }
 
+    private List<Sport> loadDomainSports() {
+        return domainSportRepository == null ? List.of() : domainSportRepository.findAllByOrderBySportIdAsc();
+    }
+
+    private ManagerUserResponse toUserResponse(User user, List<Sport> allSports) {
+        return new ManagerUserResponse(
+                user.getUserId(),
+                user.getFullName(),
+                user.getEmail(),
+                user.getPhone(),
+                user.getRole(),
+                user.getStatus(),
+                user.getCreatedAt(),
+                user.getSpecialty(),
+                CoachSportHelper.resolveCoachSportIds(user, allSports));
+    }
+
+    @PutMapping("/users/{userId}")
+    @Transactional
+    public ManagerUserResponse updateUser(
+            @PathVariable Long userId,
+            @RequestBody UpdateStaffUserRequest request,
+            Authentication authentication) {
+        requireManager(authentication);
+        if (request == null || request.fullName() == null || request.fullName().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Họ tên không được để trống.");
+        }
+        String cleanName = request.fullName().trim();
+        if (cleanName.length() > 100) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Họ tên không được vượt quá 100 ký tự.");
+        }
+        String cleanPhone = request.phone() == null || request.phone().isBlank() ? null : request.phone().trim();
+        if (cleanPhone != null) {
+            if (!cleanPhone.matches("^[0-9]{10,15}$")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số điện thoại phải gồm 10 đến 15 chữ số.");
+            }
+            if (userRepository.existsByPhoneAndUserIdNot(cleanPhone, userId)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Số điện thoại này đã được sử dụng bởi tài khoản khác.");
+            }
+        }
+        User targetUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản."));
+        String normalizedRole = request.role() == null || request.role().isBlank()
+                ? targetUser.getRole()
+                : request.role().trim().toUpperCase(Locale.ROOT);
+        if ("ADMIN".equals(normalizedRole)) {
+            normalizedRole = "MANAGER";
+        }
+        if (!List.of("MEMBER", "COACH", "RECEPTIONIST", "MANAGER").contains(normalizedRole)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vai trò không hợp lệ.");
+        }
+        Long currentManagerId = actorId(authentication);
+        if (currentManagerId != null && currentManagerId.equals(userId) && !"MANAGER".equals(normalizedRole)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không thể tự hạ vai trò của chính mình.");
+        }
+        targetUser.setFullName(cleanName);
+        targetUser.setPhone(cleanPhone);
+        targetUser.setRole(normalizedRole);
+        if ("COACH".equals(normalizedRole)) {
+            if (request.sportIds() != null && !request.sportIds().isEmpty()) {
+                CoachSportHelper.syncCoachSports(targetUser, request.sportIds(), null, domainSportRepository, false);
+            }
+        } else {
+            if (targetUser.getCoachedSports() != null) {
+                targetUser.getCoachedSports().clear();
+            }
+            targetUser.setSpecialty(null);
+        }
+        User saved = userRepository.save(targetUser);
+        auditManagerAction(authentication, "UPDATE_USER", "userId=" + saved.getUserId() + ", role=" + saved.getRole());
+        return toUserResponse(saved, loadDomainSports());
+    }
+
+    @PatchMapping("/users/{userId}/lock")
+    @Transactional
+    public ManagerUserResponse lockUser(
+            @PathVariable Long userId,
+            Authentication authentication) {
+        requireManager(authentication);
+        Long currentManagerId = actorId(authentication);
+        if (currentManagerId != null && currentManagerId.equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quản lý không thể tự khóa tài khoản của chính mình (BR-03).");
+        }
+        User targetUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng."));
+        if ("MANAGER".equalsIgnoreCase(targetUser.getRole()) || "ADMIN".equalsIgnoreCase(targetUser.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Không thể khóa tài khoản có vai trò Quản lý (BR-03).");
+        }
+        if (!"ACTIVE".equalsIgnoreCase(targetUser.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Chỉ có thể khóa tài khoản đang hoạt động.");
+        }
+        targetUser.setStatus("LOCKED");
+        User saved = userRepository.save(targetUser);
+        auditManagerAction(authentication, "LOCK_USER", "userId=" + userId);
+        return toUserResponse(saved, loadDomainSports());
+    }
+
+    @PatchMapping("/users/{userId}/unlock")
+    @Transactional
+    public ManagerUserResponse unlockUser(
+            @PathVariable Long userId,
+            Authentication authentication) {
+        requireManager(authentication);
+        User targetUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng."));
+        if (!"LOCKED".equalsIgnoreCase(targetUser.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tài khoản không ở trạng thái bị khóa.");
+        }
+        targetUser.setStatus("ACTIVE");
+        User saved = userRepository.save(targetUser);
+        auditManagerAction(authentication, "UNLOCK_USER", "userId=" + userId);
+        return toUserResponse(saved, loadDomainSports());
+    }
+
+    @DeleteMapping("/users/{userId}")
+    public Map<String, Object> deleteUser(
+            @PathVariable Long userId,
+            Authentication authentication) {
+        requireManager(authentication);
+        Long currentManagerId = actorId(authentication);
+        if (currentManagerId != null && currentManagerId.equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quản lý không thể tự xóa tài khoản của chính mình.");
+        }
+        User targetUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản."));
+        if ("MANAGER".equalsIgnoreCase(targetUser.getRole()) || "ADMIN".equalsIgnoreCase(targetUser.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Không thể xóa tài khoản Quản lý.");
+        }
+        String targetLabel = "MEMBER".equalsIgnoreCase(targetUser.getRole()) ? "hội viên" : "nhân sự";
+        try {
+            userRepository.deleteById(userId);
+            auditManagerAction(authentication, "DELETE_USER", "userId=" + userId + ", softDeleted=false");
+            return Map.of("deleted", true, "softDeleted", false, "message", "Đã xóa tài khoản " + targetLabel + ".");
+        } catch (DataIntegrityViolationException ex) {
+            targetUser.setStatus("INACTIVE");
+            userRepository.save(targetUser);
+            auditManagerAction(authentication, "DELETE_USER", "userId=" + userId + ", softDeleted=true");
+            return Map.of(
+                    "deleted", true,
+                    "softDeleted", true,
+                    "message", ("MEMBER".equalsIgnoreCase(targetUser.getRole()) ? "Hội viên" : "Nhân sự")
+                            + " đã có dữ liệu lịch sử nên đã được ngừng hoạt động.");
+        }
+    }
+
+    private void auditManagerAction(Authentication authentication, String logType, String detail) {
+        if (auditLogService == null) {
+            return;
+        }
+        Long managerId = actorId(authentication);
+        String managerEmail = managerId != null
+                ? userRepository.findById(managerId).map(User::getEmail).orElse(authentication != null ? authentication.getName() : null)
+                : (authentication != null ? authentication.getName() : null);
+        auditLogService.logSuccess(logType, managerEmail, managerId, detail);
+    }
+
     public record PackageStatusRequest(String status) {}
+    public record UpdateCoachSportsRequest(List<Long> sportIds, String specialty) {}
+    public record UpdateStaffUserRequest(String fullName, String phone, String role, List<Long> sportIds) {}
 }

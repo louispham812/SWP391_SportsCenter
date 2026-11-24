@@ -79,18 +79,26 @@ public class BookingFlowController {
             } catch (Exception ignored) {
             }
         }
-        LocalDateTime parsedStart = null;
-        LocalDateTime parsedEnd = null;
-        try {
-            if (startTime != null && !startTime.isBlank()) {
-                parsedStart = LocalDateTime.parse(startTime.trim().replace("Z", ""));
-            }
-            if (endTime != null && !endTime.isBlank()) {
-                parsedEnd = LocalDateTime.parse(endTime.trim().replace("Z", ""));
-            }
-        } catch (Exception ignored) {
-        }
+        LocalDateTime parsedStart = parseFlexibleDateTime(startTime);
+        LocalDateTime parsedEnd = parseFlexibleDateTime(endTime);
         return ResponseEntity.ok(bookingService.getQuote(bookingType, itemId, parsedStart, parsedEnd, memberId));
+    }
+
+    private LocalDateTime parseFlexibleDateTime(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String trimmed = raw.trim();
+        try {
+            if (trimmed.endsWith("Z") || trimmed.matches(".*[+-]\\d{2}:\\d{2}$")) {
+                return java.time.OffsetDateTime.parse(trimmed)
+                        .atZoneSameInstant(java.time.ZoneId.systemDefault())
+                        .toLocalDateTime();
+            }
+            return LocalDateTime.parse(trimmed);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     @PostMapping("/checkout")
@@ -116,7 +124,7 @@ public class BookingFlowController {
         requireMember(authentication);
         String normalizedType = bookingType.toUpperCase(java.util.Locale.ROOT);
         com.sporthub.backend.dto.CancelBookingResponse response;
-        if ("CLASS".equals(normalizedType)) {
+        if ("CLASS".equals(normalizedType) || "PT".equals(normalizedType)) {
             response = bookingService.cancelClassBooking(bookingId, actorId(authentication));
         } else if ("COURT".equals(normalizedType)) {
             response = bookingService.cancelCourtBooking(bookingId, actorId(authentication));

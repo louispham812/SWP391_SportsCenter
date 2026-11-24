@@ -1,4 +1,3 @@
-import React from 'react';
 import CoachLayout from '../../components/layouts/CoachLayout';
 import NotificationList from '../../components/common/NotificationList';
 

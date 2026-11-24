@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 
@@ -49,7 +49,7 @@ export default function ForgotPasswordPage() {
           if (showToast) {
             showToast('Tài khoản chưa kích hoạt', 'Vui lòng xác thực OTP đăng ký trước.');
           }
-          
+
           // Chuyển hướng đến trang verify OTP registration (KHÔNG phải verify-code reset password)
           setTimeout(() => {
             navigate('/verify-otp', {
@@ -59,11 +59,11 @@ export default function ForgotPasswordPage() {
               }
             });
           }, 1500);
-          
+
           return; // Dừng xử lý, không throw error
         }
         // ===== KẾT THÚC XỬ LÝ PENDING_VERIFICATION =====
-        
+
         // Nếu không phải PENDING_VERIFICATION, xử lý lỗi bình thường
         throw new Error(data.message || 'Không thể gửi yêu cầu đặt lại mật khẩu. Vui lòng thử lại.');
       }
@@ -123,12 +123,12 @@ export default function ForgotPasswordPage() {
       {/* Main Container */}
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-10 my-4">
         <div className="w-full max-w-xl bg-white rounded-3xl border border-slate-200/90 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-          
+
           {/* Header Banner với phong cách thể thao F Sport */}
           <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white p-6 sm:p-8 text-center relative overflow-hidden">
             <div className="absolute top-0 right-0 w-44 h-44 bg-orange-500/15 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-orange-500/10 rounded-full blur-2xl pointer-events-none"></div>
-            
+
             <div className="w-16 h-16 mx-auto rounded-2xl bg-orange-500/20 border border-orange-500/40 text-orange-400 flex items-center justify-center shadow-lg mb-4">
               <span className="material-symbols-outlined text-3xl">lock_reset</span>
             </div>
@@ -137,7 +137,7 @@ export default function ForgotPasswordPage() {
               <span className="material-symbols-outlined text-[14px]">shield</span>
               <span>Khôi Phục Mật Khẩu Hội Viên</span>
             </div>
-            
+
             <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white">
               Quên Mật Khẩu?
             </h1>
@@ -217,7 +217,7 @@ export default function ForgotPasswordPage() {
                 </div>
                 <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px] text-slate-400">info</span>
-                  <span>Để bảo mật, hệ thống sẽ gửi mã OTP 6 số (hiệu lực 5 phút) đến email này.</span>
+                  <span>Để bảo mật, hệ thống sẽ gửi mã OTP 6 số (hiệu lực 10 phút) đến email này.</span>
                 </p>
               </div>
 

@@ -19,6 +19,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByPhone(String phone);
     Optional<User> findByRfidCode(String rfidCode);
     boolean existsByEmailIgnoreCase(String email);
+    boolean existsByPhone(String phone);
+    boolean existsByPhoneAndUserIdNot(String phone, Long userId);
     boolean existsByRfidCodeAndUserIdNot(String rfidCode, Long userId);
 
     @Query("""
@@ -47,8 +49,27 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("""
             select user from User user
+            where upper(trim(user.role)) in ('MANAGER', 'ADMIN', 'COACH', 'RECEPTIONIST')
+              and upper(trim(user.status)) <> 'INACTIVE'
+              and (:role is null or upper(trim(user.role)) = :role
+                   or (:role = 'MANAGER' and upper(trim(user.role)) = 'ADMIN'))
+              and (:query is null or :query = ''
+                   or lower(user.fullName) like lower(concat('%', :query, '%'))
+                   or lower(user.email) like lower(concat('%', :query, '%'))
+                   or user.phone like concat('%', :query, '%')
+                   or cast(user.userId as string) like concat('%', :query, '%'))
+            order by user.createdAt desc, user.userId desc
+            """)
+    Page<User> searchManagerStaff(
+            @Param("query") String query,
+            @Param("role") String role,
+            Pageable pageable);
+
+    @Query("""
+            select user from User user
             where upper(trim(user.role)) = 'MEMBER'
-              and (:status is null or upper(trim(user.status)) = :status)
+              and ((:status is null and upper(trim(user.status)) <> 'INACTIVE')
+                   or upper(trim(user.status)) = :status)
               and (:query is null or :query = ''
                    or lower(user.fullName) like lower(concat('%', :query, '%'))
                    or lower(user.email) like lower(concat('%', :query, '%'))
@@ -64,10 +85,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("""
             select user from User user
             where upper(user.role) = 'MEMBER'
+              and upper(trim(user.status)) <> 'INACTIVE'
               and (:query is null or :query = ''
                    or lower(user.fullName) like lower(concat('%', :query, '%'))
                    or lower(user.email) like lower(concat('%', :query, '%'))
                    or user.phone like concat('%', :query, '%')
+                   or lower(coalesce(user.rfidCode, '')) like lower(concat('%', :query, '%'))
                    or cast(user.userId as string) like concat('%', :query, '%'))
             order by user.userId desc
             """)

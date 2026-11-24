@@ -6,7 +6,6 @@ import com.sporthub.backend.dto.RegisterRequest;
 import com.sporthub.backend.entity.User;
 import com.sporthub.backend.exception.PendingVerificationException;
 import com.sporthub.backend.service.AuthService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,7 +14,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-@SuppressWarnings("unused")
 @RestController
 @RequestMapping("/api/v1/auth")
 @CrossOrigin(origins = "*") // Cho phép ReactJS gọi API không bị lỗi CORS
@@ -100,7 +98,7 @@ public class AuthController {
         String message = authService.resetPassword(request);
         return ResponseEntity.ok(Map.of("success", true, "message", message));
     }
-    
+
     /**
      * Check email availability for registration/create user
      * Returns: { exists: boolean, available: boolean, user: {...} }
@@ -114,10 +112,10 @@ public class AuthController {
     public ResponseEntity<Map<String, Object>> checkEmailAvailability(@RequestParam String email) {
         Map<String, Object> response = new HashMap<>();
         response.put("email", email.trim().toLowerCase());
-        
+
         Optional<User> existingUser = authService.findUserByEmail(email.trim());
         response.put("exists", existingUser.isPresent());
-        
+
         if (existingUser.isEmpty()) {
             // Email chưa tồn tại → Có thể đăng ký
             response.put("available", true);
@@ -125,18 +123,23 @@ public class AuthController {
         } else {
             User user = existingUser.get();
             response.put("available", false);
-            
+
             Map<String, String> userInfo = new HashMap<>();
             userInfo.put("fullName", user.getFullName());
             userInfo.put("role", user.getRole());
             userInfo.put("status", user.getStatus());
             response.put("user", userInfo);
-            
+
             // Logic theo status
             String status = user.getStatus();
             if ("PENDING".equalsIgnoreCase(status)) {
-                response.put("message", "Email này đang chờ xác thực OTP. Bạn có thể đăng nhập để nhận lại mã OTP.");
-                response.put("suggestion", "LOGIN_TO_RESEND_OTP");
+                if (!"MEMBER".equalsIgnoreCase(user.getRole())) {
+                    response.put("message", "Email này đã đăng ký tài khoản nhân sự và đang chờ Quản lý phê duyệt.");
+                    response.put("suggestion", "WAIT_FOR_APPROVAL");
+                } else {
+                    response.put("message", "Email này đang chờ xác thực OTP. Bạn có thể đăng nhập để nhận lại mã OTP.");
+                    response.put("suggestion", "LOGIN_TO_RESEND_OTP");
+                }
             } else if ("ACTIVE".equalsIgnoreCase(status)) {
                 response.put("message", String.format(
                     "Email đã được sử dụng bởi %s (%s) và đang hoạt động.",
@@ -157,7 +160,7 @@ public class AuthController {
                 response.put("suggestion", "CONTACT_ADMIN");
             }
         }
-        
+
         return ResponseEntity.ok(response);
     }
 }

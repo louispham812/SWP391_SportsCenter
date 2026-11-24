@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
-import { getMemberAttendance } from '../../services/memberApi';
+import { getMemberAttendance, createMemberTicket } from '../../services/memberApi';
+import { formatTicketDate } from '../../utils/ticketLabels';
 import { useApp } from '../../context/AppContext';
 import { TableSkeleton, CardGridSkeleton } from '../../components/common/Skeleton';
 import Pagination from '../../components/common/Pagination';
 
 export default function MemberAttendancePage() {
-  const { showToast } = useApp();
+  const { currentUser, showToast } = useApp();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [attendanceData, setAttendanceData] = useState({
@@ -35,22 +36,54 @@ export default function MemberAttendancePage() {
   const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
   const [disputeItem, setDisputeItem] = useState(null);
   const [disputeReason, setDisputeReason] = useState('');
+  const [disputeError, setDisputeError] = useState('');
+  const [submittingDispute, setSubmittingDispute] = useState(false);
 
   const handleOpenDispute = (item) => {
     setDisputeItem(item);
     setDisputeReason('');
+    setDisputeError('');
     setIsDisputeModalOpen(true);
   };
 
-  const handleSubmitDispute = (e) => {
+  const handleSubmitDispute = async (e) => {
     e.preventDefault();
-    if (!disputeReason.trim()) return;
-    setIsDisputeModalOpen(false);
-    showToast(
-      'Gửi khiếu nại thành công',
-      'Yêu cầu rà soát điểm danh của bạn đã được chuyển tới Ban Quản lý trung tâm để đối soát dữ liệu cổng RFID & camera.',
-      'success'
-    );
+    const reason = disputeReason.trim();
+    if (reason.length < 10) {
+      setDisputeError('Vui lòng nhập lý do chi tiết tối thiểu 10 ký tự.');
+      return;
+    }
+
+    const targetLabel = disputeItem?.className || disputeItem?.courtName || 'Buổi tập';
+    const refParts = [];
+    if (disputeItem?.bookingId) refParts.push(`Lớp #${disputeItem.bookingId}`);
+    else if (disputeItem?.courtBookingId) refParts.push(`Sân #${disputeItem.courtBookingId}`);
+    if (disputeItem?.startTime) refParts.push(formatTicketDate(disputeItem.startTime));
+    const prefix = refParts.length ? `[${refParts.join(' • ')}] ` : '';
+
+    setSubmittingDispute(true);
+    setDisputeError('');
+    try {
+      const created = await createMemberTicket({
+        category: 'ATTENDANCE_DISPUTE',
+        title: `Khiếu nại điểm danh: ${targetLabel}`.slice(0, 180),
+        description: `${prefix}${reason}`,
+        severity: 'NORMAL',
+      });
+      setIsDisputeModalOpen(false);
+      window.dispatchEvent(new Event('sporthub:notifications-updated'));
+      showToast(
+        'Gửi khiếu nại thành công',
+        `Phiếu hỗ trợ #TK-${created?.ticketId ?? 'mới'} đã được tạo. Bạn có thể theo dõi tại mục Khiếu nại & Hỗ trợ.`,
+        'success'
+      );
+    } catch (err) {
+      const msg = err?.message || 'Không thể gửi khiếu nại lúc này. Vui lòng thử lại.';
+      setDisputeError(msg);
+      showToast('Gửi khiếu nại thất bại', msg, 'error');
+    } finally {
+      setSubmittingDispute(false);
+    }
   };
 
   useEffect(() => {
@@ -69,7 +102,7 @@ export default function MemberAttendancePage() {
         attendanceRate: data.attendanceRate || 0,
         records: data.records || [],
         courtBookings: data.courtBookings || [],
-        checkIns: data.checkIns || [],
+        checkIns: data.gateCheckIns || data.checkIns || [],
       });
     } catch (err) {
       console.error('Failed to load attendance:', err);
@@ -118,6 +151,14 @@ export default function MemberAttendancePage() {
     return (attendanceData.checkIns || []).slice(start, start + GATES_PER_PAGE);
   }, [attendanceData.checkIns, gatePage]);
 
+  const canDisputeAttendance = (item) => {
+    if (!item?.startTime) return false;
+    const startMs = new Date(item.startTime).getTime();
+    if (Number.isNaN(startMs)) return false;
+    const nowMs = Date.now();
+    return startMs <= nowMs && (nowMs - startMs) <= 7 * 86400000;
+  };
+
   const formatDateTime = (isoStr) => {
     if (!isoStr) return '';
     try {
@@ -126,7 +167,7 @@ export default function MemberAttendancePage() {
         date: d.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }),
         time: d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
       };
-    } catch (e) {
+    } catch {
       return { date: isoStr, time: '' };
     }
   };
@@ -412,15 +453,17 @@ export default function MemberAttendancePage() {
                               </span>
                             )}
 
-                            <button
-                              type="button"
-                              onClick={() => handleOpenDispute(record)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-600 text-[11px] font-bold transition cursor-pointer"
-                              title="Gửi khiếu nại nếu bị ghi nhầm điểm danh"
-                            >
-                              <span className="material-symbols-outlined text-[13px]">report_problem</span>
-                              <span>Khiếu nại</span>
-                            </button>
+                            {canDisputeAttendance(record) && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenDispute(record)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-600 text-[11px] font-bold transition cursor-pointer"
+                                title="Gửi khiếu nại nếu bị ghi nhầm điểm danh"
+                              >
+                                <span className="material-symbols-outlined text-[13px]">report_problem</span>
+                                <span>Khiếu nại</span>
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -477,9 +520,30 @@ export default function MemberAttendancePage() {
                   {paginatedCourts.map((court) => {
                     const startDt = formatDateTime(court.startTime);
                     const endDt = formatDateTime(court.endTime);
+                    const bookingKey = court.courtBookingId ?? court.bookingId;
+                    const paidAmount = court.amountPaid ?? court.totalPrice;
+                    const st = String(court.status || '').toUpperCase();
+                    const statusLabel =
+                      st === 'CHECKED_IN'
+                        ? 'Đã check-in'
+                        : st === 'CONFIRMED' || st === 'PAID'
+                          ? 'Đã xác nhận'
+                          : st === 'NO_SHOW'
+                            ? 'Vắng mặt'
+                            : st === 'PENDING'
+                              ? 'Chờ thanh toán'
+                              : court.status;
+                    const statusClass =
+                      st === 'CHECKED_IN' || st === 'CONFIRMED' || st === 'PAID'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : st === 'NO_SHOW'
+                          ? 'bg-rose-100 text-rose-800'
+                          : st === 'PENDING'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-slate-100 text-slate-700';
                     return (
                       <div
-                        key={court.bookingId}
+                        key={bookingKey}
                         className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                       >
                         <div className="flex items-start gap-3.5">
@@ -502,9 +566,9 @@ export default function MemberAttendancePage() {
                                 <span className="material-symbols-outlined text-[15px] text-slate-400">schedule</span>
                                 {startDt.time} - {endDt.time}
                               </span>
-                              {court.totalPrice != null && (
+                              {paidAmount != null && (
                                 <span className="inline-flex items-center gap-1 text-slate-900 font-bold">
-                                  {Number(court.totalPrice).toLocaleString()}₫
+                                  {Number(paidAmount).toLocaleString()}₫
                                 </span>
                               )}
                             </div>
@@ -512,21 +576,19 @@ export default function MemberAttendancePage() {
                         </div>
 
                         <div className="flex items-center gap-2 self-end sm:self-auto">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                            court.status === 'CONFIRMED' || court.status === 'PAID'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-slate-100 text-slate-700'
-                          }`}>
-                            {court.status === 'CONFIRMED' || court.status === 'PAID' ? 'Đã xác nhận' : court.status}
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${statusClass}`}>
+                            {statusLabel}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenDispute(court)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-600 text-[11px] font-bold transition cursor-pointer"
-                          >
-                            <span className="material-symbols-outlined text-[13px]">report_problem</span>
-                            <span>Khiếu nại</span>
-                          </button>
+                          {canDisputeAttendance(court) && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDispute(court)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-600 text-[11px] font-bold transition cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-[13px]">report_problem</span>
+                              <span>Khiếu nại</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -594,16 +656,26 @@ export default function MemberAttendancePage() {
                             <td className="py-3.5 px-4">
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 font-semibold text-slate-700">
                                 <span className="material-symbols-outlined text-[14px] text-slate-500">meeting_room</span>
-                                {item.gate || 'Cổng chính - Turnstile A1'}
+                                {item.location || item.gate || 'Cổng chính'}
                               </span>
                             </td>
                             <td className="py-3.5 px-4 font-medium text-slate-700">
-                              {item.memberName || 'Hội viên'}
+                              {item.memberName || currentUser?.name || 'Hội viên'}
                             </td>
                             <td className="py-3.5 px-4 text-right">
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
-                                Hợp lệ
-                              </span>
+                              {(() => {
+                                const resUpper = String(item.result || 'SUCCESS').toUpperCase();
+                                const isSuccess = resUpper === 'SUCCESS' || resUpper === 'VALID' || resUpper === 'OK';
+                                return (
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                                      isSuccess ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                                    }`}
+                                  >
+                                    {isSuccess ? 'Hợp lệ' : (resUpper === 'DENIED' ? 'Từ chối' : item.result)}
+                                  </span>
+                                );
+                              })()}
                             </td>
                           </tr>
                         );
@@ -662,27 +734,36 @@ export default function MemberAttendancePage() {
                 <label className="text-xs font-bold uppercase text-slate-700">Lý do khiếu nại chi tiết *</label>
                 <textarea
                   required
+                  minLength={10}
                   rows={3}
                   value={disputeReason}
-                  onChange={(e) => setDisputeReason(e.target.value)}
+                  onChange={(e) => {
+                    setDisputeReason(e.target.value);
+                    if (disputeError) setDisputeError('');
+                  }}
                   placeholder="Ghi rõ thông tin: Có mặt tại lớp lúc mấy giờ, HLV nào phụ trách hoặc lý do xin nghỉ có phép..."
                   className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-orange-500 resize-none"
                 />
+                {disputeError && (
+                  <p className="text-[11px] font-semibold text-rose-600">{disputeError}</p>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
+                  disabled={submittingDispute}
                   onClick={() => setIsDisputeModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer disabled:opacity-60"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer"
+                  disabled={submittingDispute}
+                  className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-60"
                 >
-                  Gửi Khiếu Nại
+                  {submittingDispute ? 'Đang gửi...' : 'Gửi Khiếu Nại'}
                 </button>
               </div>
             </form>

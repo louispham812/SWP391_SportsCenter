@@ -1,6 +1,6 @@
 # Kịch Bản Demo Bảo Vệ Đồ Án Trước Hội Đồng — SportHub (SWP391 SportsCenter)
 
-> Tài liệu thao tác trực tiếp trên dữ liệu sạch từ [DATABASEchuan.sql](file:///C:/Users/ASUS/Documents/GitHub/SWP391_SportsCenter/DATABASEchuan.sql) (32 bảng chuẩn hóa, 49 khóa ngoại, mốc ngày tự động cập nhật theo `@Today` / `@Now`).
+> Tài liệu thao tác trực tiếp trên dữ liệu sạch từ [DATABASEchuan.sql](file:///C:/Users/ASUS/Documents/GitHub/SWP391_SportsCenter/DATABASEchuan.sql) (33 bảng chuẩn hóa, 51 khóa ngoại; ngày demo **20/11/2026** trống 100% tất cả lịch sân/lớp/HLV, lịch sắp tới xếp từ **21/11/2026**).
 
 ---
 
@@ -38,11 +38,11 @@ Mở sẵn **4 tab trình duyệt** (hoặc 4 Profile/Incognito) cho 4 vai trò:
 | 2 | `MANAGER` | Trần Thị Giám Đốc | `director@sporthub.com` | `0909876543` | — | `ACTIVE` — Quản lý dự phòng | `/admin` |
 | 3 | `RECEPTIONIST` | Lê Thị Lễ Tân | `reception.le@sporthub.com` | `0912345678` | — | `ACTIVE` — Lễ tân ca chính | `/receptionist` |
 | 4 | `RECEPTIONIST` | Phạm Minh Tú | `reception.tu@sporthub.com` | `0918765432` | — | `ACTIVE` — Lễ tân ca phụ | `/receptionist` |
-| 5 | `COACH` | Trần Văn Minh | `coach.minh@sporthub.com` | `0923456789` | — | `ACTIVE` — HLV Tennis/Pickleball (có lớp hôm nay 19:00 & lịch sử thu nhập) | `/coach` |
+| 5 | `COACH` | Trần Văn Minh | `coach.minh@sporthub.com` | `0923456789` | — | `ACTIVE` — HLV Tennis/Pickleball (lịch dạy sắp tới từ 21/11/2026 & lịch sử thu nhập) | `/coach` |
 | 6 | `COACH` | Nguyễn Hoàng Nam | `coach.nam@sporthub.com` | `0928765432` | — | `ACTIVE` — Có đơn xin nghỉ phép `PENDING` (`request_id=101`) | `/coach` |
 | 7 | `COACH` | Võ Tấn Phát | `coach.phat@sporthub.com` | `0921112223` | — | `ACTIVE` — HLV Bóng đá / Điền kinh | `/coach` |
-| 8 | `COACH` | Đặng Thu Thảo | `coach.thao@sporthub.com` | `0923334445` | — | `ACTIVE` — HLV Cầu lông / Yoga (có lớp hôm nay 18:00) | `/coach` |
-| 9 | `MEMBER` | Nguyễn Anh Khoa | `khoa.member@gmail.com` | `0934567890` | `RFID-SH-0009` / `SPORTHUB-MEMBER-9` | `ACTIVE` — **Hội viên Demo chính**: có thẻ VIP + gói Pickleball, 4 mốc InBody, 2 giáo án, 1 lớp hôm nay, 1 buổi `PRESENT` chờ review, 1 lịch ngày mai để hủy, 1 vợt đang mượn (`loan_id=501`) | `/member` |
+| 8 | `COACH` | Đặng Thu Thảo | `coach.thao@sporthub.com` | `0923334445` | — | `ACTIVE` — HLV Cầu lông / Yoga (lịch dạy sắp tới từ 22/11/2026) | `/coach` |
+| 9 | `MEMBER` | Nguyễn Anh Khoa | `khoa.member@gmail.com` | `0934567890` | `RFID-SH-0009` / `SPORTHUB-MEMBER-9` | `ACTIVE` — **Hội viên Demo chính**: có thẻ VIP + gói Pickleball, 4 mốc InBody, 2 giáo án, 1 buổi `PRESENT` chờ review, lịch sắp tới từ 21/11/2026 (ngày 20/11/2026 trống hoàn toàn), 1 vợt đang mượn (`loan_id=501`) | `/member` |
 | 10 | `MEMBER` | Hoàng Thị Ngọc | `ngoc.hoang@gmail.com` | `0938765432` | `RFID-SH-0010` / `SPORTHUB-MEMBER-10` | `ACTIVE` — Gói VIP Diamond, có lịch sử hoàn tiền thành công | `/member` |
 | 11 | `MEMBER` | Bùi Huy Hoàng | `hoang.bui@gmail.com` | `0931112233` | `RFID-SH-0011` / `SPORTHUB-MEMBER-11` | `ACTIVE` — Gói hết hạn (`EXPIRED`), có yêu cầu hoàn tiền `PENDING_APPROVAL` (`refund_id=801`) | `/member` |
 | 12 | `MEMBER` | Đỗ Phương Anh | `anh.do@gmail.com` | `0934445566` | `RFID-SH-0012` / `SPORTHUB-MEMBER-12` | `ACTIVE` — Có gói mua tại quầy chờ Manager duyệt (`um_id=5`, `PENDING_APPROVAL`) | `/member` |
@@ -78,10 +78,10 @@ Mở sẵn **4 tab trình duyệt** (hoặc 4 Profile/Incognito) cho 4 vai trò:
    - Chỉ cho hội đồng xem **Thẻ hội viên số** hiển thị hạng **`VIP`** (tính động từ gói `VIP` đang `ACTIVE`), mã QR `SPORTHUB-MEMBER-9` và mã RFID `RFID-SH-0009`.
    - Mở tab **Sức khỏe & Tiến độ**: xem biểu đồ InBody 4 mốc thời gian (`-42 ngày` -> `hôm qua`: cân nặng 74.0kg -> 71.5kg, cơ xương 32.1kg -> 34.2kg, 1RM 95kg -> 117.5kg).
 2. **Đặt Sân / Đặt Lớp dùng Quota Hội Viên (`/member/book`, `/member/classes`)**:
-   - Đặt 1 khung giờ sân ngày mai hoặc đặt lớp `Lớp Pickleball Kỹ Thuật Dink & Volley` (ngày +2): chọn thanh toán bằng **Quyền lợi gói hội viên (`MEMBERSHIP_QUOTA`)** -> tổng tiền `0đ`, trạng thái quota chuyển thành `HELD` (`held_quota` tăng 1, `remaining_quota` giảm 1).
+   - Đặt 1 khung giờ sân ngày **20/11/2026** (hiện trống 100%) hoặc đặt lớp `Lớp Pickleball Kỹ Thuật Dink & Volley` (ngày **21/11/2026**): chọn thanh toán bằng **Quyền lợi gói hội viên (`MEMBERSHIP_QUOTA`)** -> tổng tiền `0đ`, trạng thái quota chuyển thành `HELD` (`held_quota` tăng 1, `remaining_quota` giảm 1).
    - *(Tùy chọn)* Thử đặt 1 sân trả phí trực tiếp và nhập voucher `SUMMEREND` (báo hết hạn) rồi đổi sang `GIAM50K` / `SPORTSHUB10` (giảm tiền tức thì).
 3. **Chính sách Hủy lịch & Hoàn tiền trước > 2 giờ (`/member/schedule`)**:
-   - Chọn lịch ngày mai (`Lớp Tennis Chiến Thuật Đánh Đôi` hoặc `Tennis Court 01` 18:00-19:00) -> bấm **Hủy lịch** / **Gửi yêu cầu hoàn tiền** -> minh họa hệ thống kiểm tra điều kiện thời gian `> 2 giờ` trước giờ bắt đầu.
+   - Chọn lịch sắp tới (`Lớp Tennis Chiến Thuật Đánh Đôi` ngày **22/11/2026** hoặc `Tennis Court 01` ngày **23/11/2026** 18:00-19:00) -> bấm **Hủy lịch** / **Gửi yêu cầu hoàn tiền** -> minh họa hệ thống kiểm tra điều kiện thời gian `> 2 giờ` trước giờ bắt đầu.
 4. **Đánh giá buổi tập đã tham gia (`/member/reviews`)**:
    - Tại mục buổi tập đủ điều kiện đánh giá, chọn **`Lớp Pickleball Căn Bản K12`** (HLV Trần Văn Minh, trạng thái `PRESENT` đã điểm danh), chấm **5 sao** và gửi nhận xét.
 5. **Giáo án & Trợ lý AI (`/member/workout-plans`, `/member/ai-assistant`)**:
@@ -95,7 +95,7 @@ Mở sẵn **4 tab trình duyệt** (hoặc 4 Profile/Incognito) cho 4 vai trò:
 
 1. **Check-in Bằng RFID / QR / SĐT (`/receptionist/checkin`)**:
    - Nhập `RFID-SH-0016` (hoặc SĐT `0939990011` của `Ngô Thanh Sơn`) -> hệ thống hiển thị trạng thái **`LOCKED`** và chặn check-in.
-   - Nhập `RFID-SH-0009` (hoặc `SPORTHUB-MEMBER-9` / `0934567890` của `Nguyễn Anh Khoa`) -> hiện đầy đủ thông tin thẻ `VIP`, gói còn hạn và các buổi tập hôm nay -> bấm **Xác nhận Check-in**.
+   - Nhập `RFID-SH-0009` (hoặc `SPORTHUB-MEMBER-9` / `0934567890` của `Nguyễn Anh Khoa`) -> hiện đầy đủ thông tin thẻ `VIP`, gói còn hạn và lịch đặt trong ngày `20/11/2026` (nếu vừa đặt ở Phần 2) -> bấm **Xác nhận Check-in**.
 2. **Quản lý Mượn / Trả Thiết Bị (`/receptionist/equipment`)**:
    - Chọn phiếu đang mượn **`loan_id=501`** (`Nguyễn Anh Khoa` mượn `Vợt Tennis Wilson Pro Staff`, `30.000đ/giờ`) -> bấm **Trả thiết bị**, hệ thống tự tính phí thuê và cộng trả `available_quantity` về kho (`19 -> 20`).
 3. **Bán Gói Hội Viên tại Quầy POS (`/receptionist/pos`)**:
@@ -109,7 +109,7 @@ Mở sẵn **4 tab trình duyệt** (hoặc 4 Profile/Incognito) cho 4 vai trò:
 Đăng nhập: `coach.minh@sporthub.com` / `SportHub@123`.
 
 1. **Điểm danh & Kết sổ Quota (`/coach/attendance`)**:
-   - Mở buổi **`Lớp Pickleball Nâng Cao K05`** (Hôm nay 19:00): thấy `Nguyễn Anh Khoa` và `Hoàng Thị Ngọc` đang `PENDING`.
+   - Mở buổi **`Lớp Pickleball Nâng Cao K05`** (ngày **21/11/2026** 19:00 — hoặc lớp vừa tạo cho ngày `20/11/2026`): thấy `Nguyễn Anh Khoa` và `Hoàng Thị Ngọc` đang `PENDING`.
    - Đánh dấu **`PRESENT`** cho `Nguyễn Anh Khoa` và nhập ghi chú buổi tập -> quota từ `HELD` chuyển sang `USED` (chính thức trừ lượt gói của hội viên).
 2. **Học viên & Giáo án (`/coach/students`)**:
    - Xem hồ sơ sức khỏe, tiền sử chấn thương cổ chân của `Nguyễn Anh Khoa` và giao/cập nhật bài tập về nhà.

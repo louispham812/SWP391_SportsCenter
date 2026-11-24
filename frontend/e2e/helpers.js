@@ -56,22 +56,4 @@ export async function loginReceptionist(page) {
   await expect(page).toHaveURL(/\/receptionist/);
 }
 
-export async function logoutMember(page) {
-  const token = await page.evaluate(() => {
-    const session = JSON.parse(sessionStorage.getItem('sports-center-auth-session') || 'null');
-    sessionStorage.clear();
-    localStorage.clear();
-    return session?.token;
-  });
-  if (token) {
-    await page.request.delete(`${apiBaseUrl}/auth/session`, {
-      headers: { Authorization: `Bearer ${token}` },
-    }).catch(() => {});
-  }
-}
-
-export function getLocalDateStr(d = new Date()) {
-  return d.toLocaleDateString('en-CA');
-}
-
 export { apiBaseUrl };

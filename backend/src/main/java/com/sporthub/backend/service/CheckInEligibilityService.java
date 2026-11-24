@@ -42,6 +42,7 @@ public class CheckInEligibilityService {
         if (Boolean.TRUE.equals(b.getUsesMembershipQuota())) {
             if (b.getMembershipId() == null || (b.getQuotaState() != null && !"HELD".equals(b.getQuotaState()))) throw conflict("Quota của booking không còn ở trạng thái giữ.");
             memberships.requireCourtCheckIn(b.getMembershipId(), b.getQuotaHoursUsed() == null ? 0 : b.getQuotaHoursUsed().doubleValue());
+            memberships.requireBookingAccess(b.getMembershipId(), b.getStartTime(), b.getEndTime());
             requireMembershipOwner(b.getMembershipId(), memberId);
         } else requirePaid(payment, b.getPaymentId(), memberId, b.getAmountPaid(), Set.of("COURT"));
         return b;
@@ -69,6 +70,7 @@ public class CheckInEligibilityService {
         if (Boolean.TRUE.equals(b.getUsesMembershipQuota())) {
             if (b.getMembershipId() == null || !"HELD".equals(memberships.sessionQuotaState(b, b.getAttendanceStatus()))) throw conflict("Quota buổi học không còn được giữ.");
             memberships.requireSessionCheckIn(b.getMembershipId()); requireMembershipOwner(b.getMembershipId(), memberId);
+            memberships.requireBookingAccess(b.getMembershipId(), session.getStartTime(), session.getEndTime());
         } else requirePaid(payment, b.getPaymentId(), memberId, b.getFeeAmount(), Set.of("CLASS", "PT"));
         return b;
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 
@@ -12,9 +12,9 @@ export default function OtpVerificationPage() {
 
   const queryParams = new URLSearchParams(location.search);
   const initialEmail = location.state?.email || queryParams.get('email') || '';
-  const initialFullName = location.state?.fullName || queryParams.get('fullName') || 'Hội viên';
 
-  const [email] = useState(initialEmail); // Cố định, không cho edit
+  const [email, setEmail] = useState(initialEmail);
+  const [isEditingEmail, setIsEditingEmail] = useState(!initialEmail);
 
   // 6 digits array
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
@@ -221,7 +221,7 @@ export default function OtpVerificationPage() {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
-        } catch (parseError) {
+        } catch {
           // If JSON parsing fails, fallback to default message
         }
         throw new Error(errorMessage);
@@ -243,7 +243,7 @@ export default function OtpVerificationPage() {
 
   return (
     <div className="min-h-screen bg-[#f7f9fb] font-body-md text-slate-800 antialiased selection:bg-orange-500 selection:text-white flex flex-col justify-between">
-      
+
       {/* Top Header */}
       <header className="w-full bg-white border-b border-slate-200/80 px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-xs">
         <Link to="/" className="flex items-center gap-2.5 group">
@@ -279,11 +279,11 @@ export default function OtpVerificationPage() {
       {/* Main Container */}
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-10 my-4">
         <div className="w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-          
+
           {/* Header Banner */}
           <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-6 sm:p-8 text-center relative overflow-hidden">
             <div className="absolute top-0 right-0 w-40 h-40 bg-orange-500/10 rounded-full blur-2xl pointer-events-none"></div>
-            
+
             <div className="w-16 h-16 mx-auto rounded-3xl bg-orange-500/20 border border-orange-500/40 text-orange-400 flex items-center justify-center shadow-lg mb-4">
               <span className="material-symbols-outlined text-3xl">mark_email_read</span>
             </div>
@@ -302,23 +302,45 @@ export default function OtpVerificationPage() {
           {/* Body Content */}
           <div className="p-6 sm:p-8 space-y-6">
 
-            {/* Email Identification Box - CỐ ĐỊNH */}
+            {/* Email Identification Box */}
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col gap-2">
-              <div className="flex items-center text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[16px] text-orange-500">mail</span>
                   <span>Email nhận mã:</span>
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingEmail((prev) => !prev)}
+                  className="text-[11px] font-bold text-orange-600 hover:underline normal-case cursor-pointer"
+                >
+                  {isEditingEmail ? 'Xong' : 'Thay đổi'}
+                </button>
               </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-extrabold text-slate-900 break-all">
-                  {email || '(Chưa nhập email)'}
-                </span>
-                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-md">
-                  <span className="material-symbols-outlined text-[14px]">check</span> Đã gửi mã
-                </span>
-              </div>
+              {isEditingEmail ? (
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setErrorMessage('');
+                  }}
+                  placeholder="Nhập email đã đăng ký (vd: name@example.com)"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                />
+              ) : (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-extrabold text-slate-900 break-all">
+                    {email || '(Chưa nhập email)'}
+                  </span>
+                  {email && (
+                    <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-md shrink-0">
+                      <span className="material-symbols-outlined text-[14px]">check</span> Đã gửi mã
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Alert & Notice */}
@@ -440,10 +462,10 @@ export default function OtpVerificationPage() {
                 <span>Thông tin kiểm tra từ hệ thống:</span>
               </div>
               <p className="leading-relaxed">
-                • Người gửi: <strong className="text-slate-900">Admin &lt;dieuminh9102005@gmail.com&gt;</strong>
+                • Người gửi: <strong className="text-slate-900">F Sport Center &lt;no-reply@fsport.vn&gt;</strong>
               </p>
               <p className="leading-relaxed">
-                • Tiêu đề email: <strong className="text-slate-900">Mã xác thực tài khoản SportHub</strong>
+                • Tiêu đề email: <strong className="text-slate-900">Mã xác thực tài khoản F Sport Center</strong>
               </p>
               <p className="leading-relaxed">
                 • Nếu không tìm thấy trong Hộp thư đến, vui lòng kiểm tra thư mục <strong className="text-slate-900">Spam / Thư rác</strong> hoặc bấm gửi lại.

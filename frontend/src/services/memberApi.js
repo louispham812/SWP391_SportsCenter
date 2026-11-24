@@ -37,3 +37,11 @@ export const getMemberNotifications = () => apiRequest('/members/me/notification
 export const getMemberTransactions = () => apiRequest('/members/me/transactions');
 
 export const getMemberDigitalCard = () => apiRequest('/members/me/digital-card');
+
+export const getMemberTickets = () => apiRequest('/members/me/tickets');
+
+export const createMemberTicket = (ticket) =>
+  apiRequest('/members/me/tickets', {
+    method: 'POST',
+    body: JSON.stringify(ticket),
+  });

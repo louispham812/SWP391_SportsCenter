@@ -21,6 +21,22 @@ public record CoachIncomeResponse(
             int studentsCount,
             BigDecimal priceAmount,
             BigDecimal sessionRevenue,
-            BigDecimal coachCommission) {
+            BigDecimal coachCommission,
+            String sportName,
+            String courtName) {
+
+        public SessionIncomeDetail(
+                Long sessionId,
+                String className,
+                LocalDateTime startTime,
+                LocalDateTime endTime,
+                String status,
+                int studentsCount,
+                BigDecimal priceAmount,
+                BigDecimal sessionRevenue,
+                BigDecimal coachCommission) {
+            this(sessionId, className, startTime, endTime, status, studentsCount,
+                    priceAmount, sessionRevenue, coachCommission, null, null);
+        }
     }
 }

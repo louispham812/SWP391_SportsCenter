@@ -10,9 +10,11 @@ import com.sporthub.backend.dto.CoachPlanRequest;
 import com.sporthub.backend.entity.Booking;
 import com.sporthub.backend.entity.ClassSession;
 import com.sporthub.backend.entity.MemberHealthProfile;
+import com.sporthub.backend.entity.SystemSetting;
 import com.sporthub.backend.repository.BookingRepository;
 import com.sporthub.backend.repository.ClassSessionRepository;
 import com.sporthub.backend.repository.MemberHealthProfileRepository;
+import com.sporthub.backend.repository.SystemSettingRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +41,24 @@ public class AiAssistantService {
     private static final List<String> ACTIVE_BOOKING_STATUSES = List.of("BOOKED", "CONFIRMED", "COMPLETED");
     private static final String DEFAULT_MODEL = "gemini-flash-lite-latest";
     private static final String DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(25);
+    private static final Duration TOTAL_AI_BUDGET = Duration.ofSeconds(45);
+
+    private static final double DEFAULT_TEMPERATURE = 0.4;
+    private static final String DEFAULT_MEMBER_ROLE_PROMPT =
+            "Bạn là trợ lý tập luyện của SportHub. Trả lời bằng tiếng Việt, thực tế và an toàn.";
+    private static final String MEMBER_SAFETY_FORMAT_PROMPT =
+            " Dùng hồ sơ/lịch đã cung cấp làm ngữ cảnh; không chẩn đoán bệnh. "
+            + "Nếu có chấn thương hoặc dấu hiệu nguy hiểm, khuyên người dùng hỏi chuyên gia y tế. "
+            + "Quy tắc định dạng: Trình bày mạch lạc, câu văn ngắn gọn, dễ hiểu. "
+            + "Sử dụng danh sách gạch đầu dòng rõ ràng. KHÔNG lạm dụng các ký tự Markdown thô như ##, ###, đường kẻ ---, hoặc bọc quá nhiều dấu sao ** liên tiếp.";
+    private static final String COACH_PLAN_BASE_PROMPT =
+            "Bạn hỗ trợ HLV chuyên nghiệp soạn giáo án bằng tiếng Việt. "
+            + "Đưa ra kế hoạch có cấu trúc theo buổi, bài tập, số hiệp/lần hoặc thời lượng, "
+            + "mức độ tăng tiến và lưu ý an toàn. Không chẩn đoán bệnh; điều chỉnh hoặc yêu cầu "
+            + "tham vấn chuyên gia nếu hồ sơ có chấn thương. "
+            + "Quy tắc định dạng: Trình bày giáo án rõ ràng theo từng phần (Khởi động, Bài tập chính, Hồi phục, Dặn dò). "
+            + "Dùng danh sách gạch đầu dòng hoặc đánh số thứ tự rõ ràng. KHÔNG lạm dụng các ký tự Markdown thô như ##, ###, đường kẻ --- hoặc bọc dấu sao ** quá mức.";
 
     private final MemberHealthProfileRepository healthProfileRepository;
     private final BookingRepository bookingRepository;
@@ -49,6 +69,11 @@ public class AiAssistantService {
     private final String model;
     private final String baseUrl;
 
+    @Autowired(required = false)
+    private SystemSettingRepository systemSettingRepository;
+
+    private record ResolvedAiConfig(boolean enabled, String model, double temperature, String customSystemPrompt) {}
+
     public AiAssistantService(
             MemberHealthProfileRepository healthProfileRepository,
             BookingRepository bookingRepository,
@@ -58,6 +83,19 @@ public class AiAssistantService {
             @Value("${app.openai.model:gemini-flash-lite-latest}") String model) {
         this(healthProfileRepository, bookingRepository, classSessionRepository, objectMapper, apiKey, model,
                 DEFAULT_BASE_URL);
+    }
+
+    public AiAssistantService(
+            MemberHealthProfileRepository healthProfileRepository,
+            BookingRepository bookingRepository,
+            ClassSessionRepository classSessionRepository,
+            ObjectMapper objectMapper,
+            String apiKey,
+            String model,
+            String baseUrl,
+            SystemSettingRepository systemSettingRepository) {
+        this(healthProfileRepository, bookingRepository, classSessionRepository, objectMapper, apiKey, model, baseUrl);
+        this.systemSettingRepository = systemSettingRepository;
     }
 
     @Autowired
@@ -73,7 +111,7 @@ public class AiAssistantService {
         this.bookingRepository = bookingRepository;
         this.classSessionRepository = classSessionRepository;
         this.objectMapper = objectMapper;
-        this.apiKey = apiKey;
+        this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.model = (model == null || model.isBlank()) ? DEFAULT_MODEL : model.trim();
         this.baseUrl = (baseUrl == null || baseUrl.isBlank())
                 ? DEFAULT_BASE_URL
@@ -84,16 +122,18 @@ public class AiAssistantService {
     }
 
     public String chatAsMember(Long memberId, AssistantChatRequest request) {
+        ResolvedAiConfig config = loadAiConfig();
+        ensureAiEnabled(config);
         List<AssistantMessageRequest> messages = validateMessages(request);
         String context = memberContext(memberId);
+        String promptPrefix = config.customSystemPrompt() != null
+                ? config.customSystemPrompt()
+                : DEFAULT_MEMBER_ROLE_PROMPT;
         return requestCompletion(
-                "Bạn là trợ lý tập luyện của SportHub. Trả lời bằng tiếng Việt, thực tế và an toàn. "
-                        + "Dùng hồ sơ/lịch đã cung cấp làm ngữ cảnh; không chẩn đoán bệnh. "
-                        + "Nếu có chấn thương hoặc dấu hiệu nguy hiểm, khuyên người dùng hỏi chuyên gia y tế. "
-                        + "Quy tắc định dạng: Trình bày mạch lạc, câu văn ngắn gọn, dễ hiểu. "
-                        + "Sử dụng danh sách gạch đầu dòng rõ ràng. KHÔNG lạm dụng các ký tự Markdown thô như ##, ###, đường kẻ ---, hoặc bọc quá nhiều dấu sao ** liên tiếp.",
+                promptPrefix + MEMBER_SAFETY_FORMAT_PROMPT,
                 context,
-                messages);
+                messages,
+                config);
     }
 
     public String createCoachPlan(Long coachId, CoachPlanRequest request) {
@@ -101,6 +141,8 @@ public class AiAssistantService {
     }
 
     public String createCoachPlan(Long actorId, String actorRole, CoachPlanRequest request) {
+        ResolvedAiConfig config = loadAiConfig();
+        ensureAiEnabled(config);
         if (request == null || request.bookingId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không tìm thấy lượt đăng ký lớp.");
         }
@@ -138,15 +180,14 @@ public class AiAssistantService {
         String goal = request.goal() == null || request.goal().isBlank()
                 ? "Tạo giáo án phù hợp với mục tiêu và hồ sơ hiện có."
                 : request.goal().trim();
+        String systemPrompt = config.customSystemPrompt() != null
+                ? config.customSystemPrompt() + "\n\n" + COACH_PLAN_BASE_PROMPT
+                : COACH_PLAN_BASE_PROMPT;
         return requestCompletion(
-                "Bạn hỗ trợ HLV chuyên nghiệp soạn giáo án bằng tiếng Việt. "
-                        + "Đưa ra kế hoạch có cấu trúc theo buổi, bài tập, số hiệp/lần hoặc thời lượng, "
-                        + "mức độ tăng tiến và lưu ý an toàn. Không chẩn đoán bệnh; điều chỉnh hoặc yêu cầu "
-                        + "tham vấn chuyên gia nếu hồ sơ có chấn thương. "
-                        + "Quy tắc định dạng: Trình bày giáo án rõ ràng theo từng phần (Khởi động, Bài tập chính, Hồi phục, Dặn dò). "
-                        + "Dùng danh sách gạch đầu dòng hoặc đánh số thứ tự rõ ràng. KHÔNG lạm dụng các ký tự Markdown thô như ##, ###, đường kẻ --- hoặc bọc dấu sao ** quá mức.",
+                systemPrompt,
                 context + "\n\nYêu cầu của HLV: " + goal,
-                List.of(new AssistantMessageRequest("user", "Hãy tạo giáo án cho học viên này.")));
+                List.of(new AssistantMessageRequest("user", "Hãy tạo giáo án cho học viên này.")),
+                config);
     }
 
     private List<AssistantMessageRequest> validateMessages(AssistantChatRequest request) {
@@ -261,24 +302,87 @@ public class AiAssistantService {
         return sanitized;
     }
 
+    private ResolvedAiConfig loadAiConfig() {
+        boolean enabled = true;
+        String effectiveModel = this.model;
+        double temperature = DEFAULT_TEMPERATURE;
+        String customPrompt = null;
+        if (systemSettingRepository != null) {
+            String enabledRaw = systemSettingRepository.findById("ai_enabled")
+                    .map(SystemSetting::getSettingValue)
+                    .orElse(null);
+            if (enabledRaw != null && "false".equalsIgnoreCase(enabledRaw.trim())) {
+                enabled = false;
+            }
+            String modelRaw = systemSettingRepository.findById("ai_model")
+                    .map(SystemSetting::getSettingValue)
+                    .orElse(null);
+            if (modelRaw != null && !modelRaw.isBlank()) {
+                String candidate = modelRaw.trim();
+                boolean isGoogleProvider = baseUrl != null
+                        && (baseUrl.contains("generativelanguage.googleapis.com")
+                        || baseUrl.contains("aiplatform.googleapis.com"));
+                String lower = candidate.toLowerCase(Locale.ROOT);
+                boolean isGoogleModel = lower.startsWith("gemini-")
+                        || lower.startsWith("models/gemini-")
+                        || lower.startsWith("gemma-");
+                if (!isGoogleProvider || isGoogleModel) {
+                    effectiveModel = candidate;
+                } else {
+                    log.warn("Ignoring incompatible ai_model '{}' for Google Gemini endpoint; using '{}'.",
+                            candidate, effectiveModel);
+                }
+            }
+            String tempRaw = systemSettingRepository.findById("ai_temperature")
+                    .map(SystemSetting::getSettingValue)
+                    .orElse(null);
+            if (tempRaw != null && !tempRaw.isBlank()) {
+                try {
+                    double parsed = Double.parseDouble(tempRaw.trim());
+                    if (Double.isFinite(parsed)) {
+                        temperature = Math.max(0.0, Math.min(2.0, parsed));
+                    }
+                } catch (NumberFormatException ignored) {
+                }
+            }
+            String promptRaw = systemSettingRepository.findById("ai_system_prompt")
+                    .map(SystemSetting::getSettingValue)
+                    .orElse(null);
+            if (promptRaw != null && !promptRaw.isBlank()) {
+                customPrompt = promptRaw.trim();
+            }
+        }
+        return new ResolvedAiConfig(enabled, effectiveModel, temperature, customPrompt);
+    }
+
+    private void ensureAiEnabled(ResolvedAiConfig config) {
+        if (!config.enabled()) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Trợ lý AI hiện đang tạm tắt bởi quản trị viên.");
+        }
+    }
+
     private String requestCompletion(
             String systemPrompt,
             String databaseContext,
-            List<AssistantMessageRequest> messages) {
+            List<AssistantMessageRequest> messages,
+            ResolvedAiConfig config) {
         String lastUserMessage = messages.stream()
                 .filter(m -> "user".equalsIgnoreCase(m.role()))
                 .map(AssistantMessageRequest::content)
                 .reduce((first, second) -> second)
                 .orElse("Tư vấn bài tập và lịch trình");
 
-        if (apiKey == null || apiKey.isBlank()) {
+        if (apiKey.isBlank() || apiKey.toLowerCase(Locale.ROOT).startsWith("your_")) {
+            log.warn("Gemini API key is missing or still a placeholder; using domain fallback answer.");
             return generateDomainAnswer(lastUserMessage, databaseContext);
         }
 
         List<AssistantMessageRequest> sanitizedList = sanitizeMessagesForAi(messages);
 
         try {
-            String answer = tryCallAi(systemPrompt, databaseContext, sanitizedList);
+            String answer = tryCallAi(systemPrompt, databaseContext, sanitizedList, config);
             if (answer != null && !answer.isBlank()) {
                 return normalizeAiAnswer(answer);
             }
@@ -287,6 +391,7 @@ public class AiAssistantService {
             System.err.println("[AiAssistantService] Exception calling AI API [" + baseUrl + "]: " + exception.getMessage());
         }
 
+        log.warn("All Gemini AI API attempts failed for model={} baseUrl={}; using domain fallback answer.", config.model(), baseUrl);
         return generateDomainAnswer(lastUserMessage, databaseContext);
     }
 
@@ -299,69 +404,116 @@ public class AiAssistantService {
                 .trim();
     }
 
+    private String normalizedModelName(String modelName) {
+        String candidate = (modelName == null || modelName.isBlank()) ? this.model : modelName.trim();
+        return candidate.startsWith("models/") ? candidate.substring("models/".length()) : candidate;
+    }
+
+    private Duration remainingTimeout(long deadlineNanos) {
+        long remainingMs = (deadlineNanos - System.nanoTime()) / 1_000_000L;
+        if (remainingMs < 2_000L) {
+            return null;
+        }
+        return Duration.ofMillis(Math.min(REQUEST_TIMEOUT.toMillis(), remainingMs));
+    }
+
     private String tryCallAi(
             String systemPrompt,
             String databaseContext,
-            List<AssistantMessageRequest> messages) {
-        boolean isNativeGemini = baseUrl != null && (baseUrl.contains(":generateContent")
-                || (baseUrl.contains("/models/") && !baseUrl.contains("/openai/")));
+            List<AssistantMessageRequest> messages,
+            ResolvedAiConfig config) {
+        long deadlineNanos = System.nanoTime() + TOTAL_AI_BUDGET.toNanos();
+        boolean isNativeGemini = baseUrl != null && !baseUrl.contains("/openai") && !baseUrl.contains("/openapi")
+                && !baseUrl.contains("/chat/completions")
+                && (baseUrl.contains(":generateContent")
+                || baseUrl.contains("/publishers/google/models")
+                || baseUrl.endsWith("/models")
+                || baseUrl.endsWith("/models/")
+                || (baseUrl.contains("googleapis.com") && baseUrl.contains("/models/")));
 
         if (isNativeGemini) {
-            try {
-                return tryCallNativeGemini(baseUrl, systemPrompt, databaseContext, messages);
-            } catch (Exception ex) {
-                log.warn("Direct Native Gemini API call failed: {}", ex.getMessage());
-                System.err.println("[AiAssistantService] Direct Native Gemini API call failed: " + ex.getMessage());
-                return null;
-            }
-        }
-
-        try {
-            String answer = tryCallOpenAi(systemPrompt, databaseContext, messages);
+            String answer = tryNativeEndpoint(baseUrl, "Direct Native Gemini API call",
+                    systemPrompt, databaseContext, messages, REQUEST_TIMEOUT, config);
             if (answer != null && !answer.isBlank()) {
                 return answer;
             }
-        } catch (Exception ex) {
-            log.warn("OpenAI-compatible call failed or timed out: {}", ex.getMessage());
-            System.err.println("[AiAssistantService] OpenAI-compatible call failed or timed out: " + ex.getMessage());
-        }
-
-        // Fallback: If OpenAI-compatible endpoint failed or timed out on Google Generative Language, try native Gemini endpoint
-        if (baseUrl != null && baseUrl.contains("generativelanguage.googleapis.com")) {
-            String nativeFallbackUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent";
-            log.info("Attempting fallback to native Gemini endpoint: {}", nativeFallbackUrl);
+        } else {
             try {
-                String nativeAnswer = tryCallNativeGemini(nativeFallbackUrl, systemPrompt, databaseContext, messages);
-                if (nativeAnswer != null && !nativeAnswer.isBlank()) {
-                    return nativeAnswer;
+                String answer = tryCallOpenAi(systemPrompt, databaseContext, messages, REQUEST_TIMEOUT, config);
+                if (answer != null && !answer.isBlank()) {
+                    return answer;
                 }
             } catch (Exception ex) {
-                log.warn("Native Gemini API fallback failed: {}", ex.getMessage());
-                System.err.println("[AiAssistantService] Native Gemini API fallback failed: " + ex.getMessage());
+                log.warn("OpenAI-compatible call failed or timed out: {}", ex.getMessage());
+                System.err.println("[AiAssistantService] OpenAI-compatible call failed or timed out: " + ex.getMessage());
             }
+        }
 
-            // Secondary resilience fallback: if primary model had high demand spike (HTTP 503), try gemini-3.5-flash-lite directly
-            if (!"gemini-3.5-flash-lite".equalsIgnoreCase(model)) {
-                String model35Url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent";
-                log.info("Attempting secondary fallback to gemini-3.5-flash-lite: {}", model35Url);
-                try {
-                    String answer35 = tryCallNativeGemini(model35Url, systemPrompt, databaseContext, messages);
-                    if (answer35 != null && !answer35.isBlank()) {
-                        return answer35;
-                    }
-                } catch (Exception ex) {
-                    log.warn("Secondary fallback to gemini-3.5-flash-lite failed: {}", ex.getMessage());
-                }
+        List<String> fallbackUrls = new ArrayList<>();
+        String cleanModel = normalizedModelName(config.model());
+        String defaultCleanModel = normalizedModelName(this.model);
+        if (baseUrl != null && baseUrl.contains("generativelanguage.googleapis.com")) {
+            if (!isNativeGemini) {
+                fallbackUrls.add("https://generativelanguage.googleapis.com/v1beta/models/" + cleanModel + ":generateContent");
+            }
+            if (!defaultCleanModel.equalsIgnoreCase(cleanModel)) {
+                fallbackUrls.add("https://generativelanguage.googleapis.com/v1beta/models/" + defaultCleanModel + ":generateContent");
+            }
+            if (!"gemini-3.1-flash-lite".equalsIgnoreCase(cleanModel)) {
+                fallbackUrls.add("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent");
+            }
+            if (!"gemini-3.5-flash-lite".equalsIgnoreCase(cleanModel)
+                    && !"gemini-flash-lite-latest".equalsIgnoreCase(cleanModel)) {
+                fallbackUrls.add("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent");
+            }
+            if (apiKey.startsWith("AQ.")) {
+                fallbackUrls.add("https://aiplatform.googleapis.com/v1/publishers/google/models/" + cleanModel + ":generateContent");
+            }
+        } else if (baseUrl != null && baseUrl.contains("aiplatform.googleapis.com") && !baseUrl.contains("/v1beta1/")) {
+            fallbackUrls.add("https://aiplatform.googleapis.com/v1beta1/publishers/google/models/" + cleanModel + ":generateContent");
+        }
+
+        for (String fallbackUrl : fallbackUrls) {
+            Duration timeout = remainingTimeout(deadlineNanos);
+            if (timeout == null) {
+                log.warn("Total AI retry budget exhausted before trying fallback endpoint: {}", fallbackUrl);
+                break;
+            }
+            log.info("Attempting fallback to Gemini endpoint: {}", fallbackUrl);
+            String answer = tryNativeEndpoint(fallbackUrl, "Gemini fallback",
+                    systemPrompt, databaseContext, messages, timeout, config);
+            if (answer != null && !answer.isBlank()) {
+                return answer;
             }
         }
 
         return null;
     }
 
+    private String tryNativeEndpoint(
+            String endpointUrl,
+            String label,
+            String systemPrompt,
+            String databaseContext,
+            List<AssistantMessageRequest> messages,
+            Duration timeout,
+            ResolvedAiConfig config) {
+        try {
+            String answer = tryCallNativeGemini(endpointUrl, systemPrompt, databaseContext, messages, timeout, config);
+            return (answer != null && !answer.isBlank()) ? answer : null;
+        } catch (Exception ex) {
+            log.warn("{} failed: {}", label, ex.getMessage());
+            System.err.println("[AiAssistantService] " + label + " failed: " + ex.getMessage());
+            return null;
+        }
+    }
+
     private String tryCallOpenAi(
             String systemPrompt,
             String databaseContext,
-            List<AssistantMessageRequest> messages) throws IOException, InterruptedException {
+            List<AssistantMessageRequest> messages,
+            Duration timeout,
+            ResolvedAiConfig config) throws IOException, InterruptedException {
         String targetUrl = baseUrl;
         if (!targetUrl.endsWith("/chat/completions") && !targetUrl.contains("openai/chat/completions")) {
             if (targetUrl.endsWith("/")) {
@@ -371,8 +523,8 @@ public class AiAssistantService {
         }
 
         ObjectNode payload = objectMapper.createObjectNode();
-        payload.put("model", model);
-        payload.put("temperature", 0.4);
+        payload.put("model", config.model());
+        payload.put("temperature", config.temperature());
         ArrayNode requestMessages = payload.putArray("messages");
         requestMessages.addObject().put("role", "system")
                 .put("content", systemPrompt + "\n\n" + databaseContext);
@@ -384,7 +536,7 @@ public class AiAssistantService {
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(targetUrl))
-                .timeout(Duration.ofSeconds(60))
+                .timeout(timeout)
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
@@ -410,12 +562,24 @@ public class AiAssistantService {
             String endpointUrl,
             String systemPrompt,
             String databaseContext,
-            List<AssistantMessageRequest> messages) throws IOException, InterruptedException {
+            List<AssistantMessageRequest> messages,
+            Duration timeout,
+            ResolvedAiConfig config) throws IOException, InterruptedException {
         String targetUrl = endpointUrl;
         if (!targetUrl.contains(":generateContent")) {
-            targetUrl = targetUrl.endsWith("/")
-                    ? targetUrl + "models/" + model + ":generateContent"
-                    : targetUrl + "/" + model + ":generateContent";
+            String cleanBase = targetUrl.endsWith("/")
+                    ? targetUrl.substring(0, targetUrl.length() - 1)
+                    : targetUrl;
+            String normalizedModel = normalizedModelName(config.model());
+            if (cleanBase.matches(".*/models/[^/]+$")) {
+                targetUrl = cleanBase + ":generateContent";
+            } else if (cleanBase.endsWith("/models")) {
+                targetUrl = cleanBase + "/" + normalizedModel + ":generateContent";
+            } else if (cleanBase.contains("aiplatform.googleapis.com") && !cleanBase.contains("/publishers/")) {
+                targetUrl = cleanBase + "/publishers/google/models/" + normalizedModel + ":generateContent";
+            } else {
+                targetUrl = cleanBase + "/models/" + normalizedModel + ":generateContent";
+            }
         }
 
         ObjectNode payload = objectMapper.createObjectNode();
@@ -433,11 +597,11 @@ public class AiAssistantService {
         }
 
         ObjectNode genConfig = payload.putObject("generationConfig");
-        genConfig.put("temperature", 0.4);
+        genConfig.put("temperature", config.temperature());
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(targetUrl))
-                .timeout(Duration.ofSeconds(60))
+                .timeout(timeout)
                 .header("Content-Type", "application/json")
                 .header("x-goog-api-key", apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))

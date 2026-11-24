@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { apiRequest } from '../services/apiClient';
 
 const AppContext = createContext();
@@ -135,6 +135,8 @@ export function AppProvider({ children }) {
   const logout = () => {
     const token = authSession?.token;
     sessionStorage.removeItem(AUTH_SESSION_KEY);
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('tempUserEmail');
     setAuthSession(null);
     if (token) {
       apiRequest('/auth/session', { method: 'DELETE', authToken: token }).catch((error) => {

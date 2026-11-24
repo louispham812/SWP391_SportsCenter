@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -96,7 +96,7 @@ export default function AboutPage() {
       <Navbar />
 
       <main className="w-full pt-20 flex-1">
-        
+
         {/* HERO BANNER SECTION */}
         <section className="relative overflow-hidden bg-slate-900 text-white py-12 lg:py-16">
           <div className="absolute inset-0 opacity-20 pointer-events-none">
@@ -180,7 +180,7 @@ export default function AboutPage() {
         {/* TẦM NHÌN & SỨ MỆNH */}
         <section className="py-10 lg:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            
+
             {/* Cột hình ảnh minh họa */}
             <div className="lg:col-span-6 relative">
               <div className="relative rounded-3xl overflow-hidden border-2 border-slate-200 shadow-2xl">

@@ -27,6 +27,8 @@ class SecurityConfigTest {
         mockMvc.perform(get("/api/v1/manager/refunds").with(member)).andExpect(status().isForbidden());
         mockMvc.perform(post("/api/v1/manager/refunds/1/decision").with(member)).andExpect(status().isForbidden());
         mockMvc.perform(post("/api/v1/reception/check-in").with(member)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/reception/tickets").with(member)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/receptionist/tickets").with(member)).andExpect(status().isForbidden());
         mockMvc.perform(post("/api/v1/receptionist/payments/1/confirm-cash").with(member)).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/v1/coach/profile").with(member)).andExpect(status().isForbidden());
     }

@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import MemberLayout from '../../components/layouts/MemberLayout';
-import { getMemberTransactions, getMemberProfile } from '../../services/memberApi';
+import {
+  getMemberProfile,
+  getMemberTransactions,
+} from '../../services/memberApi';
 import { useApp } from '../../context/AppContext';
 import Pagination from '../../components/common/Pagination';
 import { TableSkeleton } from '../../components/common/Skeleton';
-import { apiRequest } from '../../services/apiClient';
 
 // Import only 2 reusable modals
 import ReceiptModal from '../../components/member/ReceiptModal';
@@ -35,14 +37,6 @@ const formatDate = (value) => {
   }
 };
 
-const formatRefCode = (refCode) => {
-  if (!refCode) return '#N/A';
-  if (refCode.startsWith('#')) return refCode;
-  if (/^\d+$/.test(refCode)) return `#${refCode}`;
-  if (refCode.includes('-') && refCode.length > 20) return `#${refCode.substring(0, 8)}`;
-  return `#${refCode}`;
-};
-
 const getItemTypeBadge = (itemType, paymentStatus, amount) => {
   if (paymentStatus === 'REFUNDED') {
     return { label: 'Hoàn Tiền 100%', color: 'bg-indigo-100 text-indigo-800 border-indigo-200', icon: 'currency_exchange' };
@@ -56,28 +50,6 @@ const getItemTypeBadge = (itemType, paymentStatus, amount) => {
     case 'COURT': return { label: 'Đặt Sân Bãi', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: 'sports_tennis' };
     case 'PT': return { label: 'Thuê HLV Riêng', color: 'bg-purple-100 text-purple-800 border-purple-200', icon: 'person_add_alt_1' };
     default: return { label: 'Dịch Vụ Khác', color: 'bg-slate-100 text-slate-800 border-slate-200', icon: 'receipt' };
-  }
-};
-
-const getItemTypeIcon = (itemType) => {
-  switch (itemType) {
-    case 'MEMBERSHIP': return '🎫';
-    case 'COURT': return '🏸';
-    case 'CLASS': return '📚';
-    case 'PT': return '💪';
-    case 'QUOTA': return '⭐';
-    default: return '📄';
-  }
-};
-
-const getItemTypeLabel = (itemType) => {
-  switch (itemType) {
-    case 'MEMBERSHIP': return 'Gói Hội Viên';
-    case 'COURT': return 'Đặt Sân';
-    case 'CLASS': return 'Lớp Học';
-    case 'PT': return 'Huấn Luyện Viên';
-    case 'QUOTA': return 'Khấu Trừ Quota';
-    default: return 'Dịch Vụ Khác';
   }
 };
 
@@ -105,57 +77,49 @@ export default function MemberTransactionsPage() {
   const [filterType, setFilterType] = useState('ALL'); // 'ALL' | 'MEMBERSHIP' | 'CLASS' | 'COURT' | 'REFUNDED' | 'QUOTA'
   const [currentPage, setCurrentPage] = useState(1);
   const TX_PER_PAGE = 8;
-  
+
   // Modal states
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [showRefundModal, setShowRefundModal] = useState(false);
-  const [showComplaintModal, setShowComplaintModal] = useState(false);
-  
-  // Complaint modal form states
-  const [complaintCategory, setComplaintCategory] = useState('ATTENDANCE_DISPUTE');
-  const [complaintTitle, setComplaintTitle] = useState('');
-  const [complaintDescription, setComplaintDescription] = useState('');
-  const [complaintSeverity, setComplaintSeverity] = useState('NORMAL');
+
+  const fetchDashboardData = async () => {
+    const [txRes, profRes] = await Promise.all([
+      getMemberTransactions().catch(() => []),
+      getMemberProfile().catch(() => null),
+    ]);
+    return {
+      txList: Array.isArray(txRes) ? txRes : [],
+      profRes,
+    };
+  };
 
   useEffect(() => {
-    loadData();
+    let active = true;
+    fetchDashboardData()
+      .then(({ txList, profRes }) => {
+        if (!active) return;
+        setTransactions(txList);
+        setProfile(profRes);
+        setError(null);
+      })
+      .catch((err) => {
+        console.error('Error loading transactions:', err);
+        if (active) setError('Không thể tải lịch sử giao dịch.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [txRes, profRes] = await Promise.all([
-        getMemberTransactions().catch(() => []),
-        getMemberProfile().catch(() => null),
-      ]);
-
-      let list = Array.isArray(txRes) ? txRes : [];
-      
-      // If no quota transaction exists, inject realistic 0đ quota transaction for VIP demonstration (MEM-12)
-      const hasQuotaTx = list.some((t) => t.itemType === 'QUOTA' || t.amount === 0);
-      if (!hasQuotaTx) {
-        list = [
-          {
-            id: 'TX-QTA-802',
-            referenceCode: 'BK-QTA-802',
-            itemName: 'Sân Cầu Lông Tiêu Chuẩn 01 (1 Giờ)',
-            itemType: 'QUOTA',
-            amount: 0,
-            paymentMethod: 'MEMBERSHIP_QUOTA',
-            paymentStatus: 'PAID',
-            createdAt: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
-            quotaDetail: {
-              packageName: 'Gói VIP All-Access 6 Tháng',
-              deductedSlots: 1,
-              remainingSlots: 4,
-            },
-          },
-          ...list,
-        ];
-      }
-
-      setTransactions(list);
+      const { txList, profRes } = await fetchDashboardData();
+      setTransactions(txList);
       setProfile(profRes);
     } catch (err) {
       console.error('Error loading transactions:', err);
@@ -209,40 +173,6 @@ export default function MemberTransactionsPage() {
     setCurrentPage(1); // Reset to first page when filter changes
   };
 
-  // Handle complaint submission
-  const handleComplaintSubmit = async (e) => {
-    e.preventDefault();
-    if (!complaintTitle.trim() || !complaintDescription.trim()) {
-      showToast('Lỗi', 'Vui lòng điền đầy đủ tiêu đề và nội dung khiếu nại.', 'error');
-      return;
-    }
-
-    try {
-      await apiRequest('/members/me/tickets', {
-        method: 'POST',
-        body: JSON.stringify({
-          category: complaintCategory,
-          title: complaintTitle.trim(),
-          description: complaintDescription.trim(),
-          severity: complaintSeverity,
-        }),
-      });
-      
-      setComplaintTitle('');
-      setComplaintDescription('');
-      setShowComplaintModal(false);
-      
-      showToast(
-        'Khiếu nại đã gửi thành công',
-        'Bộ phận CSKH và Quản lý F Sport sẽ phản hồi trong vòng 24h.',
-        'success'
-      );
-      await loadData();
-    } catch (err) {
-      showToast('Lỗi gửi khiếu nại', err.message || 'Không thể gửi khiếu nại.', 'error');
-    }
-  };
-
   return (
     <MemberLayout>
       <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-300">
@@ -262,15 +192,6 @@ export default function MemberTransactionsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setShowComplaintModal(true)}
-              type="button"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-orange-600 hover:bg-slate-50 text-xs font-bold shadow-sm transition-all cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px] text-amber-500">report_problem</span>
-              Gửi Khiếu Nại
-            </button>
-
             <button
               onClick={() => setShowRefundModal(true)}
               type="button"
@@ -393,7 +314,7 @@ export default function MemberTransactionsPage() {
                     {paginatedTransactions.map((tx, idx) => {
                       const typeMeta = getItemTypeBadge(tx.itemType, tx.paymentStatus, tx.amount);
                       const isRefund = tx.paymentStatus === 'REFUNDED';
-                      const isQuota = tx.itemType === 'QUOTA' || parseFloat(tx.amount) === 0;
+                      const isQuota = tx.itemType === 'QUOTA' || tx.paymentMethod === 'MEMBERSHIP_QUOTA' || parseFloat(tx.amount) === 0;
 
                       return (
                         <tr 
@@ -445,22 +366,55 @@ export default function MemberTransactionsPage() {
 
                           {/* Status Badge */}
                           <td className="py-3.5 px-2.5 whitespace-nowrap">
-                            {isRefund ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 whitespace-nowrap">
-                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0"></span>
-                                Đã Hoàn Tiền
-                              </span>
-                            ) : isQuota ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 whitespace-nowrap">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 shrink-0"></span>
-                                Khấu Trừ Quota
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0"></span>
-                                Thành Công
-                              </span>
-                            )}
+                            {(() => {
+                              const ps = String(tx.paymentStatus || '').toUpperCase();
+                              if (isRefund) {
+                                return (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 whitespace-nowrap">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0"></span>
+                                    Đã Hoàn Tiền
+                                  </span>
+                                );
+                              }
+                              if (ps === 'PENDING' || ps === 'PENDING_PAYMENT') {
+                                return (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 whitespace-nowrap">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-600 shrink-0"></span>
+                                    Chờ Thanh Toán
+                                  </span>
+                                );
+                              }
+                              if (ps === 'FAILED') {
+                                return (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 whitespace-nowrap">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-600 shrink-0"></span>
+                                    Thất Bại
+                                  </span>
+                                );
+                              }
+                              if (ps === 'CANCELLED' || ps === 'VOID') {
+                                return (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0"></span>
+                                    Đã Hủy
+                                  </span>
+                                );
+                              }
+                              if (isQuota) {
+                                return (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 whitespace-nowrap">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-600 shrink-0"></span>
+                                    Khấu Trừ Quota
+                                  </span>
+                                );
+                              }
+                              return (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0"></span>
+                                  Thành Công
+                                </span>
+                              );
+                            })()}
                           </td>
 
                           {/* Receipt Button */}
@@ -498,108 +452,6 @@ export default function MemberTransactionsPage() {
           </div>
         </div>
       </div>
-
-      {/* Complaint Modal - INLINE */}
-      {showComplaintModal && (
-        <div
-          onClick={() => setShowComplaintModal(false)}
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 !m-0"
-        >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-5 relative"
-            >
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[20px]">report_problem</span>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-base">Gửi Khiếu Nại & Góp Ý Dịch Vụ</h3>
-                    <p className="text-xs text-slate-500">Tiếp nhận khiếu nại điểm danh sai, chất lượng sân hoặc Huấn luyện viên</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowComplaintModal(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer"
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-[18px]">close</span>
-                </button>
-              </div>
-
-              <form onSubmit={handleComplaintSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700">Danh Mục Khiếu Nại</label>
-                    <select
-                      value={complaintCategory}
-                      onChange={(e) => setComplaintCategory(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white"
-                    >
-                      <option value="ATTENDANCE_DISPUTE">Điểm danh sai / Bị đánh vắng</option>
-                      <option value="COACH_DISPUTE">Vấn đề Huấn luyện viên</option>
-                      <option value="SERVICE_QUALITY">Cơ sở vật chất / Sân bãi</option>
-                      <option value="BILLING_ISSUE">Sai sót hóa đơn / Thanh toán</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700">Mức Độ Khẩn</label>
-                    <select
-                      value={complaintSeverity}
-                      onChange={(e) => setComplaintSeverity(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white"
-                    >
-                      <option value="NORMAL">Bình thường (Phản hồi trong 24h)</option>
-                      <option value="URGENT">Khẩn cấp (Phản hồi trong 4h)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700">Tiêu Đề Khiếu Nại</label>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: Buổi học Cầu lông ngày 20/10 có mặt nhưng bị ghi vắng không phép"
-                    value={complaintTitle}
-                    onChange={(e) => setComplaintTitle(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700">Mô Tả Chi Tiết Vấn Đề</label>
-                  <textarea
-                    rows="3"
-                    placeholder="Mô tả cụ thể thời gian, vị trí sân, tên HLV hoặc chi tiết sự việc để Ban Quản Lý đối soát camera & nhật ký hệ thống..."
-                    value={complaintDescription}
-                    onChange={(e) => setComplaintDescription(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white focus:ring-2 focus:ring-orange-500"
-                  ></textarea>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setShowComplaintModal(false)}
-                    className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
-                  >
-                    Hủy Bỏ
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md cursor-pointer"
-                  >
-                    Gửi Khiếu Nại
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
 
         {/* Modals - Only 2 reusable modals imported */}
         <ReceiptModal 

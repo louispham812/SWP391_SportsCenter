@@ -20,7 +20,6 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,6 +29,7 @@ public class AuthService {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
     private static final String MEMBER_ROLE = "MEMBER";
+    private static final java.util.Set<String> SELF_REGISTRATION_ROLES = java.util.Set.of("MEMBER", "COACH", "RECEPTIONIST");
     private static final String TOKEN_TYPE_PASSWORD_RESET = "PASSWORD_RESET";
     private static final String TOKEN_TYPE_RESET_TOKEN = "RESET_TOKEN";
     private static final String TOKEN_TYPE_REGISTRATION_OTP = "REGISTRATION_OTP";
@@ -74,7 +74,7 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         String identifier = request.getEmail() == null ? "" : request.getEmail().trim();
         String password = request.getPassword();
-        
+
         if (identifier.isEmpty() || password == null || password.isEmpty()) {
             auditLogService.logFailure("LOGIN", identifier, null, "Login attempt", "Empty credentials");
             throw new IllegalArgumentException("Vui lòng nhập email/số điện thoại và mật khẩu.");
@@ -92,7 +92,7 @@ public class AuthService {
                 && (storedPassword.startsWith("$2")
                 ? passwordEncoder.matches(password, storedPassword)
                 : password.equals(storedPassword));
-                
+
         if (!passwordMatches) {
             auditLogService.logFailure("LOGIN", user.getEmail(), user.getUserId(), 
                     "Login attempt", "Wrong password");
@@ -102,14 +102,14 @@ public class AuthService {
         if (!"ACTIVE".equals(user.getStatus())) {
             auditLogService.logFailure("LOGIN", user.getEmail(), user.getUserId(), 
                     "Login attempt", "Account status: " + user.getStatus());
-            
+
             if ("PENDING".equals(user.getStatus())) {
                 // User chưa verify email OTP → Xử lý thông minh
                 handlePendingAccountLogin(user);
                 // handlePendingAccountLogin sẽ throw PendingVerificationException
                 // Code này không bao giờ chạy đến đây
             }
-            
+
             throw new RuntimeException("Tài khoản của bạn đã bị khóa hoặc chưa kích hoạt!");
         }
 
@@ -143,17 +143,17 @@ public class AuthService {
             auditLogService.logFailure("REGISTER", email, null, "Registration attempt", "Missing required fields");
             throw new IllegalArgumentException("Vui lòng điền đầy đủ các thông tin bắt buộc.");
         }
-        
+
         if (fullName.length() > 100 || email.length() > 100 || phone.length() > 15) {
             auditLogService.logFailure("REGISTER", email, null, "Registration attempt", "Field length exceeded");
             throw new IllegalArgumentException("Tên, email hoặc số điện thoại vượt quá độ dài cho phép.");
         }
-        
+
         if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
             auditLogService.logFailure("REGISTER", email, null, "Registration attempt", "Invalid email format");
             throw new IllegalArgumentException("Địa chỉ email không hợp lệ.");
         }
-        
+
         if (password.length() < 8) {
             auditLogService.logFailure("REGISTER", email, null, "Registration attempt", "Password too short");
             throw new IllegalArgumentException("Mật khẩu phải có ít nhất 8 ký tự.");
@@ -180,16 +180,19 @@ public class AuthService {
             }
             throw new IllegalArgumentException("Số điện thoại không hợp lệ (phải từ 10 đến 15 chữ số).");
         }
-        
+
         // Check email availability với logic theo status
         Optional<User> existingUser = findUserByEmail(email);
         if (existingUser.isPresent()) {
             User user = existingUser.get();
             String status = user.getStatus();
-            
+
             if ("PENDING".equalsIgnoreCase(status)) {
+                String msg = MEMBER_ROLE.equalsIgnoreCase(user.getRole())
+                        ? "Email này đang chờ xác thực OTP. Vui lòng đăng nhập để nhận lại mã OTP."
+                        : "Email này đã đăng ký tài khoản nhân sự và đang chờ Quản lý phê duyệt.";
                 auditLogService.logFailure("REGISTER", email, user.getUserId(), "Registration attempt", "Email exists with PENDING status");
-                throw new IllegalArgumentException("Email này đang chờ xác thực OTP. Vui lòng đăng nhập để nhận lại mã OTP.");
+                throw new IllegalArgumentException(msg);
             } else if ("ACTIVE".equalsIgnoreCase(status)) {
                 auditLogService.logFailure("REGISTER", email, user.getUserId(), "Registration attempt", "Email exists with ACTIVE status");
                 throw new IllegalArgumentException(String.format("Email đã được sử dụng bởi %s (%s).", user.getFullName(), user.getRole()));
@@ -202,7 +205,7 @@ public class AuthService {
             }
         }
 
-        String targetRole = MEMBER_ROLE;
+        String targetRole = resolveRegistrationRole(request.getRole());
 
         // Rule: Member tự đăng ký phải verify OTP qua email trước khi ACTIVE; Nhân viên đăng ký chờ Manager duyệt
         User user = User.builder()
@@ -217,13 +220,30 @@ public class AuthService {
 
         User savedUser = userRepository.save(user);
 
+        if (!MEMBER_ROLE.equals(targetRole)) {
+            auditLogService.logSuccess(
+                    "REGISTER_STAFF_PENDING",
+                    savedUser.getEmail(),
+                    savedUser.getUserId(),
+                    "Staff self-registered as " + targetRole + " pending manager approval");
+            return AuthResponse.builder()
+                    .userId(savedUser.getUserId())
+                    .email(savedUser.getEmail())
+                    .fullName(savedUser.getFullName())
+                    .role(savedUser.getRole())
+                    .status(savedUser.getStatus())
+                    .requirePasswordChange(false)
+                    .message("Đăng ký tài khoản nhân sự thành công. Tài khoản của bạn đang chờ Quản lý phê duyệt trước khi đăng nhập.")
+                    .build();
+        }
+
         // Generate và gửi OTP qua email để verify account
         String otp = generateOTP();
         String otpHash = hashOTP(otp);
-        
+
         // Xóa OTP cũ nếu có
         verificationTokenRepository.deleteByEmailAndTokenType(email, TOKEN_TYPE_REGISTRATION_OTP);
-        
+
         // Lưu OTP vào DB
         VerificationToken verificationToken = VerificationToken.builder()
                 .email(email)
@@ -234,7 +254,7 @@ public class AuthService {
                 .locked(false)
                 .build();
         verificationTokenRepository.save(verificationToken);
-        
+
         // Gửi email OTP
         try {
             emailService.sendRegistrationOtpEmail(email, fullName, otp);
@@ -245,7 +265,7 @@ public class AuthService {
                     "Failed to send registration OTP", e.getMessage());
             throw new RuntimeException("Không thể gửi mã OTP. Vui lòng thử lại sau.");
         }
-        
+
         // Không tạo session ngay, return user info để frontend navigate to OTP verification
         auditLogService.logSuccess("REGISTER", email, savedUser.getUserId(), 
                 "User registered | Status: PENDING | Awaiting OTP verification");
@@ -333,7 +353,7 @@ public class AuthService {
                 && (storedPassword.startsWith("$2")
                 ? passwordEncoder.matches(oldPassword, storedPassword)
                 : oldPassword.equals(storedPassword));
-                
+
         if (!passwordMatches) {
             auditLogService.logFailure("CHANGE_PASSWORD", user.getEmail(), user.getUserId(), 
                     "Change password attempt", "Old password incorrect");
@@ -342,11 +362,11 @@ public class AuthService {
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setRequirePasswordChange(false); // Rule: Sau khi đổi xong thì không cần đổi nữa
-        
+
         if ("PENDING_VERIFICATION".equalsIgnoreCase(user.getStatus())) {
             user.setStatus("ACTIVE");
         }
-        
+
         User savedUser = userRepository.save(user);
 
         auditLogService.logSuccess("CHANGE_PASSWORD", savedUser.getEmail(), savedUser.getUserId(), 
@@ -362,7 +382,7 @@ public class AuthService {
     @Transactional(noRollbackFor = PendingVerificationException.class)
     public String forgotPassword(ForgotPasswordRequest request) {
         String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase(Locale.ROOT);
-        
+
         if (email.isEmpty()) {
             throw new IllegalArgumentException("Vui lòng nhập địa chỉ email đã đăng ký.");
         }
@@ -374,7 +394,7 @@ public class AuthService {
         var existingTokenOpt = verificationTokenRepository
                 .findByEmailAndTokenTypeAndUsedAtIsNullAndExpiresAtAfter(
                         email, TOKEN_TYPE_PASSWORD_RESET, LocalDateTime.now());
-                        
+
         if (existingTokenOpt.isPresent()) {
             VerificationToken existing = existingTokenOpt.get();
             long secondsPassed = Duration.between(existing.getCreatedAt(), LocalDateTime.now()).getSeconds();
@@ -393,10 +413,10 @@ public class AuthService {
             logger.info("[AUTH-SERVICE] Forgot password request for non-existent email: {}", email);
             return "Nếu email tồn tại trong hệ thống SportHub, mã xác nhận OTP đã được gửi. Vui lòng kiểm tra hộp thư.";
         }
-        
+
         User user = existingUser.get();
         String status = user.getStatus();
-        
+
         // Check status trước khi cho phép reset password
         if ("PENDING".equalsIgnoreCase(status)) {
             // User chưa verify registration OTP → Xử lý giống LOGIN
@@ -409,19 +429,19 @@ public class AuthService {
             // Frontend sẽ redirect đến /verify-otp thay vì /verify-code
             // Code sẽ KHÔNG BAO GIỜ chạy xuống dòng này vì đã throw exception
         }
-        
+
         if ("LOCKED".equalsIgnoreCase(status)) {
             auditLogService.logFailure("FORGOT_PASSWORD", email, user.getUserId(), 
                     "OTP request for locked account", "Account is locked");
             throw new IllegalArgumentException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.");
         }
-        
+
         if ("INACTIVE".equalsIgnoreCase(status)) {
             auditLogService.logFailure("FORGOT_PASSWORD", email, user.getUserId(), 
                     "OTP request for inactive account", "Account is inactive");
             throw new IllegalArgumentException("Tài khoản không hoạt động. Vui lòng liên hệ quản trị viên.");
         }
-        
+
         // Chỉ ACTIVE mới được reset password
         // (PENDING đã được handle ở trên - redirect đến verify registration OTP)
 
@@ -445,7 +465,7 @@ public class AuthService {
                 .failedAttempts(0)
                 .locked(false)
                 .build();
-                
+
         verificationTokenRepository.save(token);
 
         // Gửi email
@@ -530,7 +550,7 @@ public class AuthService {
                 .createdAt(LocalDateTime.now())
                 .expiresAt(LocalDateTime.now().plusMinutes(OTP_TTL_MINUTES)) // Rule: 10 phút
                 .build();
-                
+
         verificationTokenRepository.save(resetTokenEntry);
 
         User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
@@ -612,20 +632,20 @@ public class AuthService {
         if (password.length() < 8) {
             throw new IllegalArgumentException("Mật khẩu mới phải có tối thiểu 8 ký tự.");
         }
-        
+
         boolean hasUpper = false;
         boolean hasLower = false;
         boolean hasDigit = false;
         boolean hasSpecial = false;
         String specialChars = "@$!%*?&#";
-        
+
         for (char c : password.toCharArray()) {
             if (Character.isUpperCase(c)) hasUpper = true;
             else if (Character.isLowerCase(c)) hasLower = true;
             else if (Character.isDigit(c)) hasDigit = true;
             else if (specialChars.indexOf(c) >= 0) hasSpecial = true;
         }
-        
+
         if (!hasUpper || !hasLower || !hasDigit || !hasSpecial) {
             throw new IllegalArgumentException("Mật khẩu yêu cầu tối thiểu 1 chữ hoa, chữ thường, chữ số và ký tự đặc biệt (@$!%*?&#).");
         }
@@ -709,6 +729,10 @@ public class AuthService {
             throw new RuntimeException("Tài khoản này đã được kích hoạt hoặc có trạng thái không hợp lệ.");
         }
 
+        if (!MEMBER_ROLE.equalsIgnoreCase(user.getRole())) {
+            throw new IllegalArgumentException("Tài khoản nhân sự phải được Quản lý phê duyệt.");
+        }
+
         // Tìm token trong DB (chưa dùng, chưa hết hạn)
         VerificationToken token = verificationTokenRepository
                 .findByEmailAndTokenTypeAndUsedAtIsNullAndExpiresAtAfter(
@@ -732,11 +756,11 @@ public class AuthService {
             // Tăng failed attempts
             token.setFailedAttempts(token.getFailedAttempts() + 1);
             verificationTokenRepository.save(token);
-            
+
             int remainingAttempts = MAX_FAILED_ATTEMPTS - token.getFailedAttempts();
             auditLogService.logFailure("VERIFY_REGISTRATION_OTP", email, user.getUserId(), 
                     "Email verification attempt", "Invalid OTP | Remaining attempts: " + remainingAttempts);
-            
+
             if (remainingAttempts <= 0) {
                 throw new OtpVerificationException("Bạn đã nhập sai mã OTP quá " + MAX_FAILED_ATTEMPTS + " lần. Vui lòng yêu cầu gửi lại mã.");
             }
@@ -744,9 +768,6 @@ public class AuthService {
         }
 
         // OTP hợp lệ → Kích hoạt tài khoản
-        if (!MEMBER_ROLE.equalsIgnoreCase(user.getRole())) {
-            throw new IllegalArgumentException("Tài khoản nhân sự phải được Quản lý phê duyệt.");
-        }
         user.setStatus("ACTIVE");
         User savedUser = userRepository.save(user);
 
@@ -770,7 +791,7 @@ public class AuthService {
             auditLogService.logFailure("RESEND_REGISTRATION_OTP", email, null, "Resend OTP attempt", "Email is empty");
             throw new IllegalArgumentException("Vui lòng cung cấp địa chỉ email.");
         }
-        
+
         User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> {
                     auditLogService.logFailure("RESEND_REGISTRATION_OTP", email, null, "Resend OTP attempt", "User not found");
@@ -779,21 +800,21 @@ public class AuthService {
         if (!MEMBER_ROLE.equalsIgnoreCase(user.getRole())) {
             throw new IllegalArgumentException("Tài khoản nhân sự phải được Quản lý phê duyệt.");
         }
-        
+
         // Chỉ resend nếu user đang ở trạng thái PENDING
         if (!"PENDING".equals(user.getStatus())) {
             auditLogService.logFailure("RESEND_REGISTRATION_OTP", email, user.getUserId(), 
                     "Resend OTP attempt", "User status is not PENDING: " + user.getStatus());
             throw new RuntimeException("Tài khoản này đã được kích hoạt hoặc không cần xác thực OTP.");
         }
-        
+
         // Kiểm tra cooldown (60s)
         verificationTokenRepository.findByEmailAndTokenTypeAndUsedAtIsNullAndExpiresAtAfter(
                 email, TOKEN_TYPE_REGISTRATION_OTP, LocalDateTime.now()
         ).ifPresent(existingToken -> {
             Duration timeSinceCreation = Duration.between(existingToken.getCreatedAt(), LocalDateTime.now());
             long secondsSinceCreation = timeSinceCreation.getSeconds();
-            
+
             if (secondsSinceCreation < OTP_COOLDOWN_SECONDS) {
                 long remainingSeconds = OTP_COOLDOWN_SECONDS - secondsSinceCreation;
                 auditLogService.logFailure("RESEND_REGISTRATION_OTP", email, user.getUserId(), 
@@ -801,14 +822,14 @@ public class AuthService {
                 throw new RuntimeException("Vui lòng chờ " + remainingSeconds + " giây trước khi gửi lại mã OTP.");
             }
         });
-        
+
         // Generate OTP mới
         String otp = generateOTP();
         String otpHash = hashOTP(otp);
-        
+
         // Xóa OTP cũ
         verificationTokenRepository.deleteByEmailAndTokenType(email, TOKEN_TYPE_REGISTRATION_OTP);
-        
+
         // Lưu OTP mới
         VerificationToken verificationToken = VerificationToken.builder()
                 .email(email)
@@ -819,7 +840,7 @@ public class AuthService {
                 .locked(false)
                 .build();
         verificationTokenRepository.save(verificationToken);
-        
+
         // Gửi email OTP
         try {
             emailService.sendRegistrationOtpEmail(email, user.getFullName(), otp);
@@ -863,20 +884,20 @@ public class AuthService {
         if (!MEMBER_ROLE.equalsIgnoreCase(user.getRole())) throw new IllegalArgumentException("Tài khoản nhân sự đang chờ Quản lý phê duyệt.");
 
         String email = user.getEmail();
-        
+
         // Tìm OTP token còn hiệu lực (chưa dùng, chưa hết hạn)
         Optional<VerificationToken> existingToken = verificationTokenRepository
                 .findByEmailAndTokenTypeAndUsedAtIsNullAndExpiresAtAfter(
                         email, TOKEN_TYPE_REGISTRATION_OTP, LocalDateTime.now());
-        
+
         if (existingToken.isEmpty()) {
             // OTP đã hết hạn hoặc không tồn tại → Tự động tạo và gửi OTP MỚI
             String newOtp = generateOTP();
             String otpHash = hashOTP(newOtp);
-            
+
             // Xóa OTP cũ (nếu có)
             verificationTokenRepository.deleteByEmailAndTokenType(email, TOKEN_TYPE_REGISTRATION_OTP);
-            
+
             // Lưu OTP mới
             VerificationToken newToken = VerificationToken.builder()
                     .email(email)
@@ -887,13 +908,13 @@ public class AuthService {
                     .locked(false)
                     .build();
             verificationTokenRepository.save(newToken);
-            
+
             // Gửi email OTP mới
             try {
                 emailService.sendRegistrationOtpEmail(email, user.getFullName(), newOtp);
                 auditLogService.logSuccess("LOGIN_PENDING_AUTO_RESEND_OTP", email, user.getUserId(), 
                         "Auto-resent OTP for pending account on login | Expires in " + OTP_TTL_MINUTES + " minutes");
-                
+
                 // Throw exception với thông báo đã gửi OTP mới
                 throw new PendingVerificationException(
                         email,
@@ -908,7 +929,7 @@ public class AuthService {
                 auditLogService.logFailure("LOGIN_PENDING_AUTO_RESEND_OTP_FAILED", 
                         email, user.getUserId(), 
                         "Failed to auto-resend OTP on login", e.getMessage());
-                
+
                 // Nếu gửi email thất bại, vẫn throw exception nhưng với message khác
                 throw new PendingVerificationException(
                         email,
@@ -922,10 +943,10 @@ public class AuthService {
                     LocalDateTime.now(), 
                     existingToken.get().getExpiresAt()
             ).toMinutes();
-            
+
             auditLogService.logFailure("LOGIN_PENDING_OTP_ACTIVE", email, user.getUserId(), 
                     "Login with PENDING status", "OTP still valid | Remaining: " + minutesRemaining + " minutes");
-            
+
             throw new PendingVerificationException(
                     email,
                     "Tài khoản chưa xác thực email. " +
@@ -933,6 +954,18 @@ public class AuthService {
                     "Vui lòng kiểm tra email và nhập mã OTP để kích hoạt tài khoản."
             );
         }
+    }
+
+    private String resolveRegistrationRole(String rawRole) {
+        if (rawRole == null || rawRole.isBlank()) {
+            return MEMBER_ROLE;
+        }
+        String normalized = rawRole.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!SELF_REGISTRATION_ROLES.contains(normalized)) {
+            throw new IllegalArgumentException(
+                    "Vai trò tự đăng ký chỉ hỗ trợ Hội viên (MEMBER), Huấn luyện viên (COACH) hoặc Lễ tân (RECEPTIONIST).");
+        }
+        return normalized;
     }
 
 }

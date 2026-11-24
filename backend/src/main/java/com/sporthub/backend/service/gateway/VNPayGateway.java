@@ -4,15 +4,12 @@ import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.TimeZone;
 import java.util.TreeMap;
 
 import javax.crypto.Mac;
@@ -38,30 +35,30 @@ import org.springframework.stereotype.Service;
  */
 @Service("vnpayGateway")
 public class VNPayGateway implements PaymentGateway {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(VNPayGateway.class);
-    
+
     @Value("${vnpay.tmn-code}")
     private String tmnCode;
-    
+
     @Value("${vnpay.hash-secret}")
     private String hashSecret;
-    
+
     @Value("${vnpay.url}")
     private String vnpayUrl;
-    
+
     @Value("${vnpay.api-url}")
     private String vnpayApiUrl;
 
     @Value("${vnpay.simulate-sandbox-refund:true}")
     private boolean simulateSandboxRefund = true;
-    
+
     @Value("${vnpay.return-url}")
     private String returnUrl;
-    
+
     @Value("${vnpay.ipn-url}")
     private String ipnUrl;
-    
+
     private static volatile Long clockOffsetMillis = null;
     private static volatile long lastOffsetFetch = 0;
 
@@ -71,12 +68,12 @@ public class VNPayGateway implements PaymentGateway {
     private ZonedDateTime getVNPayRealTime() {
         ZoneId vnZone = ZoneId.of("Asia/Ho_Chi_Minh");
         long now = System.currentTimeMillis();
-        
+
         // Refresh offset every 5 minutes or if not initialized
         if (clockOffsetMillis == null || now - lastOffsetFetch > 300_000) {
             syncClockOffsetWithVNPay();
         }
-        
+
         long offset = clockOffsetMillis != null ? clockOffsetMillis : 0L;
         return Instant.ofEpochMilli(now + offset).atZone(vnZone);
     }
@@ -151,15 +148,15 @@ public class VNPayGateway implements PaymentGateway {
         logger.info("IP Address: {}", ipAddress);
         logger.info("TMN Code: {}", tmnCode);
         logger.info("Hash Secret Length: {}", hashSecret != null ? hashSecret.length() : 0);
-        
+
         Map<String, String> vnpParams = new TreeMap<>();
-        
+
         vnpParams.put("vnp_Version", "2.1.0");
         vnpParams.put("vnp_Command", "pay");
         vnpParams.put("vnp_TmnCode", tmnCode);
         vnpParams.put("vnp_Amount", String.valueOf(amount.multiply(new BigDecimal(100)).longValue()));
         vnpParams.put("vnp_CurrCode", "VND");
-        
+
         // Ensure vnp_TxnRef is unique per payment attempt (avoids Error 01 on retries/reused IDs)
         vnpParams.put("vnp_TxnRef", txnRef);
         vnpParams.put("vnp_OrderInfo", "Thanh toan don hang " + paymentId);
@@ -167,30 +164,30 @@ public class VNPayGateway implements PaymentGateway {
         vnpParams.put("vnp_Locale", "vn");
         vnpParams.put("vnp_ReturnUrl", returnUrl);
         vnpParams.put("vnp_IpAddr", ipAddress != null ? ipAddress : "127.0.0.1");
-        
+
         ZonedDateTime nowVn = getVNPayRealTime();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-        
+
         String vnpCreateDate = formatter.format(nowVn);
         vnpParams.put("vnp_CreateDate", vnpCreateDate);
-        
+
         String vnpExpireDate = formatter.format(nowVn.plus(java.time.Duration.between(java.time.LocalDateTime.now(), expiresAt)));
         vnpParams.put("vnp_ExpireDate", vnpExpireDate);
-        
+
         logger.info("VNPay Parameters (before hash): {}", vnpParams);
-        
+
         String hashData = buildHashData(vnpParams);
         logger.debug("Hash Data length: {}", hashData.length());
-        
+
         String vnpSecureHash = hmacSHA512(hashSecret, hashData);
         logger.debug("VNPay SecureHash generated successfully");
-        
+
         vnpParams.put("vnp_SecureHash", vnpSecureHash);
-        
+
         String paymentUrl = vnpayUrl + "?" + buildQueryString(vnpParams);
         logger.info("VNPay Payment URL: {}", paymentUrl);
         logger.info("=== VNPay Payment Generation Completed ===");
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("paymentId", paymentId);
         response.put("amount", amount);
@@ -198,15 +195,15 @@ public class VNPayGateway implements PaymentGateway {
         response.put("gateway", "VNPAY");
         response.put("gatewayReference", txnRef);
         response.put("merchantDate", vnpCreateDate);
-        
+
         return response;
     }
-    
+
     @Override
     public String getGatewayName() {
         return "VNPAY";
     }
-    
+
     /**
      * Verify VNPay signature from IPN or return URL
      * 
@@ -235,7 +232,7 @@ public class VNPayGateway implements PaymentGateway {
             receivedHash.toLowerCase(java.util.Locale.ROOT).getBytes(StandardCharsets.UTF_8)
         );
     }
-    
+
     /**
      * HMAC SHA512 signature
      */
@@ -244,9 +241,9 @@ public class VNPayGateway implements PaymentGateway {
             Mac hmac512 = Mac.getInstance("HmacSHA512");
             SecretKeySpec secretKey = new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA512");
             hmac512.init(secretKey);
-            
+
             byte[] hashBytes = hmac512.doFinal(data.getBytes(StandardCharsets.UTF_8));
-            
+
             StringBuilder result = new StringBuilder();
             for (byte b : hashBytes) {
                 result.append(String.format("%02x", b));
@@ -256,7 +253,7 @@ public class VNPayGateway implements PaymentGateway {
             throw new RuntimeException("Error generating HMAC SHA512", e);
         }
     }
-    
+
     /**
      * Build hash data from sorted parameters
      * VNPay requires URL encoding with US_ASCII for hash data
@@ -264,7 +261,7 @@ public class VNPayGateway implements PaymentGateway {
     private String buildHashData(Map<String, String> params) {
         return buildQueryString(params);
     }
-    
+
     /**
      * Build URL query string from parameters
      * VNPay requires US_ASCII encoding for all parameters including vnp_SecureHash
@@ -283,7 +280,7 @@ public class VNPayGateway implements PaymentGateway {
         }
         return query.toString();
     }
-    
+
     /**
      * Refund VNPay transaction
      * 

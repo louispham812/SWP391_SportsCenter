@@ -1,4 +1,3 @@
-import React from 'react';
 
 export function StatCardSkeleton({ count = 4, className = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" }) {
   return (
@@ -101,10 +100,3 @@ export function ScheduleSkeleton({ rows = 5, cols = 7, className = "" }) {
     </div>
   );
 }
-
-export default {
-  StatCardSkeleton,
-  TableSkeleton,
-  CardGridSkeleton,
-  ScheduleSkeleton,
-};

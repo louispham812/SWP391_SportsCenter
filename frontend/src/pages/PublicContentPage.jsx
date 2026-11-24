@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Footer from '../components/Footer';
 import Navbar from '../components/Navbar';
@@ -63,7 +63,7 @@ export default function PublicContentPage({ contentType }) {
 
       <main className="w-full flex-1 pt-24 pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
+
           {/* Breadcrumb quay về */}
           <div className="mb-6 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
             <Link to="/" className="hover:text-orange-600 transition-colors">Trang chủ</Link>
@@ -152,7 +152,7 @@ export default function PublicContentPage({ contentType }) {
                       </>
                     ) : (
                       <Link
-                        to="/member/book"
+                        to={isSports && selectedItem.slug ? `/member/book?sportSlug=${encodeURIComponent(selectedItem.slug)}` : '/member/book'}
                         className="px-8 py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-orange-500/30 transition-all flex items-center gap-2 cursor-pointer"
                       >
                         <span>Đặt Sân / Lịch Tập Ngay</span>
@@ -416,7 +416,7 @@ export default function PublicContentPage({ contentType }) {
                             </span>
                           ) : (
                             <Link
-                              to="/member/book"
+                              to={isSports && item.slug ? `/member/book?sportSlug=${encodeURIComponent(item.slug)}` : '/member/book'}
                               className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-orange-500 hover:text-white text-slate-800 text-[11px] font-black uppercase tracking-wider transition-colors"
                             >
                               Đặt Sân

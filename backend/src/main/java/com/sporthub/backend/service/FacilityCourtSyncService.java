@@ -2,7 +2,6 @@ package com.sporthub.backend.service;
 
 import com.sporthub.backend.entity.CourtMaintenance;
 import com.sporthub.backend.entity.Facility;
-import com.sporthub.backend.entity.PublicFacility;
 import com.sporthub.backend.entity.SportsCourt;
 import com.sporthub.backend.repository.CourtMaintenanceRepository;
 import com.sporthub.backend.repository.FacilityRepository;
@@ -468,24 +467,20 @@ public class FacilityCourtSyncService {
     }
 
     /**
-     * Triggered when Manager creates a maintenance schedule window
-     */
-    @Transactional
-    public void syncFromMaintenanceCreate(Long courtId, LocalDateTime start, LocalDateTime end, String reason) {
-        SportsCourt court = sportsCourtRepository.findByIdForUpdate(courtId).orElse(null);
-        if (court == null) return;
-
-        syncCourtMaintenanceStatus(courtId);
-        log.info("Synced maintenance create for court {} (start: {}, end: {})", courtId, start, end);
-    }
-
-    /**
      * Triggered when Manager deletes a maintenance schedule
      */
     @Transactional
     public void syncFromMaintenanceDelete(Long courtId) {
+        syncFromMaintenanceDelete(courtId, false);
+    }
+
+    @Transactional
+    public void syncFromMaintenanceDelete(Long courtId, boolean deletedWindowWasLocker) {
         if (courtId == null) return;
+        if (deletedWindowWasLocker) {
+            courtsLockedByMaintenance.add(courtId);
+        }
         syncCourtMaintenanceStatus(courtId);
-        log.info("Synced maintenance delete for court {}", courtId);
+        log.info("Synced maintenance delete for court {} (wasLocker={})", courtId, deletedWindowWasLocker);
     }
 }

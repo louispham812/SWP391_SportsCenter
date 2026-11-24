@@ -21,16 +21,6 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select b from Booking b where b.bookingId = :id")
     java.util.Optional<Booking> findByIdForUpdate(@Param("id") Long id);
-    @Query("""
-            select count(b) > 0 from Booking b join ClassSession s on b.sessionId = s.sessionId
-            where b.memberId = :memberId and b.status = 'CONFIRMED'
-              and s.status in ('SCHEDULED', 'IN_PROGRESS')
-              and s.startTime >= :dayStart and s.startTime < :dayEnd and s.startTime <= :now and s.endTime > :now
-            """)
-    boolean existsCheckInEligibleClass(@Param("memberId") Long memberId,
-            @Param("dayStart") LocalDateTime dayStart, @Param("dayEnd") LocalDateTime dayEnd,
-            @Param("now") LocalDateTime now);
-
     List<Booking> findByMemberId(Long memberId);
     List<Booking> findBySessionId(Long sessionId);
     List<Booking> findBySessionIdInAndStatusIn(List<Long> sessionIds, List<String> statuses);
@@ -39,7 +29,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByStatus(String status);
     boolean existsByMemberIdAndSessionIdAndStatusIn(Long memberId, Long sessionId, List<String> statuses);
     long countBySessionIdAndStatusIn(Long sessionId, List<String> statuses);
-    
+
     /**
      * Count bookings with PESSIMISTIC_WRITE lock to prevent race condition
      * Used in checkout flow to ensure slot availability atomically
@@ -50,9 +40,9 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
      */
     @Query("SELECT COUNT(b) FROM Booking b WHERE b.sessionId = :sessionId AND b.status IN :statuses")
     long countActiveBookingsWithLock(@Param("sessionId") Long sessionId, @Param("statuses") List<String> statuses);
-    
+
     List<Booking> findByStatusIgnoreCaseAndBookingTimeBefore(String status, LocalDateTime before);
-    
+
     // Find booking by payment_id (for webhook lookup)
     Booking findByPaymentId(Long paymentId);
 

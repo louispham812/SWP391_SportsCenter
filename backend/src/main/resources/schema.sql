@@ -414,6 +414,28 @@ WHERE NOT EXISTS (
 );
 SET IDENTITY_INSERT dbo.public_facilities OFF;');
 
+IF OBJECT_ID(N'dbo.facilities', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.public_facilities', N'U') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM dbo.facilities WHERE facility_id = 31)
+EXEC(N'SET IDENTITY_INSERT dbo.facilities ON;
+INSERT INTO dbo.facilities (facility_id, facility_name, sport_id, capacity, status) VALUES
+(31, N''Phòng Tập Gym & Cardio - Khu G1'', 1, 30, ''AVAILABLE''),
+(32, N''Phòng Tập Thể Lực & Tạ - Khu G2'', 1, 25, ''AVAILABLE''),
+(33, N''Phòng Tập Yoga Studio - Phòng Y1'', 4, 20, ''AVAILABLE''),
+(34, N''Phòng Tập Pilates Reformer - Phòng Y2'', 4, 15, ''AVAILABLE'');
+SET IDENTITY_INSERT dbo.facilities OFF;');
+
+IF OBJECT_ID(N'dbo.facilities', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.public_facilities', N'U') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM dbo.public_facilities WHERE facility_id = 31)
+EXEC(N'SET IDENTITY_INSERT dbo.public_facilities ON;
+INSERT INTO dbo.public_facilities (facility_id, slug, name, description, icon, highlight, active) VALUES
+(31, N''booking-gym-01'', N''Phòng Tập Gym & Cardio - Khu G1'', N''Phòng tập Gym hiện đại trang bị máy Technogym và khu Cardio.'', N''fitness_center'', N''Trang thiết bị Ý'', 1),
+(32, N''booking-gym-02'', N''Phòng Tập Thể Lực & Tạ - Khu G2'', N''Khu tạ tự do chuẩn Olympic và rèn luyện thể lực chuyên sâu.'', N''fitness_center'', N''Tạ tự do Olympic'', 1),
+(33, N''booking-yoga-01'', N''Phòng Tập Yoga Studio - Phòng Y1'', N''Studio Yoga yên tĩnh tiêu chuẩn, có thảm định tuyến chuyên dụng.'', N''self_improvement'', N''Studio cách âm'', 1),
+(34, N''booking-yoga-02'', N''Phòng Tập Pilates Reformer - Phòng Y2'', N''Phòng tập Pilates máy Reformer cao cấp phục vụ lớp kèm và nhóm.'', N''self_improvement'', N''Máy Reformer cao cấp'', 1);
+SET IDENTITY_INSERT dbo.public_facilities OFF;');
+
 WITH class_seed AS (
     SELECT *
     FROM (VALUES
@@ -482,6 +504,7 @@ OUTER APPLY (
     ORDER BY coach.user_id
 ) anyCoach
 WHERE COALESCE(preferredCoach.user_id, anyCoach.user_id) IS NOT NULL
+  AND CAST(classTime.start_time AS DATE) <> '2026-11-20'
   AND NOT EXISTS (
       SELECT 1
       FROM dbo.class_sessions existing
@@ -920,6 +943,10 @@ IF OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
 
 -- ===== Bo sung: membership_packages.package_type, quota_sessions, quota_courts =====
 IF OBJECT_ID(N'dbo.membership_packages', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.membership_packages', N'membership_tier') IS NULL
+    ALTER TABLE dbo.membership_packages ADD membership_tier NVARCHAR(100) NULL;
+
+IF OBJECT_ID(N'dbo.membership_packages', N'U') IS NOT NULL
    AND COL_LENGTH(N'dbo.membership_packages', N'package_type') IS NULL
     ALTER TABLE dbo.membership_packages ADD package_type NVARCHAR(20) NULL CONSTRAINT DF_packages_package_type DEFAULT 'VIP';
 
@@ -995,3 +1022,49 @@ IF COL_LENGTH('dbo.bookings', 'quota_state') IS NULL ALTER TABLE dbo.bookings AD
 IF COL_LENGTH('dbo.court_bookings', 'quota_state') IS NULL ALTER TABLE dbo.court_bookings ADD quota_state VARCHAR(24) NULL;
 
 IF COL_LENGTH('dbo.payment_attempts', 'merchant_date') IS NULL ALTER TABLE dbo.payment_attempts ADD merchant_date VARCHAR(14) NULL;
+
+-- Coach <-> Sport relational mapping synchronized with coach specialty backfill.
+IF OBJECT_ID(N'dbo.coach_sports', N'U') IS NULL
+   AND OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.sports', N'U') IS NOT NULL
+    CREATE TABLE dbo.coach_sports (
+        coach_id BIGINT NOT NULL,
+        sport_id BIGINT NOT NULL,
+        CONSTRAINT PK_coach_sports PRIMARY KEY (coach_id, sport_id),
+        CONSTRAINT FK_coach_sports_coach FOREIGN KEY (coach_id) REFERENCES dbo.users(user_id) ON DELETE CASCADE,
+        CONSTRAINT FK_coach_sports_sport FOREIGN KEY (sport_id) REFERENCES dbo.sports(sport_id) ON DELETE CASCADE
+    );
+
+IF OBJECT_ID(N'dbo.coach_sports', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.sports', N'U') IS NOT NULL
+    INSERT INTO dbo.coach_sports (coach_id, sport_id)
+    SELECT u.user_id, s.sport_id
+    FROM dbo.users u
+    JOIN dbo.sports s
+      ON LOWER(u.specialty) LIKE N'%' + LOWER(s.sport_name) + N'%'
+    WHERE UPPER(u.role) = 'COACH'
+      AND u.specialty IS NOT NULL
+      AND LTRIM(RTRIM(u.specialty)) <> N''
+      AND NOT EXISTS (
+          SELECT 1
+          FROM dbo.coach_sports cs
+          WHERE cs.coach_id = u.user_id
+            AND cs.sport_id = s.sport_id
+      );
+
+-- Attribution of counter/receptionist-processed payments (CASH and VNPay).
+IF OBJECT_ID(N'dbo.payment_transactions', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.payment_transactions', N'processed_by') IS NULL
+    ALTER TABLE dbo.payment_transactions ADD processed_by BIGINT NULL;
+
+IF OBJECT_ID(N'dbo.payment_transactions', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.payment_transactions', N'processed_by') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_payment_transactions_processed_by_created_at' AND object_id = OBJECT_ID(N'dbo.payment_transactions'))
+    EXEC(N'CREATE INDEX IX_payment_transactions_processed_by_created_at ON dbo.payment_transactions(processed_by, created_at)');
+
+IF OBJECT_ID(N'dbo.payment_transactions', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.payments', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.payment_transactions', N'processed_by') IS NOT NULL
+   AND COL_LENGTH(N'dbo.payments', N'approved_by') IS NOT NULL
+    EXEC(N'UPDATE pt SET pt.processed_by = CAST(p.approved_by AS BIGINT) FROM dbo.payment_transactions pt JOIN dbo.payments p ON pt.membership_id IS NOT NULL AND p.um_id = pt.membership_id AND p.member_id = pt.member_id WHERE pt.processed_by IS NULL AND p.approved_by IS NOT NULL');

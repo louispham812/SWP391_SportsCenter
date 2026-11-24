@@ -23,12 +23,6 @@ async function generate() {
   console.log('Writing public/favicon.svg...');
   fs.writeFileSync(path.join(publicDir, 'favicon.svg'), svgContent, 'utf-8');
 
-  // Also replace vite.svg if requested
-  const assetsDir = path.resolve(__dirname, '../src/assets');
-  if (fs.existsSync(assetsDir)) {
-    fs.writeFileSync(path.join(assetsDir, 'vite.svg'), svgContent, 'utf-8');
-  }
-
   console.log('Launching Playwright with installed Edge browser...');
   const browser = await chromium.launch({
     executablePath: 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',

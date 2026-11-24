@@ -1,4 +1,3 @@
-import React from 'react';
 
 /**
  * Reusable Pagination Component with <- ******** -> style

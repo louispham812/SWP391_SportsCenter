@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { apiRequest } from '../../services/apiClient';
 
 // Format functions inline (self-contained component)
@@ -72,7 +72,7 @@ export default function RefundRequestModal({
   // Group transactions by item type for better dropdown UX (OPTION 2 FIX)
   const groupedPaidTransactions = useMemo(() => {
     const groups = {};
-    
+
     paidTransactions.forEach((tx) => {
       const type = tx.itemType || 'OTHER';
       if (!groups[type]) {
@@ -80,7 +80,7 @@ export default function RefundRequestModal({
       }
       groups[type].push(tx);
     });
-    
+
     // Sort groups by priority: MEMBERSHIP > COURT > CLASS > PT > OTHER
     const sortOrder = ['MEMBERSHIP', 'COURT', 'CLASS', 'PT', 'OTHER'];
     const sorted = {};
@@ -89,14 +89,14 @@ export default function RefundRequestModal({
         sorted[type] = groups[type];
       }
     });
-    
+
     // Add any other types not in sortOrder
     Object.keys(groups).forEach(type => {
       if (!sorted[type]) {
         sorted[type] = groups[type];
       }
     });
-    
+
     return sorted;
   }, [paidTransactions]);
 
@@ -123,13 +123,13 @@ export default function RefundRequestModal({
           accountHolder,
         }),
       });
-      
+
       // Reset form
       setSelectedTxForRefund('');
       setRefundReason('');
       setBankAccount('');
       setAccountHolder('');
-      
+
       onClose();
       showToast(
         'Yêu cầu hoàn tiền đã gửi',
@@ -151,11 +151,11 @@ export default function RefundRequestModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-5 relative"
+        className="w-full max-w-3xl max-h-[calc(100dvh-2rem)] overflow-y-auto bg-white rounded-3xl shadow-2xl border border-slate-200 p-4 sm:p-6 space-y-5 relative"
       >
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <div className="w-10 h-10 shrink-0 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
               <span className="material-symbols-outlined text-[20px]">currency_exchange</span>
             </div>
             <div>
@@ -165,7 +165,7 @@ export default function RefundRequestModal({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer"
+            className="w-8 h-8 shrink-0 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer"
           >
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
@@ -178,10 +178,10 @@ export default function RefundRequestModal({
               value={selectedTxForRefund}
               onChange={(e) => setSelectedTxForRefund(e.target.value)}
               required
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white focus:ring-2 focus:ring-orange-500"
+              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white outline-none focus:border-orange-500 focus:ring-0"
             >
               <option value="">-- Chọn giao dịch đã thanh toán --</option>
-              
+
               {/* Grouped by item type for better UX (OPTION 2 FIX) */}
               {Object.entries(groupedPaidTransactions).map(([type, items]) => (
                 <optgroup 
@@ -209,7 +209,7 @@ export default function RefundRequestModal({
               value={refundReason}
               onChange={(e) => setRefundReason(e.target.value)}
               required
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white focus:ring-2 focus:ring-orange-500"
+              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white outline-none focus:border-orange-500 focus:ring-0"
             ></textarea>
           </div>
 

@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import {
   createMaintenance,
@@ -36,6 +37,10 @@ export default function AdminMaintenancePage() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setStatus({ type: '', text: '' });
+    if (form.startTime && form.endTime && new Date(form.endTime) <= new Date(form.startTime)) {
+      setStatus({ type: 'err', text: 'Thời gian kết thúc bảo trì phải sau thời gian bắt đầu.' });
+      return;
+    }
     try {
       await createMaintenance({ ...form, courtId: Number(form.courtId) });
       setStatus({ type: 'ok', text: 'Đã tạo lịch bảo trì. Sân sẽ không đặt được trong khung giờ này.' });
@@ -56,7 +61,15 @@ export default function AdminMaintenancePage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <h1 className="text-xl font-bold text-primary uppercase">Bảo trì sân bãi</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-bold text-primary uppercase">Bảo trì sân bãi</h1>
+          <Link
+            to="/admin/facilities"
+            className="text-xs font-bold text-slate-600 hover:text-orange-600 underline-offset-4 hover:underline"
+          >
+            ← Quay lại Quản lý cơ sở &amp; lớp học
+          </Link>
+        </div>
         <form onSubmit={handleSubmit} className="max-w-2xl grid gap-3 md:grid-cols-2">
           <select required value={form.courtId} onChange={(e) => setForm({ ...form, courtId: e.target.value })} className={`${field} md:col-span-2`}>
             <option value="">-- Chọn sân --</option>

@@ -16,8 +16,6 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     @Query("select session from ClassSession session where session.sessionId = :sessionId")
     Optional<ClassSession> findByIdForUpdate(@Param("sessionId") Long sessionId);
 
-    List<ClassSession> findBySportIdAndStatusOrderByStartTimeAsc(Long sportId, String status);
-
     List<ClassSession> findByCoachIdAndStartTimeGreaterThanEqualAndStartTimeLessThanOrderByStartTimeAsc(
             Long coachId, LocalDateTime weekStart, LocalDateTime weekEnd);
 

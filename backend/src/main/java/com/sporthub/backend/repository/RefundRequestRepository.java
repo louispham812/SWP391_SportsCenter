@@ -16,5 +16,4 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, Lo
     java.util.Optional<RefundRequest> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") Long id);
     List<RefundRequest> findByMemberIdOrderByCreatedAtDesc(Long memberId);
     List<RefundRequest> findAllByOrderByCreatedAtDesc();
-    List<RefundRequest> findByBookingIdAndBookingType(Long bookingId, String bookingType);
 }

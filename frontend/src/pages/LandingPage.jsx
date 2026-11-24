@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -54,7 +54,7 @@ export default function LandingPage() {
       <Navbar />
 
       <main className="w-full pt-20 flex-1">
-        
+
         {/* ================= 1. HERO SECTION ================= */}
         <section className="relative w-full overflow-hidden bg-white pt-12 pb-16 lg:pt-16 lg:pb-24 border-b border-slate-200">
           <div className="absolute inset-0 z-0 pointer-events-none">
@@ -68,12 +68,12 @@ export default function LandingPage() {
           </div>
 
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-              
+
               {/* Nội dung Banner bên trái */}
               <div className="lg:col-span-7 space-y-6">
-                
+
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200/80 text-orange-700 text-xs font-semibold">
                   <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
                   F Sport Center · Trung Tâm Thể Thao Đa Năng
@@ -161,7 +161,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-
         {/* ================= 2. KHÁM PHÁ CÁC BỘ MÔN THỂ THAO ================= */}
         <section id="bo-mon" className="py-10 lg:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -236,7 +235,7 @@ export default function LandingPage() {
                           }}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent"></div>
-                        
+
                         {/* Tag góc trên */}
                         <div className="absolute top-3 left-3">
                           <span className="px-2.5 py-0.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-wider border border-white/20">
@@ -284,7 +283,7 @@ export default function LandingPage() {
                       </Link>
 
                       <Link
-                        to="/member/book"
+                        to={sport.slug ? `/member/book?sportSlug=${encodeURIComponent(sport.slug)}` : '/member/book'}
                         className="px-3.5 py-2 min-h-[36px] inline-flex items-center rounded-lg bg-slate-100 hover:bg-orange-500 hover:text-white text-slate-700 text-[10px] font-black uppercase tracking-wider transition-colors"
                       >
                         Đặt Sân
@@ -296,7 +295,6 @@ export default function LandingPage() {
             </div>
           )}
         </section>
-
 
         {/* ================= 3. TIỆN ÍCH & CƠ SỞ VẬT CHẤT ================= */}
         <section id="tien-ich" className="py-10 lg:py-16 bg-white border-y border-slate-200">
@@ -388,7 +386,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-
         {/* ================= 4. TẠI SAO CHỌN F SPORT CENTER? ================= */}
         <section className="py-10 lg:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
           <div className="text-center max-w-2xl mx-auto space-y-2">
@@ -418,7 +415,6 @@ export default function LandingPage() {
             ))}
           </div>
         </section>
-
 
         {/* ================= 5. BANNER CTA GÓI TẬP ================= */}
         <section className="bg-slate-900 text-white py-12">

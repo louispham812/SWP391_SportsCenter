@@ -1,4 +1,3 @@
-import React from 'react';
 
 // Format functions inline (self-contained component)
 const formatVnd = (amount) =>
@@ -35,8 +34,12 @@ const formatDateTime = (isoStr) => {
 export default function ReceiptModal({ receipt, profile, onClose }) {
   if (!receipt) return null;
 
-  const isRefund = receipt.paymentStatus === 'REFUNDED';
-  const isQuota = parseFloat(receipt.amount) === 0 || receipt.paymentMethod === 'MEMBERSHIP_QUOTA';
+  const ps = String(receipt.paymentStatus || '').toUpperCase();
+  const isRefund = ps === 'REFUNDED';
+  const isPending = ps === 'PENDING' || ps === 'PENDING_PAYMENT';
+  const isFailed = ps === 'FAILED';
+  const isCancelled = ps === 'CANCELLED' || ps === 'VOID';
+  const isQuota = !isRefund && !isPending && !isFailed && !isCancelled && (parseFloat(receipt.amount) === 0 || receipt.paymentMethod === 'MEMBERSHIP_QUOTA');
 
   return (
     <div
@@ -71,7 +74,7 @@ export default function ReceiptModal({ receipt, profile, onClose }) {
               : 'HÓA ĐƠN XÁC NHẬN THANH TOÁN ĐIỆN TỬ'}
           </p>
           <span className="inline-block mt-2 font-mono text-[11px] font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
-            Mã: {receipt.referenceCode || `TX-${receipt.id}`}
+            Mã: {receipt.referenceCode || `TX-${receipt.transactionId ?? receipt.id ?? receipt.paymentId ?? ''}`}
           </span>
         </div>
 
@@ -112,6 +115,12 @@ export default function ReceiptModal({ receipt, profile, onClose }) {
               className={`font-bold ${
                 isRefund
                   ? 'text-indigo-600'
+                  : isPending
+                  ? 'text-amber-600'
+                  : isFailed
+                  ? 'text-rose-600'
+                  : isCancelled
+                  ? 'text-slate-600'
                   : isQuota
                   ? 'text-amber-600'
                   : 'text-emerald-600'
@@ -119,6 +128,12 @@ export default function ReceiptModal({ receipt, profile, onClose }) {
             >
               {isRefund
                 ? 'Đã hoàn trả 100%'
+                : isPending
+                ? 'Chờ thanh toán'
+                : isFailed
+                ? 'Thanh toán thất bại'
+                : isCancelled
+                ? 'Đã hủy giao dịch'
                 : isQuota
                 ? 'Đã cấn trừ Quota'
                 : 'Thành công (Đã quyết toán)'}

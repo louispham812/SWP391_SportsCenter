@@ -1,17 +1,20 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { createManagerUser } from '../../services/managerApi';
-import { createReceptionistUser } from '../../services/receptionistApi';
+import { createManagerUser, getManagerDomainSports } from '../../services/managerApi';
+import { createReceptionistUser, getReceptionistDomainSports } from '../../services/receptionistApi';
+import CoachSportSelector from './CoachSportSelector';
 
-export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
+export default function CreateUserModal({ isOpen, onClose, onSuccess, memberOnly = false, staffOnly = false }) {
   const { currentUser, currentRole, showToast } = useApp();
 
   const isManager =
     currentRole === 'admin' ||
     currentUser?.role === 'MANAGER' ||
     currentUser?.role === 'ADMIN';
+  const canSelectRole = isManager && !memberOnly;
+  const defaultRole = staffOnly ? 'COACH' : 'MEMBER';
 
-  const [role, setRole] = useState('MEMBER');
+  const [role, setRole] = useState(defaultRole);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -19,6 +22,49 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [sports, setSports] = useState([]);
+  const [sportsLoadedFor, setSportsLoadedFor] = useState(null);
+  const [selectedSportIds, setSelectedSportIds] = useState([]);
+
+  const needsCoachSports = isOpen && canSelectRole && role === 'COACH';
+  const sportsLoading = needsCoachSports && sportsLoadedFor !== currentRole;
+
+  useEffect(() => {
+    if (isOpen) {
+      setRole(defaultRole);
+    }
+  }, [isOpen, defaultRole]);
+
+  useEffect(() => {
+    if (!needsCoachSports || sportsLoadedFor === currentRole) return;
+    let active = true;
+    const fetcher = currentRole === 'receptionist' ? getReceptionistDomainSports : getManagerDomainSports;
+    fetcher()
+      .then((rows) => {
+        if (active) setSports(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => {
+        if (active) setSports([]);
+      })
+      .finally(() => {
+        if (active) setSportsLoadedFor(currentRole);
+      });
+    return () => {
+      active = false;
+    };
+  }, [needsCoachSports, sportsLoadedFor, currentRole]);
+
+  const handleRoleChange = (nextRole) => {
+    if (!canSelectRole) {
+      setRole('MEMBER');
+      setSelectedSportIds([]);
+      return;
+    }
+    setRole(nextRole);
+    if (nextRole !== 'COACH') {
+      setSelectedSportIds([]);
+    }
+  };
 
   // Optional fields per specification (Section 2.1 - B. Thông tin bổ sung)
   const [showOptionalFields, setShowOptionalFields] = useState(false);
@@ -30,7 +76,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
 
   const resetForm = () => {
-    setRole('MEMBER');
+    setRole(defaultRole);
     setFullName('');
     setPhone('');
     setEmail('');
@@ -43,6 +89,8 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
     setRfidCode('');
     setEmergencyContactName('');
     setEmergencyContactPhone('');
+    setSelectedSportIds([]);
+    setSportsLoadedFor(null);
     setError('');
   };
 
@@ -67,6 +115,13 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
       return;
     }
 
+    const effectiveRole = canSelectRole ? role : 'MEMBER';
+
+    if (effectiveRole === 'COACH' && selectedSportIds.length === 0) {
+      setError('Vui lòng chọn ít nhất một bộ môn giảng dạy cho Huấn luyện viên.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const payload = {
@@ -74,7 +129,8 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
         phone: phone.trim(),
         email: email.trim(),
         password,
-        role,
+        role: effectiveRole,
+        sportIds: effectiveRole === 'COACH' ? selectedSportIds.map(Number) : null,
         dateOfBirth: dateOfBirth || null,
         gender: gender || null,
         address: address.trim() || null,
@@ -91,7 +147,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
 
       showToast(
         'Tạo tài khoản thành công',
-        `Tài khoản "${fullName}" (${role}) đã được tạo và kích hoạt.`,
+        `Tài khoản "${fullName}" (${effectiveRole}) đã được tạo và kích hoạt.`,
         'success'
       );
       if (onSuccess) onSuccess();
@@ -129,7 +185,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[82vh] overflow-y-auto">
           {error && (
             <div role="alert" className="p-3 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700">
               {error}
@@ -139,33 +195,47 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }) {
           {/* Vai trò Dropdown */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="create-user-role" className="text-xs uppercase tracking-wider text-slate-700 font-extrabold flex items-center justify-between">
-              <span>ĐĂNG KÝ VỚI VAI TRÒ *</span>
+              <span>ĐĂNG KÝ VAI TRÒ *</span>
               <span className="text-[10px] text-slate-400 font-semibold normal-case">
-                {isManager ? 'Quyền Quản lý (5 vai trò)' : 'Quyền Lễ tân (3 vai trò)'}
+                {canSelectRole ? (staffOnly ? 'Nhân sự (3 vai trò)' : 'Quyền Quản lý (4 vai trò)') : 'Chỉ tạo Hội viên'}
               </span>
             </label>
-            <div className="relative">
-              <select
+            {canSelectRole ? (
+              <div className="relative">
+                <select
+                  id="create-user-role"
+                  value={role}
+                  onChange={(e) => handleRoleChange(e.target.value)}
+                  className="w-full bg-white text-slate-900 px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 shadow-2xs appearance-none cursor-pointer"
+                >
+                  {!staffOnly && <option value="MEMBER">Khách hàng / Hội viên (MEMBER)</option>}
+                  <option value="COACH">Huấn luyện viên (COACH)</option>
+                  <option value="RECEPTIONIST">Nhân viên lễ tân (RECEPTIONIST)</option>
+                  <option value="MANAGER">Quản lý hệ thống (MANAGER)</option>
+                </select>
+                <span className="material-symbols-outlined absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 text-[18px]">
+                  expand_more
+                </span>
+              </div>
+            ) : (
+              <input
                 id="create-user-role"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full bg-white text-slate-900 px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 shadow-2xs appearance-none cursor-pointer"
-              >
-                <option value="MEMBER">Khách hàng / Hội viên (MEMBER)</option>
-                <option value="COACH">Huấn luyện viên (COACH)</option>
-                <option value="RECEPTIONIST">Nhân viên lễ tân (RECEPTIONIST)</option>
-                {isManager && (
-                  <>
-                    <option value="MANAGER">Quản lý hệ thống (MANAGER)</option>
-                    <option value="ADMIN">Quản trị viên (ADMIN)</option>
-                  </>
-                )}
-              </select>
-              <span className="material-symbols-outlined absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 text-[18px]">
-                expand_more
-              </span>
-            </div>
+                type="text"
+                readOnly
+                value="Khách hàng / Hội viên (MEMBER)"
+                className="w-full bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold cursor-not-allowed"
+              />
+            )}
           </div>
+
+          {isManager && role === 'COACH' && (
+            <CoachSportSelector
+              sports={sports}
+              selectedIds={selectedSportIds}
+              onChange={setSelectedSportIds}
+              loading={sportsLoading}
+            />
+          )}
 
           {/* Họ và tên */}
           <div className="flex flex-col gap-1">

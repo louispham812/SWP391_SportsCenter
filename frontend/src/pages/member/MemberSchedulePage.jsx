@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
-import CoachLayout from '../../components/layouts/CoachLayout';
 import {
   cancelMemberBooking,
   getCoachPublicProfile,
@@ -51,8 +50,7 @@ const getWeekDays = (weekStart) =>
   });
 
 export default function MemberSchedulePage() {
-  const { showToast, currentRole } = useApp();
-  const LayoutComponent = currentRole === 'coach' ? CoachLayout : MemberLayout;
+  const { showToast } = useApp();
   const [scheduleEntries, setScheduleEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -64,7 +62,7 @@ export default function MemberSchedulePage() {
 
   // Modals
   const [selectedCoach, setSelectedCoach] = useState(null);
-  const [coachLoading, setCoachLoading] = useState(false);
+
   const [cancelingBooking, setCancelingBooking] = useState(null);
   const [submittingCancel, setSubmittingCancel] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -120,14 +118,12 @@ export default function MemberSchedulePage() {
   // View Coach Profile
   const handleViewCoach = async (coachId) => {
     if (!coachId) return;
-    setCoachLoading(true);
+
     try {
       const coachProfile = await getCoachPublicProfile(coachId);
       setSelectedCoach(coachProfile);
     } catch (err) {
       showToast('Huấn luyện viên', err.message || 'Không thể tải hồ sơ huấn luyện viên.', 'warning');
-    } finally {
-      setCoachLoading(false);
     }
   };
 
@@ -138,7 +134,7 @@ export default function MemberSchedulePage() {
     setSubmittingCancel(true);
     try {
       const response = await cancelMemberBooking(target.bookingType, target.bookingId);
-      
+
       // Check response status
       if (response && response.status === 'PENDING_APPROVAL') {
         // LUỒNG 1: RefundRequest created, waiting for Manager approval
@@ -163,13 +159,14 @@ export default function MemberSchedulePage() {
       } else {
         // Fallback: old behavior (immediate cancel)
         const isClass = target.bookingType === 'CLASS';
-        const successText = `Đã hủy ${isClass ? 'lớp học' : 'sân'} thành công`;
+        const successText = response?.message || `Đã hủy ${isClass ? 'lớp học' : 'sân'} thành công`;
         setStatusMessage(successText);
         showToast(
-          'Hủy đặt chỗ thành công',
-          `Đã hủy thành công ${target.title}.`,
+          response?.refunded ? 'Hủy lịch & hoàn quota thành công' : 'Hủy đặt chỗ thành công',
+          response?.message || `Đã hủy thành công ${target.title}.`,
           'success'
         );
+        window.dispatchEvent(new Event('sporthub:notifications-updated'));
         // Remove from UI immediately (old flow)
         setScheduleEntries((prev) =>
           prev.filter(
@@ -250,13 +247,34 @@ export default function MemberSchedulePage() {
     };
   }, [weekEntries, nowMs]);
 
+  const isWithinFreeCancelWindow = (entry) => {
+    const startMs = new Date(entry.startTime).getTime();
+    const diffHours = (startMs - nowMs) / (1000 * 60 * 60);
+    return Boolean(entry.isMaintenanceAffected || diffHours >= 2);
+  };
+
+  const canRescheduleCourt = (entry, isPast) => {
+    const startMs = new Date(entry.startTime).getTime();
+    const diffHours = (startMs - nowMs) / (1000 * 60 * 60);
+    return (
+      entry.bookingType === 'COURT' &&
+      !isPast &&
+      !isUnpaidBooking(entry) &&
+      entry.status !== 'CANCELLED' &&
+      entry.status !== 'REFUNDED' &&
+      entry.refundStatus !== 'PENDING_APPROVAL' &&
+      (entry.isMaintenanceAffected || diffHours >= 2)
+    );
+  };
+
   const canCancel = (entry) => {
     const startMs = new Date(entry.startTime).getTime();
     const diffHours = (startMs - nowMs) / (1000 * 60 * 60);
-    // Can cancel if: (>= 2h before start OR isMaintenanceAffected), not cancelled/refunded, and NOT already have pending refund request
-    return ((isUnpaidBooking(entry) && diffHours > 0) || entry.isMaintenanceAffected || diffHours >= 2) &&
-           entry.status !== 'CANCELLED' && 
-           entry.status !== 'REFUNDED' && 
+    return diffHours > 0 &&
+           entry.status !== 'CANCELLED' &&
+           entry.status !== 'REFUNDED' &&
+           entry.attendanceStatus !== 'PRESENT' &&
+           entry.attendanceStatus !== 'ATTENDED' &&
            entry.refundStatus !== 'PENDING_APPROVAL' &&
            entry.refundStatus !== 'APPROVED' &&
            entry.refundStatus !== 'REFUNDED';
@@ -293,7 +311,7 @@ export default function MemberSchedulePage() {
   };
 
   return (
-    <LayoutComponent>
+    <MemberLayout>
       <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300">
         {/* =========================================
             1. PAGE HEADER (COACH STYLE AESTHETICS)
@@ -544,7 +562,7 @@ export default function MemberSchedulePage() {
                         const isNext = isToday && !isPast && idx === 0;
                         const isAttended =
                           entry.attendanceStatus === 'ATTENDED' || entry.attendanceStatus === 'PRESENT';
-                        const isAbsent = entry.attendanceStatus === 'ABSENT';
+                        const isAbsent = ['ABSENT', 'EXCUSED_ABSENCE', 'UNEXCUSED_ABSENCE'].includes(entry.attendanceStatus);
 
                         return (
                           <article
@@ -694,7 +712,7 @@ export default function MemberSchedulePage() {
 
                               {/* Actions */}
                               <div className="flex items-center gap-1.5 ml-auto">
-                                {entry.bookingType === 'COURT' && entry.isMaintenanceAffected && !isPast && entry.status !== 'CANCELLED' && entry.refundStatus !== 'PENDING_APPROVAL' && (
+                                {canRescheduleCourt(entry, isPast) && (
                                   <button
                                     type="button"
                                     onClick={() => handleOpenReschedule(entry)}
@@ -709,7 +727,13 @@ export default function MemberSchedulePage() {
                                     onClick={() => setCancelingBooking(entry)}
                                     className="text-[10px] font-bold text-red-600 hover:text-red-700 hover:underline cursor-pointer"
                                   >
-                                    {isUnpaidBooking(entry) ? 'Hủy yêu cầu' : entry.isMaintenanceAffected && Number(entry.amountPaid) > 0 ? 'Hủy (Hoàn 100%)' : 'Hủy lịch'}
+                                    {isUnpaidBooking(entry)
+                                      ? 'Hủy yêu cầu'
+                                      : !isWithinFreeCancelWindow(entry)
+                                      ? 'Hủy (Không hoàn)'
+                                      : entry.isMaintenanceAffected && Number(entry.amountPaid) > 0
+                                      ? 'Hủy (Hoàn 100%)'
+                                      : 'Hủy lịch'}
                                   </button>
                                 )}
                               </div>
@@ -798,7 +822,7 @@ export default function MemberSchedulePage() {
                         const isPast = new Date(entry.startTime).getTime() < nowMs;
                         const isAttended =
                           entry.attendanceStatus === 'ATTENDED' || entry.attendanceStatus === 'PRESENT';
-                        const isAbsent = entry.attendanceStatus === 'ABSENT';
+                        const isAbsent = ['ABSENT', 'EXCUSED_ABSENCE', 'UNEXCUSED_ABSENCE'].includes(entry.attendanceStatus);
 
                         return (
                           <div
@@ -933,12 +957,12 @@ export default function MemberSchedulePage() {
                               </div>
 
                               <div className="flex items-center gap-2">
-                                {entry.bookingType === 'COURT' && entry.isMaintenanceAffected && !isPast && entry.status !== 'CANCELLED' && entry.refundStatus !== 'PENDING_APPROVAL' && (
+                                {canRescheduleCourt(entry, isPast) && (
                                   <button
                                     type="button"
                                     onClick={() => handleOpenReschedule(entry)}
                                     className="px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 border border-orange-200"
-                                    title="Đổi sang khung giờ khác miễn phí"
+                                    title={entry.isMaintenanceAffected ? 'Đổi sang khung giờ khác miễn phí' : 'Đổi lịch đặt sân'}
                                   >
                                     <span className="material-symbols-outlined text-[16px]">edit_calendar</span>
                                     <span>Đổi lịch</span>
@@ -951,19 +975,21 @@ export default function MemberSchedulePage() {
                                     className="px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 border border-red-200"
                                   >
                                     <span className="material-symbols-outlined text-[16px]">cancel</span>
-                                    <span>{isUnpaidBooking(entry) ? 'Hủy yêu cầu' : Number(entry.amountPaid) > 0 ? 'Hủy (Hoàn 100%)' : 'Hủy lịch'}</span>
+                                    <span>
+                                      {isUnpaidBooking(entry)
+                                        ? 'Hủy yêu cầu'
+                                        : !isWithinFreeCancelWindow(entry)
+                                        ? 'Hủy (Không hoàn)'
+                                        : Number(entry.amountPaid) > 0
+                                        ? 'Hủy (Hoàn 100%)'
+                                        : 'Hủy lịch'}
+                                    </span>
                                   </button>
                                 ) : (
-                                  !isPast && (
-                                    entry.refundStatus === 'PENDING_APPROVAL' ? (
-                                      <span className="text-[11px] text-amber-600 font-semibold italic">
-                                        Đang chờ quản lý duyệt hoàn tiền
-                                      </span>
-                                    ) : (
-                                      <span className="text-[11px] text-slate-400 italic">
-                                        Không thể hủy (&lt; 2h trước giờ học)
-                                      </span>
-                                    )
+                                  !isPast && entry.refundStatus === 'PENDING_APPROVAL' && (
+                                    <span className="text-[11px] text-amber-600 font-semibold italic">
+                                      Đang chờ quản lý duyệt hoàn tiền
+                                    </span>
                                   )
                                 )}
                               </div>
@@ -1108,6 +1134,16 @@ export default function MemberSchedulePage() {
                   </div>
                   <p className="text-amber-700 leading-relaxed text-[11px]">
                     Sân thể thao có lịch bảo trì trùng với khung giờ bạn đã đặt. Bạn được quyền hủy không phạt và nhận hoàn lại 100% {Number(cancelingBooking.amountPaid) > 0 ? `(${formatMoney(cancelingBooking.amountPaid)})` : 'lượt/quota hội viên'}.
+                  </p>
+                </div>
+              ) : !isWithinFreeCancelWindow(cancelingBooking) ? (
+                <div className="p-4 bg-red-50 rounded-2xl border border-red-200 space-y-1 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-red-800">
+                    <span className="material-symbols-outlined text-[16px]">warning</span>
+                    Hủy sát giờ (&lt; 2 tiếng) — Không hoàn tiền / quota
+                  </div>
+                  <p className="text-red-700 leading-relaxed text-[11px]">
+                    Do chỉ còn dưới 2 tiếng trước giờ bắt đầu, nếu bạn vẫn hủy lịch ngay bây giờ thì số tiền đã thanh toán hoặc quota gói tập đã trừ sẽ không được hoàn lại theo quy định.
                   </p>
                 </div>
               ) : Number(cancelingBooking.amountPaid) > 0 ? (
@@ -1260,6 +1296,6 @@ export default function MemberSchedulePage() {
           document.body
         )}
       </div>
-    </LayoutComponent>
+    </MemberLayout>
   );
 }

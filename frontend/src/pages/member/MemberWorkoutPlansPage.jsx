@@ -9,7 +9,10 @@ import { CardGridSkeleton } from '../../components/common/Skeleton';
 import Pagination from '../../components/common/Pagination';
 
 export default function MemberWorkoutPlansPage() {
-  const { showToast } = useApp();
+  const { currentUser, showToast } = useApp();
+  const completedStorageKey = currentUser?.id
+    ? `member_completed_exercises_${currentUser.id}`
+    : 'member_completed_exercises';
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('plans'); // 'plans' | 'progress' | 'feedback' | 'ai'
   const [bodyLogPage, setBodyLogPage] = useState(1);
@@ -57,21 +60,35 @@ export default function MemberWorkoutPlansPage() {
   // Trạng thái đánh dấu bài tập đã hoàn thành trong buổi tập
   const [completedExercises, setCompletedExercises] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('member_completed_exercises') || '{}');
+      return JSON.parse(localStorage.getItem(completedStorageKey) || '{}');
     } catch {
       return {};
     }
   });
 
+  useEffect(() => {
+    try {
+      setCompletedExercises(JSON.parse(localStorage.getItem(completedStorageKey) || '{}'));
+    } catch {
+      setCompletedExercises({});
+    }
+  }, [completedStorageKey]);
+
   const handleToggleExercise = (planId, exIdx) => {
+    const key = `${planId}-${exIdx}`;
+    const prevValue = Boolean(completedExercises[key]);
     setCompletedExercises((prev) => {
-      const key = `${planId}-${exIdx}`;
-      const next = { ...prev, [key]: !prev[key] };
-      localStorage.setItem('member_completed_exercises', JSON.stringify(next));
+      const next = { ...prev, [key]: !prevValue };
+      localStorage.setItem(completedStorageKey, JSON.stringify(next));
       return next;
     });
     togglePlanExercise(planId, exIdx).catch((err) => {
-      console.warn('Lỗi lưu trạng thái bài tập lên DB:', err);
+      setCompletedExercises((prev) => {
+        const reverted = { ...prev, [key]: prevValue };
+        localStorage.setItem(completedStorageKey, JSON.stringify(reverted));
+        return reverted;
+      });
+      showToast('Lỗi đồng bộ', err?.message || 'Không thể lưu trạng thái bài tập lên máy chủ.', 'error');
     });
   };
 
@@ -109,7 +126,10 @@ export default function MemberWorkoutPlansPage() {
 
       if (attendanceRes && Array.isArray(attendanceRes.records)) {
         const notes = attendanceRes.records
-          .filter((r) => r.coachNote || r.status === 'ATTENDED' || r.status === 'PRESENT')
+          .filter((r) => {
+            const st = r.attendanceStatus || r.status;
+            return r.coachNote || st === 'ATTENDED' || st === 'PRESENT';
+          })
           .sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
         setCoachNotes(notes);
       }
@@ -182,8 +202,8 @@ export default function MemberWorkoutPlansPage() {
         injuryHistory: healthProfile.injuryHistory,
         weightKg: weightNum,
         heightCm: heightNum,
-        smmKg: healthProfile.smmKg ? parseFloat(healthProfile.smmKg) : null,
-        pbfPercent: healthProfile.pbfPercent ? parseFloat(healthProfile.pbfPercent) : null,
+        smmKg: healthProfile.smmKg !== '' && healthProfile.smmKg != null ? parseFloat(healthProfile.smmKg) : null,
+        pbfPercent: healthProfile.pbfPercent !== '' && healthProfile.pbfPercent != null ? parseFloat(healthProfile.pbfPercent) : null,
         bmi: computedBmi,
       };
       await updateMemberHealthProfile(payload);
@@ -231,9 +251,9 @@ export default function MemberWorkoutPlansPage() {
         weightKg: weight,
         heightCm: height,
         bmi: logBmi,
-        smmKg: newLog.smmKg ? Number(newLog.smmKg) : null,
-        pbfPercent: newLog.pbfPercent ? Number(newLog.pbfPercent) : null,
-        maxLiftKg: newLog.maxLiftKg ? Number(newLog.maxLiftKg) : null,
+        smmKg: newLog.smmKg !== '' && newLog.smmKg != null ? Number(newLog.smmKg) : null,
+        pbfPercent: newLog.pbfPercent !== '' && newLog.pbfPercent != null ? Number(newLog.pbfPercent) : null,
+        maxLiftKg: newLog.maxLiftKg !== '' && newLog.maxLiftKg != null ? Number(newLog.maxLiftKg) : null,
         note: newLog.note.trim() || 'Tự đo tại trung tâm',
       };
       await recordBodyProgress(payload);

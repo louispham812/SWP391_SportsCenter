@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 
@@ -23,7 +23,7 @@ export default function ResetPasswordPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Kiểm tra độ mạnh mật khẩu theo thời gian thực
+  // Kiểm tra độ mạnh mật khẩu theo thời gian thực (khớp backend AuthService)
   const getPasswordStrength = (pass) => {
     if (!pass) return { score: 0, label: 'Chưa nhập', color: 'bg-slate-200', width: '0%' };
     let score = 0;
@@ -31,11 +31,12 @@ export default function ResetPasswordPage() {
     if (/[A-Z]/.test(pass)) score += 1;
     if (/[a-z]/.test(pass)) score += 1;
     if (/[0-9]/.test(pass)) score += 1;
+    if (/[@$!%*?&#]/.test(pass)) score += 1;
 
-    if (score <= 1) return { score: 1, label: 'Yếu', color: 'bg-red-500', width: '25%' };
-    if (score === 2) return { score: 2, label: 'Trung bình', color: 'bg-amber-500', width: '50%' };
-    if (score === 3) return { score: 3, label: 'Khá mạnh', color: 'bg-blue-500', width: '75%' };
-    return { score: 4, label: 'Rất mạnh (Tối ưu)', color: 'bg-emerald-500', width: '100%' };
+    if (score <= 2) return { score, label: 'Yếu', color: 'bg-red-500', width: '25%' };
+    if (score === 3) return { score, label: 'Trung bình', color: 'bg-amber-500', width: '55%' };
+    if (score === 4) return { score, label: 'Khá mạnh', color: 'bg-blue-500', width: '80%' };
+    return { score, label: 'Rất mạnh (Tối ưu)', color: 'bg-emerald-500', width: '100%' };
   };
 
   const strength = getPasswordStrength(newPassword);
@@ -140,12 +141,12 @@ export default function ResetPasswordPage() {
       {/* Main Container */}
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-10 my-4">
         <div className="w-full max-w-xl bg-white rounded-3xl border border-slate-200/90 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-          
+
           {/* Header Banner */}
           <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white p-6 sm:p-8 text-center relative overflow-hidden">
             <div className="absolute top-0 right-0 w-44 h-44 bg-orange-500/15 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-orange-500/10 rounded-full blur-2xl pointer-events-none"></div>
-            
+
             <div className="w-16 h-16 mx-auto rounded-2xl bg-orange-500/20 border border-orange-500/40 text-orange-400 flex items-center justify-center shadow-lg mb-4">
               <span className="material-symbols-outlined text-3xl">key</span>
             </div>
@@ -154,7 +155,7 @@ export default function ResetPasswordPage() {
               <span className="material-symbols-outlined text-[14px]">verified_user</span>
               <span>Bước Cuối Cùng</span>
             </div>
-            
+
             <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white">
               Tạo Mật Khẩu Mới
             </h1>
@@ -196,7 +197,7 @@ export default function ResetPasswordPage() {
 
           {/* Body Content */}
           <div className="p-6 sm:p-8 space-y-6">
-            
+
             {/* Warning if no resetToken */}
             {!resetToken && (
               <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold flex flex-col gap-2">
@@ -271,6 +272,7 @@ export default function ResetPasswordPage() {
                     />
                     <button
                       type="button"
+                      aria-label={showNew ? 'Ẩn mật khẩu mới' : 'Hiện mật khẩu mới'}
                       onClick={() => setShowNew(!showNew)}
                       className="absolute right-3.5 text-slate-400 hover:text-slate-700 transition-colors flex items-center cursor-pointer"
                     >
@@ -332,6 +334,7 @@ export default function ResetPasswordPage() {
                     />
                     <button
                       type="button"
+                      aria-label={showConfirm ? 'Ẩn xác nhận mật khẩu' : 'Hiện xác nhận mật khẩu'}
                       onClick={() => setShowConfirm(!showConfirm)}
                       className="absolute right-3.5 text-slate-400 hover:text-slate-700 transition-colors flex items-center cursor-pointer"
                     >

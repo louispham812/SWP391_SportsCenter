@@ -264,8 +264,6 @@ async function runPureDemo() {
     await naturalClick(page, refundTab, { dwellBefore: 250, dwellAfter: 1400 });
   }
 
-  await navigateMenu(page, 'aside a[href*="/admin/payment-reconciliation"]', '/admin/payment-reconciliation', 1500);
-
   // 1.7 Phân quyền & Cấu hình AI
   await navigateMenu(page, 'aside a[href*="/admin/settings"]', '/admin/settings', 1500);
   await smoothScroll(page, 480, 8, 55);

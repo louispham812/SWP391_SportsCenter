@@ -3,6 +3,8 @@ package com.sporthub.backend.service;
 
 import com.sporthub.backend.dto.AuthResponse;
 import com.sporthub.backend.dto.LoginRequest;
+import com.sporthub.backend.dto.RegisterRequest;
+import com.sporthub.backend.dto.VerifyOtpRequest;
 import com.sporthub.backend.entity.AuthSession;
 import com.sporthub.backend.entity.User;
 import com.sporthub.backend.repository.AuthSessionRepository;
@@ -163,6 +165,91 @@ class AuthServiceTest {
         );
 
         verify(sessionRepository, never()).save(any(AuthSession.class));
+    }
+
+    @Test
+    void registerCoachEntersPendingWithoutSportsAndSkipsOtpEmail() {
+        when(passwordEncoder.encode(anyString())).thenReturn("$2a$encoded");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            u.setUserId(42L);
+            return u;
+        });
+
+        AuthResponse response = authService.register(new RegisterRequest(
+                "HLV An",
+                "coach.an@example.com",
+                "0912345678",
+                "Coach@123",
+                "coach"
+        ));
+
+        assertEquals("COACH", response.getRole());
+        assertEquals("PENDING", response.getStatus());
+        verify(userRepository).save(argThat(u -> "COACH".equals(u.getRole()) && "PENDING".equals(u.getStatus()) && u.getSpecialty() == null));
+        verifyNoInteractions(verificationTokenRepository);
+        verify(emailService, never()).sendRegistrationOtpEmail(anyString(), anyString(), anyString());
+
+        User pendingCoach = User.builder()
+                .userId(42L)
+                .fullName("HLV An")
+                .email("coach.an@example.com")
+                .passwordHash("$2a$encoded")
+                .role("COACH")
+                .status("PENDING")
+                .build();
+        when(userRepository.findByEmailIgnoreCase("coach.an@example.com")).thenReturn(Optional.of(pendingCoach));
+        when(passwordEncoder.matches("Coach@123", "$2a$encoded")).thenReturn(true);
+
+        IllegalArgumentException verifyEx = assertThrows(IllegalArgumentException.class, () ->
+                authService.verifyEmail(new VerifyOtpRequest("coach.an@example.com", "123456")));
+        assertTrue(verifyEx.getMessage().contains("Quản lý phê duyệt"));
+
+        IllegalArgumentException loginEx = assertThrows(IllegalArgumentException.class, () ->
+                authService.login(createLoginRequest("coach.an@example.com", "Coach@123")));
+        assertTrue(loginEx.getMessage().contains("Quản lý phê duyệt"));
+    }
+
+    @Test
+    void registerReceptionistEntersPendingWithoutOtpAndRejectsPrivilegedRoles() {
+        when(passwordEncoder.encode(anyString())).thenReturn("$2a$encoded");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            u.setUserId(43L);
+            return u;
+        });
+
+        AuthResponse receptionist = authService.register(new RegisterRequest(
+                "Lễ Tân Mai",
+                "recep.mai@example.com",
+                "0912345670",
+                "Recep@123",
+                "RECEPTIONIST"
+        ));
+
+        assertEquals("RECEPTIONIST", receptionist.getRole());
+        assertEquals("PENDING", receptionist.getStatus());
+        verifyNoInteractions(verificationTokenRepository);
+        verify(emailService, never()).sendRegistrationOtpEmail(anyString(), anyString(), anyString());
+
+        assertThrows(IllegalArgumentException.class, () ->
+                authService.register(new RegisterRequest(
+                        "Fake Admin",
+                        "fake.admin@example.com",
+                        "0912345671",
+                        "Admin@123",
+                        "ADMIN"
+                ))
+        );
+        assertThrows(IllegalArgumentException.class, () ->
+                authService.register(new RegisterRequest(
+                        "Fake Manager",
+                        "fake.mgr@example.com",
+                        "0912345672",
+                        "Mgr@1234",
+                        "MANAGER"
+                ))
+        );
     }
 
     private LoginRequest createLoginRequest(String email, String password) {

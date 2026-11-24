@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import { sendBroadcast } from '../../services/engagementApi';
 

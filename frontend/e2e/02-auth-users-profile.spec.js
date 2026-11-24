@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginMember, loginReceptionist, loginManager, readMemberTestData, apiBaseUrl } from './helpers.js';
+import { loginMember, loginReceptionist, loginManager, readMemberTestData } from './helpers.js';
 
 test.describe('SUITE 2: Xác Thực, Phân Quyền Người Dùng & Hồ Sơ Cá Nhân (Auth, Users & Profile Persistence)', () => {
   test('1. Đăng ký & Duy trì phiên đăng nhập hội viên sau F5', async ({ page }) => {
@@ -31,11 +31,12 @@ test.describe('SUITE 2: Xác Thực, Phân Quyền Người Dùng & Hồ Sơ Cá
     const staffName = `HLV Kiểm Thử ${timestamp.toString().slice(-4)}`;
 
     try {
-      // 1. Trang tự đăng ký chỉ cho phép Hội viên (không còn nút chọn Huấn luyện viên / Lễ tân)
+      // 1. Trang tự đăng ký hiển thị 3 vai trò: Hội viên, Huấn luyện viên, Lễ tân
       await registerPage.goto('/register');
       await expect(registerPage.getByRole('heading', { name: /Chào Mừng Đến Với F Sport/i })).toBeVisible({ timeout: 7000 });
-      await expect(registerPage.getByRole('button', { name: 'Huấn luyện viên' })).toHaveCount(0);
-      await expect(registerPage.getByRole('button', { name: 'Lễ tân' })).toHaveCount(0);
+      await expect(registerPage.getByRole('button', { name: /Hội viên/i })).toBeVisible();
+      await expect(registerPage.getByRole('button', { name: /Huấn luyện viên/i })).toBeVisible();
+      await expect(registerPage.getByRole('button', { name: /Lễ tân/i })).toBeVisible();
 
       // 2. Admin/Manager vào /admin/staff tạo tài khoản COACH trực tiếp
       await loginManager(adminPage);
@@ -44,6 +45,9 @@ test.describe('SUITE 2: Xác Thực, Phân Quyền Người Dùng & Hồ Sơ Cá
 
       await adminPage.getByRole('button', { name: /Thêm người dùng mới/i }).click();
       await adminPage.locator('#create-user-role').selectOption('COACH');
+      const firstSportCheckbox = adminPage.locator('input[type="checkbox"]').first();
+      await expect(firstSportCheckbox).toBeVisible({ timeout: 5000 });
+      await firstSportCheckbox.check();
       await adminPage.getByPlaceholder('Ví dụ: Trần Văn Nam').fill(staffName);
       await adminPage.getByPlaceholder('0912 345 678').fill(staffPhone);
       await adminPage.getByPlaceholder('user@example.com').fill(staffEmail);

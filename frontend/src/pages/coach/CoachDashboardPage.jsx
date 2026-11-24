@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import CoachLayout from '../../components/layouts/CoachLayout';
 import { useApp } from '../../context/AppContext';
@@ -77,18 +77,18 @@ export default function CoachDashboardPage() {
   // Quick actions list for coach
   const quickActions = [
     {
-      title: 'Lịch giảng dạy tuần',
-      desc: 'Quản lý lịch ca dạy 7 ngày, theo dõi trùng giờ và ca kế tiếp',
+      title: 'Lịch dạy & Lịch rảnh',
+      desc: 'Quản lý lịch ca dạy 7 ngày và khai báo khung giờ rảnh nhận lớp',
       icon: 'calendar_month',
       path: '/coach/schedule',
       color: 'bg-orange-50 text-orange-600 group-hover:bg-orange-500 group-hover:text-white',
     },
     {
-      title: 'Học viên & Giáo án AI',
-      desc: 'Theo dõi mục tiêu thể chất, gợi ý giáo án AI và bài tập về nhà',
-      icon: 'groups',
-      path: '/coach/students',
-      color: 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white',
+      title: 'Đơn xin nghỉ & đổi ca',
+      desc: 'Gửi đơn xin nghỉ phép, yêu cầu đổi ca và theo dõi phê duyệt',
+      icon: 'free_cancellation',
+      path: '/coach/leave',
+      color: 'bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white',
     },
     {
       title: 'Điểm danh ca dạy',
@@ -98,6 +98,22 @@ export default function CoachDashboardPage() {
       color: 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white',
     },
     {
+      title: 'Học viên & Giáo án AI',
+      desc: 'Theo dõi mục tiêu thể chất, gợi ý giáo án AI và bài tập về nhà',
+      icon: 'groups',
+      path: '/coach/students',
+      color: 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white',
+    },
+    {
+      title: 'Thù lao & Doanh thu',
+      desc: income?.totalIncome != null
+        ? `Tổng thu nhập hiện tại: ${Number(income.totalIncome).toLocaleString()}₫ (${income.totalSessions || 0} ca)`
+        : 'Theo dõi thu nhập buổi dạy, tỷ lệ hoa hồng và bảng kê đối soát',
+      icon: 'payments',
+      path: '/coach/income',
+      color: 'bg-teal-50 text-teal-600 group-hover:bg-teal-600 group-hover:text-white',
+    },
+    {
       title: 'Đánh giá từ học viên',
       desc: 'Xem xếp hạng sao, nhận xét đóng góp ý kiến về chất lượng dạy',
       icon: 'star',
@@ -105,23 +121,27 @@ export default function CoachDashboardPage() {
       color: 'bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white',
     },
     {
-      title: 'Khai báo lịch rảnh & Nghỉ',
-      desc: 'Cập nhật khung giờ nhận lớp hoặc gửi đơn xin nghỉ đổi ca',
-      icon: 'more_time',
-      path: '/coach/schedule',
-      color: 'bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white',
+      title: 'Thông báo lịch dạy',
+      desc: 'Cập nhật lịch phân công, đăng ký học viên mới và nhắc nhở ca dạy',
+      icon: 'notifications',
+      path: '/coach/notifications',
+      color: 'bg-sky-50 text-sky-600 group-hover:bg-sky-600 group-hover:text-white',
     },
     {
-      title: 'Hồ sơ & Thẻ số HLV',
-      desc: 'Cập nhật bằng cấp, chứng chỉ thể thao và mã QR định danh HLV',
+      title: 'Hồ sơ & Thẻ HLV',
+      desc: 'Cập nhật thông tin cá nhân, bằng cấp và mã QR huấn luyện viên',
       icon: 'badge',
       path: '/coach/profile',
       color: 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white',
     },
   ];
 
-  const ratingAvg = feedbackStats?.averageRating || 4.9;
-  const ratingCount = feedbackStats?.totalFeedbacks || 18;
+  const rawAverage = feedbackStats?.average ?? feedbackStats?.averageRating;
+  const ratingAvg =
+    rawAverage != null && Number.isFinite(Number(rawAverage))
+      ? Number(rawAverage).toFixed(1)
+      : '0.0';
+  const ratingCount = feedbackStats?.count ?? feedbackStats?.totalFeedbacks ?? 0;
 
   return (
     <CoachLayout>
@@ -378,7 +398,7 @@ export default function CoachDashboardPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {quickActions.map((action) => (
               <Link
                 key={action.title}

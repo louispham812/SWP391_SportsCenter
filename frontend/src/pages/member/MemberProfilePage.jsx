@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { useApp } from '../../context/AppContext';
@@ -14,6 +14,8 @@ import {
 } from '../../services/memberApi';
 import { compressImageFile } from '../../utils/imageCompressor';
 import { getAvatarImageUrl, getAvatarInitials } from '../../utils/avatarHelper';
+import ActiveMemberPackages from '../../components/common/ActiveMemberPackages';
+import { getActiveMemberships, getTierBadgeStyle } from '../../utils/memberMemberships';
 
 export default function MemberProfilePage() {
   const { currentUser, updateProfile, showToast } = useApp();
@@ -21,7 +23,8 @@ export default function MemberProfilePage() {
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'health' | 'inbody'
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
-  const [membership, setMembership] = useState(null);
+  const [memberships, setMemberships] = useState([]);
+  const activeMemberships = getActiveMemberships(memberships);
   const [digitalCard, setDigitalCard] = useState(null);
   const [showQrModal, setShowQrModal] = useState(false);
   const [memberAvatar, setMemberAvatar] = useState('');
@@ -92,7 +95,7 @@ export default function MemberProfilePage() {
           pbf: health.pbfPercent ?? '',
           bmi: health.bmi ?? '',
         });
-        setMembership(memberships.find((item) => item.status === 'ACTIVE') || null);
+        setMemberships(memberships);
         if (card) {
           setDigitalCard(card);
         }
@@ -242,11 +245,11 @@ export default function MemberProfilePage() {
               <span>Đổi Mật Khẩu</span>
             </Link>
             <Link
-              to="/pricing"
+              to="/member/packages"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-xs transition-all shadow-sm shadow-orange-500/20 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">upgrade</span>
-              <span>Nâng Cấp Hạng Thẻ (Gold/Diamond)</span>
+              <span>Khám phá / Nâng cấp hạng hội viên</span>
             </Link>
           </div>
         </div>
@@ -300,13 +303,12 @@ export default function MemberProfilePage() {
                   </div>
                 </div>
                 <span className={`px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider ${
-                  digitalCard?.tier === 'VIP'
-                    ? 'bg-amber-500/20 border-amber-400/50 text-amber-300'
-                    : digitalCard?.tier === 'STANDARD'
-                    ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
-                    : 'bg-slate-800/90 border-slate-700 text-orange-400'
+                  getTierBadgeStyle(
+                    digitalCard?.tier || digitalCard?.tierBadge || (activeMemberships.length ? 'STANDARD' : 'BASIC'),
+                    'dark',
+                  )
                 }`}>
-                  {digitalCard?.tierBadge || (membership?.packageName ? 'HỘI VIÊN STANDARD' : 'HỘI VIÊN CHÍNH THỨC')}
+                  {digitalCard?.tierBadge || (activeMemberships.length ? 'HỘI VIÊN STANDARD' : 'HỘI VIÊN CHÍNH THỨC')}
                 </span>
               </div>
 
@@ -385,54 +387,7 @@ export default function MemberProfilePage() {
               </div>
             </div>
 
-            {/* Active Packages List Card */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-orange-500 text-[20px]">card_membership</span>
-                  <h3 className="font-bold text-slate-900 text-sm uppercase">Gói Tập Đang Kích Hoạt</h3>
-                </div>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  {digitalCard?.activePackages?.length || (membership ? 1 : 0)} gói
-                </span>
-              </div>
-
-              {digitalCard?.activePackages?.length ? (
-                <div className="space-y-2.5">
-                  {digitalCard.activePackages.map((pkg) => (
-                    <div key={pkg.membershipId} className="p-3 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-between">
-                      <div>
-                        <div className="font-bold text-slate-900 text-xs">{pkg.packageName}</div>
-                        <div className="text-[11px] text-slate-500 mt-0.5">
-                          {pkg.startDate} &rarr; {pkg.endDate}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className={`text-xs font-black px-2 py-1 rounded-md ${
-                          pkg.remainingDays > 10 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                        }`}>
-                          Còn {pkg.remainingDays} ngày
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : membership ? (
-                <div className="p-3 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-between">
-                  <div>
-                    <div className="font-bold text-slate-900 text-xs">{membership.packageName}</div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      Hạn: {membership.endDate || '—'}
-                    </div>
-                  </div>
-                  <span className="text-xs font-black px-2 py-1 rounded-md bg-emerald-100 text-emerald-800">
-                    Đang kích hoạt
-                  </span>
-                </div>
-              ) : (
-                <p className="text-xs text-slate-500 py-2 text-center">Chưa có gói tập nào đang kích hoạt.</p>
-              )}
-            </div>
+            <ActiveMemberPackages memberships={activeMemberships} />
 
             {/* Today Bookings Card */}
             {digitalCard?.todayBookings && digitalCard.todayBookings.length > 0 && (
@@ -769,7 +724,12 @@ export default function MemberProfilePage() {
 
                 <div className="p-3.5 bg-orange-50 border border-orange-200 rounded-2xl text-xs text-orange-800 font-bold flex items-center gap-2">
                   <span className="material-symbols-outlined text-[20px] text-orange-600">insights</span>
-                  <span>Chỉ số BMI tính toán tự động: {(inbodyForm.weight / Math.pow(inbodyForm.height / 100, 2)).toFixed(1)} (Bình thường / Thể hình)</span>
+                  <span>
+                    Chỉ số BMI tính toán tự động:{' '}
+                    {Number(inbodyForm.height) > 0 && Number(inbodyForm.weight) > 0
+                      ? `${(Number(inbodyForm.weight) / Math.pow(Number(inbodyForm.height) / 100, 2)).toFixed(1)} (Bình thường / Thể hình)`
+                      : 'Chưa đủ chiều cao & cân nặng để tính'}
+                  </span>
                 </div>
 
                 <button

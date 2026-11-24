@@ -74,7 +74,7 @@ class VNPayRefundTest {
         PaymentTransaction p = payment(); p.setBookingType("CLASS");
         when(payments.findById(2L)).thenReturn(Optional.of(p)); when(users.findById(9L)).thenReturn(Optional.of(User.builder().userId(9L).fullName("Member").build()));
         when(refunds.save(any())).thenAnswer(i -> { RefundRequest r = i.getArgument(0); r.setRefundId(1L); return r; });
-        BookingService service = new BookingService(bookingRepo, sessions, users, mock(PublicSportRepository.class), mock(PublicFacilityRepository.class), mock(SportsCourtRepository.class), mock(CourtBookingRepository.class), mock(CourtMaintenanceRepository.class), payments, mock(UserMembershipRepository.class), mock(MembershipPackageRepository.class), memberships, null, null, null, gateway, refunds, null);
+        BookingService service = new BookingService(bookingRepo, sessions, users, mock(PublicSportRepository.class), mock(PublicFacilityRepository.class), mock(SportsCourtRepository.class), mock(CourtBookingRepository.class), mock(CourtMaintenanceRepository.class), payments, mock(UserMembershipRepository.class), mock(MembershipPackageRepository.class), memberships, null, null, null, refunds, null);
         CancelBookingResponse result = service.cancelClassBooking(3L, 9L);
         assertEquals("PENDING_APPROVAL", result.getStatus()); assertEquals("CONFIRMED", b.getStatus()); assertEquals("PAID", p.getPaymentStatus());
         verifyNoInteractions(gateway);
@@ -109,7 +109,7 @@ class VNPayRefundTest {
         when(sessions.findByIdForUpdate(4L)).thenReturn(Optional.of(session));
         when(bookingRepo.countBySessionIdAndStatusIn(eq(4L), any())).thenReturn(1L);
         when(courtBookings.findByIdForUpdate(5L)).thenReturn(Optional.of(cb));
-        BookingService service = new BookingService(bookingRepo, sessions, users, mock(PublicSportRepository.class), mock(PublicFacilityRepository.class), mock(SportsCourtRepository.class), courtBookings, mock(CourtMaintenanceRepository.class), payments, mock(UserMembershipRepository.class), mock(MembershipPackageRepository.class), memberships, null, null, null, gateway, refunds, null);
+        BookingService service = new BookingService(bookingRepo, sessions, users, mock(PublicSportRepository.class), mock(PublicFacilityRepository.class), mock(SportsCourtRepository.class), courtBookings, mock(CourtMaintenanceRepository.class), payments, mock(UserMembershipRepository.class), mock(MembershipPackageRepository.class), memberships, null, null, null, refunds, null);
         service.restoreBookingAfterRefundRejection(3L, "CLASS");
         assertEquals("CONFIRMED", b.getStatus());
         assertEquals(1, session.getBookedSlots());

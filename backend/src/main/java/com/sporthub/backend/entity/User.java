@@ -1,9 +1,13 @@
 package com.sporthub.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
+import java.util.Objects;
+import java.util.Set;
 
 @Entity
 @Table(name = "users")
@@ -55,6 +59,16 @@ public class User {
     @Column(name = "availability_json", columnDefinition = "NVARCHAR(MAX)")
     private String availabilityJson;
 
+    @JsonIgnore
+    @Builder.Default
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "coach_sports",
+            joinColumns = @JoinColumn(name = "coach_id"),
+            inverseJoinColumns = @JoinColumn(name = "sport_id")
+    )
+    private Set<Sport> coachedSports = new LinkedHashSet<>();
+
     @Column(length = 20)
     private String gender;
 
@@ -80,4 +94,16 @@ public class User {
     
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof User other)) return false;
+        return userId != null && Objects.equals(userId, other.userId);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }

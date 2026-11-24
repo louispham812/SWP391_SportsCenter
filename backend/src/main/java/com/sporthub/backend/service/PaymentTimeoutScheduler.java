@@ -17,14 +17,16 @@ public class PaymentTimeoutScheduler {
     @org.springframework.beans.factory.annotation.Autowired private ClassSessionRepository sessions;
     @org.springframework.beans.factory.annotation.Autowired private UserMembershipRepository memberships;
     @org.springframework.beans.factory.annotation.Autowired private ReceptionPaymentRepository receipts;
-    @org.springframework.beans.factory.annotation.Autowired private VoucherService vouchers;
+    @org.springframework.beans.factory.annotation.Autowired(required = false) private VoucherService vouchers;
+    @org.springframework.beans.factory.annotation.Autowired(required = false) private SystemSettingRepository systemSettingRepository;
     public PaymentTimeoutScheduler(BookingRepository bookings, CourtBookingRepository courts, PaymentTransactionRepository payments, EngagementService engagement) {
         this.bookings = bookings; this.courts = courts; this.payments = payments; this.engagement = engagement;
     }
     @Scheduled(fixedDelay = 60000, initialDelay = 60000)
     @Transactional
     public void cancelUnpaidBookings() {
-        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(10);
+        int holdMinutes = com.sporthub.backend.util.SystemPolicyHelper.bookingHoldTimeoutMinutes(systemSettingRepository);
+        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(holdMinutes);
         for (Booking candidate : bookings.findByStatusIgnoreCaseAndBookingTimeBefore("BOOKED", cutoff)) {
             PaymentTransaction payment = candidate.getPaymentId() == null ? null : payments.findByIdForUpdate(candidate.getPaymentId()).orElse(null);
             Booking booking = bookings.findByIdForUpdate(candidate.getBookingId()).orElseThrow();

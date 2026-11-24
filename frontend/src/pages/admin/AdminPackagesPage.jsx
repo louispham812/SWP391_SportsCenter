@@ -1,11 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import { TableSkeleton } from '../../components/common/Skeleton';
 import {
   createManagerPackage,
   getManagerPackages,
   getManagerSports,
-  getManagerCoaches,
   updateManagerPackage,
   updateManagerPackageStatus,
 } from '../../services/managerApi';
@@ -13,11 +12,14 @@ import { apiRequest } from '../../services/apiClient';
 import { useApp } from '../../context/AppContext';
 
 const EMPTY_FORM = {
+  membershipTier: '',
   name: '',
   sportId: '',
   price: '',
   durationDays: '30',
   accessType: 'ALL_DAY',
+  quotaSessions: '0',
+  quotaCourts: '0',
   description: '',
   status: 'ACTIVE',
 };
@@ -45,18 +47,18 @@ const ACCESS_LABELS = {
 
 export default function AdminPackagesPage() {
   const { showToast } = useApp();
-  const [activeTab, setActiveTab] = useState('packages'); // 'packages' | 'vouchers' | 'pt_pricing'
+  const [activeTab, setActiveTab] = useState('packages');
 
   // Packages state
   const [packages, setPackages] = useState([]);
   const [sports, setSports] = useState([]);
-  const [coaches, setCoaches] = useState([]);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ACTIVE');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [processingId, setProcessingId] = useState(null);
   const [error, setError] = useState('');
+  const [formError, setFormError] = useState('');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -78,51 +80,19 @@ export default function AdminPackagesPage() {
     active: true,
   });
 
-  // PT Pricing state (MGR-04)
-  const [ptPricings, setPtPricings] = useState([]);
-  const [isPtModalOpen, setIsPtModalOpen] = useState(false);
-  const [ptForm, setPtForm] = useState({
-    coachId: '',
-    sportId: '',
-    packageName: '',
-    totalSessions: '10',
-    price: '',
-    durationMonths: '2',
-    description: '',
-  });
-
   const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const [packageData, sportData, coachData, voucherData] = await Promise.all([
+      const [packageData, sportData, voucherData] = await Promise.all([
         getManagerPackages(),
         getManagerSports(),
-        getManagerCoaches().catch(() => ({ content: [] })),
         apiRequest('/manager/vouchers'),
       ]);
       const pkgList = Array.isArray(packageData) ? packageData : [];
       const sptList = Array.isArray(sportData) ? sportData : [];
       setPackages(pkgList);
       setSports(sptList);
-      setCoaches(coachData.content || []);
-
-      const ptList = pkgList
-        .filter((p) => p.accessType === 'PT')
-        .map((p) => ({
-          pricingId: p.packageId,
-          packageName: p.name,
-          sportId: p.sportId,
-          sportName: sptList.find((s) => s.sportId === p.sportId)?.name || 'Bộ môn',
-          coachName: 'HLV F Sport',
-          totalSessions: p.quotaSessions || 10,
-          price: p.price,
-          pricePerSession: p.quotaSessions ? Math.round(p.price / p.quotaSessions) : 0,
-          durationMonths: Math.round(p.durationDays / 30) || 1,
-          description: p.description,
-          active: p.status === 'ACTIVE',
-        }));
-      setPtPricings(ptList);
 
       if (Array.isArray(voucherData)) {
         const mapped = voucherData.map((v) => ({
@@ -157,7 +127,6 @@ export default function AdminPackagesPage() {
       if (e.key === 'Escape') {
         setIsDrawerOpen(false);
         setIsVoucherModalOpen(false);
-        setIsPtModalOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -180,35 +149,70 @@ export default function AdminPackagesPage() {
   const openCreateForm = () => {
     setEditingPackage(null);
     setForm(EMPTY_FORM);
-    setError('');
+    setFormError('');
     setIsDrawerOpen(true);
   };
 
   const openEditForm = (membershipPackage) => {
     setEditingPackage(membershipPackage);
     setForm({
+      membershipTier: membershipPackage.membershipTier || '',
       name: membershipPackage.name || '',
       sportId: membershipPackage.sportId ? String(membershipPackage.sportId) : '',
       price: String(membershipPackage.price ?? ''),
       durationDays: String(membershipPackage.durationDays ?? 30),
       accessType: membershipPackage.accessType || 'ALL_DAY',
+      quotaSessions: String(membershipPackage.quotaSessions ?? 0),
+      quotaCourts: String(membershipPackage.quotaCourts ?? 0),
       description: membershipPackage.description || '',
       status: membershipPackage.status || 'ACTIVE',
     });
-    setError('');
+    setFormError('');
     setIsDrawerOpen(true);
   };
 
   const handleSave = async (event) => {
     event.preventDefault();
     setSaving(true);
-    setError('');
+    setFormError('');
+    const trimmedName = form.name.trim();
+    if (!trimmedName || trimmedName.length > 100) {
+      setFormError('Tên hạng hội viên là bắt buộc và tối đa 100 ký tự.');
+      setSaving(false);
+      return;
+    }
+    const price = Number(form.price);
+    if (!Number.isFinite(price) || price <= 0) {
+      setFormError('Giá niêm yết phải lớn hơn 0.');
+      setSaving(false);
+      return;
+    }
+    const durationDays = Number(form.durationDays);
+    if (!Number.isInteger(durationDays) || durationDays <= 0) {
+      setFormError('Thời hạn phải là số nguyên lớn hơn 0 ngày.');
+      setSaving(false);
+      return;
+    }
+    const quotaSessions = form.quotaSessions === '' ? 0 : Number(form.quotaSessions);
+    const quotaCourts = form.quotaCourts === '' ? 0 : Number(form.quotaCourts);
+    if (!Number.isInteger(quotaSessions) || quotaSessions < 0 || !Number.isInteger(quotaCourts) || quotaCourts < 0) {
+      setFormError('Số buổi tập và số giờ sân phải là số nguyên không âm.');
+      setSaving(false);
+      return;
+    }
+
+    const normalizedTier = form.membershipTier?.trim() || '';
+    const isPresetTier = ['BRONZE', 'SILVER', 'GOLD', 'DIAMOND'].includes(normalizedTier.toUpperCase());
+
     const payload = {
-      name: form.name.trim(),
+      membershipTier: isPresetTier ? normalizedTier.toUpperCase() : trimmedName,
+      name: trimmedName,
       sportId: form.sportId ? Number(form.sportId) : null,
-      price: Number(form.price),
-      durationDays: Number(form.durationDays),
+      price,
+      durationDays,
       accessType: form.accessType,
+      quotaSessions,
+      quotaCourts,
       description: form.description.trim() || null,
       status: form.status,
     };
@@ -223,7 +227,7 @@ export default function AdminPackagesPage() {
       await loadData();
       showToast('Thành công', 'Đã lưu cấu hình gói thành viên (Ghi Audit Log).', 'success');
     } catch (requestError) {
-      setError(requestError.message || 'Không thể lưu gói tập.');
+      setFormError(requestError.message || 'Không thể lưu gói tập.');
     } finally {
       setSaving(false);
     }
@@ -311,49 +315,6 @@ export default function AdminPackagesPage() {
     }
   };
 
-  // PT Pricing Handlers (MGR-04)
-  const openCreatePt = () => {
-    setPtForm({
-      coachId: coaches[0]?.userId || '',
-      sportId: sports[0]?.sportId || '',
-      packageName: '',
-      totalSessions: '10',
-      price: '',
-      durationMonths: '2',
-      description: '',
-    });
-    setIsPtModalOpen(true);
-  };
-
-  const handleSavePt = async (e) => {
-    e.preventDefault();
-    const coach = coaches.find((c) => String(c.userId) === String(ptForm.coachId));
-    const sport = sports.find((s) => String(s.sportId) === String(ptForm.sportId));
-    const totalSessions = Number(ptForm.totalSessions) || 10;
-    const price = Number(ptForm.price) || 0;
-    const durationDays = (Number(ptForm.durationMonths) || 2) * 30;
-
-    const payload = {
-      name: ptForm.packageName.trim() || `Gói PT ${sport?.name || ''} ${totalSessions} Buổi - ${coach?.fullName || ''}`,
-      sportId: Number(ptForm.sportId),
-      price,
-      durationDays,
-      accessType: 'PT',
-      quotaSessions: totalSessions,
-      description: ptForm.description.trim() || `Huấn luyện 1-1 chuyên nghiệp cùng HLV ${coach?.fullName || ''}`,
-      status: 'ACTIVE',
-    };
-
-    try {
-      await createManagerPackage(payload);
-      showToast('Tạo gói PT thành công', `Gói "${payload.name}" đã được lưu vào cơ sở dữ liệu.`, 'success');
-      setIsPtModalOpen(false);
-      await loadData();
-    } catch (err) {
-      showToast('Lỗi tạo gói PT', err.message || 'Không thể tạo gói PT.', 'error');
-    }
-  };
-
   const sportName = (sportId) => {
     if (!sportId) return 'Tất cả bộ môn';
     return sports.find((sport) => sport.sportId === sportId)?.name || `Bộ môn #${sportId}`;
@@ -370,11 +331,11 @@ export default function AdminPackagesPage() {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-              F SPORT ADMIN · GÓI DỊCH VỤ, VOUCHER &amp; PT
+              F SPORT ADMIN · HẠNG HỘI VIÊN &amp; VOUCHER
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Gói Tập, Voucher &amp; Bảng Giá PT</h1>
+            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Hạng Hội Viên &amp; Quyền Lợi</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Cấu hình gói thẻ hội viên, voucher khuyến mại gia hạn và bảng giá PT lẻ theo Coach.
+              Quản lý các hạng hội viên, quyền lợi và mã ưu đãi.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -385,7 +346,7 @@ export default function AdminPackagesPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">add</span>
-                Thêm gói tập mới
+                Thêm hạng hội viên
               </button>
             )}
             {activeTab === 'vouchers' && (
@@ -396,16 +357,6 @@ export default function AdminPackagesPage() {
               >
                 <span className="material-symbols-outlined text-[18px]">add_card</span>
                 Tạo voucher mới
-              </button>
-            )}
-            {activeTab === 'pt_pricing' && (
-              <button
-                type="button"
-                onClick={openCreatePt}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">fitness_center</span>
-                Tạo gói PT lẻ theo Coach
               </button>
             )}
             <button
@@ -423,9 +374,8 @@ export default function AdminPackagesPage() {
         {/* Navigation Tabs */}
         <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
           {[
-            { id: 'packages', label: `Gói hội viên & thẻ (${packages.length})`, icon: 'card_membership' },
+            { id: 'packages', label: `Hạng hội viên (${packages.length})`, icon: 'card_membership' },
             { id: 'vouchers', label: `Mã giảm giá & Voucher (${vouchers.length})`, icon: 'loyalty' },
-            { id: 'pt_pricing', label: `Bảng giá PT lẻ theo Coach (${ptPricings.length})`, icon: 'sports' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -496,7 +446,7 @@ export default function AdminPackagesPage() {
 
               {loading ? (
                 <div className="p-4">
-                  <TableSkeleton rows={6} cols={7} />
+                  <TableSkeleton rows={6} cols={8} />
                 </div>
               ) : filteredPackages.length === 0 ? (
                 <div className="px-5 py-14 text-center">
@@ -505,7 +455,7 @@ export default function AdminPackagesPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[760px] text-left text-sm">
+                  <table className="w-full min-w-[860px] text-left text-sm">
                     <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 font-bold whitespace-nowrap">
                       <tr>
                         <th className="px-5 py-3">Gói tập</th>
@@ -513,6 +463,7 @@ export default function AdminPackagesPage() {
                         <th className="px-5 py-3">Giá niêm yết</th>
                         <th className="px-5 py-3">Thời hạn</th>
                         <th className="px-5 py-3">Khung giờ</th>
+                        <th className="px-5 py-3">Quyền lợi</th>
                         <th className="px-5 py-3">Trạng thái</th>
                         <th className="px-5 py-3 text-right">Thao tác</th>
                       </tr>
@@ -531,6 +482,16 @@ export default function AdminPackagesPage() {
                             <td className="px-5 py-4 font-bold text-orange-600 whitespace-nowrap">{formatPrice(membershipPackage.price)}</td>
                             <td className="px-5 py-4 text-slate-700 whitespace-nowrap">{formatDuration(membershipPackage.durationDays)}</td>
                             <td className="px-5 py-4 text-slate-700 whitespace-nowrap">{ACCESS_LABELS[membershipPackage.accessType] || membershipPackage.accessType}</td>
+                            <td className="px-5 py-4 text-slate-700 whitespace-nowrap">
+                              <div className="flex flex-col text-xs">
+                                <span className="font-semibold text-slate-800">
+                                  {membershipPackage.quotaSessions ?? 0} buổi tập
+                                </span>
+                                <span className="text-slate-500">
+                                  {membershipPackage.quotaCourts ?? 0} giờ sân
+                                </span>
+                              </div>
+                            </td>
                             <td className="px-5 py-4 whitespace-nowrap">
                               <span
                                 className={`inline-flex rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap ${
@@ -673,64 +634,6 @@ export default function AdminPackagesPage() {
           </section>
         )}
 
-        {/* ========================================================
-            TAB 3: BẢNG GIÁ GÓI PT LẺ THEO COACH (MGR-04, PT_PRICING)
-           ======================================================== */}
-        {activeTab === 'pt_pricing' && (
-          <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm space-y-4">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">Bảng giá gói huấn luyện viên cá nhân (PT)</h2>
-                <p className="text-xs text-slate-500">
-                  Manager cấu hình các gói 10, 20, 30 buổi gắn với từng Huấn luyện viên và bộ môn cụ thể
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={openCreatePt}
-                className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider shadow-2xs cursor-pointer flex items-center gap-1.5"
-              >
-                <span className="material-symbols-outlined text-[16px]">add</span>
-                <span>Tạo gói PT mới</span>
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 uppercase text-slate-500 font-bold">
-                  <tr>
-                    <th className="px-5 py-3">Tên gói PT</th>
-                    <th className="px-5 py-3">Huấn luyện viên</th>
-                    <th className="px-5 py-3">Bộ môn</th>
-                    <th className="px-5 py-3">Số buổi &amp; Thời hạn</th>
-                    <th className="px-5 py-3">Giá trọn gói</th>
-                    <th className="px-5 py-3">Giá TB / buổi</th>
-                    <th className="px-5 py-3">Mô tả</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {ptPricings.map((pt) => (
-                    <tr key={pt.pricingId} className="hover:bg-slate-50">
-                      <td className="px-5 py-4 font-bold text-slate-900 text-sm">{pt.packageName}</td>
-                      <td className="px-5 py-4 text-slate-700 font-semibold">{pt.coachName}</td>
-                      <td className="px-5 py-4">
-                        <span className="px-2 py-0.5 rounded-md bg-orange-50 text-orange-700 font-bold border border-orange-200">
-                          {pt.sportName}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-slate-700">
-                        {pt.totalSessions} Buổi · {pt.durationMonths} Tháng
-                      </td>
-                      <td className="px-5 py-4 font-black text-orange-600 text-sm">{formatPrice(pt.price)}</td>
-                      <td className="px-5 py-4 font-semibold text-slate-800">{formatPrice(pt.pricePerSession)}</td>
-                      <td className="px-5 py-4 max-w-xs text-slate-500 truncate">{pt.description}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
       </main>
 
       {/* Package Drawer */}
@@ -744,7 +647,7 @@ export default function AdminPackagesPage() {
           <div className="h-full w-full max-w-lg overflow-y-auto bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <h2 className="text-lg font-bold text-slate-900">
-                {editingPackage ? 'Cập nhật gói tập' : 'Tạo gói tập mới'}
+                {editingPackage ? 'Cập nhật hạng hội viên' : 'Tạo hạng hội viên'}
               </h2>
               <button
                 type="button"
@@ -756,42 +659,30 @@ export default function AdminPackagesPage() {
             </div>
 
             <form onSubmit={handleSave} className="mt-6 space-y-4">
-              {error && (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600 font-semibold">
-                  {error}
+              {formError && (
+                <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600 font-semibold">
+                  {formError}
                 </div>
               )}
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-700">Tên gói tập *</label>
+                <label htmlFor="packageName" className="block text-xs font-bold uppercase text-slate-700">
+                  Tên hạng hội viên *
+                </label>
                 <input
-                  required
                   id="packageName"
                   name="name"
-                  aria-label="Tên gói tập"
+                  type="text"
+                  required
+                  maxLength={100}
+                  aria-label="Tên hạng hội viên"
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Tên gói tập (Ví dụ: Gói VIP Diamond 2026)"
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
+                  placeholder="Ví dụ: Hạng Bạch Kim, Hạng Đồng, Gói VIP..."
                   className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none focus:border-orange-500"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-slate-700">Bộ môn áp dụng</label>
-                <select
-                  id="packageSportId"
-                  name="sportId"
-                  aria-label="Bộ môn áp dụng"
-                  value={form.sportId}
-                  onChange={(e) => setForm({ ...form, sportId: e.target.value })}
-                  className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none focus:border-orange-500 cursor-pointer"
-                >
-                  <option value="">Tất cả bộ môn</option>
-                  {sports.map((sport) => (
-                    <option key={sport.sportId} value={sport.sportId}>
-                      {sport.sportName || sport.name}
-                    </option>
-                  ))}
-                </select>
+                <p className="mt-2 text-xs text-slate-500">
+                  Nhập tên hạng hội viên tùy ý (tối đa 100 ký tự). Áp dụng mọi bộ môn theo khung giờ và quyền lợi đã cấu hình.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -800,7 +691,7 @@ export default function AdminPackagesPage() {
                   <input
                     type="number"
                     required
-                    min={0}
+                    min={1}
                     id="packagePrice"
                     name="price"
                     aria-label="Giá niêm yết"
@@ -843,6 +734,43 @@ export default function AdminPackagesPage() {
                 </select>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="packageQuotaSessions" className="block text-xs font-bold uppercase text-slate-700">
+                    Số buổi tập (buổi)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    id="packageQuotaSessions"
+                    name="quotaSessions"
+                    aria-label="Số buổi tập"
+                    value={form.quotaSessions}
+                    onChange={(e) => setForm({ ...form, quotaSessions: e.target.value })}
+                    placeholder="0"
+                    className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none focus:border-orange-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="packageQuotaCourts" className="block text-xs font-bold uppercase text-slate-700">
+                    Số giờ sân (giờ)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    id="packageQuotaCourts"
+                    name="quotaCourts"
+                    aria-label="Số giờ sân"
+                    value={form.quotaCourts}
+                    onChange={(e) => setForm({ ...form, quotaCourts: e.target.value })}
+                    placeholder="0"
+                    className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-700">Mô tả gói</label>
                 <textarea
@@ -870,7 +798,7 @@ export default function AdminPackagesPage() {
                   disabled={saving}
                   className="rounded-xl bg-orange-500 hover:bg-orange-600 px-5 py-2 text-xs font-bold uppercase text-white shadow-sm cursor-pointer"
                 >
-                  {saving ? 'Đang lưu...' : 'Lưu gói tập'}
+                  {saving ? 'Đang lưu...' : 'Lưu hạng hội viên'}
                 </button>
               </div>
             </form>
@@ -1030,138 +958,6 @@ export default function AdminPackagesPage() {
         </div>
       )}
 
-      {/* PT Package Modal (MGR-04) */}
-      {isPtModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
-          <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">
-                Tạo Bảng Giá Gói PT Lẻ Theo Coach
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsPtModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleSavePt} className="space-y-3.5">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold uppercase text-slate-700">Huấn Luyện Viên *</label>
-                  <select
-                    required
-                    value={ptForm.coachId}
-                    onChange={(e) => setPtForm({ ...ptForm, coachId: e.target.value })}
-                    className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none cursor-pointer"
-                  >
-                    <option value="">-- Chọn Coach --</option>
-                    {coaches.map((c) => (
-                      <option key={c.userId} value={c.userId}>{c.fullName}</option>
-                    ))}
-                    <option value="2">Coach Nguyễn Văn A</option>
-                    <option value="3">Coach Lê Minh</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-bold uppercase text-slate-700">Bộ môn *</label>
-                  <select
-                    required
-                    value={ptForm.sportId}
-                    onChange={(e) => setPtForm({ ...ptForm, sportId: e.target.value })}
-                    className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none cursor-pointer"
-                  >
-                    <option value="">-- Chọn bộ môn --</option>
-                    {sports.map((s) => (
-                      <option key={s.sportId} value={s.sportId}>{s.sportName || s.name}</option>
-                    ))}
-                    <option value="1">Tennis</option>
-                    <option value="2">Pickleball</option>
-                    <option value="3">Gym &amp; Fitness</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold uppercase text-slate-700">Tên gói PT *</label>
-                <input
-                  required
-                  value={ptForm.packageName}
-                  onChange={(e) => setPtForm({ ...ptForm, packageName: e.target.value })}
-                  placeholder="VD: Gói PT Tennis 10 Buổi - Coach Nguyễn Văn A"
-                  className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-bold outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="text-xs font-bold uppercase text-slate-700">Tổng buổi *</label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    value={ptForm.totalSessions}
-                    onChange={(e) => setPtForm({ ...ptForm, totalSessions: e.target.value })}
-                    className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-bold outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold uppercase text-slate-700">Giá trọn gói (VNĐ) *</label>
-                  <input
-                    type="number"
-                    required
-                    min={0}
-                    value={ptForm.price}
-                    onChange={(e) => setPtForm({ ...ptForm, price: e.target.value })}
-                    placeholder="3500000"
-                    className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-bold text-orange-600 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold uppercase text-slate-700">Hạn (tháng) *</label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    value={ptForm.durationMonths}
-                    onChange={(e) => setPtForm({ ...ptForm, durationMonths: e.target.value })}
-                    className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-bold outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold uppercase text-slate-700">Mô tả gói PT (điểm nổi bật, mục tiêu)</label>
-                <textarea
-                  rows={2}
-                  value={ptForm.description}
-                  onChange={(e) => setPtForm({ ...ptForm, description: e.target.value })}
-                  placeholder="VD: Chuyên môn nâng cao kỹ thuật phát bóng, cải thiện thể lực 1-1..."
-                  className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs outline-none resize-none"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsPtModalOpen(false)}
-                  className="rounded-xl border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-orange-500 hover:bg-orange-600 px-5 py-2 text-xs font-bold uppercase text-white shadow-sm cursor-pointer"
-                >
-                  Lưu Gói PT
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </AdminLayout>
   );
 }

@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CoachLayout from '../../components/layouts/CoachLayout';
+import ModalDialog from '../../components/common/ModalDialog';
 import { useApp } from '../../context/AppContext';
 import QrCodeSvg from '../../components/common/QrCodeSvg';
 import {
@@ -11,15 +12,22 @@ import {
 import { compressImageFile } from '../../utils/imageCompressor';
 import { getAvatarImageUrl, getAvatarInitials } from '../../utils/avatarHelper';
 
+const PROFILE_TABS = [
+  { id: 'profile', label: 'Thông tin cá nhân', icon: 'badge' },
+  { id: 'specialty', label: 'Hồ sơ chuyên môn & Chứng chỉ', icon: 'workspace_premium' },
+  { id: 'schedule_reviews', label: 'Lớp dạy & Đánh giá học viên', icon: 'star' },
+];
+
 export default function CoachProfilePage() {
   const { currentUser, updateProfile, showToast } = useApp();
 
-  const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'specialty' | 'schedule_reviews'
+  const [activeTab, setActiveTab] = useState('profile');
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
   const [showQrModal, setShowQrModal] = useState(false);
   const [coachAvatar, setCoachAvatar] = useState('');
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const qrContainerRef = useRef(null);
 
   const [coachData, setCoachData] = useState(null);
   const [profileForm, setProfileForm] = useState({
@@ -189,7 +197,7 @@ export default function CoachProfilePage() {
 
   const handleDownloadQr = () => {
     const qrText = `SPORTHUB-COACH-${currentUser?.id || coachData?.userId || 0}`;
-    const svgElement = document.getElementById('coach-digital-qr-svg');
+    const svgElement = qrContainerRef.current?.querySelector('svg');
     if (svgElement) {
       const svgData = new XMLSerializer().serializeToString(svgElement);
       const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
@@ -273,25 +281,32 @@ export default function CoachProfilePage() {
         </div>
 
         {/* Tab Selection */}
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-          {[
-            { id: 'profile', label: 'Thông tin cá nhân', icon: 'badge' },
-            { id: 'specialty', label: 'Hồ sơ chuyên môn & Chứng chỉ', icon: 'workspace_premium' },
-            { id: 'schedule_reviews', label: 'Lớp dạy & Đánh giá học viên', icon: 'star' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === tab.id
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
-              <span>{tab.label}</span>
-            </button>
-          ))}
+        <div
+          role="tablist"
+          aria-label="Danh mục hồ sơ huấn luyện viên"
+          className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto"
+        >
+          {PROFILE_TABS.map((tab) => {
+            const isSelected = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                id={`profile-tab-${tab.id}`}
+                type="button"
+                role="tab"
+                aria-selected={isSelected}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                  isSelected
+                    ? 'bg-slate-900 text-white border border-slate-900 shadow-sm'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -355,7 +370,7 @@ export default function CoachProfilePage() {
 
               {/* QR Code Section inside Card */}
               <div className="relative z-10 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md flex flex-col sm:flex-row items-center gap-4">
-                <div className="bg-white p-2.5 rounded-xl shadow-lg shrink-0 flex items-center justify-center">
+                <div ref={qrContainerRef} className="bg-white p-2.5 rounded-xl shadow-lg shrink-0 flex items-center justify-center">
                   <QrCodeSvg
                     text={qrCodeText}
                     size={130}
@@ -405,7 +420,7 @@ export default function CoachProfilePage() {
                   <h3 className="font-bold text-slate-900 text-sm uppercase">Năng Lực &amp; Hiệu Suất</h3>
                 </div>
                 <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
-                  {specialtyForm.experienceYears || 5} năm kinh nghiệm
+                  {specialtyForm.experienceYears ?? 5} năm kinh nghiệm
                 </span>
               </div>
 
@@ -436,7 +451,7 @@ export default function CoachProfilePage() {
                     <span className="material-symbols-outlined text-[18px] text-amber-500">star</span>
                   </div>
                   <div className="text-xl font-black text-amber-900 flex items-center gap-1">
-                    {coachData?.averageRating ? coachData.averageRating.toFixed(1) : '5.0'}
+                    {(coachData?.totalReviewsCount ?? 0) > 0 && coachData?.averageRating ? Number(coachData.averageRating).toFixed(1) : '0.0'}
                     <span className="text-xs font-bold text-amber-600">/ 5.0</span>
                   </div>
                 </div>
@@ -479,6 +494,7 @@ export default function CoachProfilePage() {
                     <h3 className="font-bold text-slate-900 text-sm uppercase">Nhận Xét Gần Đây</h3>
                   </div>
                   <button
+                    type="button"
                     onClick={() => setActiveTab('schedule_reviews')}
                     className="text-xs font-bold text-orange-600 hover:text-orange-700 cursor-pointer"
                   >
@@ -491,7 +507,7 @@ export default function CoachProfilePage() {
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-slate-800">{rev.memberName}</span>
                         <div className="flex items-center text-amber-500 text-[13px]">
-                          {'★'.repeat(rev.rating || 5)}
+                          {'★'.repeat(Math.max(0, Math.min(5, Math.round(rev.rating || 0))))}
                         </div>
                       </div>
                       <p className="text-slate-600 text-[11px] italic line-clamp-2">"{rev.comment}"</p>
@@ -506,7 +522,12 @@ export default function CoachProfilePage() {
           <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
             {/* Tab 1: Thông tin cá nhân */}
             {activeTab === 'profile' && (
-              <form onSubmit={handleSaveProfile} className="space-y-5">
+              <form
+                role="tabpanel"
+                aria-labelledby="profile-tab-profile"
+                onSubmit={handleSaveProfile}
+                className="space-y-5"
+              >
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div>
                     <h2 className="font-headline-sm text-lg font-bold text-slate-900 uppercase">
@@ -686,7 +707,12 @@ export default function CoachProfilePage() {
 
             {/* Tab 2: Hồ sơ chuyên môn & Chứng chỉ */}
             {activeTab === 'specialty' && (
-              <form onSubmit={handleSaveSpecialty} className="space-y-4">
+              <form
+                role="tabpanel"
+                aria-labelledby="profile-tab-specialty"
+                onSubmit={handleSaveSpecialty}
+                className="space-y-4"
+              >
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div>
                     <h2 className="font-headline-sm text-lg font-bold text-slate-900 uppercase">
@@ -764,9 +790,13 @@ export default function CoachProfilePage() {
               </form>
             )}
 
-            {/* Tab 3: Lớp dạy & Đánh giá học viên */}
+            {/* Lớp dạy và đánh giá học viên */}
             {activeTab === 'schedule_reviews' && (
-              <div className="space-y-5">
+              <div
+                role="tabpanel"
+                aria-labelledby="profile-tab-schedule_reviews"
+                className="space-y-5"
+              >
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div>
                     <h2 className="font-headline-sm text-lg font-bold text-slate-900 uppercase">
@@ -791,19 +821,19 @@ export default function CoachProfilePage() {
                 <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className="text-4xl font-black text-amber-600">
-                      {coachData?.averageRating ? coachData.averageRating.toFixed(1) : '5.0'}
+                      {(coachData?.totalReviewsCount ?? 0) > 0 && coachData?.averageRating ? Number(coachData.averageRating).toFixed(1) : '0.0'}
                     </div>
                     <div>
                       <div className="flex items-center text-amber-500 text-base">
-                        {'★'.repeat(Math.round(coachData?.averageRating || 5))}
+                        {(coachData?.totalReviewsCount ?? 0) > 0 && coachData?.averageRating ? '★'.repeat(Math.round(coachData.averageRating)) : '☆☆☆☆☆'}
                       </div>
                       <p className="text-xs text-slate-600 font-medium mt-0.5">
                         Dựa trên <strong>{coachData?.totalReviewsCount || 0}</strong> lượt đánh giá từ học viên
                       </p>
                     </div>
                   </div>
-                  <div className="text-xs text-emerald-700 font-bold bg-white px-3 py-1.5 rounded-xl border border-emerald-200 shadow-xs">
-                    ✓ Điểm uy tín huấn luyện: 100% Đạt Chuẩn
+                  <div className={`text-xs font-bold bg-white px-3 py-1.5 rounded-xl border shadow-xs ${(coachData?.totalReviewsCount ?? 0) > 0 ? 'text-emerald-700 border-emerald-200' : 'text-slate-500 border-slate-200'}`}>
+                    {(coachData?.totalReviewsCount ?? 0) > 0 ? `✓ Điểm uy tín huấn luyện: ${Number(coachData.averageRating || 0).toFixed(1)}/5.0` : 'Chưa có lượt đánh giá'}
                   </div>
                 </div>
 
@@ -852,61 +882,67 @@ export default function CoachProfilePage() {
       </div>
 
       {/* Modal Phóng To Mã QR Thẻ Huấn Luyện Viên */}
-      {showQrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 !m-0">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl border border-slate-200 text-center space-y-4 animate-in fade-in zoom-in duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-ping"></span>
-                <span className="text-xs font-black uppercase tracking-wider text-slate-800">Mã QR Huấn Luyện Viên</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowQrModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
+      <ModalDialog
+        open={showQrModal}
+        onClose={() => setShowQrModal(false)}
+        titleId="coach-qr-modal-title"
+        maxWidthClass="max-w-sm"
+      >
+        <div className="p-6 sm:p-8 text-center space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-ping"></span>
+              <h2 id="coach-qr-modal-title" className="text-xs font-black uppercase tracking-wider text-slate-800">
+                Mã QR Huấn Luyện Viên
+              </h2>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowQrModal(false)}
+              aria-label="Đóng hộp thoại mã QR"
+              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+          </div>
 
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col items-center justify-center">
-              <QrCodeSvg
-                id="coach-digital-qr-svg"
-                text={qrCodeText}
-                size={220}
-              />
-              <div className="mt-3 font-mono text-xs font-bold text-slate-700 bg-white px-3 py-1.5 rounded-lg border border-slate-300 select-all">
-                {qrCodeText}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <h4 className="font-bold text-slate-900 text-sm">{profileForm.fullName || currentUser?.name}</h4>
-              <p className="text-xs text-slate-500">
-                Đưa mã QR này vào máy quét tại quầy lễ tân hoặc sân tập để check-in ca giảng dạy tức thì.
-              </p>
-            </div>
-
-            <div className="pt-2 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleDownloadQr}
-                className="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[16px]">download</span>
-                <span>Tải Mã QR</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowQrModal(false)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
-              >
-                Đóng
-              </button>
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col items-center justify-center">
+            <QrCodeSvg
+              text={qrCodeText}
+              size={220}
+            />
+            <div className="mt-3 font-mono text-xs font-bold text-slate-700 bg-white px-3 py-1.5 rounded-lg border border-slate-300 select-all">
+              {qrCodeText}
             </div>
           </div>
+
+          <div className="space-y-1">
+            <h3 className="font-bold text-slate-900 text-sm">{profileForm.fullName || currentUser?.name}</h3>
+            <p className="text-xs text-slate-500">
+              Đưa mã QR này vào máy quét tại quầy lễ tân hoặc sân tập để check-in ca giảng dạy tức thì.
+            </p>
+          </div>
+
+          <div className="pt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadQr}
+              className="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">download</span>
+              <span>Tải Mã QR</span>
+            </button>
+            <button
+              type="button"
+              autoFocus
+              onClick={() => setShowQrModal(false)}
+              className="flex-1 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
+            >
+              Đóng
+            </button>
+          </div>
         </div>
-      )}
+      </ModalDialog>
     </CoachLayout>
   );
 }

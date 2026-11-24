@@ -18,11 +18,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @CrossOrigin(origins = "*")
 public class SupportTicketController {
+
+    private static final Set<String> VALID_STATUSES = Set.of("SUBMITTED", "IN_REVIEW", "RESOLVED", "REJECTED");
 
     private final SupportTicketRepository ticketRepository;
     private final UserRepository userRepository;
@@ -57,7 +61,82 @@ public class SupportTicketController {
             @RequestBody CreateTicketRequest req,
             Authentication auth) {
         Long memberId = getUserId(auth);
-        User user = userRepository.findById(memberId)
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(createTicketForMember(memberId, req, memberId, "MEMBER", false));
+    }
+
+    @GetMapping("/api/v1/manager/tickets")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<SupportTicketDTO>> getAllTicketsForManager(Authentication auth) {
+        requireAnyRole(auth, "MANAGER", "ADMIN");
+        return ResponseEntity.ok(ticketRepository.findAllByOrderByCreatedAtDesc().stream().map(this::toDTO).toList());
+    }
+
+    @PostMapping("/api/v1/manager/tickets")
+    @Transactional
+    public ResponseEntity<SupportTicketDTO> createTicketByManager(
+            @RequestBody CreateTicketRequest req,
+            Authentication auth) {
+        String role = requireAnyRole(auth, "MANAGER", "ADMIN");
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(createTicketForMember(requireMemberId(req), req, getUserId(auth), role, true));
+    }
+
+    @PostMapping("/api/v1/manager/tickets/{id}/reply")
+    @Transactional
+    public ResponseEntity<SupportTicketDTO> replyTicket(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            Authentication auth) {
+        String role = requireAnyRole(auth, "MANAGER", "ADMIN");
+        return ResponseEntity.ok(processReply(id, body, getUserId(auth), role));
+    }
+
+    @GetMapping({"/api/v1/receptionist/tickets", "/api/v1/reception/tickets"})
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<SupportTicketDTO>> getAllTicketsForReceptionist(Authentication auth) {
+        requireAnyRole(auth, "RECEPTIONIST", "MANAGER", "ADMIN");
+        return ResponseEntity.ok(ticketRepository.findAllByOrderByCreatedAtDesc().stream().map(this::toDTO).toList());
+    }
+
+    @PostMapping({"/api/v1/receptionist/tickets", "/api/v1/reception/tickets"})
+    @Transactional
+    public ResponseEntity<SupportTicketDTO> createTicketByReceptionist(
+            @RequestBody CreateTicketRequest req,
+            Authentication auth) {
+        String role = requireAnyRole(auth, "RECEPTIONIST", "MANAGER", "ADMIN");
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(createTicketForMember(requireMemberId(req), req, getUserId(auth), role, true));
+    }
+
+    @PostMapping({"/api/v1/receptionist/tickets/{id}/reply", "/api/v1/reception/tickets/{id}/reply"})
+    @Transactional
+    public ResponseEntity<SupportTicketDTO> replyTicketByReceptionist(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            Authentication auth) {
+        String role = requireAnyRole(auth, "RECEPTIONIST", "MANAGER", "ADMIN");
+        return ResponseEntity.ok(processReply(id, body, getUserId(auth), role));
+    }
+
+    private Long requireMemberId(CreateTicketRequest req) {
+        if (req == null || req.memberId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng chọn hội viên cần tạo yêu cầu hỗ trợ.");
+        }
+        return req.memberId();
+    }
+
+    private SupportTicketDTO createTicketForMember(
+            Long memberId,
+            CreateTicketRequest req,
+            Long actorId,
+            String actorRole,
+            boolean notifyMember) {
+        if (req == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dữ liệu khiếu nại không hợp lệ.");
+        }
+        User member = userRepository.findById(memberId)
+                .filter(u -> !notifyMember || "MEMBER".equalsIgnoreCase(u.getRole()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng."));
 
         if (req.title() == null || req.title().isBlank() || req.description() == null || req.description().isBlank()) {
@@ -70,59 +149,70 @@ public class SupportTicketController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nội dung khiếu nại phải có ít nhất 10 ký tự (BR-15).");
         }
 
+        String category = req.category() != null && !req.category().isBlank()
+                ? req.category().trim().toUpperCase(Locale.ROOT)
+                : "OTHER";
+        String severity = "URGENT".equalsIgnoreCase(req.severity()) ? "URGENT" : "NORMAL";
+
         SupportTicket ticket = SupportTicket.builder()
                 .memberId(memberId)
-                .memberName(user.getFullName())
-                .category(req.category() != null ? req.category() : "OTHER")
+                .memberName(member.getFullName())
+                .category(category)
                 .title(req.title().trim())
                 .description(req.description().trim())
-                .severity(req.severity() != null ? req.severity() : "NORMAL")
+                .severity(severity)
                 .status("SUBMITTED")
                 .createdAt(LocalDateTime.now())
                 .build();
 
         SupportTicket saved = ticketRepository.save(ticket);
         if (engagementService != null) {
-            engagementService.audit(memberId, "MEMBER", "SUPPORT_TICKET_CREATED",
-                    "ticketId=" + saved.getTicketId() + ", category=" + saved.getCategory() + ", title=" + saved.getTitle());
+            engagementService.audit(actorId, actorRole, "SUPPORT_TICKET_CREATED",
+                    "ticketId=" + saved.getTicketId() + ", memberId=" + memberId
+                            + ", category=" + saved.getCategory() + ", title=" + saved.getTitle());
+            if (notifyMember) {
+                engagementService.notifyUser(memberId, "Yêu cầu hỗ trợ đã được ghi nhận",
+                        "Trung tâm đã tiếp nhận ticket \"" + saved.getTitle() + "\" thay mặt bạn.", "SUPPORT");
+            }
         }
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(toDTO(saved));
+        return toDTO(saved);
     }
 
-    @GetMapping("/api/v1/manager/tickets")
-    @Transactional(readOnly = true)
-    public ResponseEntity<List<SupportTicketDTO>> getAllTicketsForManager() {
-        return ResponseEntity.ok(ticketRepository.findAllByOrderByCreatedAtDesc().stream().map(this::toDTO).toList());
-    }
-
-    @PostMapping("/api/v1/manager/tickets/{id}/reply")
-    @Transactional
-    public ResponseEntity<SupportTicketDTO> replyTicket(
-            @PathVariable Long id,
-            @RequestBody Map<String, String> body,
-            Authentication auth) {
+    private SupportTicketDTO processReply(Long id, Map<String, String> body, Long actorId, String actorRole) {
         SupportTicket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy khiếu nại."));
 
-        String reply = body.get("response");
-        String status = body.getOrDefault("status", "RESOLVED");
+        String reply = body == null ? null : body.get("response");
+        String rawStatus = body == null ? null : body.get("status");
+        String status = rawStatus == null || rawStatus.isBlank()
+                ? "RESOLVED"
+                : rawStatus.trim().toUpperCase(Locale.ROOT);
+        if (!VALID_STATUSES.contains(status)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trạng thái xử lý ticket không hợp lệ.");
+        }
 
-        if (reply != null) {
+        if (reply != null && !reply.isBlank()) {
             ticket.setAdminResponse(reply.trim());
         }
         ticket.setStatus(status);
 
         SupportTicket saved = ticketRepository.save(ticket);
-        if (engagementService != null && auth != null) {
-            Long managerId = getUserId(auth);
-            engagementService.audit(managerId, "MANAGER", "SUPPORT_TICKET_REPLIED",
+        if (engagementService != null) {
+            engagementService.audit(actorId, actorRole, "SUPPORT_TICKET_REPLIED",
                     "ticketId=" + id + ", status=" + saved.getStatus());
+            String responderLabel = "RECEPTIONIST".equals(actorRole) ? "Lễ tân" : "Quản lý";
+            String statusLabel = switch (saved.getStatus()) {
+                case "IN_REVIEW" -> "Đang xử lý";
+                case "RESOLVED" -> "Đã giải quyết";
+                case "REJECTED" -> "Từ chối";
+                default -> saved.getStatus();
+            };
             engagementService.notifyUser(saved.getMemberId(), "Phản hồi khiếu nại",
-                    "Khiếu nại \"" + saved.getTitle() + "\" của bạn đã có phản hồi từ Quản lý.", "SUPPORT");
+                    "Khiếu nại \"" + saved.getTitle() + "\" của bạn đã được " + responderLabel + " cập nhật (" + statusLabel + ").", "SUPPORT");
         }
 
-        return ResponseEntity.ok(toDTO(saved));
+        return toDTO(saved);
     }
 
     private SupportTicketDTO toDTO(SupportTicket t) {
@@ -137,6 +227,24 @@ public class SupportTicketController {
                 t.getStatus(),
                 t.getAdminResponse(),
                 t.getCreatedAt());
+    }
+
+    private String requireAnyRole(Authentication auth, String... allowedRoles) {
+        if (auth == null || auth.getAuthorities() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập.");
+        }
+        String role = auth.getAuthorities().stream()
+                .map(a -> a.getAuthority())
+                .filter(a -> a != null && a.startsWith("ROLE_"))
+                .map(a -> a.substring("ROLE_".length()).toUpperCase(Locale.ROOT))
+                .findFirst()
+                .orElse("");
+        for (String allowed : allowedRoles) {
+            if (allowed.equals(role)) {
+                return role;
+            }
+        }
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền truy cập chức năng hỗ trợ này.");
     }
 
     private Long getUserId(Authentication auth) {

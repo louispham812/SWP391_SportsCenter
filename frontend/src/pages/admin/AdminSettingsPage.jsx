@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import { useApp } from '../../context/AppContext';
-import { getAuditLogs } from '../../services/engagementApi';
+import { getAuditLogs, getSystemSettings, updateSystemSettings } from '../../services/engagementApi';
 import { getAiConfig, updateAiConfig } from '../../services/managerApi';
-import { apiRequest } from '../../services/apiClient';
 
 // Initial Mock System Policies
 const INITIAL_POLICIES = {
   bookingHoldTimeoutMinutes: 10,
   cancelRefundDeadlineHours: 2,
-  coachCommissionPercent: 70,
+  coachCommissionPercent: 40,
   maxAdvanceBookingDays: 14,
   guestCourtDepositPercent: 50,
   checkInGracePeriodMinutes: 15,
@@ -124,18 +123,17 @@ export default function AdminSettingsPage() {
 
   const [auditFilter, setAuditFilter] = useState('ALL');
   const [auditSearch, setAuditSearch] = useState('');
-  const [loadingAudit, setLoadingAudit] = useState(false);
 
   // Load Policies & Permissions from Database (MGR-14 / MGR-02)
   useEffect(() => {
     let active = true;
-    apiRequest('/manager/settings')
+    getSystemSettings()
       .then((data) => {
         if (!active || !data) return;
         if (data.policies) {
           try {
             const parsed = typeof data.policies === 'string' ? JSON.parse(data.policies) : data.policies;
-            if (parsed && typeof parsed === 'object') setPolicies(parsed);
+            if (parsed && typeof parsed === 'object') setPolicies((prev) => ({ ...prev, ...parsed }));
           } catch {}
         }
         if (data.permissions) {
@@ -149,10 +147,10 @@ export default function AdminSettingsPage() {
     return () => { active = false; };
   }, []);
 
-  // AI Config State (MGR-15)
+  // AI Config State
   const [aiConfig, setAiConfig] = useState({
     ai_enabled: true,
-    ai_model: 'gpt-4o-mini',
+    ai_model: 'gemini-flash-lite-latest',
     ai_temperature: 0.7,
     ai_system_prompt: '',
   });
@@ -168,7 +166,7 @@ export default function AdminSettingsPage() {
           if (active && data) {
             setAiConfig({
               ai_enabled: data.ai_enabled === true || String(data.ai_enabled) === 'true',
-              ai_model: data.ai_model || 'gpt-4o-mini',
+              ai_model: data.ai_model || 'gemini-flash-lite-latest',
               ai_temperature: data.ai_temperature != null ? Number(data.ai_temperature) : 0.7,
               ai_system_prompt: data.ai_system_prompt || '',
             });
@@ -205,21 +203,21 @@ export default function AdminSettingsPage() {
   // Fetch real-time Audit Logs from DB via engagementApi (MGR-14)
   useEffect(() => {
     let active = true;
-    setLoadingAudit(true);
+
     getAuditLogs()
       .then((data) => {
         if (active && Array.isArray(data)) {
           const dbLogs = data.map((item) => ({
             id: `db-${item.logId}`,
             timestamp: item.createdAt || new Date().toISOString(),
-            userName: item.actorName || (item.actorId ? `User #${item.actorId}` : 'Hệ thống'),
+            userName: item.actorName || item.userEmail || (item.actorId ? `User #${item.actorId}` : 'Hệ thống'),
             userRole: item.actorRole || 'SYSTEM',
-            action: item.action,
-            entity: 'DATABASE',
+            action: item.action || item.logType || 'SYSTEM',
+            entity: item.logType || 'DATABASE',
             entityId: `#${item.logId}`,
-            description: item.detail || item.action,
-            ipAddress: '127.0.0.1 (DB)',
-            status: 'SUCCESS',
+            description: item.detail || item.actionDetail || item.action || 'Không có mô tả',
+            ipAddress: item.ipAddress || '127.0.0.1 (DB)',
+            status: item.status || 'SUCCESS',
             isDbRecord: true,
           }));
           setAuditLogs(dbLogs);
@@ -227,9 +225,6 @@ export default function AdminSettingsPage() {
       })
       .catch((err) => {
         console.warn('Không thể tải audit logs từ database:', err);
-      })
-      .finally(() => {
-        if (active) setLoadingAudit(false);
       });
 
     return () => {
@@ -240,10 +235,7 @@ export default function AdminSettingsPage() {
   const savePolicies = async (e) => {
     e.preventDefault();
     try {
-      await apiRequest('/manager/settings', {
-        method: 'PUT',
-        body: JSON.stringify({ policies }),
-      });
+      await updateSystemSettings({ policies });
       showToast('Thành công', 'Đã lưu cấu hình chính sách vận hành vào database.', 'success');
     } catch (err) {
       showToast('Lỗi', err.message || 'Không thể lưu chính sách.', 'error');
@@ -252,10 +244,7 @@ export default function AdminSettingsPage() {
 
   const savePermissions = async () => {
     try {
-      await apiRequest('/manager/settings', {
-        method: 'PUT',
-        body: JSON.stringify({ permissions }),
-      });
+      await updateSystemSettings({ permissions });
       showToast('Thành công', 'Đã cập nhật Ma trận Phân quyền vào database.', 'success');
     } catch (err) {
       showToast('Lỗi', err.message || 'Không thể lưu phân quyền.', 'error');
@@ -269,8 +258,34 @@ export default function AdminSettingsPage() {
     setPermissions(updated);
   };
 
+  const AUDIT_FILTER_GROUPS = {
+    MAINTENANCE: ['MAINTENANCE_CREATED', 'MAINTENANCE_EXTENDED', 'MAINTENANCE_DELETED', 'COURT_STATUS_UPDATED'],
+    REFUND: ['REFUND_DECIDED', 'REFUND_REQUEST_CREATED'],
+    COACH_LEAVE: ['COACH_LEAVE_REQUEST_CREATED', 'COACH_LEAVE_REASSIGNED', 'COACH_LEAVE_REJECTED'],
+    SUPPORT_TICKET: ['SUPPORT_TICKET_CREATED', 'SUPPORT_TICKET_REPLIED'],
+    MEMBERSHIP: ['MEMBERSHIP_APPROVED', 'MEMBERSHIP_REJECTED', 'CREATE_USER_ADMIN_PANEL'],
+    BOOKING_ATTENDANCE: [
+      'ATTENDANCE_UPDATED',
+      'BOOKING_RESCHEDULE',
+      'COURT_BOOKING_QUOTA',
+      'RECEPTION_CLASS_ENROLL',
+      'RECEPTION_CLASS_CANCEL',
+      'CASH_COLLECTED',
+      'PAYMENT_CONFIRMED',
+    ],
+    AUTH: ['LOGIN', 'REGISTER', 'LOGOUT', 'CHANGE_PASSWORD'],
+  };
+
   const filteredLogs = auditLogs.filter((log) => {
-    if (auditFilter !== 'ALL' && log.action !== auditFilter && log.entity !== auditFilter) return false;
+    if (auditFilter !== 'ALL') {
+      const actionUpper = String(log.action || '').toUpperCase();
+      const entityUpper = String(log.entity || '').toUpperCase();
+      const groupActions = AUDIT_FILTER_GROUPS[auditFilter];
+      const matchesGroup = groupActions
+        ? groupActions.includes(actionUpper) || actionUpper.includes(auditFilter)
+        : actionUpper === auditFilter || entityUpper === auditFilter;
+      if (!matchesGroup) return false;
+    }
     if (auditSearch.trim()) {
       const q = auditSearch.toLowerCase();
       return (
@@ -413,7 +428,7 @@ export default function AdminSettingsPage() {
                   onChange={(e) => setPolicies({ ...policies, coachCommissionPercent: Number(e.target.value) })}
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm font-bold bg-white focus:ring-2 focus:ring-orange-500"
                 />
-                <p className="text-[11px] text-slate-500">Phần trăm thù lao HLV nhận được từ các gói dạy PT lẻ.</p>
+                <p className="text-[11px] text-slate-500">Phần trăm thù lao HLV nhận được trên doanh thu lớp / buổi PT.</p>
               </div>
 
               <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
@@ -491,7 +506,7 @@ export default function AdminSettingsPage() {
                   <tr>
                     <th className="py-3 px-4 border-r border-slate-200">Phân Hệ / Tính Năng</th>
                     <th className="py-3 px-3 text-center border-r border-slate-200 bg-red-50/50 text-red-900">
-                      ADMIN / MANAGER
+                      QUẢN LÝ (MANAGER)
                     </th>
                     <th className="py-3 px-3 text-center border-r border-slate-200 bg-blue-50/50 text-blue-900">
                       LỄ TÂN (RECEPTIONIST)
@@ -627,13 +642,15 @@ export default function AdminSettingsPage() {
                 >
                   <option value="ALL">Tất cả hành động</option>
                   <option value="UPDATE_SETTINGS">Cập nhật thiết lập (UPDATE_SETTINGS)</option>
-                  <option value="CREATE_FACILITY">Thêm sân bãi (CREATE_FACILITY)</option>
-                  <option value="APPROVE_REFUND">Duyệt hoàn tiền (APPROVE_REFUND)</option>
-                  <option value="SYSTEM_MAINTENANCE">Bảo trì hệ thống</option>
-                  <option value="APPROVE">Duyệt (APPROVE)</option>
-                  <option value="REASSIGN_COACH">Đổi Coach (REASSIGN_COACH)</option>
-                  <option value="RENT_EQUIPMENT">Mượn dụng cụ</option>
-                  <option value="CREATE">Tạo mới</option>
+                  <option value="UPDATE_AI_CONFIG">Cấu hình AI (UPDATE_AI_CONFIG)</option>
+                  <option value="BROADCAST_SENT">Gửi thông báo (BROADCAST_SENT)</option>
+                  <option value="MAINTENANCE">Bảo trì &amp; Sân bãi</option>
+                  <option value="REFUND">Hoàn tiền (Refund)</option>
+                  <option value="COACH_LEAVE">Nghỉ phép &amp; Đổi HLV</option>
+                  <option value="SUPPORT_TICKET">Phiếu hỗ trợ (Tickets)</option>
+                  <option value="MEMBERSHIP">Hội viên &amp; Tài khoản</option>
+                  <option value="BOOKING_ATTENDANCE">Đặt lịch, Thu tiền &amp; Điểm danh</option>
+                  <option value="AUTH">Xác thực (Login / Password)</option>
                 </select>
               </div>
             </div>
@@ -675,7 +692,7 @@ export default function AdminSettingsPage() {
                         {log.isDbRecord ? (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 text-[10px]">
                             <span className="material-symbols-outlined text-[12px]">database</span>
-                            DB SQL
+                            CSDL
                           </span>
                         ) : (
                           <span className="text-slate-400">{log.ipAddress}</span>
@@ -753,10 +770,10 @@ export default function AdminSettingsPage() {
                       onChange={(e) => setAiConfig({ ...aiConfig, ai_model: e.target.value })}
                       className="w-full rounded-xl border border-slate-300 bg-white p-3 text-xs font-bold text-slate-800 outline-none focus:border-orange-500"
                     >
-                      <option value="gpt-4o-mini">OpenAI GPT-4o Mini (Khuyên dùng - Nhanh, chuẩn xác, tiết kiệm)</option>
-                      <option value="gpt-4o">OpenAI GPT-4o (Đỉnh cao đa phương thức &amp; phân tích nâng cao)</option>
-                      <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (Xử lý ngữ cảnh siêu nhanh)</option>
-                      <option value="claude-3-5-sonnet">Anthropic Claude 3.5 Sonnet (Chất lượng phản hồi xuất sắc)</option>
+                      <option value="gemini-flash-lite-latest">Google Gemini Flash Lite Latest (Mặc định hệ thống)</option>
+                      <option value="gemini-2.5-flash-lite">Google Gemini 2.5 Flash Lite</option>
+                      <option value="gemini-2.5-flash">Google Gemini 2.5 Flash (Ngữ cảnh cân bằng)</option>
+                      <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (Tốc độ cao)</option>
                     </select>
                     <p className="text-[11px] text-slate-500">
                       Mô hình được gọi để xử lý các câu hỏi về lịch học, đặt sân và chế độ tập luyện của hội viên.

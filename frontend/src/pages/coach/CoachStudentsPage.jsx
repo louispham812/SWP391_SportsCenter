@@ -1,16 +1,17 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import CoachLayout from '../../components/layouts/CoachLayout';
 import { getCoachStudents, getUpcomingClasses } from '../../services/bookingApi';
 import { generateCoachPlan } from '../../services/aiAssistantApi';
 import { createWorkoutPlan, createClassWorkoutPlan, getMemberWorkoutProgress, recordBodyProgress } from '../../services/workoutApi';
 import { sendCoachNotice } from '../../services/coachApi';
-import { CardGridSkeleton } from '../../components/common/Skeleton';
+import { TableSkeleton } from '../../components/common/Skeleton';
+import ModalDialog from '../../components/common/ModalDialog';
 import { useApp } from '../../context/AppContext';
 import Pagination from '../../components/common/Pagination';
 import { getAvatarImageUrl } from '../../utils/avatarHelper';
 import FormattedAiText from '../../components/common/FormattedAiText';
-import { cleanMarkdownText } from '../../utils/markdownUtils';
+import { parseAiWorkoutPlan } from '../../utils/markdownUtils';
 
 const SESSION_STATUS_META = {
   PRESENT: { label: 'Có mặt', className: 'bg-emerald-100 text-emerald-800' },
@@ -22,6 +23,47 @@ const SESSION_STATUS_META = {
   WAITLIST: { label: 'Danh sách chờ', className: 'bg-sky-100 text-sky-800' },
   CANCELLED: { label: 'Đã hủy', className: 'bg-slate-200 text-slate-600' },
 };
+
+const NO_INJURY_VALUES = new Set([
+  'không',
+  'không có',
+  'không có gì',
+  'không chấn thương',
+  'không có chấn thương',
+  'không ghi nhận',
+  'không ghi nhận chấn thương',
+  'không có tiền sử chấn thương',
+  'chưa có',
+  'chưa ghi nhận',
+  'chưa cập nhật',
+  'bình thường',
+  'ổn định',
+  'none',
+  'no',
+  'n/a',
+  'na',
+  'nil',
+  'normal',
+  '-',
+  '--',
+]);
+
+const hasInjuryAlert = (injuryHistory) => {
+  const raw = (injuryHistory || '').trim();
+  if (!raw) return false;
+  const normalized = raw.toLowerCase().replace(/[.!;]+$/g, '').trim();
+  return Boolean(normalized) && !NO_INJURY_VALUES.has(normalized);
+};
+
+const formatSessionDateTime = (value) =>
+  new Date(value).toLocaleString('vi-VN', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
 export default function CoachStudentsPage() {
   const [students, setStudents] = useState([]);
@@ -38,9 +80,13 @@ export default function CoachStudentsPage() {
   const [generatingBookingId, setGeneratingBookingId] = useState(null);
   const [plans, setPlans] = useState({});
   const [planErrors, setPlanErrors] = useState({});
+  const [selectedStudentForSessions, setSelectedStudentForSessions] = useState(null);
+  const [aiModalContext, setAiModalContext] = useState(null);
 
   // PT Workout Plan & Evaluation Modal State (COA-07..10 & Class-wide plans)
   const [selectedStudentForPlan, setSelectedStudentForPlan] = useState(null);
+  const [activePlanBookingId, setActivePlanBookingId] = useState(null);
+  const [fillingAiTemplate, setFillingAiTemplate] = useState(false);
   const [planScope, setPlanScope] = useState('individual'); // 'individual' | 'class'
   const [selectedSessionIdForClassPlan, setSelectedSessionIdForClassPlan] = useState('');
   const [modalTab, setModalTab] = useState('create'); // 'create' | 'history'
@@ -204,9 +250,11 @@ export default function CoachStudentsPage() {
         selectedClassFilter === 'ALL' ||
         student.sessions.some((s) => s.className === selectedClassFilter);
 
+      const normalizedLevel = (student.fitnessLevel || 'BEGINNER').toUpperCase();
       const matchesLevel =
         selectedLevelFilter === 'ALL' ||
-        (student.fitnessLevel || 'BEGINNER').toUpperCase() === selectedLevelFilter.toUpperCase();
+        normalizedLevel === selectedLevelFilter.toUpperCase() ||
+        (selectedLevelFilter === 'INTERMEDIATE' && normalizedLevel === 'AMATEUR');
 
       return matchesSearch && matchesClass && matchesLevel;
     });
@@ -223,16 +271,14 @@ export default function CoachStudentsPage() {
     return filteredStudents.slice(start, start + STUDENTS_PER_PAGE);
   }, [filteredStudents, currentPage]);
 
-  const totalEnrollments = useMemo(() => {
-    return students.reduce((sum, s) => sum + s.sessions.length, 0);
-  }, [students]);
-
   // Open plan modal for individual student
-  const openPlanModal = async (student) => {
+  const openPlanModal = async (student, sessionOverride = null) => {
     setSelectedStudentForPlan(student);
     setPlanScope('individual');
-    if (student?.sessions?.[0]?.sessionId) {
-      setSelectedSessionIdForClassPlan(String(student.sessions[0].sessionId));
+    const preferredSession = sessionOverride || student?.sessions?.[0] || null;
+    setActivePlanBookingId(preferredSession?.bookingId ?? null);
+    if (preferredSession?.sessionId) {
+      setSelectedSessionIdForClassPlan(String(preferredSession.sessionId));
     }
     setModalTab('create');
     setPlanForm({
@@ -290,32 +336,79 @@ export default function CoachStudentsPage() {
     });
   };
 
-  const handleFillAiTemplate = () => {
-    const availableAiPlan = selectedStudentForPlan?.sessions
-      ?.map((s) => plans[s.bookingId])
-      .find((p) => Boolean(p));
+  const handleFillAiTemplate = async () => {
+    const bookingId =
+      activePlanBookingId ||
+      selectedStudentForPlan?.sessions?.find((s) => plans[s.bookingId])?.bookingId ||
+      selectedStudentForPlan?.sessions?.[0]?.bookingId ||
+      null;
+
+    let availableAiPlan =
+      (bookingId ? plans[bookingId] : null) ||
+      selectedStudentForPlan?.sessions?.map((s) => plans[s.bookingId]).find(Boolean) ||
+      null;
+
+    if (!availableAiPlan && bookingId && planScope === 'individual') {
+      setFillingAiTemplate(true);
+      try {
+        const result = await generateCoachPlan(bookingId, planForm.goal || '');
+        if (result?.answer) {
+          availableAiPlan = result.answer;
+          setPlans((current) => ({ ...current, [bookingId]: result.answer }));
+        }
+      } catch (err) {
+        showToast({
+          title: 'Dùng mẫu chuẩn',
+          message: err?.message || 'Chưa kết nối được AI, tạm điền giáo án thể lực chuẩn.',
+          type: 'warning',
+        });
+      } finally {
+        setFillingAiTemplate(false);
+      }
+    }
+
+    const fallbackExercises = [
+      { name: 'Barbell Back Squat', sets: 4, reps: 8, weightKg: 60, note: 'Kiểm soát nhịp hạ tạ 3 giây' },
+      { name: 'Romanian Deadlift (RDL)', sets: 4, reps: 10, weightKg: 50, note: 'Kéo căng cơ đùi sau và siết mông' },
+      { name: 'Dumbbell Incline Bench Press', sets: 3, reps: 12, weightKg: 20, note: 'Mở rộng ngực, thở đều' },
+      { name: 'Agility Ladder Drills (Bộ chân)', sets: 4, reps: 20, weightKg: 0, note: 'Tăng tốc độ guồng chân và thăng bằng' },
+    ];
+
+    const parsed = availableAiPlan
+      ? parseAiWorkoutPlan(availableAiPlan, {
+          goal: planForm.goal || 'Tối ưu theo giáo án phân tích từ AI SportHub',
+          sessionResult: 'Đã đồng bộ cấu trúc buổi tập từ gợi ý AI SportHub.',
+          homework: 'Duy trì phục hồi, giãn cơ 10 phút và bổ sung đủ nước & protein.',
+        })
+      : null;
 
     setPlanForm((prev) => ({
       ...prev,
       title: planScope === 'class'
         ? 'Lộ trình Rèn luyện Đồng bộ - Cả Lớp'
-        : `Lộ trình Thể lực Nâng cao - ${selectedStudentForPlan?.name || 'Học viên'}`,
-      goal: availableAiPlan ? 'Tối ưu theo giáo án phân tích từ AI SportHub' : 'Tối ưu hóa sức mạnh bộc phát, nâng cao 1RM tạ và tốc độ phản xạ thể thao',
-      exercises: [
-        { name: 'Barbell Back Squat', sets: 4, reps: 8, weightKg: 60, note: 'Kiểm soát nhịp hạ tạ 3 giây' },
-        { name: 'Romanian Deadlift (RDL)', sets: 4, reps: 10, weightKg: 50, note: 'Kéo căng cơ đùi sau và siết mông' },
-        { name: 'Dumbbell Incline Bench Press', sets: 3, reps: 12, weightKg: 20, note: 'Mở rộng ngực, thở đều' },
-        { name: 'Agility Ladder Drills (Bộ chân)', sets: 4, reps: 20, weightKg: 0, note: 'Tăng tốc độ guồng chân và thăng bằng' },
-      ],
-      sessionResult: 'Học viên hoàn thành đầy đủ các hiệp, kỹ thuật chuẩn xác và biên độ tối ưu.',
-      coachFeedback: availableAiPlan
-        ? `[Gợi ý AI]: ${availableAiPlan.slice(0, 300)}...`
-        : 'Kỹ thuật cải thiện đáng kể, biên độ chuyển động đạt chuẩn thi đấu.',
-      homework: 'Chạy bộ biến tốc HIIT 15 phút, nạp 1.8g protein/kg và ngủ đủ 8 tiếng.',
+        : prev.title?.trim() || `Lộ trình Thể lực Nâng cao - ${selectedStudentForPlan?.name || 'Học viên'}`,
+      goal:
+        parsed?.goal ||
+        (availableAiPlan
+          ? 'Tối ưu theo giáo án phân tích từ AI SportHub'
+          : 'Tối ưu hóa sức mạnh bộc phát, nâng cao 1RM tạ và tốc độ phản xạ thể thao'),
+      exercises:
+        parsed && parsed.exercises.length > 0 ? parsed.exercises : fallbackExercises,
+      sessionResult:
+        parsed?.sessionResult ||
+        'Học viên hoàn thành đầy đủ các hiệp, kỹ thuật chuẩn xác và biên độ tối ưu.',
+      coachFeedback:
+        parsed?.coachFeedback ||
+        'Kỹ thuật cải thiện đáng kể, biên độ chuyển động đạt chuẩn thi đấu.',
+      homework:
+        parsed?.homework ||
+        'Chạy bộ biến tốc HIIT 15 phút, nạp 1.8g protein/kg và ngủ đủ 8 tiếng.',
     }));
     showToast({
       title: 'Đã áp dụng mẫu',
-      message: availableAiPlan ? 'Đã tích hợp nội dung phân tích từ AI vào giáo án.' : 'Đã điền giáo án thể lực chuẩn khoa học.',
+      message: parsed
+        ? `Đã bóc tách ${parsed.exercises.length || fallbackExercises.length} bài tập và nhận xét từ AI vào biểu mẫu.`
+        : 'Đã điền giáo án thể lực chuẩn khoa học.',
       type: 'info',
     });
   };
@@ -455,6 +548,17 @@ export default function CoachStudentsPage() {
     }
   };
 
+  const handleOpenAiForSession = (student, session) => {
+    if (!session || !session.bookingId) {
+      showToast({ title: 'Cảnh báo', message: 'Học viên chưa có mã đặt lịch (bookingId) hợp lệ để tạo giáo án AI.', type: 'warning' });
+      return;
+    }
+    // Close the class-list modal before opening the AI plan modal
+    setSelectedStudentForSessions(null);
+    setAiModalContext({ student, session });
+    void handleGeneratePlan(student, session);
+  };
+
   // Open Notice Modal
   const openNoticeModal = (target) => {
     if (target?.memberId) {
@@ -529,11 +633,12 @@ export default function CoachStudentsPage() {
   const getFitnessLevelBadge = (level) => {
     switch ((level || '').toUpperCase()) {
       case 'ADVANCED':
-        return <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-[10px] font-black uppercase">Nâng cao</span>;
+        return <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-[10px] font-black uppercase whitespace-nowrap">Nâng cao</span>;
       case 'INTERMEDIATE':
-        return <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 text-[10px] font-black uppercase">Trung cấp</span>;
+      case 'AMATEUR':
+        return <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 text-[10px] font-black uppercase whitespace-nowrap">Trung cấp</span>;
       default:
-        return <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase">Mới bắt đầu</span>;
+        return <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase whitespace-nowrap">Mới bắt đầu</span>;
     }
   };
 
@@ -593,8 +698,10 @@ export default function CoachStudentsPage() {
             />
             {searchQuery && (
               <button
+                type="button"
+                aria-label="Xóa tìm kiếm"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 text-slate-400 hover:text-slate-600 text-xs"
+                className="absolute right-3 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
               >
                 ✕
               </button>
@@ -637,7 +744,7 @@ export default function CoachStudentsPage() {
         )}
 
         {loading ? (
-          <CardGridSkeleton count={6} cols="grid gap-4 md:grid-cols-2 xl:grid-cols-3" />
+          <TableSkeleton rows={6} cols={4} />
         ) : filteredStudents.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 flex flex-col items-center justify-center gap-2">
             <span className="material-symbols-outlined text-3xl text-slate-300">groups</span>
@@ -645,206 +752,172 @@ export default function CoachStudentsPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 items-stretch">
-              {paginatedStudents.map((student) => {
-              // Check if student has overlapping sessions with this coach
-              const hasStudentTimeConflict = student.sessions.some((s1, idx) =>
-                student.sessions.some(
-                  (s2, idx2) =>
-                    idx !== idx2 &&
-                    new Date(s1.startTime).getTime() === new Date(s2.startTime).getTime()
-                )
-              );
+            <section
+              aria-label="Danh sách học viên"
+              className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+            >
+              {/* Desktop Column Headers */}
+              <div className="hidden xl:grid xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1.4fr)_minmax(0,1.05fr)_148px] gap-4 px-5 py-3 bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <span>Thông tin học viên</span>
+                <span>Thể trạng &amp; Mục tiêu</span>
+                <span>Lớp đăng ký</span>
+                <span className="text-right">Thao tác</span>
+              </div>
 
-              return (
-                <article
-                  key={student.id}
-                  className={`rounded-2xl border p-5 shadow-sm transition-all h-full flex flex-col justify-between ${
-                    hasStudentTimeConflict
-                      ? 'border-rose-300 bg-rose-50/20'
-                      : 'border-slate-200 bg-white hover:border-orange-300'
-                  }`}
-                >
-                  <div>
-                    {/* Top row: Avatar & Basic Info */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-3">
+              <div className="divide-y divide-slate-200">
+                {paginatedStudents.map((student) => {
+                  const hasStudentTimeConflict = student.sessions.some((s1, idx) =>
+                    student.sessions.some(
+                      (s2, idx2) =>
+                        idx !== idx2 &&
+                        new Date(s1.startTime).getTime() === new Date(s2.startTime).getTime()
+                    )
+                  );
+                  const injuryDetected = hasInjuryAlert(student.injuryHistory);
+
+                  return (
+                    <article
+                      key={student.id}
+                      className={`grid grid-cols-1 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1.4fr)_minmax(0,1.05fr)_148px] gap-4 p-4 sm:p-5 items-center transition-colors ${
+                        hasStudentTimeConflict
+                          ? 'bg-rose-50/25 hover:bg-rose-50/40'
+                          : 'bg-white hover:bg-slate-50/60'
+                      }`}
+                    >
+                      {/* Col 1: Thông tin (#ID, trình độ, SĐT/email) */}
+                      <div className="flex items-start gap-3 min-w-0">
                         {getAvatarImageUrl(student.avatar) ? (
                           <img
                             src={getAvatarImageUrl(student.avatar)}
                             alt={student.name}
-                            className="h-12 w-12 rounded-xl object-cover border border-slate-200 shadow-xs shrink-0"
+                            className="h-11 w-11 rounded-xl object-cover border border-slate-200 shadow-xs shrink-0"
                           />
                         ) : (
-                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 font-black text-white text-sm shadow-sm shadow-orange-500/20 shrink-0">
+                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 font-black text-white text-sm shadow-sm shadow-orange-500/20 shrink-0">
                             {student.name ? student.name.slice(0, 2).toUpperCase() : 'HV'}
                           </div>
                         )}
-                        <div className="min-w-0">
-                          <h2 className="truncate font-bold text-slate-900 text-sm">{student.name}</h2>
-                          <p className="text-xs text-slate-500 font-medium">{student.phone || 'Chưa có số ĐT'}</p>
-                          {student.email && (
-                            <p className="text-[11px] text-slate-400 truncate">{student.email}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-extrabold uppercase whitespace-nowrap">
-                          ID: #{student.id}
-                        </span>
-                        {getFitnessLevelBadge(student.fitnessLevel)}
-                      </div>
-                    </div>
-
-                    {/* ITEM 2: HỒ SƠ THỂ LỰC & CHỈ SỐ INBODY */}
-                    <div className="mt-3.5 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5 text-xs">
-                      {/* Body metrics */}
-                      <div className="flex items-center justify-between text-[11px] text-slate-600">
-                        <span className="font-semibold flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[14px] text-slate-400">straighten</span>
-                          {student.heightCm ? `${student.heightCm} cm` : 'Cao: --'}
-                        </span>
-                        <span className="font-semibold flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[14px] text-slate-400">scale</span>
-                          {student.weightKg ? `${student.weightKg} kg` : 'Nặng: --'}
-                        </span>
-                        <span className="font-bold text-orange-600">
-                          BMI: {student.bmi ? Number(student.bmi).toFixed(1) : '--'}
-                        </span>
-                      </div>
-
-                      {/* Fitness Goals */}
-                      {student.fitnessGoals && (
-                        <div className="text-[11px] text-slate-700 flex items-start gap-1">
-                          <span className="material-symbols-outlined text-[13px] text-blue-500 shrink-0 mt-0.5">flag</span>
-                          <span className="line-clamp-2"><strong>Mục tiêu:</strong> {student.fitnessGoals}</span>
-                        </div>
-                      )}
-
-                      {/* PAR-Q / Injury History Alert */}
-                      {student.injuryHistory && student.injuryHistory.trim() !== '' && (
-                        <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-semibold flex items-start gap-1.5">
-                          <span className="material-symbols-outlined text-[15px] text-amber-600 shrink-0 mt-0.5">warning</span>
-                          <span><strong>PAR-Q / Chấn thương:</strong> {student.injuryHistory}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {hasStudentTimeConflict && (
-                      <div className="mt-3 p-2 rounded-lg bg-rose-100 border border-rose-200 text-rose-800 text-[11px] font-bold flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[15px]">warning</span>
-                        <span>Học viên có ca học bị trùng khung giờ!</span>
-                      </div>
-                    )}
-
-                    {/* Danh sách ca học */}
-                    <div className="mt-3.5 border-t border-slate-100 pt-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          Lớp đăng ký ({student.sessions.length} ca)
-                        </p>
-                        <span className="text-[10px] font-bold text-orange-600">
-                          {student.sessions[0]?.className}
-                        </span>
-                      </div>
-
-                      <ul className="space-y-2 max-h-48 overflow-y-auto pr-0.5">
-                        {student.sessions.map((session) => (
-                          <li
-                            key={`${student.id}-${session.bookingId}`}
-                            className="rounded-xl border border-slate-200 bg-slate-50/80 p-2.5 text-xs"
-                          >
-                            <div className="flex justify-between items-start gap-2">
-                              <div>
-                                <span className="font-bold text-slate-800 block text-[11px]">
-                                  {session.className}
-                                </span>
-                                <span className="text-[10px] text-slate-500 mt-0.5 block">
-                                  {new Date(session.startTime).toLocaleString('vi-VN', {
-                                    weekday: 'short',
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })}
-                                </span>
-                              </div>
-                              {(() => {
-                                const statusMeta = SESSION_STATUS_META[session.status] || {
-                                  label: session.status || 'Chưa rõ',
-                                  className: 'bg-slate-100 text-slate-700',
-                                };
-                                return (
-                                  <span className={`shrink-0 font-bold px-2 py-0.5 rounded-full text-[10px] ${statusMeta.className}`}>
-                                    {statusMeta.label}
-                                  </span>
-                                );
-                              })()}
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => handleGeneratePlan(student, session)}
-                              disabled={generatingBookingId !== null || !session.bookingId}
-                              title={!session.bookingId ? 'Chưa có thông tin booking hợp lệ' : 'Tạo giáo án cá nhân hóa bằng AI'}
-                              className="mt-2 flex items-center justify-center gap-1.5 w-full rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 px-2.5 py-1 text-[10px] font-bold text-white shadow-xs transition-all disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
-                            >
-                              <span className="material-symbols-outlined text-[13px]">smart_toy</span>
-                              {generatingBookingId === session.bookingId
-                                ? 'Đang tạo giáo án AI...'
-                                : 'Gợi ý giáo án AI'}
-                            </button>
-
-                            {planErrors[session.bookingId] && (
-                              <p
-                                role="alert"
-                                className="mt-1.5 rounded-lg border border-red-200 bg-red-50 p-1.5 text-[10px] text-red-800"
-                              >
-                                {planErrors[session.bookingId]}
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <h2 className="font-bold text-slate-900 text-sm truncate">{student.name}</h2>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-extrabold uppercase whitespace-nowrap">
+                              #{student.id}
+                            </span>
+                            {getFitnessLevelBadge(student.fitnessLevel)}
+                          </div>
+                          <div className="pt-0.5 space-y-0.5 text-xs text-slate-500">
+                            <p className="flex items-center gap-1 font-medium truncate">
+                              <span className="material-symbols-outlined text-[14px] text-slate-400">call</span>
+                              <span className="truncate">{student.phone || 'Chưa có số ĐT'}</span>
+                            </p>
+                            {student.email && (
+                              <p className="flex items-center gap-1 text-[11px] text-slate-400 truncate" title={student.email}>
+                                <span className="material-symbols-outlined text-[14px] text-slate-400">mail</span>
+                                <span className="truncate">{student.email}</span>
                               </p>
                             )}
+                          </div>
+                        </div>
+                      </div>
 
-                            {plans[session.bookingId] && (
-                              <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5 text-xs text-slate-800 space-y-1 animate-in fade-in">
-                                <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
-                                  <span className="material-symbols-outlined text-[13px]">auto_awesome</span>
-                                  Giáo án gợi ý AI
-                                </div>
-                                <div className="whitespace-pre-wrap leading-relaxed text-slate-700 font-medium text-[11px] max-h-32 overflow-y-auto">
-                                  {plans[session.bookingId]}
-                                </div>
-                              </div>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
+                      {/* Col 2: Thể trạng / Mục tiêu / PAR-Q */}
+                      <div className="min-w-0 space-y-2 text-xs">
+                        <div className="flex flex-wrap items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600">
+                          <span className="font-semibold flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px] text-slate-400">straighten</span>
+                            {student.heightCm ? `${student.heightCm} cm` : 'Cao: --'}
+                          </span>
+                          <span className="font-semibold flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px] text-slate-400">scale</span>
+                            {student.weightKg ? `${student.weightKg} kg` : 'Nặng: --'}
+                          </span>
+                          <span className="font-bold text-orange-600">
+                            BMI: {student.bmi ? Number(student.bmi).toFixed(1) : '--'}
+                          </span>
+                        </div>
 
-                  {/* Action Buttons: Giao Giáo Án & Gửi Thông Báo */}
-                  <div className="mt-auto pt-3.5 border-t border-slate-100 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openPlanModal(student)}
-                      className="flex items-center justify-center gap-1 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-700 py-2 text-xs font-bold transition shadow-2xs cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-[15px]">assignment_add</span>
-                      Soạn Giáo Án
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openNoticeModal({ memberId: student.id, name: student.name, sessions: student.sessions })}
-                      className="flex items-center justify-center gap-1 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 py-2 text-xs font-bold transition shadow-2xs cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-[15px]">send</span>
-                      Gửi Nhắc Nhở
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
+                        <div className="text-[11px] text-slate-700 flex items-start gap-1.5">
+                          <span className="material-symbols-outlined text-[14px] text-blue-500 shrink-0 mt-0.5">flag</span>
+                          <span className="line-clamp-2">
+                            <strong>Mục tiêu:</strong> {student.fitnessGoals || 'Chưa cập nhật'}
+                          </span>
+                        </div>
+
+                        <div
+                          className={`px-2.5 py-1.5 rounded-lg border text-[11px] flex items-start gap-1.5 ${
+                            injuryDetected
+                              ? 'bg-amber-50 border-amber-200 text-amber-900 font-semibold'
+                              : 'bg-slate-50 border-slate-200/80 text-slate-600 font-medium'
+                          }`}
+                        >
+                          <span
+                            className={`material-symbols-outlined text-[15px] shrink-0 mt-0.5 ${
+                              injuryDetected ? 'text-amber-600' : 'text-emerald-600'
+                            }`}
+                          >
+                            {injuryDetected ? 'warning' : 'verified_user'}
+                          </span>
+                          <span>
+                            <strong>{injuryDetected ? 'PAR-Q / Chấn thương:' : 'PAR-Q:'}</strong>{' '}
+                            {student.injuryHistory?.trim() || 'Không có'}
+                          </span>
+                        </div>
+
+                        {hasStudentTimeConflict && (
+                          <div className="p-2 rounded-lg bg-rose-100 border border-rose-200 text-rose-800 text-[11px] font-bold flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-[15px]">warning</span>
+                            <span>Học viên có ca học bị trùng khung giờ!</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Col 3: Nút Lớp đăng ký (X ca) mở ModalDialog */}
+                      <div className="min-w-0 space-y-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStudentForSessions(student)}
+                          className="inline-flex items-center justify-between gap-2 w-full rounded-xl border border-slate-200 bg-slate-50 hover:bg-orange-50 hover:border-orange-300 px-3.5 py-2.5 text-xs font-bold text-slate-800 hover:text-orange-700 transition-all shadow-2xs cursor-pointer"
+                        >
+                          <span className="inline-flex items-center gap-2 min-w-0">
+                            <span className="material-symbols-outlined text-[17px] text-orange-500 shrink-0">calendar_month</span>
+                            <span className="truncate">Lớp đăng ký ({student.sessions.length} ca)</span>
+                          </span>
+                          <span className="material-symbols-outlined text-[16px] text-slate-400 shrink-0">open_in_new</span>
+                        </button>
+                        {student.sessions[0]?.className && (
+                          <p
+                            className="text-[11px] text-slate-500 truncate px-0.5"
+                            title={student.sessions.map((s) => s.className).join(', ')}
+                          >
+                            {student.sessions[0].className}
+                            {student.sessions.length > 1 ? ` (+${student.sessions.length - 1} ca khác)` : ''}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Col 4: Nút Soạn Giáo Án / Gửi Nhắc Nhở bên phải */}
+                      <div className="flex flex-row xl:flex-col gap-2 xl:items-stretch pt-2 xl:pt-0 border-t xl:border-t-0 border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => openPlanModal(student)}
+                          className="flex-1 xl:flex-none flex items-center justify-center gap-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-700 px-2.5 py-2 text-xs font-bold transition shadow-2xs cursor-pointer whitespace-nowrap"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">assignment_add</span>
+                          <span>Soạn Giáo Án</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openNoticeModal({ memberId: student.id, name: student.name, sessions: student.sessions })}
+                          className="flex-1 xl:flex-none flex items-center justify-center gap-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 px-2.5 py-2 text-xs font-bold transition shadow-2xs cursor-pointer whitespace-nowrap"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">send</span>
+                          <span>Gửi Nhắc Nhở</span>
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
             </section>
 
             {totalPages > 1 && (
@@ -894,6 +967,7 @@ export default function CoachStudentsPage() {
                 </div>
                 <button
                   type="button"
+                  aria-label="Đóng"
                   onClick={() => {
                     setSelectedStudentForPlan(null);
                     setPlanScope('individual');
@@ -970,7 +1044,13 @@ export default function CoachStudentsPage() {
                   </div>
                   <div>
                     <span className="text-[10px] uppercase font-bold text-slate-500 block">Cảnh báo PAR-Q / Chấn thương</span>
-                    <span className="font-bold text-amber-700 line-clamp-1">{selectedStudentForPlan.injuryHistory || 'Không ghi nhận chấn thương'}</span>
+                    <span
+                      className={`font-bold line-clamp-1 ${
+                        hasInjuryAlert(selectedStudentForPlan.injuryHistory) ? 'text-amber-700' : 'text-slate-700'
+                      }`}
+                    >
+                      {selectedStudentForPlan.injuryHistory?.trim() || 'Không ghi nhận chấn thương'}
+                    </span>
                   </div>
                 </div>
               )}
@@ -1015,11 +1095,12 @@ export default function CoachStudentsPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={handleFillAiTemplate}
-                      className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] transition shadow-xs cursor-pointer flex items-center gap-1"
+                      disabled={fillingAiTemplate}
+                      onClick={() => void handleFillAiTemplate()}
+                      className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] transition shadow-xs cursor-pointer flex items-center gap-1 disabled:opacity-60"
                     >
                       <span className="material-symbols-outlined text-[14px]">bolt</span>
-                      Điền mẫu gợi ý AI
+                      {fillingAiTemplate ? 'Đang phân tích AI...' : 'Điền mẫu gợi ý AI'}
                     </button>
                   </div>
 
@@ -1133,7 +1214,7 @@ export default function CoachStudentsPage() {
                     <textarea
                       rows="2"
                       value={planForm.sessionResult}
-                      onChange={(e) => setPlanForm({ ...planForm, sessionResult: cleanMarkdownText(e.target.value) })}
+                      onChange={(e) => setPlanForm({ ...planForm, sessionResult: e.target.value })}
                       placeholder="VD: Squat 75kg 4x10 mượt mà. 1RM Squat ước tính đạt 95kg. Thời gian hoàn thành 45 phút."
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-orange-500 bg-slate-50 focus:bg-white"
                     />
@@ -1148,7 +1229,7 @@ export default function CoachStudentsPage() {
                     <textarea
                       rows="2"
                       value={planForm.coachFeedback}
-                      onChange={(e) => setPlanForm({ ...planForm, coachFeedback: cleanMarkdownText(e.target.value) })}
+                      onChange={(e) => setPlanForm({ ...planForm, coachFeedback: e.target.value })}
                       placeholder="VD: Cảm giác bóng và bộ chân di chuyển tiến bộ rõ rệt. Cần chú ý giữ nhịp thở đều ở set thứ 4."
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-orange-500 bg-slate-50 focus:bg-white"
                     />
@@ -1163,7 +1244,7 @@ export default function CoachStudentsPage() {
                     <textarea
                       rows="2"
                       value={planForm.homework}
-                      onChange={(e) => setPlanForm({ ...planForm, homework: cleanMarkdownText(e.target.value) })}
+                      onChange={(e) => setPlanForm({ ...planForm, homework: e.target.value })}
                       placeholder="VD: Chạy bộ nhẹ 20 phút các ngày nghỉ. Bổ sung đủ 1.8g protein/kg và ngủ đủ 7-8 tiếng."
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-orange-500 bg-slate-50 focus:bg-white"
                     />
@@ -1228,7 +1309,7 @@ export default function CoachStudentsPage() {
 
                         {showBodyLogForm && (
                           <form onSubmit={handleSaveBodyLog} className="p-4 rounded-xl border border-orange-200 bg-orange-50/40 space-y-3">
-                            <h4 className="text-xs font-bold text-slate-900 uppercase">Nhập Chỉ Số Cơ Thể &amp; 1RM (MEM-21 / COA-08)</h4>
+                            <h4 className="text-xs font-bold text-slate-900 uppercase">Nhập Chỉ Số Cơ Thể &amp; 1RM</h4>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                               <div>
                                 <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">Cân nặng (kg)</label>
@@ -1431,6 +1512,18 @@ export default function CoachStudentsPage() {
                       </div>
                     </>
                   )}
+                  <div className="flex justify-end pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedStudentForPlan(null);
+                        setPlanScope('individual');
+                      }}
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
+                    >
+                      Đóng
+                    </button>
+                  </div>
                 </div>
               )}
               </div>
@@ -1455,6 +1548,7 @@ export default function CoachStudentsPage() {
                 </div>
                 <button
                   type="button"
+                  aria-label="Đóng"
                   onClick={() => setNoticeModalOpen(false)}
                   className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer"
                 >
@@ -1610,6 +1704,228 @@ export default function CoachStudentsPage() {
           </div>,
           document.body
         )}
+
+        {/* MODAL: DANH SÁCH CA HỌC ĐĂNG KÝ CỦA HỌC VIÊN */}
+        <ModalDialog
+          open={Boolean(selectedStudentForSessions)}
+          onClose={() => setSelectedStudentForSessions(null)}
+          titleId="coach-student-sessions-title"
+          maxWidthClass="max-w-2xl"
+        >
+          <div className="p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="w-9 h-9 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[20px]">calendar_month</span>
+                </span>
+                <div className="min-w-0">
+                  <h2 id="coach-student-sessions-title" className="text-base font-bold text-slate-900 truncate">
+                    Lớp đăng ký · {selectedStudentForSessions?.name}
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    ID #{selectedStudentForSessions?.id} · {selectedStudentForSessions?.sessions?.length || 0} ca học đã đăng ký
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedStudentForSessions(null)}
+                aria-label="Đóng danh sách lớp"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer shrink-0"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-2.5">
+              {(!selectedStudentForSessions?.sessions || selectedStudentForSessions.sessions.length === 0) ? (
+                <div className="p-8 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  Học viên chưa đăng ký ca học nào.
+                </div>
+              ) : (
+                selectedStudentForSessions.sessions.map((session) => {
+                  const statusMeta = SESSION_STATUS_META[session.status] || {
+                    label: session.status || 'Chưa rõ',
+                    className: 'bg-slate-100 text-slate-700',
+                  };
+                  return (
+                    <div
+                      key={`${selectedStudentForSessions.id}-${session.bookingId}`}
+                      className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-bold text-slate-900 text-xs sm:text-sm">
+                            {session.className}
+                          </h3>
+                          <span className={`font-bold px-2.5 py-0.5 rounded-full text-[10px] whitespace-nowrap ${statusMeta.className}`}>
+                            {statusMeta.label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[14px] text-slate-400">schedule</span>
+                          <span>{formatSessionDateTime(session.startTime)}</span>
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAiForSession(selectedStudentForSessions, session)}
+                        disabled={!session.bookingId}
+                        title={!session.bookingId ? 'Chưa có thông tin booking hợp lệ' : 'Đóng danh sách lớp và mở gợi ý giáo án AI'}
+                        className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-all disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">smart_toy</span>
+                        <span>Gợi ý giáo án AI</span>
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setSelectedStudentForSessions(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </ModalDialog>
+
+        {/* MODAL: GỢI Ý GIÁO ÁN AI */}
+        <ModalDialog
+          open={Boolean(aiModalContext)}
+          onClose={() => setAiModalContext(null)}
+          titleId="coach-ai-plan-title"
+          maxWidthClass="max-w-2xl"
+        >
+          {(() => {
+            const aiStudent = aiModalContext?.student;
+            const aiSession = aiModalContext?.session;
+            const aiBookingId = aiSession?.bookingId;
+            const isGenerating = Boolean(aiBookingId && generatingBookingId === aiBookingId);
+            const aiPlanText = aiBookingId ? plans[aiBookingId] : '';
+            const aiErrorText = aiBookingId ? planErrors[aiBookingId] : '';
+
+            return (
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <span className="material-symbols-outlined text-[20px]">smart_toy</span>
+                    </span>
+                    <div className="min-w-0">
+                      <h2 id="coach-ai-plan-title" className="text-base font-bold text-slate-900 truncate">
+                        Gợi ý giáo án AI · {aiStudent?.name || 'Học viên'}
+                      </h2>
+                      <p className="text-xs text-slate-500 truncate">
+                        {aiSession?.className || 'Lớp học'} · {aiSession?.startTime ? formatSessionDateTime(aiSession.startTime) : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAiModalContext(null)}
+                    aria-label="Đóng modal giáo án AI"
+                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer shrink-0"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">close</span>
+                  </button>
+                </div>
+
+                <div className="max-h-[60vh] overflow-y-auto pr-1">
+                  {isGenerating ? (
+                    <div className="py-12 text-center space-y-2.5">
+                      <div className="w-7 h-7 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                      <p className="text-xs font-bold text-slate-700">AI đang phân tích thể trạng &amp; đề xuất giáo án...</p>
+                    </div>
+                  ) : aiErrorText ? (
+                    <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-800 space-y-2">
+                      <p className="font-semibold">{aiErrorText}</p>
+                      <button
+                        type="button"
+                        onClick={() => aiStudent && aiSession && handleGeneratePlan(aiStudent, aiSession)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-[11px] cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">refresh</span>
+                        <span>Thử lại</span>
+                      </button>
+                    </div>
+                  ) : aiPlanText ? (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 text-xs text-slate-800 space-y-2">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
+                        <span className="material-symbols-outlined text-[15px]">auto_awesome</span>
+                        <span>Giáo án gợi ý từ AI SportHub</span>
+                      </div>
+                      <div className="leading-relaxed text-slate-700">
+                        <FormattedAiText content={aiPlanText} />
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="py-8 text-center text-xs text-slate-400">
+                      Chưa có nội dung gợi ý giáo án AI.
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const st = aiStudent;
+                      setAiModalContext(null);
+                      if (st) setSelectedStudentForSessions(st);
+                    }}
+                    className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">arrow_back</span>
+                    <span>Quay lại danh sách ca</span>
+                  </button>
+
+                  <div className="flex items-center gap-2 ml-auto">
+                    {aiStudent && aiSession && (
+                      <button
+                        type="button"
+                        disabled={isGenerating}
+                        onClick={() => handleGeneratePlan(aiStudent, aiSession)}
+                        className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold transition disabled:opacity-50 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">refresh</span>
+                        <span>Tạo lại</span>
+                      </button>
+                    )}
+                    {aiStudent && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAiModalContext(null);
+                          void openPlanModal(aiStudent, aiSession);
+                        }}
+                        className="inline-flex items-center gap-1 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">assignment_add</span>
+                        <span>Soạn Giáo Án</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      autoFocus
+                      onClick={() => setAiModalContext(null)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
+                    >
+                      Đóng
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </ModalDialog>
       </div>
     </CoachLayout>
   );

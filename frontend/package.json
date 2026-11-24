@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
+    "check:unused": "knip",
     "preview": "vite preview",
+    "test:unit": "node --test src/utils/*.test.js",
+    "generate:favicons": "node scripts/make-favicons.mjs",
+    "record:demo": "node scripts/record_pure_demo.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -21,6 +25,7 @@
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.6.1",
+    "knip": "^5.88.1",
     "oxlint": "^1.81.0",
     "postcss": "^8.5.29",
     "tailwindcss": "^3.4.19",

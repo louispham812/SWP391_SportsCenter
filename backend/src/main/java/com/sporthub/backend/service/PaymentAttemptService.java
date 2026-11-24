@@ -84,8 +84,7 @@ public class PaymentAttemptService {
         attempts.save(attempt);
         if ("EXCESS".equals(status)) {
             engagement.audit(payment.getMemberId(), "SYSTEM", "EXCESS_PAYMENT_RECEIVED", "paymentId=" + payment.getPaymentId() + ", gatewayTransaction=" + transaction);
-            engagement.notifyUser(payment.getMemberId(), "Phát hiện thanh toán thêm cho cùng đơn", "Khoản thu " + amount + "đ đã được ghi nhận để đối soát; quyền lợi không được cấp lần nữa.", "PAYMENT");
-            for (User manager : users.findByRole("MANAGER")) engagement.notifyUser(manager.getUserId(), "Khoản thanh toán dư cần đối soát", "Payment #" + payment.getPaymentId() + ", receipt #" + receipt.getReceiptId(), "PAYMENT_REVIEW");
+            engagement.notifyUser(payment.getMemberId(), "Phát hiện thanh toán thêm cho cùng đơn", "Khoản thu " + amount + "đ đã được ghi nhận; quyền lợi không được cấp lần nữa.", "PAYMENT");
         }
         return new ReceiptResult(!terminal, false, status, receipt.getTransactionDate());
     }

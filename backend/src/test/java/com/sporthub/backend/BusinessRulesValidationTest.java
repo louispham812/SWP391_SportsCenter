@@ -491,4 +491,44 @@ class BusinessRulesValidationTest {
         assertEquals(HttpStatus.BAD_REQUEST, exDesc.getStatusCode());
         assertTrue(exDesc.getReason().contains("BR-15"));
     }
+
+    @Test
+    void supportTicketAllowsReceptionistAndManagerCreateAndReplyWhileBlockingMembers() {
+        var receptionistAuth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                "3", "", java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_RECEPTIONIST")));
+        var managerAuth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                "1", "", java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_MANAGER")));
+        User member = User.builder().userId(4L).fullName("Member A").role("MEMBER").build();
+        when(userRepository.findById(4L)).thenReturn(Optional.of(member));
+        when(supportTicketRepository.save(any())).thenAnswer(inv -> {
+            com.sporthub.backend.entity.SupportTicket t = inv.getArgument(0);
+            if (t.getTicketId() == null) t.setTicketId(91L);
+            return t;
+        });
+
+        assertEquals(HttpStatus.FORBIDDEN, assertThrows(ResponseStatusException.class,
+                () -> supportTicketController.getAllTicketsForReceptionist(memberAuth)).getStatusCode());
+
+        var created = supportTicketController.createTicketByReceptionist(
+                new CreateTicketRequest("FACILITY_ISSUE", "Đèn sân 2 bị nhấp nháy", "Hội viên phản ánh đèn sân cầu lông số 2 nhấp nháy liên tục", "URGENT", 4L),
+                receptionistAuth);
+        assertEquals(HttpStatus.CREATED, created.getStatusCode());
+        assertEquals("SUBMITTED", created.getBody().status());
+        assertEquals("URGENT", created.getBody().severity());
+
+        com.sporthub.backend.entity.SupportTicket stored = com.sporthub.backend.entity.SupportTicket.builder()
+                .ticketId(91L).memberId(4L).memberName("Member A").category("FACILITY_ISSUE")
+                .title("Đèn sân 2 bị nhấp nháy").description("Mô tả chi tiết sự cố").severity("URGENT").status("SUBMITTED").build();
+        when(supportTicketRepository.findById(91L)).thenReturn(Optional.of(stored));
+
+        var inReview = supportTicketController.replyTicketByReceptionist(
+                91L, java.util.Map.of("status", "IN_REVIEW", "response", "Lễ tân đã chuyển kỹ thuật kiểm tra"), receptionistAuth);
+        assertEquals("IN_REVIEW", inReview.getBody().status());
+        assertEquals("Lễ tân đã chuyển kỹ thuật kiểm tra", inReview.getBody().adminResponse());
+
+        var resolved = supportTicketController.replyTicket(
+                91L, java.util.Map.of("status", "RESOLVED", "response", "Đã thay bóng đèn mới"), managerAuth);
+        assertEquals("RESOLVED", resolved.getBody().status());
+        assertEquals("Đã thay bóng đèn mới", resolved.getBody().adminResponse());
+    }
 }

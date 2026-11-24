@@ -20,14 +20,57 @@ class CheckInServiceTest {
     private final BookingRepository classes = mock(BookingRepository.class);
     private final CourtBookingRepository courts = mock(CourtBookingRepository.class);
     private final MembershipService memberships = mock(MembershipService.class);
+    private final CheckInEligibilityService eligibility = mock(CheckInEligibilityService.class);
     private final CheckInService service = new CheckInService(entries, users, classes, courts, memberships);
 
     @org.junit.jupiter.api.BeforeEach
     void activeMember() {
-        var eligibility = mock(CheckInEligibilityService.class);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "eligibility", eligibility);
         when(eligibility.validateCourt(any(), any(), any())).thenAnswer(i -> i.getArgument(0));
         when(users.findByIdForUpdate(11L)).thenReturn(Optional.of(User.builder().userId(11L).role("MEMBER").status("ACTIVE").build()));
+    }
+    @Test
+    void previewValidatesCourtWithoutConsumingQuotaOrRecordingCheckIn() {
+        CourtBooking booking = court(1L, LocalDateTime.now().minusMinutes(5));
+        booking.setUsesMembershipQuota(true);
+        booking.setMembershipId(55L);
+        booking.setQuotaState("HELD");
+        booking.setQuotaHoursUsed(new BigDecimal("1.5"));
+        when(courts.findCheckInEligibleBookings(eq(11L), any(), any(), any())).thenReturn(List.of(booking));
+
+        service.validateCheckIn(11L, 1L);
+
+        verify(eligibility).validateCourt(eq(booking), eq(11L), any());
+        assertEquals("CONFIRMED", booking.getStatus());
+        assertEquals("HELD", booking.getQuotaState());
+        verifyNoInteractions(memberships);
+        verify(courts, never()).save(any());
+        verify(entries, never()).save(any());
+    }
+
+    @Test
+    void previewPropagatesUnpaidBookingRejection() {
+        CourtBooking booking = court(1L, LocalDateTime.now().minusMinutes(5));
+        when(courts.findCheckInEligibleBookings(eq(11L), any(), any(), any())).thenReturn(List.of(booking));
+        when(eligibility.validateCourt(eq(booking), eq(11L), any()))
+                .thenThrow(new ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT, "Chưa thanh toán"));
+
+        assertThrows(ResponseStatusException.class, () -> service.validateCheckIn(11L, 1L));
+        verify(courts, never()).save(any());
+        verifyNoInteractions(memberships);
+    }
+
+    @Test
+    void previewAllowsValidatedSingleClassWithoutMembership() {
+        Booking booking = Booking.builder().bookingId(4L).memberId(11L).status("CONFIRMED").build();
+        when(courts.findCheckInEligibleBookings(eq(11L), any(), any(), any())).thenReturn(List.of());
+        when(classes.findCheckInEligibleClasses(eq(11L), any())).thenReturn(List.of(booking));
+
+        service.validateCheckIn(11L, null);
+
+        verify(eligibility).validateClass(eq(booking), eq(11L), any());
+        verifyNoInteractions(memberships);
+        verify(entries, never()).save(any());
     }
     @Test
     void rejectsMemberWithoutTodaysConfirmedBookingWithoutRecordingSuccess() {

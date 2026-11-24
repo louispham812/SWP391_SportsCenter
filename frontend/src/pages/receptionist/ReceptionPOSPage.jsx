@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
 import { apiRequest, generatePayment } from '../../services/apiClient';
 import { redirectToPayment } from '../../services/paymentNavigation';
@@ -17,16 +17,27 @@ export default function ReceptionPOSPage() {
   const [memberId, setMemberId] = useState('');
   const [packageId, setPackageId] = useState('');
   const [pendingCash, setPendingCash] = useState([]);
+  const [loadingPendingCash, setLoadingPendingCash] = useState(true);
   const [collectingPayment, setCollectingPayment] = useState(null);
+  const [cashSuccessMessage, setCashSuccessMessage] = useState('');
   const loadPendingCash = async () => {
-    try { setPendingCash(await apiRequest('/receptionist/payments/pending-cash')); }
-    catch (err) { setError(err.message || 'Không tải được giao dịch chờ thu.'); }
+    setLoadingPendingCash(true);
+    try {
+      const rows = await apiRequest('/receptionist/payments/pending-cash');
+      setPendingCash(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+      setError(err.message || 'Không tải được giao dịch chờ thu.');
+    } finally {
+      setLoadingPendingCash(false);
+    }
   };
   const collectCash = async (payment) => {
     setCollectingPayment(payment.paymentId);
     setError('');
+    setCashSuccessMessage('');
     try {
       await apiRequest(`/receptionist/payments/${payment.paymentId}/confirm-cash`, { method: 'POST' });
+      setCashSuccessMessage(`Đã xác nhận thu tiền mặt giao dịch #${payment.paymentId}.`);
       await loadPendingCash();
     } catch (err) { setError(err.message || 'Không xác nhận được giao dịch.'); }
     finally { setCollectingPayment(null); }
@@ -39,6 +50,7 @@ export default function ReceptionPOSPage() {
   const [showPrintModal, setShowPrintModal] = useState(false);
 
   useEffect(() => {
+    void loadPendingCash();
     let current = true;
     apiRequest('/packages')
       .then((rows) => {
@@ -89,6 +101,10 @@ export default function ReceptionPOSPage() {
       setError('Vui lòng chọn hội viên và gói tập.');
       return;
     }
+    if (selectedMember?.status && selectedMember.status !== 'ACTIVE') {
+      setError('Tài khoản hội viên chưa kích hoạt hoặc đang bị khóa, chưa thể đăng ký gói tập.');
+      return;
+    }
     setSaving(true);
     setError('');
     setReceipt(null);
@@ -106,7 +122,7 @@ export default function ReceptionPOSPage() {
       if (paymentMethod === 'VNPAY' && result.paymentStatus === 'PENDING') {
         try {
           const vnpayResult = await generatePayment(result.paymentId, 'VNPAY');
-          
+
           // Redirect to VNPay payment page (same tab - giữ sessionStorage)
           // VNPay sẽ redirect về /payment/return sau khi thanh toán
           redirectToPayment(result.paymentId, vnpayResult.paymentUrl);
@@ -118,6 +134,7 @@ export default function ReceptionPOSPage() {
         // CASH Flow: Show receipt immediately
         setReceipt({
           ...result, // Backend fields: paymentId, membershipId, packageName, amount, paymentStatus, createdAt, referenceCode
+          memberId: result.memberId ?? Number(memberId),
           member: selectedMember,
           pkg: selectedPackage,
           paymentMethodName: paymentMethod === 'CASH' ? 'Tiền mặt tại quầy' : 'Khác',
@@ -141,18 +158,29 @@ export default function ReceptionPOSPage() {
       <main className="mx-auto max-w-5xl space-y-6">
         <section className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-bold text-slate-900">Giao dịch hội viên chờ trả tiền tại quầy</h2>
-            <button type="button" onClick={loadPendingCash} className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold">Tải danh sách chờ thu</button>
+            <h2 className="font-bold text-slate-900">Giao dịch hội viên chờ trả tiền tại quầy ({pendingCash.length})</h2>
+            <button type="button" onClick={loadPendingCash} className="rounded-lg bg-slate-100 hover:bg-slate-200 px-3 py-2 text-sm font-semibold cursor-pointer">
+              {loadingPendingCash ? 'Đang tải...' : 'Làm mới danh sách'}
+            </button>
           </div>
           <p className="text-sm text-slate-500">Kiểm tra số tiền và hội viên, sau đó xác nhận khi đã nhận đủ tiền mặt.</p>
-          {pendingCash.map((payment) => (
-            <div key={payment.paymentId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-sm">
-              <span>Giao dịch #{payment.paymentId} · Hội viên #{payment.memberId} · {payment.itemDescription || payment.bookingType} · <strong>{formatPrice(payment.amount)}</strong></span>
-              <button type="button" disabled={collectingPayment !== null} onClick={() => collectCash(payment)} className="rounded-lg bg-emerald-700 px-3 py-2 font-bold text-white disabled:opacity-50">
-                {collectingPayment === payment.paymentId ? 'Đang xác nhận...' : 'Đã thu đủ tiền mặt'}
-              </button>
-            </div>
-          ))}
+          {cashSuccessMessage && (
+            <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
+              {cashSuccessMessage}
+            </p>
+          )}
+          {!loadingPendingCash && pendingCash.length === 0 ? (
+            <p className="text-xs text-slate-400">Hiện không có giao dịch chờ thu tiền mặt.</p>
+          ) : (
+            pendingCash.map((payment) => (
+              <div key={payment.paymentId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-sm">
+                <span>Giao dịch #{payment.paymentId} · Hội viên #{payment.memberId} · {payment.itemDescription || payment.bookingType} · <strong>{formatPrice(payment.amount)}</strong></span>
+                <button type="button" disabled={collectingPayment !== null} onClick={() => collectCash(payment)} className="rounded-lg bg-emerald-700 px-3 py-2 font-bold text-white disabled:opacity-50 cursor-pointer">
+                  {collectingPayment === payment.paymentId ? 'Đang xác nhận...' : 'Đã thu đủ tiền mặt'}
+                </button>
+              </div>
+            ))
+          )}
         </section>
 
         <header>
@@ -172,46 +200,7 @@ export default function ReceptionPOSPage() {
           </p>
         )}
 
-        {receipt && receipt.isVNPayPending && (
-          <section className="rounded-2xl border border-blue-200 bg-blue-50/90 p-5 text-sm text-blue-900 space-y-4">
-            <div className="flex items-start gap-3">
-              <span className="material-symbols-outlined text-blue-600 text-3xl shrink-0 animate-pulse">schedule</span>
-              <div className="flex-1">
-                <div className="font-bold text-base text-blue-900">
-                  Đang chờ khách thanh toán VNPay
-                </div>
-                <div className="text-xs text-blue-800 mt-1">
-                  Mã giao dịch: <strong>#{receipt.paymentId}</strong> · Gói <strong>{receipt.packageName}</strong> · Số tiền: <strong>{formatPrice(receipt.amount)}</strong>
-                </div>
-                <div className="text-xs text-blue-700 mt-2 flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[14px]">info</span>
-                  <span>Trang VNPay đã mở trong tab mới. Khách hàng vui lòng hoàn tất thanh toán.</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 pt-2 border-t border-blue-200/60">
-              <a
-                href={receipt.vnpayUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="py-2 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider transition flex items-center gap-1.5 shadow-sm cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[16px]">open_in_new</span>
-                <span>Mở lại trang VNPay</span>
-              </a>
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                className="py-2 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[16px]">refresh</span>
-                <span>Làm mới trang</span>
-              </button>
-            </div>
-          </section>
-        )}
-        
-        {receipt && !receipt.isVNPayPending && (
+        {receipt && (
           <section role="status" className="rounded-2xl border border-emerald-200 bg-emerald-50/90 p-5 text-sm text-emerald-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-emerald-600 text-3xl shrink-0">check_circle</span>
@@ -256,21 +245,34 @@ export default function ReceptionPOSPage() {
               <div className="max-h-56 space-y-2 overflow-y-auto">
                 {members.length === 0 ? (
                   <p className="text-xs text-slate-500 p-2">Không tìm thấy hội viên phù hợp.</p>
-                ) : members.map((member) => (
-                  <button
-                    key={member.userId}
-                    type="button"
-                    onClick={() => setMemberId(String(member.userId))}
-                    className={`w-full rounded-xl border p-3 text-left text-sm transition-all card-hover ${
-                      memberId === String(member.userId)
-                        ? 'border-orange-500 bg-orange-50/60 ring-2 ring-orange-500/15'
-                        : 'border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <strong className="block text-slate-900">{member.fullName}</strong>
-                    <span className="text-xs text-slate-500">{member.phone || member.email}</span>
-                  </button>
-                ))}
+                ) : members.map((member) => {
+                  const isInactiveMember = Boolean(member.status && member.status !== 'ACTIVE');
+                  return (
+                    <button
+                      key={member.userId}
+                      type="button"
+                      disabled={isInactiveMember}
+                      onClick={() => setMemberId(String(member.userId))}
+                      className={`w-full rounded-xl border p-3 text-left text-sm transition-all flex items-center justify-between gap-2 ${
+                        isInactiveMember
+                          ? 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed'
+                          : memberId === String(member.userId)
+                          ? 'border-orange-500 bg-orange-50/60 ring-2 ring-orange-500/15 card-hover'
+                          : 'border-slate-200 hover:bg-slate-50 card-hover'
+                      }`}
+                    >
+                      <div>
+                        <strong className="block text-slate-900">{member.fullName}</strong>
+                        <span className="text-xs text-slate-500">{member.phone || member.email}</span>
+                      </div>
+                      {isInactiveMember && (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
+                          {member.status === 'PENDING' ? 'Chờ kích hoạt' : member.status}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
             {selectedMember && (
@@ -327,8 +329,8 @@ export default function ReceptionPOSPage() {
                 <span className="font-bold text-slate-600">Tổng thanh toán:</span>
                 <strong className="text-xl font-black text-orange-600">{formatPrice(selectedPackage?.price)}</strong>
               </div>
-              <p className="text-xs leading-relaxed text-slate-400">
-                Giao dịch được ghi nhận vào bảng thanh toán, tự động kích hoạt thẻ và sinh biên lai in nhiệt.
+              <p className="text-xs leading-relaxed text-slate-500">
+                Đơn VNPay tự động kích hoạt thẻ ngay sau khi hoàn tất; giao dịch tiền mặt (CASH) sẽ ghi nhận thanh toán, in biên lai và chuyển Quản lý duyệt kích hoạt thẻ.
               </p>
             </div>
             <button

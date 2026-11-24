@@ -11,6 +11,7 @@ public interface UserMembershipRepository extends JpaRepository<UserMembership, 
     java.util.Optional<UserMembership> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") Long id);
     boolean existsByUserIdAndPackageIdAndStatusIn(Long userId, Long packageId, List<String> statuses);
     List<UserMembership> findByUserIdOrderByEndDateDesc(Long userId);
+    List<UserMembership> findByUserIdInOrderByEndDateDesc(List<Long> userIds);
     List<UserMembership> findByUserIdAndStatus(Long userId, String status);
     List<UserMembership> findByStatusIgnoreCase(String status);
     List<UserMembership> findByStatusIgnoreCaseAndEndDateBefore(String status, LocalDate date);

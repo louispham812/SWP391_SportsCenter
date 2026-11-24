@@ -15,6 +15,9 @@ public class MembershipPackage {
     @Column(name = "package_id")
     private Long packageId;
 
+    @Column(name = "membership_tier", length = 100)
+    private String membershipTier;
+
     @Column(nullable = false, length = 100)
     private String name;
 

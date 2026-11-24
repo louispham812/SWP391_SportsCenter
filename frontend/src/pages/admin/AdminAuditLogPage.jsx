@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import { getAuditLogs } from '../../services/engagementApi';
 import { TableSkeleton } from '../../components/common/Skeleton';

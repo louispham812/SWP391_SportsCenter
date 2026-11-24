@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { getEligibleFeedbackSessions, submitFeedback } from '../../services/engagementApi';
 

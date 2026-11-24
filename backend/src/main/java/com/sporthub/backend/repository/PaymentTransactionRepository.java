@@ -15,6 +15,9 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     List<PaymentTransaction> findByPaymentMethodAndPaymentStatusOrderByCreatedAtDesc(String method, String status);
     List<PaymentTransaction> findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
             LocalDateTime start, LocalDateTime end);
+    List<PaymentTransaction> findByProcessedByAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+            Long processedBy, LocalDateTime start, LocalDateTime end);
+    List<PaymentTransaction> findByProcessedBy(Long processedBy);
     List<PaymentTransaction> findByMemberIdOrderByCreatedAtDesc(Long memberId);
     
     List<PaymentTransaction> findByBookingTypeAndPaymentStatusIgnoreCaseAndCreatedAtBefore(

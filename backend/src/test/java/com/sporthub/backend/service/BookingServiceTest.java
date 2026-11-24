@@ -12,6 +12,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -36,6 +40,7 @@ import com.sporthub.backend.entity.PublicFacility;
 import com.sporthub.backend.entity.PublicSport;
 import com.sporthub.backend.entity.SportsCourt;
 import com.sporthub.backend.entity.User;
+import com.sporthub.backend.entity.UserMembership;
 import com.sporthub.backend.enums.AttendanceStatus;
 import com.sporthub.backend.repository.BookingRepository;
 import com.sporthub.backend.repository.ClassSessionRepository;
@@ -45,6 +50,7 @@ import com.sporthub.backend.repository.MembershipPackageRepository;
 import com.sporthub.backend.repository.PaymentTransactionRepository;
 import com.sporthub.backend.repository.PublicFacilityRepository;
 import com.sporthub.backend.repository.PublicSportRepository;
+import com.sporthub.backend.repository.RefundRequestRepository;
 import com.sporthub.backend.repository.SportsCourtRepository;
 import com.sporthub.backend.repository.UserMembershipRepository;
 import com.sporthub.backend.repository.UserRepository;
@@ -64,6 +70,7 @@ class BookingServiceTest {
     private final MembershipPackageRepository membershipPackageRepository = mock(MembershipPackageRepository.class);
     private final MembershipService membershipService = mock(MembershipService.class);
     private final PaymentService paymentService = mock(PaymentService.class);
+    private final EngagementService engagementService = mock(EngagementService.class);
     private BookingService bookingService;
 
     @BeforeEach
@@ -84,7 +91,10 @@ class BookingServiceTest {
                 membershipPackageRepository,
                 membershipService,
                 mock(AuditLogService.class),
-                paymentService);
+                paymentService,
+                null,
+                mock(RefundRequestRepository.class),
+                engagementService);
     }
 
     @Test
@@ -550,6 +560,312 @@ class BookingServiceTest {
         assertEquals(1, result.size());
         assertEquals(101L, result.get(0).sessionId());
         assertEquals("Ongoing Class", result.get(0).className());
+    }
+
+    @Test
+    void classCheckoutWithQuotaCreatesTransactionAndSendsNotification() {
+        ClassSession session = session(4);
+        User member = User.builder().userId(11L).role("MEMBER").status("ACTIVE").build();
+        User coach = User.builder().userId(8L).fullName("Coach Nam").build();
+        UserMembership membership = new UserMembership();
+        membership.setMembershipId(55L);
+        membership.setUserId(11L);
+        membership.setRemainingQuotaSessions(3);
+
+        when(userRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(member));
+        when(classSessionRepository.findByIdForUpdate(22L)).thenReturn(Optional.of(session));
+        when(membershipService.getActiveMembershipWithQuota(eq(11L), eq(1), eq("CLASS"), eq(4L), any(), any())).thenReturn(membership);
+        when(publicSportRepository.findById(4L)).thenReturn(Optional.of(sport(4L, "Pickleball")));
+        when(publicFacilityRepository.findById(5L)).thenReturn(Optional.of(facility(5L, "Court hall")));
+        when(userRepository.findById(8L)).thenReturn(Optional.of(coach));
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> {
+            PaymentTransaction tx = inv.getArgument(0);
+            tx.setPaymentId(100L);
+            return tx;
+        });
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(inv -> {
+            Booking b = inv.getArgument(0);
+            b.setBookingId(200L);
+            return b;
+        });
+        when(bookingRepository.countBySessionIdAndStatusIn(eq(22L), anyList())).thenReturn(0L, 1L);
+
+        BookingConfirmationResponse response = bookingService.checkout(
+                11L,
+                new CheckoutRequest("CLASS", 22L, null, null, PaymentConstants.METHOD_MEMBERSHIP_QUOTA, true, null));
+
+        assertEquals(100L, response.paymentId());
+        assertEquals(PaymentConstants.PAYMENT_STATUS_PAID, response.paymentStatus());
+        assertNotNull(response.referenceCode());
+        assertTrue(Boolean.TRUE.equals(response.usedQuota()));
+        verify(engagementService).notifyUser(
+                eq(11L),
+                eq("Đăng ký lớp bằng quota thành công"),
+                org.mockito.ArgumentMatchers.contains("Class session"),
+                eq("BOOKING"));
+    }
+
+    @Test
+    void courtCheckoutWithQuotaCreatesTransactionConfirmationAndSendsNotification() {
+        SportsCourt court = court();
+        User member = User.builder().userId(11L).role("MEMBER").status("ACTIVE").build();
+        UserMembership membership = new UserMembership();
+        membership.setMembershipId(77L);
+        membership.setUserId(11L);
+        membership.setRemainingQuotaCourts(8);
+        LocalDateTime start = LocalDate.now().plusDays(1).atTime(14, 0);
+        LocalDateTime end = start.plusHours(2);
+
+        when(userRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(member));
+        when(sportsCourtRepository.findByIdForUpdate(33L)).thenReturn(Optional.of(court));
+        when(membershipService.getActiveMembershipWithCourtQuota(eq(11L), eq(2.0), any(), any())).thenReturn(membership);
+        when(userMembershipRepository.findById(77L)).thenReturn(Optional.of(membership));
+        when(publicSportRepository.findById(4L)).thenReturn(Optional.of(sport(4L, "Tennis")));
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> {
+            PaymentTransaction tx = inv.getArgument(0);
+            tx.setPaymentId(101L);
+            return tx;
+        });
+        when(courtBookingRepository.save(any(CourtBooking.class))).thenAnswer(inv -> {
+            CourtBooking cb = inv.getArgument(0);
+            cb.setCourtBookingId(301L);
+            return cb;
+        });
+
+        BookingConfirmationResponse response = bookingService.checkout(
+                11L,
+                new CheckoutRequest("COURT", 33L, start, end, PaymentConstants.METHOD_MEMBERSHIP_QUOTA, true, null));
+
+        ArgumentCaptor<PaymentTransaction> txCaptor = ArgumentCaptor.forClass(PaymentTransaction.class);
+        verify(paymentTransactionRepository).save(txCaptor.capture());
+        PaymentTransaction savedTx = txCaptor.getValue();
+        assertEquals("COURT", savedTx.getBookingType());
+        assertEquals("COURT", savedTx.getItemType());
+        assertEquals("Court 1 - Tennis (2.0 giờ)", savedTx.getItemDescription());
+        assertEquals(0, savedTx.getAmount().compareTo(BigDecimal.ZERO));
+        assertEquals(PaymentConstants.METHOD_MEMBERSHIP_QUOTA, savedTx.getPaymentMethod());
+        assertEquals(PaymentConstants.PAYMENT_STATUS_PAID, savedTx.getPaymentStatus());
+
+        ArgumentCaptor<CourtBooking> bookingCaptor = ArgumentCaptor.forClass(CourtBooking.class);
+        verify(courtBookingRepository).save(bookingCaptor.capture());
+        assertEquals(101L, bookingCaptor.getValue().getPaymentId());
+
+        assertEquals(101L, response.paymentId());
+        assertEquals(PaymentConstants.PAYMENT_STATUS_PAID, response.paymentStatus());
+        assertEquals(savedTx.getReferenceCode(), response.referenceCode());
+        assertTrue(Boolean.TRUE.equals(response.usedQuota()));
+        verify(engagementService).notifyUser(
+                eq(11L),
+                eq("Đặt sân bằng quota thành công"),
+                org.mockito.ArgumentMatchers.contains("Court 1"),
+                eq("BOOKING"));
+    }
+
+    @Test
+    void timelyClassCancelWithQuotaCreatesRefundTransactionAndNotifies() {
+        PaymentTransaction originalTx = new PaymentTransaction();
+        originalTx.setPaymentId(100L);
+        originalTx.setBookingType("CLASS");
+        originalTx.setReferenceCode("CLS-ABC123");
+        originalTx.setAmount(BigDecimal.ZERO);
+        originalTx.setPaymentStatus(PaymentConstants.PAYMENT_STATUS_PAID);
+
+        Booking booking = Booking.builder()
+                .bookingId(102L)
+                .memberId(11L)
+                .sessionId(22L)
+                .paymentId(100L)
+                .feeAmount(BigDecimal.ZERO)
+                .usesMembershipQuota(true)
+                .membershipId(55L)
+                .status("CONFIRMED")
+                .build();
+        ClassSession session = session(5);
+
+        when(bookingRepository.findByIdForUpdate(102L)).thenReturn(Optional.of(booking));
+        when(classSessionRepository.findByIdForUpdate(22L)).thenReturn(Optional.of(session));
+        when(paymentTransactionRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(originalTx));
+        when(paymentTransactionRepository.findById(100L)).thenReturn(Optional.of(originalTx));
+        when(bookingRepository.save(booking)).thenReturn(booking);
+        when(classSessionRepository.save(session)).thenReturn(session);
+
+        CancelBookingResponse cancelled = bookingService.cancelClassBooking(102L, 11L);
+
+        assertEquals("CANCELLED", cancelled.getStatus());
+        assertTrue(Boolean.TRUE.equals(cancelled.getRefunded()));
+        assertEquals(PaymentConstants.PAYMENT_STATUS_REFUNDED, cancelled.getRefundStatus());
+        assertTrue(cancelled.getMessage().contains("hoàn 1 buổi quota"));
+
+        ArgumentCaptor<PaymentTransaction> refundCaptor = ArgumentCaptor.forClass(PaymentTransaction.class);
+        verify(paymentTransactionRepository).save(refundCaptor.capture());
+        PaymentTransaction refundTx = refundCaptor.getValue();
+        assertEquals("CLASS_REFUND", refundTx.getBookingType());
+        assertEquals("CLASS", refundTx.getItemType());
+        assertEquals("Hoàn quota: Class session", refundTx.getItemDescription());
+        assertEquals(0, refundTx.getAmount().compareTo(BigDecimal.ZERO));
+        assertEquals(PaymentConstants.METHOD_MEMBERSHIP_QUOTA, refundTx.getPaymentMethod());
+        assertEquals(PaymentConstants.PAYMENT_STATUS_REFUNDED, refundTx.getPaymentStatus());
+        assertEquals("REFUND_CLS-ABC123", refundTx.getReferenceCode());
+
+        verify(engagementService).notifyUser(
+                eq(11L),
+                eq("Hủy lớp & hoàn quota thành công"),
+                org.mockito.ArgumentMatchers.contains("hoàn 1 buổi quota"),
+                eq("REFUND"));
+    }
+
+    @Test
+    void timelyCourtCancelWithQuotaCreatesRefundTransactionAndNotifies() {
+        PaymentTransaction originalTx = new PaymentTransaction();
+        originalTx.setPaymentId(101L);
+        originalTx.setBookingType("COURT");
+        originalTx.setReferenceCode("CRT-XYZ999");
+        originalTx.setAmount(BigDecimal.ZERO);
+        originalTx.setPaymentStatus(PaymentConstants.PAYMENT_STATUS_PAID);
+
+        CourtBooking booking = courtBooking(11L, LocalDateTime.now().plusDays(1));
+        booking.setCourtId(33L);
+        booking.setPaymentId(101L);
+        booking.setUsesMembershipQuota(true);
+        booking.setMembershipId(77L);
+        booking.setQuotaHoursUsed(BigDecimal.valueOf(2.0));
+        booking.setAmountPaid(BigDecimal.ZERO);
+
+        when(sportsCourtRepository.findById(33L)).thenReturn(Optional.of(court()));
+        when(courtBookingRepository.findByIdForUpdate(99L)).thenReturn(Optional.of(booking));
+        when(paymentTransactionRepository.findByIdForUpdate(101L)).thenReturn(Optional.of(originalTx));
+        when(paymentTransactionRepository.findById(101L)).thenReturn(Optional.of(originalTx));
+        when(courtBookingRepository.save(booking)).thenReturn(booking);
+
+        CancelBookingResponse cancelled = bookingService.cancelCourtBooking(99L, 11L);
+
+        assertEquals("CANCELLED", cancelled.getStatus());
+        assertTrue(Boolean.TRUE.equals(cancelled.getRefunded()));
+        assertEquals(PaymentConstants.PAYMENT_STATUS_REFUNDED, cancelled.getRefundStatus());
+        assertTrue(cancelled.getMessage().contains("hoàn 2.0 giờ quota"));
+
+        ArgumentCaptor<PaymentTransaction> refundCaptor = ArgumentCaptor.forClass(PaymentTransaction.class);
+        verify(paymentTransactionRepository).save(refundCaptor.capture());
+        PaymentTransaction refundTx = refundCaptor.getValue();
+        assertEquals("COURT_REFUND", refundTx.getBookingType());
+        assertEquals("COURT", refundTx.getItemType());
+        assertEquals("Hoàn quota: Court 1 (2.0 giờ)", refundTx.getItemDescription());
+        assertEquals(0, refundTx.getAmount().compareTo(BigDecimal.ZERO));
+        assertEquals(PaymentConstants.METHOD_MEMBERSHIP_QUOTA, refundTx.getPaymentMethod());
+        assertEquals(PaymentConstants.PAYMENT_STATUS_REFUNDED, refundTx.getPaymentStatus());
+        assertEquals("REFUND_CRT-XYZ999", refundTx.getReferenceCode());
+
+        verify(engagementService).notifyUser(
+                eq(11L),
+                eq("Hủy sân & hoàn quota thành công"),
+                org.mockito.ArgumentMatchers.contains("hoàn 2.0 giờ quota"),
+                eq("REFUND"));
+    }
+
+    @Test
+    void lateCourtCancelWithQuotaSkipsRefundTransactionAndNotifiesNoRefund() {
+        CourtBooking booking = courtBooking(11L, LocalDateTime.now().plusMinutes(60));
+        booking.setCourtId(33L);
+        booking.setUsesMembershipQuota(true);
+        booking.setMembershipId(77L);
+        booking.setQuotaHoursUsed(BigDecimal.valueOf(1.0));
+        booking.setAmountPaid(BigDecimal.ZERO);
+
+        when(sportsCourtRepository.findById(33L)).thenReturn(Optional.of(court()));
+        when(courtBookingRepository.findByIdForUpdate(99L)).thenReturn(Optional.of(booking));
+        when(courtBookingRepository.save(booking)).thenReturn(booking);
+
+        CancelBookingResponse cancelled = bookingService.cancelCourtBooking(99L, 11L);
+
+        assertEquals("CANCELLED", cancelled.getStatus());
+        assertFalse(Boolean.TRUE.equals(cancelled.getRefunded()));
+        assertEquals("NONE", cancelled.getRefundStatus());
+        verify(membershipService).consumeCourtQuota(77L, 1.0);
+        verify(paymentTransactionRepository, never()).save(any(PaymentTransaction.class));
+        verify(engagementService).notifyUser(
+                eq(11L),
+                eq("Đã hủy đặt sân"),
+                org.mockito.ArgumentMatchers.contains("không hoàn"),
+                eq("BOOKING"));
+    }
+
+    @Test
+    void receptionistCanEnrollAndCancelClassForMember() {
+        ClassSession session = session(5);
+        User member = User.builder().userId(11L).role("MEMBER").status("ACTIVE").build();
+        PublicSport sport = sport(4L, "Pickleball");
+        PublicFacility facility = facility(5L, "Court hall");
+        User coach = User.builder().userId(8L).fullName("Coach").build();
+        lenient().when(userRepository.findById(11L)).thenReturn(Optional.of(member));
+        lenient().when(userRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(member));
+        when(classSessionRepository.findByIdForUpdate(22L)).thenReturn(Optional.of(session));
+        when(bookingRepository.existsByMemberIdAndSessionIdAndStatusIn(eq(11L), eq(22L), anyList())).thenReturn(false);
+        when(bookingRepository.countBySessionIdAndStatusIn(eq(22L), anyList())).thenReturn(0L, 1L, 0L);
+        when(publicSportRepository.findById(4L)).thenReturn(Optional.of(sport));
+        when(publicFacilityRepository.findById(5L)).thenReturn(Optional.of(facility));
+        lenient().when(userRepository.findById(8L)).thenReturn(Optional.of(coach));
+        PaymentTransaction savedTx = new PaymentTransaction();
+        savedTx.setPaymentId(77L);
+        savedTx.setAmount(new BigDecimal("275000"));
+        savedTx.setPaymentMethod(PaymentConstants.METHOD_CASH_COUNTER);
+        savedTx.setPaymentStatus("PENDING");
+        savedTx.setReferenceCode("CLS-CASH77");
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> {
+            PaymentTransaction p = inv.getArgument(0);
+            if (p.getPaymentId() == null) p.setPaymentId(77L);
+            return p;
+        });
+        when(paymentTransactionRepository.findById(77L)).thenReturn(Optional.of(savedTx));
+        Booking savedBooking = Booking.builder().bookingId(88L).memberId(11L).sessionId(22L).status("BOOKED").build();
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(inv -> {
+            Booking b = inv.getArgument(0);
+            if (b.getBookingId() == null) b.setBookingId(88L);
+            return b;
+        });
+        when(bookingRepository.findById(88L)).thenReturn(Optional.of(savedBooking));
+
+        BookingConfirmationResponse enrollRes = bookingService.enrollMemberInClassByReceptionist(
+                22L, 11L, "CASH", false, null, 3L, "RECEPTIONIST");
+        assertEquals("PAID", enrollRes.paymentStatus());
+        assertEquals("CONFIRMED", savedBooking.getStatus());
+        assertEquals(3L, savedTx.getProcessedBy());
+        verify(engagementService).audit(eq(3L), eq("RECEPTIONIST"), eq("RECEPTION_CLASS_ENROLL"), any());
+
+        PaymentTransaction vnpayTx = new PaymentTransaction();
+        vnpayTx.setPaymentId(78L);
+        vnpayTx.setBookingType("CLASS");
+        vnpayTx.setPaymentMethod(PaymentConstants.METHOD_VNPAY);
+        vnpayTx.setPaymentStatus("PENDING");
+        vnpayTx.setReferenceCode("CLS-VNP78");
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> {
+            PaymentTransaction p = inv.getArgument(0);
+            if (p.getPaymentId() == null) p.setPaymentId(78L);
+            return p;
+        });
+        when(paymentTransactionRepository.findById(78L)).thenReturn(Optional.of(vnpayTx));
+        BookingConfirmationResponse vnpayEnrollRes = bookingService.enrollMemberInClassByReceptionist(
+                22L, 11L, "VNPAY", false, null, 4L, "RECEPTIONIST");
+        assertEquals("PENDING", vnpayEnrollRes.paymentStatus());
+        assertEquals(4L, vnpayTx.getProcessedBy());
+
+        // Staff cancellation on a quota booking refunds quota and notifies member
+        Booking quotaBooking = Booking.builder()
+                .bookingId(102L).memberId(11L).sessionId(22L).paymentId(100L)
+                .usesMembershipQuota(true).membershipId(55L).status("CONFIRMED").build();
+        PaymentTransaction quotaTx = new PaymentTransaction();
+        quotaTx.setPaymentId(100L);
+        quotaTx.setBookingType("CLASS");
+        quotaTx.setReferenceCode("CLS-Q100");
+        quotaTx.setAmount(BigDecimal.ZERO);
+        quotaTx.setPaymentStatus(PaymentConstants.PAYMENT_STATUS_PAID);
+        when(bookingRepository.findByIdForUpdate(102L)).thenReturn(Optional.of(quotaBooking));
+        when(paymentTransactionRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(quotaTx));
+        when(paymentTransactionRepository.findById(100L)).thenReturn(Optional.of(quotaTx));
+
+        CancelBookingResponse cancelRes = bookingService.cancelClassBookingByStaff(102L, 3L, "RECEPTIONIST");
+        assertEquals("CANCELLED", cancelRes.getStatus());
+        assertTrue(Boolean.TRUE.equals(cancelRes.getRefunded()));
+        verify(engagementService).audit(eq(3L), eq("RECEPTIONIST"), eq("RECEPTION_CLASS_CANCEL"), any());
     }
 
     private SportsCourt court() {

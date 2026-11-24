@@ -152,15 +152,41 @@ test.describe('SUITE 4: Lớp Học, Huấn Luyện Viên, Giáo Án & Điểm D
       const coachSession = await coachPage.evaluate(() => JSON.parse(sessionStorage.getItem('sports-center-auth-session') || 'null'));
       const coachHeaders = { Authorization: `Bearer ${coachSession.token}` };
 
-      const tomorrow = new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10);
-      const dayAfter = new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10);
+      const [existingLeavesRes, upcomingClassesRes] = await Promise.all([
+        request.get(`${apiBaseUrl}/coach/leave-requests`, { headers: coachHeaders }),
+        request.get(`${apiBaseUrl}/bookings/classes`, { headers: coachHeaders }),
+      ]);
+      const existingLeaves = existingLeavesRes.ok() ? await existingLeavesRes.json() : [];
+      const upcomingClasses = upcomingClassesRes.ok() ? await upcomingClassesRes.json() : [];
+
+      let startDate = '';
+      let endDate = '';
+      for (let offset = 3; offset <= 120; offset += 2) {
+        const s = new Date(Date.now() + 86400000 * offset).toISOString().slice(0, 10);
+        const e = new Date(Date.now() + 86400000 * (offset + 1)).toISOString().slice(0, 10);
+        const overlapsLeave = existingLeaves.some((item) => (
+          ['PENDING', 'APPROVED'].includes(String(item.status || '').toUpperCase())
+          && item.startDate <= e
+          && item.endDate >= s
+        ));
+        const overlapsClass = upcomingClasses.some((cls) => {
+          const day = String(cls.startTime || '').slice(0, 10);
+          return day >= s && day <= e && String(cls.status || '').toUpperCase() !== 'CANCELLED';
+        });
+        if (!overlapsLeave && !overlapsClass) {
+          startDate = s;
+          endDate = e;
+          break;
+        }
+      }
+      expect(startDate, 'Phải tìm được khoảng ngày nghỉ chưa trùng đơn/lớp hiện có').toBeTruthy();
 
       const leaveRes = await request.post(`${apiBaseUrl}/coach/leave-requests`, {
         headers: coachHeaders,
         data: {
           leaveType: 'PERSONAL',
-          startDate: tomorrow,
-          endDate: dayAfter,
+          startDate,
+          endDate,
           reason: leaveReason,
         },
       });

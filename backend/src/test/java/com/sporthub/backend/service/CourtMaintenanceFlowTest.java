@@ -513,7 +513,6 @@ class CourtMaintenanceFlowTest {
                 mock(AuditLogService.class),
                 mock(PaymentService.class),
                 facilityRepository,
-                null,
                 refundRequestRepository,
                 engagementService
         );
@@ -573,7 +572,6 @@ class CourtMaintenanceFlowTest {
                 mock(AuditLogService.class),
                 mock(PaymentService.class),
                 facilityRepository,
-                null,
                 mock(RefundRequestRepository.class),
                 engagementService
         );

@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
 // Public Pages
@@ -26,6 +25,7 @@ import MemberTransactionsPage from './pages/member/MemberTransactionsPage';
 import MemberBookingFlowPage from './pages/member/MemberBookingFlowPage';
 import MemberAIAssistantPage from './pages/member/MemberAIAssistantPage';
 import MemberProfilePage from './pages/member/MemberProfilePage';
+import MemberTicketsPage from './pages/member/MemberTicketsPage';
 
 // Receptionist Portal Pages
 import ReceptionDashboardPage from './pages/receptionist/ReceptionDashboardPage';
@@ -36,10 +36,13 @@ import ReceptionClassesPage from './pages/receptionist/ReceptionClassesPage';
 import ReceptionShiftReportPage from './pages/receptionist/ReceptionShiftReportPage';
 import ReceptionEquipmentPage from './pages/receptionist/ReceptionEquipmentPage';
 import ReceptionProfilePage from './pages/receptionist/ReceptionProfilePage';
+import ReceptionTicketsPage from './pages/receptionist/ReceptionTicketsPage';
 
 // Coach Portal Pages (Chỉ giữ các trang đã tạo)
 import CoachDashboardPage from './pages/coach/CoachDashboardPage';
 import CoachSchedulePage from './pages/coach/CoachSchedulePage';
+import CoachLeavePage from './pages/coach/CoachLeavePage';
+import CoachIncomePage from './pages/coach/CoachIncomePage';
 import CoachStudentsPage from './pages/coach/CoachStudentsPage';
 import CoachAttendancePage from './pages/coach/CoachAttendancePage';
 import CoachProfilePage from './pages/coach/CoachProfilePage';
@@ -50,6 +53,8 @@ import AdminMembersPage from './pages/admin/AdminMembersPage';
 import AdminStaffPage from './pages/admin/AdminStaffPage';
 import AdminStaffApprovalsPage from './pages/admin/AdminStaffApprovalsPage';
 import AdminFacilitiesPage from './pages/admin/AdminFacilitiesPage';
+import AdminClassesPage from './pages/admin/AdminClassesPage';
+import AdminCreateClassPage from './pages/admin/AdminCreateClassPage';
 import AdminPackagesPage from './pages/admin/AdminPackagesPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 
@@ -60,7 +65,7 @@ import MemberReviewsPage from './pages/member/MemberReviewsPage';
 import AdminBroadcastPage from './pages/admin/AdminBroadcastPage';
 import AdminAuditLogPage from './pages/admin/AdminAuditLogPage';
 import AdminMaintenancePage from './pages/admin/AdminMaintenancePage';
-import AdminPaymentReconciliationPage from './pages/admin/AdminPaymentReconciliationPage';
+import AdminTicketsPage from './pages/admin/AdminTicketsPage';
 import ToastContainer from './components/ToastContainer';
 import PaymentResumeBoundary from './components/PaymentResumeBoundary';
 
@@ -117,11 +122,13 @@ function App() {
           <Route path="/member/book/coaches/:sportId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
           <Route path="/member/book/checkout/:bookingType/:resourceId" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
           <Route path="/member/book/confirmation" element={<RequireRole role="member"><MemberBookingFlowPage /></RequireRole>} />
-          <Route path="/member/schedule" element={<RequireRole roles={['member', 'coach']}><MemberSchedulePage /></RequireRole>} />
+          <Route path="/member/schedule" element={<RequireRole role="member"><MemberSchedulePage /></RequireRole>} />
           <Route path="/member/attendance" element={<RequireRole role="member"><MemberAttendancePage /></RequireRole>} />
           <Route path="/member/workout-plans" element={<RequireRole role="member"><MemberWorkoutPlansPage /></RequireRole>} />
+          <Route path="/member/workouts" element={<Navigate to="/member/workout-plans" replace />} />
           <Route path="/member/notifications" element={<RequireRole role="member"><MemberNotificationsPage /></RequireRole>} />
           <Route path="/member/transactions" element={<RequireRole role="member"><MemberTransactionsPage /></RequireRole>} />
+          <Route path="/member/tickets" element={<RequireRole role="member"><MemberTicketsPage /></RequireRole>} />
           <Route path="/member/ai-assistant" element={<RequireRole role="member"><MemberAIAssistantPage /></RequireRole>} />
           <Route path="/member/profile" element={<RequireRole role="member"><MemberProfilePage /></RequireRole>} />
 
@@ -136,13 +143,26 @@ function App() {
           <Route path="/receptionist/classes" element={<RequireRole role="receptionist"><ReceptionClassesPage /></RequireRole>} />
           <Route path="/receptionist/shift" element={<RequireRole role="receptionist"><ReceptionShiftReportPage /></RequireRole>} />
           <Route path="/receptionist/profile" element={<RequireRole role="receptionist"><ReceptionProfilePage /></RequireRole>} />
+          <Route path="/reception/tickets" element={<RequireRole role="receptionist"><ReceptionTicketsPage /></RequireRole>} />
+          <Route path="/receptionist/tickets" element={<RequireRole role="receptionist"><ReceptionTicketsPage /></RequireRole>} />
+          <Route path="/reception" element={<Navigate to="/receptionist" replace />} />
+          <Route path="/reception/checkin" element={<Navigate to="/receptionist/checkin" replace />} />
+          <Route path="/reception/check-in" element={<Navigate to="/receptionist/checkin" replace />} />
+          <Route path="/reception/pos" element={<Navigate to="/receptionist/pos" replace />} />
+          <Route path="/reception/equipment" element={<Navigate to="/receptionist/equipment" replace />} />
+          <Route path="/reception/members" element={<Navigate to="/receptionist/members" replace />} />
+          <Route path="/reception/classes" element={<Navigate to="/receptionist/classes" replace />} />
+          <Route path="/reception/shift" element={<Navigate to="/receptionist/shift" replace />} />
+          <Route path="/reception/profile" element={<Navigate to="/receptionist/profile" replace />} />
 
           {/* Coach Routes */}
           <Route path="/coach" element={<RequireRole role="coach"><CoachDashboardPage /></RequireRole>} />
           <Route path="/coach/schedule" element={<RequireRole role="coach"><CoachSchedulePage /></RequireRole>} />
+          <Route path="/coach/leave" element={<RequireRole role="coach"><CoachLeavePage /></RequireRole>} />
+          <Route path="/coach/leave-requests" element={<Navigate to="/coach/leave" replace />} />
           <Route path="/coach/students" element={<RequireRole role="coach"><CoachStudentsPage /></RequireRole>} />
           <Route path="/coach/attendance" element={<RequireRole role="coach"><CoachAttendancePage /></RequireRole>} />
-          <Route path="/coach/income" element={<RequireRole role="coach"><CoachSchedulePage initialTab="income" /></RequireRole>} />
+          <Route path="/coach/income" element={<RequireRole role="coach"><CoachIncomePage /></RequireRole>} />
 
           <Route path="/coach/notifications" element={<RequireRole role="coach"><CoachNotificationsPage /></RequireRole>} />
           <Route path="/coach/reviews" element={<RequireRole role="coach"><CoachReviewsPage /></RequireRole>} />
@@ -153,13 +173,15 @@ function App() {
           <Route path="/admin/staff" element={<RequireRole role="admin"><AdminStaffPage /></RequireRole>} />
           <Route path="/admin/staff-approvals" element={<RequireRole role="admin"><AdminStaffApprovalsPage /></RequireRole>} />
           <Route path="/admin/facilities" element={<RequireRole role="admin"><AdminFacilitiesPage /></RequireRole>} />
+          <Route path="/admin/classes" element={<RequireRole role="admin"><AdminClassesPage /></RequireRole>} />
+          <Route path="/admin/classes/new" element={<RequireRole role="admin"><AdminCreateClassPage /></RequireRole>} />
           <Route path="/admin/packages" element={<RequireRole role="admin"><AdminPackagesPage /></RequireRole>} />
           <Route path="/admin/settings" element={<RequireRole role="admin"><AdminSettingsPage /></RequireRole>} />
 
           <Route path="/admin/broadcast" element={<RequireRole role="admin"><AdminBroadcastPage /></RequireRole>} />
           <Route path="/admin/audit-logs" element={<RequireRole role="admin"><AdminAuditLogPage /></RequireRole>} />
-          <Route path="/admin/payment-reconciliation" element={<RequireRole role="admin"><AdminPaymentReconciliationPage /></RequireRole>} />
           <Route path="/admin/maintenance" element={<RequireRole role="admin"><AdminMaintenancePage /></RequireRole>} />
+          <Route path="/admin/tickets" element={<RequireRole role="admin"><AdminTicketsPage /></RequireRole>} />
 
           {/* Convenient Aliases for Cross-Role / Root Navigation */}
           <Route path="/workout-plans" element={<Navigate to="/member/workout-plans" replace />} />

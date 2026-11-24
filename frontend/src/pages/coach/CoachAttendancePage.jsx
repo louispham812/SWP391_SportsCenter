@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import CoachLayout from '../../components/layouts/CoachLayout';
 import { TableSkeleton } from '../../components/common/Skeleton';
 import { getSessionRoster, getUpcomingClasses, updateBookingAttendance } from '../../services/bookingApi';
@@ -29,9 +29,10 @@ export default function CoachAttendancePage() {
         setClasses(classRows);
         if (classRows && classRows.length > 0) {
           const now = new Date();
-          const activeSession = classRows.find((c) => new Date(c.startTime) <= now && new Date(c.endTime) >= now)
-            || classRows.find((c) => new Date(c.startTime) >= now)
-            || classRows[classRows.length - 1];
+          const startedClasses = classRows.filter((c) => c.startTime && new Date(c.startTime) <= now);
+          const activeSession = startedClasses.find((c) => !c.endTime || new Date(c.endTime) >= now)
+            || startedClasses[startedClasses.length - 1]
+            || classRows[0];
           setSelectedSessionId(activeSession?.sessionId?.toString() || classRows[0].sessionId.toString());
         } else {
           setSelectedSessionId('');
@@ -100,6 +101,7 @@ export default function CoachAttendancePage() {
   };
 
   const selectedClass = classes.find((item) => item.sessionId.toString() === selectedSessionId);
+  const isSessionNotStarted = Boolean(selectedClass?.startTime && new Date(selectedClass.startTime) > new Date());
   const presentCount = roster.filter((b) => b.attendanceStatus === 'PRESENT').length;
   const excusedCount = roster.filter((b) => b.attendanceStatus === 'EXCUSED_ABSENCE').length;
   const unexcusedCount = roster.filter((b) => b.attendanceStatus === 'UNEXCUSED_ABSENCE' || b.attendanceStatus === 'ABSENT').length;
@@ -155,6 +157,7 @@ export default function CoachAttendancePage() {
               {classes.map((classSession) => (
                 <option key={classSession.sessionId} value={classSession.sessionId}>
                   {classSession.className} — {formatDateTime(classSession.startTime)}
+                  {classSession.startTime && new Date(classSession.startTime) > new Date() ? ' (Chưa bắt đầu)' : ''}
                 </option>
               ))}
             </select>
@@ -198,7 +201,16 @@ export default function CoachAttendancePage() {
                 <span>Chưa có hội viên nào đặt chỗ cho buổi học này.</span>
               </div>
             ) : (
-              roster.map((booking) => (
+              roster.map((booking) => {
+                const isBookingConfirmed = !booking.bookingStatus || booking.bookingStatus === 'CONFIRMED';
+                const canMarkAttendance = !isSessionNotStarted && isBookingConfirmed;
+                const lockReason = isSessionNotStarted
+                  ? 'Chưa đến giờ bắt đầu buổi học'
+                  : !isBookingConfirmed
+                  ? `Chờ xác nhận / thanh toán (${booking.bookingStatus})`
+                  : '';
+
+                return (
                 <article key={booking.bookingId} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 hover:border-slate-300 transition-all">
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_220px_minmax(220px,1fr)_auto] lg:items-end">
                     <div>
@@ -219,10 +231,16 @@ export default function CoachAttendancePage() {
                       <p className="mt-1 text-xs text-slate-500">
                         {booking.memberPhone || 'Không có số điện thoại'} · Mã booking: #{booking.bookingId}
                       </p>
+                      {lockReason && (
+                        <p className="mt-1.5 inline-flex items-center gap-1 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800">
+                          {lockReason}
+                        </p>
+                      )}
                     </div>
                     <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
                       Trạng thái điểm danh *
                       <select
+                        disabled={!canMarkAttendance}
                         value={
                           booking.attendanceStatus === 'ABSENT'
                             ? 'UNEXCUSED_ABSENCE'
@@ -233,7 +251,7 @@ export default function CoachAttendancePage() {
                         onChange={(event) => updateLocalRoster(booking.bookingId, {
                           attendanceStatus: event.target.value,
                         })}
-                        className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold focus:border-orange-500 outline-none"
+                        className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold focus:border-orange-500 outline-none disabled:bg-slate-100 disabled:text-slate-400"
                       >
                         <option value="">-- Chọn trạng thái --</option>
                         <option value="PRESENT">✅ Có mặt (PRESENT)</option>
@@ -244,27 +262,35 @@ export default function CoachAttendancePage() {
                     <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
                       Nhận xét & Dặn dò
                       <textarea
+                        disabled={!canMarkAttendance}
                         value={booking.coachNote || ''}
                         onChange={(event) => updateLocalRoster(booking.bookingId, {
                           coachNote: event.target.value,
                         })}
                         maxLength={2000}
                         rows={2}
-                        className="mt-1 block w-full resize-y rounded-xl border border-slate-300 px-3 py-2 text-sm font-normal focus:border-orange-500 outline-none"
+                        className="mt-1 block w-full resize-y rounded-xl border border-slate-300 px-3 py-2 text-sm font-normal focus:border-orange-500 outline-none disabled:bg-slate-100 disabled:text-slate-400"
                         placeholder="Nhận xét kỹ thuật, cường độ, lời dặn..."
                       />
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => handleSaveAttendance(booking)}
-                      disabled={savingBookingId === booking.bookingId}
-                      className="rounded-xl bg-orange-500 hover:bg-orange-600 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/20 active:scale-[0.98] transition-all disabled:cursor-wait disabled:opacity-60"
-                    >
-                      {savingBookingId === booking.bookingId ? 'Đang lưu...' : 'Lưu Điểm Danh'}
-                    </button>
+                    {canMarkAttendance ? (
+                      <button
+                        type="button"
+                        onClick={() => handleSaveAttendance(booking)}
+                        disabled={savingBookingId === booking.bookingId}
+                        className="rounded-xl bg-orange-500 hover:bg-orange-600 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/20 active:scale-[0.98] transition-all disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {savingBookingId === booking.bookingId ? 'Đang lưu...' : 'Lưu Điểm Danh'}
+                      </button>
+                    ) : (
+                      <span className="rounded-xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-500 text-center">
+                        Chưa mở điểm danh
+                      </span>
+                    )}
                   </div>
                 </article>
-              ))
+                );
+              })
             )}
           </section>
         )}

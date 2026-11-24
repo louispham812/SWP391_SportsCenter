@@ -40,20 +40,19 @@ public interface CourtBookingRepository extends JpaRepository<CourtBooking, Long
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime);
 
-    List<CourtBooking> findByMemberIdAndStatusOrderByStartTimeAsc(Long memberId, String status);
     List<CourtBooking> findByMemberIdOrderByStartTimeAsc(Long memberId);
     List<CourtBooking> findByStatus(String status);
 
     @Query("""
             select b from CourtBooking b where b.courtId = :courtId
-              and (b.status = :status or (:status = 'CONFIRMED' and b.status = 'CHECKED_IN'))
+              and (b.status = :status or (:status = 'CONFIRMED' and b.status IN ('PENDING', 'CHECKED_IN')))
               and b.startTime between :from and :to
             """)
     List<CourtBooking> findByCourtIdAndStatusAndStartTimeBetween(
             @Param("courtId") Long courtId, @Param("status") String status,
             @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
     List<CourtBooking> findByStatusIgnoreCaseAndCreatedAtBefore(String status, LocalDateTime before);
-    
+
     // Find court booking by payment_id (for webhook lookup)
     CourtBooking findByPaymentId(Long paymentId);
 
@@ -69,7 +68,7 @@ public interface CourtBookingRepository extends JpaRepository<CourtBooking, Long
             @Param("memberId") Long memberId,
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime);
-    
+
     /**
      * Count distinct courts booked by member in time range (BR-COURT-02)
      * Enforces max 3 concurrent court bookings per member

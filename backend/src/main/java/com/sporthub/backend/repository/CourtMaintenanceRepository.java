@@ -13,7 +13,6 @@ public interface CourtMaintenanceRepository extends JpaRepository<CourtMaintenan
     java.util.Optional<CourtMaintenance> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") Long id);
     List<CourtMaintenance> findAllByOrderByStartTimeDesc();
     List<CourtMaintenance> findByCourtId(Long courtId);
-    List<CourtMaintenance> findByCourtIdAndEndTimeAfter(Long courtId, LocalDateTime now);
     List<CourtMaintenance> findByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(
             Long courtId, LocalDateTime end, LocalDateTime start);
     boolean existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(
@@ -28,5 +27,4 @@ public interface CourtMaintenanceRepository extends JpaRepository<CourtMaintenan
             """)
     boolean existsByCourtIdAndActiveAtTime(@Param("courtId") Long courtId, @Param("time") LocalDateTime time);
 
-    void deleteByCourtId(Long courtId);
 }

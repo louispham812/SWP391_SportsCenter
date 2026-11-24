@@ -27,6 +27,11 @@ GO
 
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET NUMERIC_ROUNDABORT OFF;
 GO
 
 /* ============================================================================
@@ -145,6 +150,18 @@ CREATE TABLE dbo.public_sports (
 );
 GO
 
+DROP TABLE IF EXISTS dbo.coach_sports;
+GO
+
+CREATE TABLE dbo.coach_sports (
+    coach_id  BIGINT NOT NULL,
+    sport_id  BIGINT NOT NULL,
+    CONSTRAINT PK_coach_sports PRIMARY KEY (coach_id, sport_id),
+    CONSTRAINT FK_coach_sports_coach FOREIGN KEY (coach_id) REFERENCES dbo.users(user_id) ON DELETE CASCADE,
+    CONSTRAINT FK_coach_sports_sport FOREIGN KEY (sport_id) REFERENCES dbo.sports(sport_id) ON DELETE CASCADE
+);
+GO
+
 -- 1.5 Facilities, Public Facilities & Sports Courts (Canonical IDs aligned with FacilityCourtSyncService)
 CREATE TABLE dbo.facilities (
     facility_id    BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_facilities PRIMARY KEY,
@@ -205,6 +222,7 @@ CREATE TABLE dbo.membership_packages (
     access_type     VARCHAR(20)   NOT NULL CONSTRAINT DF_membership_packages_access_type DEFAULT 'ALL_DAY',
     description     NVARCHAR(MAX) NULL,
     status          VARCHAR(20)   NOT NULL CONSTRAINT DF_membership_packages_status DEFAULT 'ACTIVE',
+    membership_tier NVARCHAR(100) NULL,
     package_type    NVARCHAR(20)  NULL CONSTRAINT DF_packages_package_type DEFAULT 'VIP',
     quota_sessions  INT           NULL CONSTRAINT DF_packages_quota_sessions DEFAULT 0,
     quota_courts    INT           NULL CONSTRAINT DF_packages_quota_courts DEFAULT 0,
@@ -212,6 +230,11 @@ CREATE TABLE dbo.membership_packages (
     CONSTRAINT CK_membership_packages_access_type CHECK (access_type IN ('ALL_DAY', 'PEAK', 'OFF_PEAK')),
     CONSTRAINT CK_membership_packages_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
 );
+GO
+
+CREATE UNIQUE NONCLUSTERED INDEX UX_membership_packages_active_tier
+    ON dbo.membership_packages(membership_tier)
+    WHERE status = 'ACTIVE' AND membership_tier IS NOT NULL;
 GO
 
 CREATE TABLE dbo.vouchers (
@@ -273,10 +296,12 @@ CREATE TABLE dbo.payment_transactions (
     payment_completed_at  DATETIME2(7)  NULL,
     item_type             VARCHAR(20)   NULL,
     item_description      NVARCHAR(500) NULL,
+    processed_by          BIGINT        NULL,
     CONSTRAINT FK_payment_transactions_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
     CONSTRAINT FK_payment_transactions_membership FOREIGN KEY (membership_id) REFERENCES dbo.user_memberships(um_id),
     CONSTRAINT FK_payment_transactions_voucher FOREIGN KEY (voucher_id) REFERENCES dbo.vouchers(voucher_id)
 );
+CREATE INDEX IX_payment_transactions_processed_by_created_at ON dbo.payment_transactions(processed_by, created_at);
 GO
 
 CREATE TABLE dbo.payment_attempts (
@@ -616,11 +641,14 @@ GO
 
 DECLARE @Now          DATETIME2(7) = SYSDATETIME();
 DECLARE @Today        DATE         = CAST(@Now AS DATE);
+DECLARE @DemoClearDay DATE         = '2026-11-20';
+DECLARE @DefenseDay   DATE         = '2026-11-27'; -- Friday defense day: keep 100% empty for live demo
+DECLARE @NextOpenDay  DATE         = DATEADD(DAY, 1, @DemoClearDay);
 DECLARE @PwdHash      NVARCHAR(100) = N'$2b$10$Eo9Gf3pOB5yojtOjrZosvOvgDWYLUXYK2m2eEnZqRQuDSyhiK.NOq'; -- SportHub@123
 DECLARE @FullWeekAvail NVARCHAR(MAX) = N'[{"day":"MONDAY","morning":true,"afternoon":true,"evening":true},{"day":"TUESDAY","morning":true,"afternoon":true,"evening":true},{"day":"WEDNESDAY","morning":true,"afternoon":true,"evening":true},{"day":"THURSDAY","morning":true,"afternoon":true,"evening":true},{"day":"FRIDAY","morning":true,"afternoon":true,"evening":true},{"day":"SATURDAY","morning":true,"afternoon":true,"evening":true},{"day":"SUNDAY","morning":true,"afternoon":true,"evening":true}]';
 
 -- ----------------------------------------------------------------------------
--- 2.1 Users (16 accounts across all roles & states)
+-- 2.1 Users (17 accounts across all roles & states, including 5 active coaches)
 -- ----------------------------------------------------------------------------
 SET IDENTITY_INSERT dbo.users ON;
 INSERT INTO dbo.users (user_id, full_name, email, password, phone, date_of_birth, gender, address, emergency_contact_name, emergency_contact_phone, role, status, require_password_change, created_at, rfid_code, specialty, experience_years, certifications, bio, availability_json)
@@ -633,7 +661,7 @@ VALUES
     (3,  N'Lê Thị Lễ Tân',      N'reception.le@sporthub.com', @PwdHash, '0912345678', '1999-03-18', N'Nữ',  N'88 Nguyễn Thị Thập, Quận 7, TP.HCM',        N'Lê Văn Tâm',       '0912345600', 'RECEPTIONIST', 'ACTIVE', 0, DATEADD(DAY, -60, @Now), NULL, NULL, NULL, NULL, NULL, NULL),
     (4,  N'Phạm Minh Tú',       N'reception.tu@sporthub.com', @PwdHash, '0918765432', '2000-11-05', N'Nữ',  N'220 Huỳnh Tấn Phát, Quận 7, TP.HCM',        N'Phạm Thị Hoa',     '0918765400', 'RECEPTIONIST', 'ACTIVE', 0, DATEADD(DAY, -60, @Now), NULL, NULL, NULL, NULL, NULL, NULL),
 
-    -- Coaches (5-8 ACTIVE, 15 PENDING)
+    -- Coaches (5-8, 17 ACTIVE; 15 PENDING)
     (5,  N'Trần Văn Minh',      N'coach.minh@sporthub.com',   @PwdHash, '0923456789', '1992-07-14', N'Nam', N'15 Phạm Hùng, Bình Chánh, TP.HCM',          N'Trần Thị Mai',     '0923456700', 'COACH',        'ACTIVE', 0, DATEADD(DAY, -60, @Now), NULL, N'Tennis, Pickleball, Bóng bàn · Thể Lực & Phục Hồi', 6, N'ITF Level 2, IPTPA Certified Pickleball Coach', N'6 năm kinh nghiệm huấn luyện Tennis, Pickleball và tối ưu thể lực thi đấu.', @FullWeekAvail),
     (6,  N'Nguyễn Hoàng Nam',   N'coach.nam@sporthub.com',    @PwdHash, '0928765432', '1994-02-25', N'Nam', N'72 Tôn Dật Tiên, Quận 7, TP.HCM',           N'Nguyễn Văn Bình',  '0928765400', 'COACH',        'ACTIVE', 0, DATEADD(DAY, -60, @Now), NULL, N'Pickleball, Bơi lội, Bóng chuyền',                  5, N'Chứng chỉ HLV Bơi lội Quốc gia, PPR Level 1',       N'Chuyên đào tạo kỹ thuật bơi cơ bản đến nâng cao và Pickleball chiến thuật.', @FullWeekAvail),
     (7,  N'Võ Tấn Phát',        N'coach.phat@sporthub.com',   @PwdHash, '0921112223', '1991-10-08', N'Nam', N'310 Nguyễn Hữu Thọ, Nhà Bè, TP.HCM',        N'Võ Thị Thu',       '0921112200', 'COACH',        'ACTIVE', 0, DATEADD(DAY, -60, @Now), NULL, N'Bóng đá, Điền kinh · Sức bền & Tốc độ',            7, N'AFC C Coaching Certificate, HLV Điền kinh Cấp I',   N'Phụ trách huấn luyện bóng đá sân 7 và phát triển sức bền tim mạch.', @FullWeekAvail),
@@ -649,7 +677,8 @@ VALUES
 
     -- Special workflow accounts for Defense Demo (Pending Coach & Locked Member)
     (15, N'Trương Quốc Bảo',    N'bao.coach.pending@sporthub.com', @PwdHash, '0926667788', '1995-03-11', N'Nam', N'95 Lâm Văn Bền, Quận 7, TP.HCM',      N'Trương Văn An',    '0926667700', 'COACH',        'PENDING', 0, DATEADD(DAY, -1, @Now), NULL, N'Gym & Fitness, Cầu lông', 3, N'NASM-CPT', N'Ứng viên HLV mới đăng ký chờ Quản lý phê duyệt.', @FullWeekAvail),
-    (16, N'Ngô Thanh Sơn',      N'son.locked@gmail.com',      @PwdHash, '0939990011', '1996-11-28', N'Nam', N'18 Bế Văn Cấm, Quận 7, TP.HCM',             N'Ngô Thị Hương',    '0939990000', 'MEMBER',       'LOCKED',  0, DATEADD(DAY, -35, @Now), N'RFID-SH-0016', NULL, NULL, NULL, NULL, NULL);
+    (16, N'Ngô Thanh Sơn',      N'son.locked@gmail.com',      @PwdHash, '0939990011', '1996-11-28', N'Nam', N'18 Bế Văn Cấm, Quận 7, TP.HCM',             N'Ngô Thị Hương',    '0939990000', 'MEMBER',       'LOCKED',  0, DATEADD(DAY, -35, @Now), N'RFID-SH-0016', NULL, NULL, NULL, NULL, NULL),
+    (17, N'Phạm Minh Hoàng',    N'phamminhhoang812@gmail.com', N'$2a$10$s/7wb11iW0fR.M0Q9YBku.1Qr5.CJ/X2T5cdyEi7jsRLlLKJ0.SmW', '081332231', NULL, NULL, NULL, NULL, NULL, 'COACH', 'ACTIVE', 0, '2026-11-19T23:14:54.5330700', NULL, N'Cầu lông', NULL, NULL, NULL, NULL);
 SET IDENTITY_INSERT dbo.users OFF;
 
 -- ----------------------------------------------------------------------------
@@ -683,6 +712,20 @@ INSERT INTO dbo.public_sports (sport_id, slug, name, subtitle, tag, description,
     (10, N'athletics',    N'Điền kinh',         N'Đường chạy điền kinh',    N'Rèn thể lực',       N'Bộ môn điền kinh gồm các hoạt động chạy bộ và rèn luyện sức bền.',                                 N'directions_run',   N'Đường chạy',       1);
 SET IDENTITY_INSERT dbo.public_sports OFF;
 
+INSERT INTO dbo.coach_sports (coach_id, sport_id) VALUES
+    -- Coach 5 (Trần Văn Minh): Pickleball (2), Tennis (3), Bóng bàn (8)
+    (5, 2), (5, 3), (5, 8),
+    -- Coach 6 (Nguyễn Hoàng Nam): Pickleball (2), Bóng chuyền (7), Bơi lội (9)
+    (6, 2), (6, 7), (6, 9),
+    -- Coach 7 (Võ Tấn Phát): Bóng đá (5), Điền kinh (10)
+    (7, 5), (7, 10),
+    -- Coach 8 (Đặng Thu Thảo): Yoga & Pilates (4), Cầu lông (6)
+    (8, 4), (8, 6),
+    -- Coach 15 (Trương Quốc Bảo, PENDING): Gym & Fitness (1), Cầu lông (6)
+    (15, 1), (15, 6),
+    -- Coach 17 (Phạm Minh Hoàng, ACTIVE): Cầu lông (6)
+    (17, 6);
+
 -- ----------------------------------------------------------------------------
 -- 2.3 Facilities, Public Facilities & Sports Courts (Canonical IDs matching FacilityCourtSyncService)
 -- ----------------------------------------------------------------------------
@@ -703,7 +746,11 @@ INSERT INTO dbo.facilities (facility_id, facility_name, sport_id, capacity, stat
     (18, N'Sân Bóng Chuyền - Sân V2',             7,  12, 'AVAILABLE'),
     (19, N'Khu Bóng Bàn - Bàn T2',                8,  4,  'AVAILABLE'),
     (20, N'Hồ Bơi - Làn S2',                      9,  8,  'AVAILABLE'),
-    (21, N'Đường Chạy Điền Kinh - Khu A2',        10, 12, 'AVAILABLE');
+    (21, N'Đường Chạy Điền Kinh - Khu A2',        10, 12, 'AVAILABLE'),
+    (31, N'Phòng Tập Gym & Cardio - Khu G1',      1,  30, 'AVAILABLE'),
+    (32, N'Phòng Tập Thể Lực & Tạ - Khu G2',      1,  25, 'AVAILABLE'),
+    (33, N'Phòng Tập Yoga Studio - Phòng Y1',     4,  20, 'AVAILABLE'),
+    (34, N'Phòng Tập Pilates Reformer - Phòng Y2',4,  15, 'AVAILABLE');
 SET IDENTITY_INSERT dbo.facilities OFF;
 
 SET IDENTITY_INSERT dbo.public_facilities ON;
@@ -727,7 +774,11 @@ INSERT INTO dbo.public_facilities (facility_id, slug, name, description, icon, h
     (22, N'check-in-qr',             N'Check-in QR & RFID',                   N'Hội viên chủ động check-in tại quầy bằng QR hoặc thẻ RFID, giúp việc vào trung tâm thuận tiện hơn.', N'lock_open', N'Check-in tự động', 1),
     (23, N'coach',                   N'Đội ngũ huấn luyện viên',              N'Đội ngũ huấn luyện viên đồng hành, tư vấn và cá nhân hóa nội dung luyện tập theo mục tiêu hội viên.', N'verified_user', N'Kèm 1-1 chuyên sâu', 1),
     (24, N'ai-assistant',            N'Trợ lý luyện tập thông minh',          N'Trợ lý hỗ trợ giải đáp, theo dõi thông tin thể trạng và gợi ý lộ trình luyện tập phù hợp.', N'smart_toy', N'Hỗ trợ luyện tập', 1),
-    (25, N'flexible-hours',          N'Thời gian tập linh hoạt',              N'Lịch hoạt động linh hoạt giúp hội viên chủ động sắp xếp thời gian đến tập và sử dụng dịch vụ.', N'access_time', N'Lịch linh hoạt', 1);
+    (25, N'flexible-hours',          N'Thời gian tập linh hoạt',              N'Lịch hoạt động linh hoạt giúp hội viên chủ động sắp xếp thời gian đến tập và sử dụng dịch vụ.', N'access_time', N'Lịch linh hoạt', 1),
+    (31, N'booking-gym-01',          N'Phòng Tập Gym & Cardio - Khu G1',      N'Phòng tập Gym hiện đại trang bị máy Technogym và khu Cardio.', N'fitness_center', N'Trang thiết bị Ý', 1),
+    (32, N'booking-gym-02',          N'Phòng Tập Thể Lực & Tạ - Khu G2',      N'Khu tạ tự do chuẩn Olympic và rèn luyện thể lực chuyên sâu.', N'fitness_center', N'Tạ tự do Olympic', 1),
+    (33, N'booking-yoga-01',         N'Phòng Tập Yoga Studio - Phòng Y1',     N'Studio Yoga yên tĩnh tiêu chuẩn, có thảm định tuyến chuyên dụng.', N'self_improvement', N'Studio cách âm', 1),
+    (34, N'booking-yoga-02',         N'Phòng Tập Pilates Reformer - Phòng Y2',N'Phòng tập Pilates máy Reformer cao cấp phục vụ lớp kèm và nhóm.', N'self_improvement', N'Máy Reformer cao cấp', 1);
 SET IDENTITY_INSERT dbo.public_facilities OFF;
 
 SET IDENTITY_INSERT dbo.sports_courts ON;
@@ -750,135 +801,134 @@ INSERT INTO dbo.sports_courts (court_id, sport_id, court_name, description, hour
     (19, 10, N'Đường chạy 02',         N'Khu đường chạy tiêu chuẩn.',                     100000, '05:00:00', '21:00:00', 1);
 SET IDENTITY_INSERT dbo.sports_courts OFF;
 
--- Scheduled future maintenance on Court 17 (Làn bơi 02) so Admin Maintenance page has sample data
+-- Scheduled future maintenance on Court 17 (Làn bơi 02) on 2026-11-28 (Friday defense day 27/11 remains empty)
 SET IDENTITY_INSERT dbo.court_maintenance ON;
 INSERT INTO dbo.court_maintenance (maintenance_id, court_id, start_time, end_time, reason, created_by, created_at)
-VALUES (1, 17, DATEADD(HOUR, 8, CAST(DATEADD(DAY, 7, @Today) AS DATETIME2)), DATEADD(HOUR, 12, CAST(DATEADD(DAY, 7, @Today) AS DATETIME2)), N'Bảo trì hệ thống lọc nước định kỳ và vệ sinh thành bể làn S2', 1, DATEADD(DAY, -1, @Now));
+VALUES (1, 17, DATEADD(HOUR, 8, CAST(DATEADD(DAY, 1, @DefenseDay) AS DATETIME2)), DATEADD(HOUR, 12, CAST(DATEADD(DAY, 1, @DefenseDay) AS DATETIME2)), N'Bảo trì hệ thống lọc nước định kỳ và vệ sinh thành bể làn S2', 1, DATEADD(DAY, -1, @Now));
 SET IDENTITY_INSERT dbo.court_maintenance OFF;
 
 -- ----------------------------------------------------------------------------
 -- 2.4 Membership Packages & Vouchers
 -- ----------------------------------------------------------------------------
 SET IDENTITY_INSERT dbo.membership_packages ON;
-INSERT INTO dbo.membership_packages (package_id, name, sport_id, price, duration_days, access_type, description, status, package_type, quota_sessions, quota_courts) VALUES
-    (1, N'Thẻ Hội Viên VIP Diamond (Toàn Hệ Thống)', NULL, 2800000.00, 30, 'ALL_DAY',  N'Tập không giới hạn tất cả bộ môn, 30 buổi lớp/PT và 15 giờ đặt sân, miễn phí tủ đồ & khăn.', 'ACTIVE', 'VIP',   30, 15),
-    (2, N'Thẻ Hội Viên Vàng Off-Peak',              NULL, 1500000.00, 30, 'OFF_PEAK', N'Ưu đãi khung giờ 08:00 - 16:00, bao gồm 20 buổi lớp học và 10 giờ đặt sân.',               'ACTIVE', 'VIP',   20, 10),
-    (3, N'Khóa Học Pickleball Căn Bản (10 Buổi)',    2,    1800000.00, 45, 'ALL_DAY',  N'10 buổi học kỹ thuật cầm vợt, giao bóng, dink & chiến thuật đôi cùng HLV Pickleball.',         'ACTIVE', 'CLASS', 10,  0),
-    (4, N'Gói Tennis & Đặt Sân Giờ Vàng',            3,    2200000.00, 30, 'PEAK',     N'12 buổi tập Tennis và 15 giờ đặt sân khung giờ vàng (17:00 - 21:00).',                        'ACTIVE', 'PT',    12, 15),
-    (5, N'Gói Tập Cầu Lông Học Sinh / Sinh Viên',    6,     800000.00, 30, 'OFF_PEAK', N'15 buổi lớp cầu lông cơ bản & phản xạ dành riêng cho học sinh, sinh viên.',                  'ACTIVE', 'CLASS', 15,  0),
-    (6, N'Gói PT 1-1 Thể Lực & Phục Hồi (8 Buổi)',   1,    3200000.00, 45, 'ALL_DAY',  N'8 buổi kèm riêng 1-1 cùng HLV, đo chỉ số InBody và thiết kế giáo án cá nhân hóa.',           'ACTIVE', 'PT',     8,  0);
+INSERT INTO dbo.membership_packages (package_id, name, sport_id, price, duration_days, access_type, description, status, package_type, quota_sessions, quota_courts, membership_tier) VALUES
+    (7, N'Hạng Bạc', NULL, 800000, 30, 'OFF_PEAK', N'10 buổi lớp học hoặc PT và 5 giờ sân trong 30 ngày. Áp dụng mọi bộ môn vào giờ thấp điểm, theo lịch còn chỗ.', 'ACTIVE', 'VIP', 10, 5, 'SILVER'),
+    (8, N'Hạng Vàng', NULL, 1500000, 30, 'ALL_DAY', N'20 buổi lớp học hoặc PT và 10 giờ sân trong 30 ngày. Áp dụng mọi bộ môn trong giờ hoạt động, theo lịch còn chỗ.', 'ACTIVE', 'VIP', 20, 10, 'GOLD'),
+    (9, N'Hạng Kim Cương', NULL, 2800000, 30, 'ALL_DAY', N'30 buổi lớp học hoặc PT và 15 giờ sân trong 30 ngày. Áp dụng mọi bộ môn trong giờ hoạt động, theo lịch còn chỗ.', 'ACTIVE', 'VIP', 30, 15, 'DIAMOND');
 SET IDENTITY_INSERT dbo.membership_packages OFF;
 
 SET IDENTITY_INSERT dbo.vouchers ON;
 INSERT INTO dbo.vouchers (voucher_id, code, discount_type, discount_value, discount_percent, discount_amount, max_discount_amount, min_purchase, valid_from, valid_until, usage_limit, used_count, applies_to, status) VALUES
-    (1, N'WELCOME2026', N'PERCENT', 20.00,    20,   200000.00, 200000.00, 0.00,      DATEADD(DAY, -30, @Today), '2026-12-31', 200,  12, N'ALL', N'ACTIVE'),
-    (2, N'SPORTSHUB10', N'PERCENT', 10.00,    10,   100000.00, 100000.00, 0.00,      DATEADD(DAY, -30, @Today), '2026-12-31', 150,  18, N'ALL', N'ACTIVE'),
-    (3, N'VIPMEMBER',   N'PERCENT', 15.00,    15,   300000.00, 300000.00, 0.00,      DATEADD(DAY, -30, @Today), '2026-12-31', 100,   6, N'ALL', N'ACTIVE'),
-    (4, N'TET2026',     N'PERCENT', 20.00,    20,   500000.00, 500000.00, 500000.00, DATEADD(DAY, -30, @Today), '2026-12-31', 200,  15, N'ALL', N'ACTIVE'),
-    (5, N'GIAM50K',     N'FIXED',   50000.00, NULL, 50000.00,  NULL,      150000.00, DATEADD(DAY, -30, @Today), '2026-12-31', 500,  48, N'ALL', N'ACTIVE'),
-    (6, N'WELCOME20',   N'PERCENT', 20.00,    20,   300000.00, 300000.00, 100000.00, DATEADD(DAY, -30, @Today), '2026-12-31', 1000, 89, N'ALL', N'ACTIVE'),
+    (1, N'WELCOME2026', N'PERCENT', 20.00,    20,   200000.00, 200000.00, 0.00,      DATEADD(DAY, -30, @DemoClearDay), '2026-12-31', 200,  12, N'ALL', N'ACTIVE'),
+    (2, N'SPORTSHUB10', N'PERCENT', 10.00,    10,   100000.00, 100000.00, 0.00,      DATEADD(DAY, -30, @DemoClearDay), '2026-12-31', 150,  17, N'ALL', N'ACTIVE'),
+    (3, N'VIPMEMBER',   N'PERCENT', 15.00,    15,   300000.00, 300000.00, 0.00,      DATEADD(DAY, -30, @DemoClearDay), '2026-12-31', 100,   5, N'ALL', N'ACTIVE'),
+    (4, N'TET2026',     N'PERCENT', 20.00,    20,   500000.00, 500000.00, 500000.00, DATEADD(DAY, -30, @DemoClearDay), '2026-12-31', 200,  15, N'ALL', N'ACTIVE'),
+    (5, N'GIAM50K',     N'FIXED',   50000.00, NULL, 50000.00,  NULL,      150000.00, DATEADD(DAY, -30, @DemoClearDay), '2026-12-31', 500,  48, N'ALL', N'ACTIVE'),
+    (6, N'WELCOME20',   N'PERCENT', 20.00,    20,   300000.00, 300000.00, 100000.00, DATEADD(DAY, -30, @DemoClearDay), '2026-12-31', 1000, 89, N'ALL', N'ACTIVE'),
     (7, N'SUMMEREND',   N'PERCENT', 30.00,    30,   500000.00, 500000.00, 0.00,      '2026-06-01',              '2026-09-30', 50,   50, N'ALL', N'EXPIRED');
 SET IDENTITY_INSERT dbo.vouchers OFF;
 
 -- ----------------------------------------------------------------------------
--- 2.5 User Memberships (Clean state per demo member)
+-- 2.5 User Memberships (Phương Anh #5 PENDING_APPROVAL Hạng Bạc; Khoa #8 ACTIVE Hạng Vàng)
 -- ----------------------------------------------------------------------------
 SET IDENTITY_INSERT dbo.user_memberships ON;
 INSERT INTO dbo.user_memberships (um_id, user_id, package_id, start_date, end_date, status, remaining_quota_sessions, held_quota_sessions, used_quota_sessions, initial_quota_sessions, remaining_quota_courts, held_quota_courts, used_quota_courts, initial_quota_courts) VALUES
-    -- Khoa (9): Active Gold Off-Peak + Active Pickleball 10 sessions (gives VIP badge + active quota!)
-    (1, 9,  2, DATEADD(DAY, -10, @Today), DATEADD(DAY, 20, @Today),  'ACTIVE',           18, 1, 1, 20, 8, 1, 1, 10),
-    (2, 9,  3, DATEADD(DAY, -5,  @Today), DATEADD(DAY, 40, @Today),  'ACTIVE',            8, 1, 1, 10, 0, 0, 0,  0),
-    -- Ngọc (10): Active VIP Diamond
-    (3, 10, 1, DATEADD(DAY, -12, @Today), DATEADD(DAY, 18, @Today),  'ACTIVE',           27, 1, 2, 30, 14, 0, 1, 15),
-    -- Hoàng (11): Expired Tennis package (for Renewal demo)
-    (4, 11, 4, DATEADD(DAY, -45, @Today), DATEADD(DAY, -15, @Today), 'EXPIRED',           0, 0, 12, 12, 5, 0, 10, 15),
-    -- Phương Anh (12): Pending Manager Approval (ready to approve in /admin/staff-approvals!)
-    (5, 12, 5, @Today,                    DATEADD(DAY, 30, @Today),  'PENDING_APPROVAL',  0, 0, 0, 0,  0, 0, 0,  0),
-    -- Minh Châu (14): Active VIP Diamond
-    (6, 14, 1, DATEADD(DAY, -7,  @Today), DATEADD(DAY, 23, @Today),  'ACTIVE',           29, 0, 1, 30, 15, 0, 0, 15);
+    (5,  12, 7, @DemoClearDay, DATEADD(DAY, 29, @DemoClearDay), 'PENDING_APPROVAL',  0, 0, 0,  0,  0, 0, 0,  0),
+    (8,  9,  8, @DemoClearDay, DATEADD(DAY, 29, @DemoClearDay), 'ACTIVE',           20, 0, 0, 20, 10, 0, 0, 10),
+    (9,  10, 8, @Today,        DATEADD(DAY, 29, @Today),        'ACTIVE',           18, 0, 2, 20,  9, 0, 1, 10),
+    (10, 11, 9, @Today,        DATEADD(DAY, 29, @Today),        'ACTIVE',           30, 0, 0, 30, 15, 0, 0, 15);
 SET IDENTITY_INSERT dbo.user_memberships OFF;
 
 -- ----------------------------------------------------------------------------
 -- 2.6 Payment Transactions, Payment Attempts, Gateway Receipts & Legacy Payments
 -- ----------------------------------------------------------------------------
 SET IDENTITY_INSERT dbo.payment_transactions ON;
-INSERT INTO dbo.payment_transactions (payment_id, member_id, membership_id, voucher_id, gateway_reference, booking_type, amount, payment_method, payment_status, reference_code, created_at, transaction_date, payment_completed_at, item_type, item_description) VALUES
-    -- Membership purchases (1..6)
-    (1,  9,  1, 2,    'VNP-MBR-100001', N'MEMBERSHIP_PACKAGE', 1350000.00, N'VNPAY',            N'PAID',     N'MBR-2026-0001', DATEADD(DAY, -10, @Now), FORMAT(DATEADD(DAY, -10, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -10, @Now), 'MEMBERSHIP', N'Thẻ Hội Viên Vàng Off-Peak'),
-    (2,  9,  2, NULL, 'VNP-MBR-100002', N'MEMBERSHIP_PACKAGE', 1800000.00, N'VNPAY',            N'PAID',     N'MBR-2026-0002', DATEADD(DAY, -5,  @Now), FORMAT(DATEADD(DAY, -5,  @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -5,  @Now), 'MEMBERSHIP', N'Khóa Học Pickleball Căn Bản (10 Buổi)'),
-    (3,  10, 3, 1,    NULL,             N'MEMBERSHIP_PACKAGE', 2600000.00, N'CASH',             N'PAID',     N'POS-2026-0003', DATEADD(DAY, -6,  @Now), FORMAT(DATEADD(DAY, -6,  @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -6,  @Now), 'MEMBERSHIP', N'Thẻ Hội Viên VIP Diamond (Toàn Hệ Thống)'),
-    (4,  11, 4, NULL, NULL,             N'MEMBERSHIP_PACKAGE', 2200000.00, N'CASH',             N'PAID',     N'POS-2026-0004', DATEADD(DAY, -45, @Now), FORMAT(DATEADD(DAY, -45, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -45, @Now), 'MEMBERSHIP', N'Gói Tennis & Đặt Sân Giờ Vàng'),
-    (5,  12, 5, NULL, NULL,             N'MEMBERSHIP_PACKAGE',  800000.00, N'CASH',             N'PAID',     N'POS-2026-0005', DATEADD(MINUTE, -45, @Now), FORMAT(DATEADD(MINUTE, -45, @Now), 'yyyyMMddHHmmss'), DATEADD(MINUTE, -45, @Now), 'MEMBERSHIP', N'Gói Tập Cầu Lông Học Sinh / Sinh Viên'),
-    (6,  14, 6, 3,    'VNP-MBR-100006', N'MEMBERSHIP_PACKAGE', 2500000.00, N'VNPAY',            N'PAID',     N'MBR-2026-0006', DATEADD(DAY, -3,  @Now), FORMAT(DATEADD(DAY, -3,  @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -3,  @Now), 'MEMBERSHIP', N'Thẻ Hội Viên VIP Diamond (Toàn Hệ Thống)'),
-
-    -- Class & Court payments (7..16)
-    (7,  9,  NULL, NULL, NULL,             N'CLASS',  200000.00, N'VNPAY',            N'PAID',     N'CLS-2026-0007', DATEADD(DAY, -4, @Now), FORMAT(DATEADD(DAY, -4, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -4, @Now), 'CLASS', N'Lớp Tennis Chuyên Kỹ Thuật Serve - HLV Trần Văn Minh'),
-    (8,  12, NULL, NULL, NULL,             N'CLASS',  200000.00, N'CASH',             N'PAID',     N'CLS-2026-0008', DATEADD(DAY, -4, @Now), FORMAT(DATEADD(DAY, -4, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -4, @Now), 'CLASS', N'Lớp Tennis Chuyên Kỹ Thuật Serve - HLV Trần Văn Minh'),
-    (9,  9,  NULL, NULL, NULL,             N'CLASS',       0.00, N'MEMBERSHIP_QUOTA', N'PAID',     N'QTA-2026-0009', DATEADD(DAY, -2, @Now), FORMAT(DATEADD(DAY, -2, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -2, @Now), 'CLASS', N'Lớp Pickleball Căn Bản K12 - HLV Trần Văn Minh'),
-    (10, 10, NULL, NULL, NULL,             N'CLASS',       0.00, N'MEMBERSHIP_QUOTA', N'PAID',     N'QTA-2026-0010', DATEADD(DAY, -2, @Now), FORMAT(DATEADD(DAY, -2, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -2, @Now), 'CLASS', N'Lớp Pickleball Căn Bản K12 - HLV Trần Văn Minh'),
-    (11, 10, NULL, NULL, NULL,             N'CLASS',       0.00, N'MEMBERSHIP_QUOTA', N'PAID',     N'QTA-2026-0011', DATEADD(DAY, -1, @Now), FORMAT(DATEADD(DAY, -1, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -1, @Now), 'CLASS', N'Lớp Bơi Lội Căn Bản - HLV Nguyễn Hoàng Nam'),
-    (12, 11, NULL, NULL, NULL,             N'CLASS',  180000.00, N'VNPAY',            N'PAID',     N'CLS-2026-0012', DATEADD(DAY, -3, @Now), FORMAT(DATEADD(DAY, -3, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -3, @Now), 'CLASS', N'Lớp Bóng Đá Cơ Bản - HLV Võ Tấn Phát'),
-    (13, 9,  NULL, 5,    'VNP-CLS-100013', N'CLASS',  150000.00, N'VNPAY',            N'PAID',     N'CLS-2026-0013', DATEADD(HOUR, -1, @Now), FORMAT(DATEADD(HOUR, -1, @Now), 'yyyyMMddHHmmss'), DATEADD(HOUR, -1, @Now), 'CLASS', N'Lớp Tennis Chiến Thuật Đánh Đôi - HLV Trần Văn Minh (Ngày mai)'),
-    (14, 9,  NULL, NULL, 'VNP-CRT-100014', N'COURT',  320000.00, N'VNPAY',            N'PAID',     N'CRT-2026-0014', DATEADD(MINUTE, -30, @Now), FORMAT(DATEADD(MINUTE, -30, @Now), 'yyyyMMddHHmmss'), DATEADD(MINUTE, -30, @Now), 'COURT', N'Tennis Court 01 - Ngày mai 18:00-19:00'),
-    (15, 11, NULL, NULL, 'VNP-CRT-100015', N'COURT',  350000.00, N'VNPAY',            N'PAID',     N'CRT-2026-0015', DATEADD(HOUR, -3, @Now), FORMAT(DATEADD(HOUR, -3, @Now), 'yyyyMMddHHmmss'), DATEADD(HOUR, -3, @Now), 'COURT', N'Tennis Court 02 - Ngày kia 19:00-20:00 (Đề nghị hoàn tiền)'),
-    (16, 10, NULL, NULL, 'VNP-CRT-100016', N'COURT',  180000.00, N'VNPAY',            N'REFUNDED', N'CRT-2026-0016', DATEADD(DAY, -2, @Now), FORMAT(DATEADD(DAY, -2, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -2, @Now), 'COURT', N'Pickleball Court 01 - Đã hoàn tiền'),
-    (17, 13, NULL, NULL, NULL,             N'COURT',  500000.00, N'CASH',             N'PAID',     N'CRT-2026-0017', DATEADD(DAY, -1, @Now), FORMAT(DATEADD(DAY, -1, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -1, @Now), 'COURT', N'Sân bóng đá 7 người 01 - 19:00-20:00'),
-    (18, 9,  NULL, NULL, NULL,             N'COURT',       0.00, N'MEMBERSHIP_QUOTA', N'PAID',     N'CRT-2026-0018', DATEADD(DAY, -3, @Now), FORMAT(DATEADD(DAY, -3, @Now), 'yyyyMMddHHmmss'), DATEADD(DAY, -3, @Now), 'COURT', N'Pickleball Court 02 - Dùng quota hội viên');
+INSERT INTO dbo.payment_transactions (payment_id, member_id, membership_id, voucher_id, gateway_reference, booking_type, amount, payment_method, payment_status, reference_code, created_at, transaction_date, payment_completed_at, item_type, item_description, processed_by) VALUES
+    (5,  12, 5,    NULL, NULL,                                     N'MEMBERSHIP_PACKAGE',  800000.00, N'CASH',   N'PAID',     N'POS-2026-0005', DATEADD(MINUTE, -45, @Now), FORMAT(DATEADD(MINUTE, -45, @Now), 'yyyyMMddHHmmss'), DATEADD(MINUTE, -45, @Now), 'MEMBERSHIP', N'Hạng Bạc', 4),
+    (7,  9,  NULL, NULL, NULL,                                     N'CLASS',               200000.00, N'VNPAY',  N'PAID',     N'CLS-2026-0007', DATEADD(DAY, -4, @Now),     FORMAT(DATEADD(DAY, -4, @Now), 'yyyyMMddHHmmss'),     DATEADD(DAY, -4, @Now),     'CLASS',      N'Lớp Tennis Chuyên Kỹ Thuật Serve - HLV Trần Văn Minh', NULL),
+    (8,  12, NULL, NULL, NULL,                                     N'CLASS',               200000.00, N'CASH',   N'PAID',     N'CLS-2026-0008', DATEADD(DAY, -4, @Now),     FORMAT(DATEADD(DAY, -4, @Now), 'yyyyMMddHHmmss'),     DATEADD(DAY, -4, @Now),     'CLASS',      N'Lớp Tennis Chuyên Kỹ Thuật Serve - HLV Trần Văn Minh', 3),
+    (12, 11, NULL, NULL, NULL,                                     N'CLASS',               180000.00, N'VNPAY',  N'PAID',     N'CLS-2026-0012', DATEADD(DAY, -3, @Now),     FORMAT(DATEADD(DAY, -3, @Now), 'yyyyMMddHHmmss'),     DATEADD(DAY, -3, @Now),     'CLASS',      N'Lớp Bóng Đá Cơ Bản - HLV Võ Tấn Phát', NULL),
+    (13, 9,  NULL, 5,    'VNP-CLS-100013',                         N'CLASS',               150000.00, N'VNPAY',  N'PAID',     N'CLS-2026-0013', DATEADD(HOUR, -1, @Now),    FORMAT(DATEADD(HOUR, -1, @Now), 'yyyyMMddHHmmss'),    DATEADD(HOUR, -1, @Now),    'CLASS',      N'Lớp Tennis Chiến Thuật Đánh Đôi - HLV Trần Văn Minh (' + FORMAT(DATEADD(DAY, 2, @DemoClearDay), 'dd/MM') + N')', NULL),
+    (14, 9,  NULL, NULL, 'VNP-CRT-100014',                         N'COURT',               320000.00, N'VNPAY',  N'PAID',     N'CRT-2026-0014', DATEADD(MINUTE, -30, @Now), FORMAT(DATEADD(MINUTE, -30, @Now), 'yyyyMMddHHmmss'), DATEADD(MINUTE, -30, @Now), 'COURT',      N'Tennis Court 01 - ' + FORMAT(DATEADD(DAY, 1, @DemoClearDay), 'dd/MM') + N' 18:00-19:00', NULL),
+    (15, 11, NULL, NULL, 'VNP-CRT-100015',                         N'COURT',               350000.00, N'VNPAY',  N'PAID',     N'CRT-2026-0015', DATEADD(HOUR, -3, @Now),    FORMAT(DATEADD(HOUR, -3, @Now), 'yyyyMMddHHmmss'),    DATEADD(HOUR, -3, @Now),    'COURT',      N'Tennis Court 02 - ' + FORMAT(DATEADD(DAY, 2, @DemoClearDay), 'dd/MM') + N' 19:00-20:00 (Đề nghị hoàn tiền)', NULL),
+    (16, 10, NULL, NULL, 'VNP-CRT-100016',                         N'COURT',               180000.00, N'VNPAY',  N'REFUNDED', N'CRT-2026-0016', DATEADD(DAY, -2, @Now),     FORMAT(DATEADD(DAY, -2, @Now), 'yyyyMMddHHmmss'),     DATEADD(DAY, -2, @Now),     'COURT',      N'Pickleball Court 01 - Đã hoàn tiền', NULL),
+    (17, 13, NULL, NULL, NULL,                                     N'COURT',               500000.00, N'CASH',   N'PAID',     N'CRT-2026-0017', DATEADD(DAY, -1, @Now),     FORMAT(DATEADD(DAY, -1, @Now), 'yyyyMMddHHmmss'),     DATEADD(DAY, -1, @Now),     'COURT',      N'Sân bóng đá 7 người 01 - 19:00-20:00', 3),
+    (21, 9,  8,    1,    '21_5f3d4fbb5df6499c8aea87856ab9fa84',    N'MEMBERSHIP_PACKAGE', 1300000.00, N'VNPAY',  N'PAID',     N'15743331',      '2026-11-20T00:03:29.4420225', '20261120000328',                                    '2026-11-20T00:04:04.1702530', 'MEMBERSHIP', NULL, NULL),
+    (22, 10, 9,    NULL, 'VNP-MEM-100022',                         N'MEMBERSHIP_PACKAGE', 1500000.00, N'VNPAY',  N'PAID',     N'POS-2026-0022', DATEADD(HOUR, -2, @Now),    FORMAT(DATEADD(HOUR, -2, @Now), 'yyyyMMddHHmmss'),    DATEADD(HOUR, -2, @Now),    'MEMBERSHIP', N'Hạng Vàng', 3),
+    (23, 14, NULL, NULL, NULL,                                     N'CLASS',               150000.00, N'CASH',   N'PAID',     N'CLS-2026-0023', DATEADD(MINUTE, -20, @Now), FORMAT(DATEADD(MINUTE, -20, @Now), 'yyyyMMddHHmmss'), DATEADD(MINUTE, -20, @Now), 'CLASS',      N'Lớp Cầu Lông Phản Xạ Nhanh - HLV Đặng Thu Thảo', 3),
+    (24, 11, 10,   NULL, 'VNP-MEM-100024',                         N'MEMBERSHIP_PACKAGE', 2800000.00, N'VNPAY',  N'PAID',     N'POS-2026-0024', DATEADD(MINUTE, -15, @Now), FORMAT(DATEADD(MINUTE, -15, @Now), 'yyyyMMddHHmmss'), DATEADD(MINUTE, -15, @Now), 'MEMBERSHIP', N'Hạng Kim Cương', 4),
+    (25, 13, NULL, NULL, NULL,                                     N'CLASS',               160000.00, N'CASH',   N'PAID',     N'CLS-2026-0025', DATEADD(DAY, -1, @Now),     FORMAT(DATEADD(DAY, -1, @Now), 'yyyyMMddHHmmss'),     DATEADD(DAY, -1, @Now),     'CLASS',      N'Lớp Pickleball Kỹ Thuật Dink & Volley', 4);
 SET IDENTITY_INSERT dbo.payment_transactions OFF;
 
 -- Payment Attempts & Gateway Receipts (including 1 REVIEW_REQUIRED case for /admin/payment-reconciliation!)
 SET IDENTITY_INSERT dbo.payment_attempts ON;
 INSERT INTO dbo.payment_attempts (attempt_id, payment_id, gateway_reference, amount, status, payment_url, created_at, expires_at, merchant_date) VALUES
-    (1, 1,  'VNP-MBR-100001', 1350000.00, 'SUCCEEDED', NULL, DATEADD(DAY, -10, @Now), DATEADD(MINUTE, 15, DATEADD(DAY, -10, @Now)), FORMAT(DATEADD(DAY, -10, @Now), 'yyyyMMddHHmmss')),
-    (2, 2,  'VNP-MBR-100002', 1800000.00, 'SUCCEEDED', NULL, DATEADD(DAY, -5,  @Now), DATEADD(MINUTE, 15, DATEADD(DAY, -5,  @Now)), FORMAT(DATEADD(DAY, -5,  @Now), 'yyyyMMddHHmmss')),
-    (3, 6,  'VNP-MBR-100006', 2500000.00, 'SUCCEEDED', NULL, DATEADD(DAY, -3,  @Now), DATEADD(MINUTE, 15, DATEADD(DAY, -3,  @Now)), FORMAT(DATEADD(DAY, -3,  @Now), 'yyyyMMddHHmmss')),
     (4, 13, 'VNP-CLS-100013',  150000.00, 'SUCCEEDED', NULL, DATEADD(HOUR, -1, @Now), DATEADD(MINUTE, 15, DATEADD(HOUR, -1, @Now)), FORMAT(DATEADD(HOUR, -1, @Now), 'yyyyMMddHHmmss')),
     (5, 14, 'VNP-CRT-100014',  320000.00, 'SUCCEEDED', NULL, DATEADD(MINUTE, -30, @Now), DATEADD(MINUTE, -15, @Now),                  FORMAT(DATEADD(MINUTE, -30, @Now), 'yyyyMMddHHmmss')),
-    (6, 15, 'VNP-CRT-100015',  350000.00, 'SUCCEEDED', NULL, DATEADD(HOUR, -3, @Now), DATEADD(MINUTE, 15, DATEADD(HOUR, -3, @Now)), FORMAT(DATEADD(HOUR, -3, @Now), 'yyyyMMddHHmmss'));
+    (6, 15, 'VNP-CRT-100015',  350000.00, 'SUCCEEDED', NULL, DATEADD(HOUR, -3, @Now), DATEADD(MINUTE, 15, DATEADD(HOUR, -3, @Now)), FORMAT(DATEADD(HOUR, -3, @Now), 'yyyyMMddHHmmss')),
+    (7, 21, '21_5f3d4fbb5df6499c8aea87856ab9fa84', 1300000.00, 'SUCCESS', N'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_Amount=130000000&vnp_Command=pay&vnp_CreateDate=20261120000328&vnp_CurrCode=VND&vnp_ExpireDate=20261120001328&vnp_IpAddr=127.0.0.1&vnp_Locale=vn&vnp_OrderInfo=Thanh+toan+don+hang+21&vnp_OrderType=other', '2026-11-20T00:03:29.5888988', '2026-11-20T00:13:29.4420225', '20261120000328');
 SET IDENTITY_INSERT dbo.payment_attempts OFF;
 
 SET IDENTITY_INSERT dbo.gateway_receipts ON;
 INSERT INTO dbo.gateway_receipts (receipt_id, payment_id, attempt_id, gateway_transaction_no, gateway_reference, amount, transaction_date, status, reconciliation_note, created_at, resolved_at) VALUES
-    (1, 1,  1, '14620001', 'VNP-MBR-100001', 1350000.00, FORMAT(DATEADD(DAY, -10, @Now), 'yyyyMMddHHmmss'), 'APPLIED',         N'Khớp lệnh tự động từ VNPay IPN',           DATEADD(DAY, -10, @Now), DATEADD(DAY, -10, @Now)),
-    (2, 2,  2, '14620002', 'VNP-MBR-100002', 1800000.00, FORMAT(DATEADD(DAY, -5,  @Now), 'yyyyMMddHHmmss'), 'APPLIED',         N'Khớp lệnh tự động từ VNPay IPN',           DATEADD(DAY, -5,  @Now), DATEADD(DAY, -5,  @Now)),
-    (3, 6,  3, '14620003', 'VNP-MBR-100006', 2500000.00, FORMAT(DATEADD(DAY, -3,  @Now), 'yyyyMMddHHmmss'), 'APPLIED',         N'Khớp lệnh tự động từ VNPay IPN',           DATEADD(DAY, -3,  @Now), DATEADD(DAY, -3,  @Now)),
     (4, 13, 4, '14620004', 'VNP-CLS-100013',  150000.00, FORMAT(DATEADD(HOUR, -1, @Now), 'yyyyMMddHHmmss'), 'APPLIED',         N'Khớp lệnh thanh toán lớp Tennis',          DATEADD(HOUR, -1, @Now), DATEADD(HOUR, -1, @Now)),
     (5, 14, 5, '14620005', 'VNP-CRT-100014',  320000.00, FORMAT(DATEADD(MINUTE, -30, @Now), 'yyyyMMddHHmmss'), 'APPLIED',       N'Khớp lệnh thanh toán đặt sân Tennis 01',   DATEADD(MINUTE, -30, @Now), DATEADD(MINUTE, -30, @Now)),
-    (6, 15, 6, '14620006', 'VNP-CRT-100015',  350000.00, FORMAT(DATEADD(HOUR, -3, @Now), 'yyyyMMddHHmmss'), 'REVIEW_REQUIRED', N'Cần đối soát hoàn tiền giao dịch Tennis 02', DATEADD(HOUR, -3, @Now), NULL);
+    (6, 15, 6, '14620006', 'VNP-CRT-100015',  350000.00, FORMAT(DATEADD(HOUR, -3, @Now), 'yyyyMMddHHmmss'), 'REVIEW_REQUIRED', N'Cần đối soát hoàn tiền giao dịch Tennis 02', DATEADD(HOUR, -3, @Now), NULL),
+    (7, 21, 7, '15743331', '21_5f3d4fbb5df6499c8aea87856ab9fa84', 1300000.00, '20261120000328', 'APPLIED', NULL, '2026-11-20T00:04:04.1626054', NULL);
 SET IDENTITY_INSERT dbo.gateway_receipts OFF;
 
 -- Legacy Reception Payments synced with Membership sales & POS Staff KPI
 SET IDENTITY_INSERT dbo.payments ON;
 INSERT INTO dbo.payments (payment_id, member_id, um_id, voucher_id, amount, payment_method, payment_status, approved_by, created_at) VALUES
-    (1, 9,  1, 2,    1350000.00, 'ONLINE',   'COMPLETED', 3, DATEADD(DAY, -10, @Now)),
-    (2, 9,  2, NULL, 1800000.00, 'ONLINE',   'COMPLETED', 3, DATEADD(DAY, -5,  @Now)),
-    (3, 10, 3, 1,    2600000.00, 'CASH',     'COMPLETED', 3, DATEADD(DAY, -6,  @Now)),
-    (4, 11, 4, NULL, 2200000.00, 'POS',      'COMPLETED', 4, DATEADD(DAY, -45, @Now)),
-    (5, 12, 5, NULL,  800000.00, 'TRANSFER', 'COMPLETED', 4, DATEADD(MINUTE, -45, @Now)),
-    (6, 14, 6, 3,    2500000.00, 'ONLINE',   'COMPLETED', 3, DATEADD(DAY, -3,  @Now));
+    (5,  12, 5,  NULL,  800000.00, 'TRANSFER', 'COMPLETED', 4,    DATEADD(MINUTE, -45, @Now)),
+    (8,  9,  8,  NULL, 1300000.00, 'ONLINE',   'COMPLETED', NULL, '2026-11-20T00:03:29.427'),
+    (9,  10, 9,  NULL, 1500000.00, 'ONLINE',   'COMPLETED', 3,    DATEADD(HOUR, -2, @Now)),
+    (10, 11, 10, NULL, 2800000.00, 'ONLINE',   'COMPLETED', 4,    DATEADD(MINUTE, -15, @Now));
 SET IDENTITY_INSERT dbo.payments OFF;
 
 -- ----------------------------------------------------------------------------
--- 2.7 Class Sessions (Past COMPLETED + Today + Upcoming 5 days)
+-- 2.7 Class Sessions (Past COMPLETED + prepare_20261120 milestones + 2-week schedule; 2026-11-20 empty)
 -- ----------------------------------------------------------------------------
 SET IDENTITY_INSERT dbo.class_sessions ON;
 INSERT INTO dbo.class_sessions (session_id, class_name, sport_id, coach_id, facility_id, start_time, end_time, max_slots, booked_slots, price_amount, status) VALUES
     -- Past completed sessions (for Coach Income, Attendance history & Member Feedbacks)
-    (1,  N'Lớp Tennis Chuyên Kỹ Thuật Serve',  3, 5, 4,  DATEADD(HOUR, 18, CAST(DATEADD(DAY, -4, @Today) AS DATETIME)), DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, -4, @Today) AS DATETIME)), 6,  2, 200000.00, 'COMPLETED'),
-    (2,  N'Lớp Pickleball Căn Bản K12',        2, 5, 1,  DATEADD(HOUR, 18, CAST(DATEADD(DAY, -2, @Today) AS DATETIME)), DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, -2, @Today) AS DATETIME)), 8,  2, 150000.00, 'COMPLETED'),
-    (3,  N'Lớp Bơi Lội Căn Bản',               9, 6, 12, DATEADD(HOUR, 17, CAST(DATEADD(DAY, -1, @Today) AS DATETIME)), DATEADD(MINUTE, 1110, CAST(DATEADD(DAY, -1, @Today) AS DATETIME)), 8,  2, 170000.00, 'COMPLETED'),
-    (4,  N'Lớp Bóng Đá Cơ Bản',                5, 7, 14, DATEADD(HOUR, 18, CAST(DATEADD(DAY, -3, @Today) AS DATETIME)), DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, -3, @Today) AS DATETIME)), 14, 2, 180000.00, 'COMPLETED'),
+    (1,  N'Lớp Tennis Chuyên Kỹ Thuật Serve',  3, 5, 4,  DATEADD(HOUR, 18, CAST(DATEADD(DAY, -5, @DemoClearDay) AS DATETIME)), DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, -5, @DemoClearDay) AS DATETIME)), 6,  2, 200000.00, 'COMPLETED'),
+    (2,  N'Lớp Pickleball Căn Bản K12',        2, 5, 1,  DATEADD(HOUR, 18, CAST(DATEADD(DAY, -3, @DemoClearDay) AS DATETIME)), DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, -3, @DemoClearDay) AS DATETIME)), 8,  0, 150000.00, 'COMPLETED'),
+    (3,  N'Lớp Bơi Lội Căn Bản',               9, 6, 12, DATEADD(HOUR, 17, CAST(DATEADD(DAY, -2, @DemoClearDay) AS DATETIME)), DATEADD(MINUTE, 1110, CAST(DATEADD(DAY, -2, @DemoClearDay) AS DATETIME)), 8,  1, 170000.00, 'COMPLETED'),
+    (4,  N'Lớp Bóng Đá Cơ Bản',                5, 7, 14, DATEADD(HOUR, 18, CAST(DATEADD(DAY, -4, @DemoClearDay) AS DATETIME)), DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, -4, @DemoClearDay) AS DATETIME)), 14, 2, 180000.00, 'COMPLETED'),
 
-    -- Today's sessions (for Receptionist Dashboard Today's Classes & Coach Attendance!)
-    (5,  N'Lớp Pickleball Nâng Cao K05',       2, 5, 2,  DATEADD(HOUR, 19, CAST(@Today AS DATETIME)),                   DATEADD(MINUTE, 1230, CAST(@Today AS DATETIME)),                   8,  2, 180000.00, 'SCHEDULED'),
-    (6,  N'Lớp Cầu Lông Phản Xạ Nhanh',        6, 8, 16, DATEADD(HOUR, 18, CAST(@Today AS DATETIME)),                   DATEADD(MINUTE, 1170, CAST(@Today AS DATETIME)),                   8,  1, 150000.00, 'SCHEDULED'),
+    -- Upcoming demo milestone sessions from prepare_20261120.sql (2026-11-21..2026-11-24, zero overlap)
+    (5,  N'Lớp Pickleball Nâng Cao K05',         2, 5, 2,  DATEADD(HOUR, 19, CAST(DATEADD(DAY, 1, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 1230, CAST(DATEADD(DAY, 1, @DemoClearDay) AS DATETIME)), 8,  0, 180000.00, 'SCHEDULED'),
+    (6,  N'Lớp Cầu Lông Phản Xạ Nhanh',          6, 8, 16, DATEADD(HOUR, 18, CAST(DATEADD(DAY, 3, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, 3, @DemoClearDay) AS DATETIME)), 8,  1, 150000.00, 'SCHEDULED'),
+    (7,  N'Lớp Tennis Chiến Thuật Đánh Đôi',     3, 5, 5,  DATEADD(HOUR, 18, CAST(DATEADD(DAY, 2, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, 2, @DemoClearDay) AS DATETIME)), 6,  2, 200000.00, 'SCHEDULED'),
+    (8,  N'Lớp Pickleball Kỹ Thuật Dink & Volley',2,6, 1,  DATEADD(HOUR, 17, CAST(DATEADD(DAY, 1, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 1110, CAST(DATEADD(DAY, 1, @DemoClearDay) AS DATETIME)), 8,  0, 160000.00, 'SCHEDULED'),
+    (9,  N'Lớp Bóng Đá Thể Lực & Phối Hợp',      5, 7, 14, DATEADD(HOUR, 19, CAST(DATEADD(DAY, 1, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 1230, CAST(DATEADD(DAY, 1, @DemoClearDay) AS DATETIME)), 14, 1, 180000.00, 'SCHEDULED'),
+    (10, N'Lớp Cầu Lông Đánh Đôi Nâng Cao',      6, 8, 17, DATEADD(HOUR, 20, CAST(DATEADD(DAY, 4, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 1290, CAST(DATEADD(DAY, 4, @DemoClearDay) AS DATETIME)), 8,  0, 160000.00, 'SCHEDULED'),
+    (11, N'Lớp Điền Kinh Sức Bền Morning',       10,7, 13, DATEADD(MINUTE, 510, CAST(DATEADD(DAY, 4, @DemoClearDay) AS DATETIME)), DATEADD(HOUR, 10, CAST(DATEADD(DAY, 4, @DemoClearDay) AS DATETIME)), 12, 0, 110000.00, 'SCHEDULED'),
 
-    -- Upcoming sessions (Day +1 to +4 for Booking, Reschedule & Cancel > 2h Demo!)
-    (7,  N'Lớp Tennis Chiến Thuật Đánh Đôi',   3, 5, 5,  DATEADD(HOUR, 18, CAST(DATEADD(DAY, 1, @Today) AS DATETIME)),  DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, 1, @Today) AS DATETIME)),  6,  2, 200000.00, 'SCHEDULED'),
-    (8,  N'Lớp Pickleball Kỹ Thuật Dink & Volley', 2, 6, 1, DATEADD(HOUR, 17, CAST(DATEADD(DAY, 2, @Today) AS DATETIME)), DATEADD(MINUTE, 1110, CAST(DATEADD(DAY, 2, @Today) AS DATETIME)), 8,  0, 160000.00, 'SCHEDULED'),
-    (9,  N'Lớp Bóng Đá Thể Lực & Phối Hợp',    5, 7, 14, DATEADD(HOUR, 19, CAST(DATEADD(DAY, 2, @Today) AS DATETIME)),  DATEADD(MINUTE, 1230, CAST(DATEADD(DAY, 2, @Today) AS DATETIME)),  14, 1, 180000.00, 'SCHEDULED'),
-    (10, N'Lớp Cầu Lông Đánh Đôi Nâng Cao',    6, 8, 17, DATEADD(HOUR, 18, CAST(DATEADD(DAY, 3, @Today) AS DATETIME)),  DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, 3, @Today) AS DATETIME)),  8,  0, 160000.00, 'SCHEDULED'),
-    (11, N'Lớp Điền Kinh Sức Bền Morning',     10,7, 13, DATEADD(HOUR, 7,  CAST(DATEADD(DAY, 4, @Today) AS DATETIME)),  DATEADD(MINUTE, 510,  CAST(DATEADD(DAY, 4, @Today) AS DATETIME)),  12, 0, 110000.00, 'SCHEDULED');
+    -- Standard 2-week class schedule (2026-11-16..2026-11-29, skipping 2026-11-20)
+    (12, N'Lớp Tennis Chuyên Kỹ Thuật Serve',    3, 5, 4,  DATEADD(HOUR, 17, CAST(DATEADD(DAY, -4, @DemoClearDay) AS DATETIME)), DATEADD(MINUTE, 1110, CAST(DATEADD(DAY, -4, @DemoClearDay) AS DATETIME)), 6,  0, 200000.00, 'SCHEDULED'),
+    (13, N'Lớp Pickleball Căn Bản K12',          2, 6, 1,  DATEADD(HOUR, 18, CAST(DATEADD(DAY, -4, @DemoClearDay) AS DATETIME)), DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, -4, @DemoClearDay) AS DATETIME)), 8,  0, 150000.00, 'SCHEDULED'),
+    (14, N'Lớp Điền Kinh Căn Bản',               10,7, 13, DATEADD(MINUTE, 390, CAST(DATEADD(DAY, -3, @DemoClearDay) AS DATETIME)), DATEADD(HOUR, 8, CAST(DATEADD(DAY, -3, @DemoClearDay) AS DATETIME)),   12, 0, 110000.00, 'SCHEDULED'),
+    (15, N'Lớp Cầu Lông Phản Xạ Nhanh',          6, 8, 16, DATEADD(HOUR, 18, CAST(DATEADD(DAY, -3, @DemoClearDay) AS DATETIME)), DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, -3, @DemoClearDay) AS DATETIME)), 8,  0, 150000.00, 'SCHEDULED'),
+    (16, N'Lớp Bóng Bàn Căn Bản',                8, 5, 11, DATEADD(MINUTE, 1110, CAST(DATEADD(DAY, -2, @DemoClearDay) AS DATETIME)), DATEADD(HOUR, 20, CAST(DATEADD(DAY, -2, @DemoClearDay) AS DATETIME)), 8,  0, 120000.00, 'SCHEDULED'),
+    (17, N'Lớp Bóng Đá Cơ Bản',                  5, 7, 14, DATEADD(MINUTE, 1050, CAST(DATEADD(DAY, -1, @DemoClearDay) AS DATETIME)), DATEADD(HOUR, 19, CAST(DATEADD(DAY, -1, @DemoClearDay) AS DATETIME)), 14, 0, 180000.00, 'SCHEDULED'),
+    (18, N'Lớp Tennis Chiến Thuật Đánh Đôi',     3, 5, 5,  DATEADD(HOUR, 8,  CAST(DATEADD(DAY, 1, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 570,  CAST(DATEADD(DAY, 1, @DemoClearDay) AS DATETIME)), 6,  0, 220000.00, 'SCHEDULED'),
+    (19, N'Lớp Bóng Đá Thể Lực & Phối Hợp',      5, 7, 14, DATEADD(HOUR, 8,  CAST(DATEADD(DAY, 2, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 570,  CAST(DATEADD(DAY, 2, @DemoClearDay) AS DATETIME)), 14, 0, 180000.00, 'SCHEDULED'),
+    (20, N'Lớp Cầu Lông Đánh Đôi Nâng Cao',      6, 8, 17, DATEADD(HOUR, 16, CAST(DATEADD(DAY, 2, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 1050, CAST(DATEADD(DAY, 2, @DemoClearDay) AS DATETIME)), 8,  0, 160000.00, 'SCHEDULED'),
+    (21, N'Lớp Tennis Chuyên Kỹ Thuật Serve',    3, 5, 4,  DATEADD(HOUR, 17, CAST(DATEADD(DAY, 3, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 1110, CAST(DATEADD(DAY, 3, @DemoClearDay) AS DATETIME)), 6,  0, 200000.00, 'SCHEDULED'),
+    (22, N'Lớp Pickleball Căn Bản K12',          2, 6, 1,  DATEADD(HOUR, 18, CAST(DATEADD(DAY, 3, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, 3, @DemoClearDay) AS DATETIME)), 8,  0, 150000.00, 'SCHEDULED'),
+    (23, N'Lớp Điền Kinh Căn Bản',               10,7, 13, DATEADD(MINUTE, 390, CAST(DATEADD(DAY, 4, @DemoClearDay) AS DATETIME)), DATEADD(HOUR, 8, CAST(DATEADD(DAY, 4, @DemoClearDay) AS DATETIME)),    12, 0, 110000.00, 'SCHEDULED'),
+    (24, N'Lớp Cầu Lông Phản Xạ Nhanh',          6, 8, 16, DATEADD(HOUR, 18, CAST(DATEADD(DAY, 4, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, 4, @DemoClearDay) AS DATETIME)), 8,  0, 150000.00, 'SCHEDULED'),
+    (25, N'Lớp Pickleball Nâng Cao K05',         2, 6, 2,  DATEADD(HOUR, 18, CAST(DATEADD(DAY, 5, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 1170, CAST(DATEADD(DAY, 5, @DemoClearDay) AS DATETIME)), 8,  0, 180000.00, 'SCHEDULED'),
+    (26, N'Lớp Bóng Bàn Căn Bản',                8, 5, 11, DATEADD(MINUTE, 1110, CAST(DATEADD(DAY, 5, @DemoClearDay) AS DATETIME)), DATEADD(HOUR, 20, CAST(DATEADD(DAY, 5, @DemoClearDay) AS DATETIME)),  8,  0, 120000.00, 'SCHEDULED'),
+    (27, N'Lớp Bóng Đá Cơ Bản',                  5, 7, 14, DATEADD(MINUTE, 1050, CAST(DATEADD(DAY, 6, @DemoClearDay) AS DATETIME)), DATEADD(HOUR, 19, CAST(DATEADD(DAY, 6, @DemoClearDay) AS DATETIME)),  14, 0, 180000.00, 'SCHEDULED'),
+    (28, N'Lớp Bơi Lội Căn Bản',                 9, 6, 12, DATEADD(MINUTE, 990, CAST(DATEADD(DAY, 6, @DemoClearDay) AS DATETIME)),  DATEADD(HOUR, 18, CAST(DATEADD(DAY, 6, @DemoClearDay) AS DATETIME)),  8,  0, 170000.00, 'SCHEDULED'),
+    (29, N'Lớp Cầu Lông Căn Bản',                6, 8, 17, DATEADD(MINUTE, 1110, CAST(DATEADD(DAY, 6, @DemoClearDay) AS DATETIME)), DATEADD(HOUR, 20, CAST(DATEADD(DAY, 6, @DemoClearDay) AS DATETIME)),  8,  0, 140000.00, 'SCHEDULED'),
+    (30, N'Lớp Tennis Chiến Thuật Đánh Đôi',     3, 5, 5,  DATEADD(HOUR, 8,  CAST(DATEADD(DAY, 8, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 570,  CAST(DATEADD(DAY, 8, @DemoClearDay) AS DATETIME)), 6,  0, 220000.00, 'SCHEDULED'),
+    (31, N'Lớp Bóng Chuyền Căn Bản',             7, 6, 10, DATEADD(HOUR, 16, CAST(DATEADD(DAY, 8, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 1050, CAST(DATEADD(DAY, 8, @DemoClearDay) AS DATETIME)), 12, 0, 160000.00, 'SCHEDULED'),
+    (32, N'Lớp Bóng Đá Thể Lực & Phối Hợp',      5, 7, 14, DATEADD(HOUR, 8,  CAST(DATEADD(DAY, 9, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 570,  CAST(DATEADD(DAY, 9, @DemoClearDay) AS DATETIME)), 14, 0, 180000.00, 'SCHEDULED'),
+    (33, N'Lớp Cầu Lông Đánh Đôi Nâng Cao',      6, 8, 17, DATEADD(HOUR, 16, CAST(DATEADD(DAY, 9, @DemoClearDay) AS DATETIME)),  DATEADD(MINUTE, 1050, CAST(DATEADD(DAY, 9, @DemoClearDay) AS DATETIME)), 8,  0, 160000.00, 'SCHEDULED');
 SET IDENTITY_INSERT dbo.class_sessions OFF;
 
 -- ----------------------------------------------------------------------------
@@ -886,48 +936,35 @@ SET IDENTITY_INSERT dbo.class_sessions OFF;
 -- ----------------------------------------------------------------------------
 SET IDENTITY_INSERT dbo.bookings ON;
 INSERT INTO dbo.bookings (booking_id, member_id, session_id, booking_time, status, attendance_status, coach_note, homework_note, uses_membership_quota, membership_id, fee_amount, payment_id, quota_state) VALUES
-    -- Session 1 (-4d, Coach 5): Khoa PRESENT (already reviewed), Phương Anh PRESENT (already reviewed)
     (1, 9,  1, DATEADD(DAY, -5, @Now), 'CONFIRMED', 'PRESENT',         N'Tư thế giao bóng ổn định, lực cổ tay tốt.',              N'Tập tung bóng 15 phút mỗi ngày.', 0, NULL, 200000.00, 7,  NULL),
     (2, 12, 1, DATEADD(DAY, -5, @Now), 'CONFIRMED', 'PRESENT',         N'Di chuyển linh hoạt, tiếp thu nhanh.',                  N'Luyện bước chân split-step.',     0, NULL, 200000.00, 8,  NULL),
 
-    -- Session 2 (-2d, Coach 5): Khoa PRESENT (ELIGIBLE FOR LIVE REVIEW DEMO!), Ngọc PRESENT
-    (3, 9,  2, DATEADD(DAY, -3, @Now), 'CONFIRMED', 'PRESENT',         N'Phản xạ trên lưới rất tốt, giữ nhịp độ trận đấu cao.',  N'Luyện cú dink chéo sân 50 lần.',  1, 2,    0.00,      9,  'USED'),
-    (4, 10, 2, DATEADD(DAY, -3, @Now), 'CONFIRMED', 'PRESENT',         N'Kiểm soát bóng ổn định.',                                N'Tập thêm backhand.',              1, 3,    0.00,      10, 'USED'),
 
-    -- Session 3 (-1d, Coach 6): Ngọc PRESENT, Minh Châu EXCUSED_ABSENCE
-    (5, 10, 3, DATEADD(DAY, -2, @Now), 'CONFIRMED', 'PRESENT',         N'Kỹ thuật thở sải đều và chuẩn nhịp.',                   N'Bơi 400m nhẹ thả lỏng.',          1, 3,    0.00,      11, 'USED'),
     (6, 14, 3, DATEADD(DAY, -2, @Now), 'CONFIRMED', 'EXCUSED_ABSENCE', N'Học viên báo xin nghỉ phép trước buổi tập.',            NULL,                               0, NULL, 170000.00, NULL, NULL),
 
-    -- Session 4 (-3d, Coach 7): Hoàng PRESENT, Minh Châu PRESENT
     (7, 11, 4, DATEADD(DAY, -4, @Now), 'CONFIRMED', 'PRESENT',         N'Thể lực tốt, phối hợp đồng đội ăn ý.',                  N'Chạy bền 3km.',                   0, NULL, 180000.00, 12, NULL),
     (8, 14, 4, DATEADD(DAY, -4, @Now), 'CONFIRMED', 'PRESENT',         N'Chuyền bóng chính xác.',                                 NULL,                               0, NULL, 180000.00, NULL, NULL),
 
-    -- Session 5 (Today 19:00, Coach 5): Khoa & Ngọc PENDING (ready for Coach/Receptionist live attendance!)
-    (9,  9,  5, DATEADD(DAY, -1, @Now), 'CONFIRMED', 'PENDING', NULL, NULL, 1, 2,    0.00, NULL, 'HELD'),
-    (10, 10, 5, DATEADD(DAY, -1, @Now), 'CONFIRMED', 'PENDING', NULL, NULL, 1, 3,    0.00, NULL, 'HELD'),
 
-    -- Session 6 (Today 18:00, Coach 8): Ngọc PENDING
     (11, 10, 6, DATEADD(DAY, -1, @Now), 'CONFIRMED', 'PENDING', NULL, NULL, 0, NULL, 150000.00, NULL, NULL),
 
-    -- Session 7 (Tomorrow 18:00, Coach 5): Khoa PAID (ready for live Cancel/Refund > 2h Demo!) & Minh Châu
-    (12, 9,  7, DATEADD(HOUR, -1, @Now), 'CONFIRMED', 'PENDING', NULL, NULL, 0, NULL, 150000.00, 13, NULL),
-    (13, 14, 7, DATEADD(HOUR, -2, @Now), 'CONFIRMED', 'PENDING', NULL, NULL, 0, NULL, 200000.00, NULL, NULL),
+    (12, 9,  7, DATEADD(HOUR, -25, @Now), 'CONFIRMED', 'PENDING', NULL, NULL, 0, NULL, 150000.00, 13, NULL),
+    (13, 14, 7, DATEADD(HOUR, -26, @Now), 'CONFIRMED', 'PENDING', NULL, NULL, 0, NULL, 200000.00, NULL, NULL),
 
-    -- Session 9 (Day+2 19:00, Coach 7): Hoàng
-    (14, 11, 9, DATEADD(HOUR, -3, @Now), 'CONFIRMED', 'PENDING', NULL, NULL, 0, NULL, 180000.00, NULL, NULL);
+    (14, 11, 9,  DATEADD(HOUR, -27, @Now), 'CONFIRMED', 'PENDING', NULL, NULL, 0, NULL, 180000.00, NULL, NULL),
+    (15, 14, 6,  DATEADD(MINUTE, -20, @Now), 'CONFIRMED', 'PENDING', NULL, NULL, 0, NULL, 150000.00, 23, NULL),
+    (16, 10, 10, DATEADD(HOUR, -5, @Now),  'CONFIRMED', 'PENDING', NULL, NULL, 0, NULL, 160000.00, NULL, NULL),
+    (17, 13, 8,  DATEADD(DAY, -1, @Now),   'CONFIRMED', 'PENDING', NULL, NULL, 0, NULL, 160000.00, 25, NULL);
 SET IDENTITY_INSERT dbo.bookings OFF;
 
 SET IDENTITY_INSERT dbo.court_bookings ON;
 INSERT INTO dbo.court_bookings (court_booking_id, member_id, court_id, start_time, end_time, amount_paid, payment_id, status, created_at, uses_membership_quota, membership_id, quota_hours_used, quota_state) VALUES
-    -- Past completed court bookings
-    (1, 9,  2, DATEADD(HOUR, 10, CAST(DATEADD(DAY, -3, @Today) AS DATETIME2)), DATEADD(HOUR, 11, CAST(DATEADD(DAY, -3, @Today) AS DATETIME2)), 0.00,      18, N'COMPLETED', DATEADD(DAY, -4, @Now), 1, 1,    1.00, 'USED'),
-    (2, 13, 8, DATEADD(HOUR, 19, CAST(DATEADD(DAY, -1, @Today) AS DATETIME2)), DATEADD(HOUR, 20, CAST(DATEADD(DAY, -1, @Today) AS DATETIME2)), 500000.00, 17, N'COMPLETED', DATEADD(DAY, -2, @Now), 0, NULL, 0.00, NULL),
-    -- Cancelled past booking (refunded)
-    (3, 10, 1, DATEADD(HOUR, 17, CAST(DATEADD(DAY, -2, @Today) AS DATETIME2)), DATEADD(HOUR, 18, CAST(DATEADD(DAY, -2, @Today) AS DATETIME2)), 180000.00, 16, N'CANCELLED', DATEADD(DAY, -3, @Now), 0, NULL, 0.00, NULL),
-    -- Upcoming future court bookings
-    (4, 9,  3, DATEADD(HOUR, 18, CAST(DATEADD(DAY, 1,  @Today) AS DATETIME2)), DATEADD(HOUR, 19, CAST(DATEADD(DAY, 1,  @Today) AS DATETIME2)), 320000.00, 14, N'CONFIRMED', DATEADD(MINUTE, -30, @Now), 0, NULL, 0.00, NULL),
-    (5, 11, 4, DATEADD(HOUR, 19, CAST(DATEADD(DAY, 2,  @Today) AS DATETIME2)), DATEADD(HOUR, 20, CAST(DATEADD(DAY, 2,  @Today) AS DATETIME2)), 350000.00, 15, N'CONFIRMED', DATEADD(HOUR, -3, @Now),    0, NULL, 0.00, NULL),
-    (6, 9,  1, DATEADD(HOUR, 9,  CAST(DATEADD(DAY, 3,  @Today) AS DATETIME2)), DATEADD(HOUR, 10, CAST(DATEADD(DAY, 3,  @Today) AS DATETIME2)), 0.00,      NULL, N'CONFIRMED', DATEADD(HOUR, -1, @Now), 1, 1, 1.00, 'HELD');
+    (2, 13, 8, DATEADD(HOUR, 19, CAST(DATEADD(DAY, -1, @DemoClearDay) AS DATETIME2)), DATEADD(HOUR, 20, CAST(DATEADD(DAY, -1, @DemoClearDay) AS DATETIME2)), 500000.00, 17, N'COMPLETED', DATEADD(DAY, -2, @Now), 0, NULL, 0.00, NULL),
+    (3, 10, 1, DATEADD(HOUR, 17, CAST(DATEADD(DAY, -2, @DemoClearDay) AS DATETIME2)), DATEADD(HOUR, 18, CAST(DATEADD(DAY, -2, @DemoClearDay) AS DATETIME2)), 180000.00, 16, N'CANCELLED', DATEADD(DAY, -3, @Now), 0, NULL, 0.00, NULL),
+    (4, 9,  3, DATEADD(HOUR, 18, CAST(DATEADD(DAY, 1,  @DemoClearDay) AS DATETIME2)), DATEADD(HOUR, 19, CAST(DATEADD(DAY, 1,  @DemoClearDay) AS DATETIME2)), 320000.00, 14, N'CONFIRMED', DATEADD(MINUTE, -30, @Now), 0, NULL, 0.00, NULL),
+    (5, 11, 4, DATEADD(HOUR, 19, CAST(DATEADD(DAY, 2,  @DemoClearDay) AS DATETIME2)), DATEADD(HOUR, 20, CAST(DATEADD(DAY, 2,  @DemoClearDay) AS DATETIME2)), 350000.00, 15, N'CONFIRMED', DATEADD(HOUR, -3, @Now),    0, NULL, 0.00, NULL),
+    (6, 10, 2, DATEADD(HOUR, 18, CAST(DATEADD(DAY, 5,  @DemoClearDay) AS DATETIME2)), DATEADD(HOUR, 19, CAST(DATEADD(DAY, 5,  @DemoClearDay) AS DATETIME2)), 200000.00, NULL, N'CONFIRMED', DATEADD(HOUR, -4, @Now),  1, 9,    1.00, N'HELD'),
+    (7, 11, 10, DATEADD(HOUR, 19, CAST(DATEADD(DAY, 6,  @DemoClearDay) AS DATETIME2)), DATEADD(HOUR, 20, CAST(DATEADD(DAY, 6,  @DemoClearDay) AS DATETIME2)), 100000.00, NULL, N'CONFIRMED', DATEADD(HOUR, -2, @Now),  1, 10,   1.00, N'HELD');
 SET IDENTITY_INSERT dbo.court_bookings OFF;
 
 -- ----------------------------------------------------------------------------
@@ -989,8 +1026,7 @@ SET IDENTITY_INSERT dbo.workout_plans OFF;
 SET IDENTITY_INSERT dbo.feedbacks ON;
 INSERT INTO dbo.feedbacks (feedback_id, member_id, session_id, coach_id, rating, comment, created_at) VALUES
     (1, 9,  1, 5, 5, N'HLV Minh hướng dẫn rất nhiệt tình, sửa dáng giao bóng chuẩn từng chút một!', DATEADD(DAY, -3, @Now)),
-    (2, 12, 1, 5, 5, N'Buổi tập vui vẻ, không khí lớp học năng động. Sân bãi sạch đẹp.',          DATEADD(DAY, -3, @Now)),
-    (3, 10, 3, 6, 5, N'HLV Nam chỉnh kỹ thuật thở khi bơi sải rất dễ hiểu, tiến bộ ngay buổi đầu.', DATEADD(HOUR, -12, @Now));
+    (2, 12, 1, 5, 5, N'Buổi tập vui vẻ, không khí lớp học năng động. Sân bãi sạch đẹp.',          DATEADD(DAY, -3, @Now));
 SET IDENTITY_INSERT dbo.feedbacks OFF;
 
 SET IDENTITY_INSERT dbo.member_check_ins ON;
@@ -998,7 +1034,9 @@ INSERT INTO dbo.member_check_ins (check_in_id, member_id, checked_in_at, result,
     (1, 9,  DATEADD(DAY, -2, @Now),    N'VALID',    3),
     (2, 10, DATEADD(DAY, -1, @Now),    N'VALID',    3),
     (3, 14, DATEADD(HOUR, -3, @Now),   N'VALID',    4),
-    (4, 16, DATEADD(HOUR, -2, @Now),   N'REJECTED', 3);
+    (4, 16, DATEADD(HOUR, -2, @Now),   N'REJECTED', 3),
+    (5, 9,  DATEADD(HOUR, -1, @Now),   N'VALID',    3),
+    (6, 11, DATEADD(MINUTE, -25, @Now),N'VALID',    4);
 SET IDENTITY_INSERT dbo.member_check_ins OFF;
 
 -- ----------------------------------------------------------------------------
@@ -1016,8 +1054,9 @@ SET IDENTITY_INSERT dbo.equipments OFF;
 
 SET IDENTITY_INSERT dbo.equipment_loans ON;
 INSERT INTO dbo.equipment_loans (loan_id, member_id, member_name, phone, item_id, item_name, quantity, rental_price_per_hour, loaned_at, returned_at, rental_fee, status, payment_method, recorded_by) VALUES
-    (501, 9,  N'Nguyễn Anh Khoa', N'0934567890', 1, N'Vợt Tennis Wilson Pro Staff',       1, 30000.00, DATEADD(MINUTE, -90, @Now), NULL,                     NULL,     N'BORROWED', NULL,    3),
-    (502, 10, N'Hoàng Thị Ngọc',  N'0938765432', 2, N'Vợt Pickleball Franklin Ben Johns', 2, 20000.00, DATEADD(DAY, -1, @Now),     DATEADD(HOUR, -22, @Now), 40000.00, N'RETURNED', N'CASH', 4);
+    (501, 9,  N'Nguyễn Anh Khoa', N'0934567890', 1, N'Vợt Tennis Wilson Pro Staff',       1, 30000.00, DATEADD(MINUTE, -90, @Now), NULL,                        NULL,     N'BORROWED', NULL,    3),
+    (502, 10, N'Hoàng Thị Ngọc',  N'0938765432', 2, N'Vợt Pickleball Franklin Ben Johns', 2, 20000.00, DATEADD(DAY, -1, @Now),     DATEADD(HOUR, -22, @Now),    40000.00, N'RETURNED', N'CASH', 4),
+    (503, 11, N'Bùi Huy Hoàng',   N'0931112233', 1, N'Vợt Tennis Wilson Pro Staff',       2, 30000.00, DATEADD(HOUR, -3, @Now),    DATEADD(MINUTE, -35, @Now),  60000.00, N'RETURNED', N'VNPAY',3);
 SET IDENTITY_INSERT dbo.equipment_loans OFF;
 
 -- ----------------------------------------------------------------------------
@@ -1025,20 +1064,20 @@ SET IDENTITY_INSERT dbo.equipment_loans OFF;
 -- ----------------------------------------------------------------------------
 SET IDENTITY_INSERT dbo.coach_leave_requests ON;
 INSERT INTO dbo.coach_leave_requests (request_id, coach_id, coach_name, leave_type, start_date, end_date, reason, status, approved_by, affected_bookings_count, reassigned_coach_id, created_at) VALUES
-    (101, 6, N'Nguyễn Hoàng Nam', N'SICK_LEAVE',     DATEADD(DAY, 5, @Today),   DATEADD(DAY, 6, @Today),  N'Khám sức khỏe định kỳ và theo dõi sốt siêu vi', N'PENDING',  NULL, 0, NULL, DATEADD(HOUR, -6, @Now)),
-    (102, 8, N'Đặng Thu Thảo',    N'PERSONAL_LEAVE', DATEADD(DAY, -10, @Today), DATEADD(DAY, -9, @Today), N'Tham dự hội thảo chuyên môn Cầu lông toàn quốc', N'APPROVED', 1,    0, NULL, DATEADD(DAY, -12, @Now));
+    (101, 6, N'Nguyễn Hoàng Nam', N'SICK_LEAVE',     DATEADD(DAY, 1, @DefenseDay),     DATEADD(DAY, 2, @DefenseDay),    N'Khám sức khỏe định kỳ và theo dõi sốt siêu vi', N'PENDING',  NULL, 0, NULL, DATEADD(HOUR, -6, @Now)),
+    (102, 8, N'Đặng Thu Thảo',    N'PERSONAL_LEAVE', DATEADD(DAY, -10, @DemoClearDay), DATEADD(DAY, -9, @DemoClearDay), N'Tham dự hội thảo chuyên môn Cầu lông toàn quốc', N'APPROVED', 1,    0, NULL, DATEADD(DAY, -12, @Now));
 SET IDENTITY_INSERT dbo.coach_leave_requests OFF;
 
 SET IDENTITY_INSERT dbo.refund_requests ON;
 INSERT INTO dbo.refund_requests (refund_id, member_id, member_name, phone, transaction_id, reference_code, booking_id, booking_type, booking_description, refund_amount, reason, bank_name, bank_account, account_holder, status, approved_by, decision_note, created_at) VALUES
-    (801, 11, N'Bùi Huy Hoàng',  '0931112233', 15, N'CRT-2026-0015', 5, 'COURT', N'Tennis Court 02 - Ngày kia 19:00-20:00', 350000.00, N'Đổi lịch công tác đột xuất, hủy sân trước giờ chơi hơn 48 tiếng theo đúng quy định', N'Vietcombank', N'0071000889911', N'BUI HUY HOANG', N'PENDING_APPROVAL', NULL, NULL, DATEADD(HOUR, -2, @Now)),
+    (801, 11, N'Bùi Huy Hoàng',  '0931112233', 15, N'CRT-2026-0015', 5, 'COURT', N'Tennis Court 02 - ' + FORMAT(DATEADD(DAY, 2, @DemoClearDay), 'dd/MM') + N' 19:00-20:00', 350000.00, N'Đổi lịch công tác đột xuất, hủy sân trước giờ chơi hơn 48 tiếng theo đúng quy định', N'Vietcombank', N'0071000889911', N'BUI HUY HOANG', N'PENDING_APPROVAL', NULL, NULL, DATEADD(HOUR, -2, @Now)),
     (802, 10, N'Hoàng Thị Ngọc', '0938765432', 16, N'CRT-2026-0016', 3, 'COURT', N'Pickleball Court 01 - Đã hoàn tiền',      180000.00, N'Hủy đặt sân hợp lệ trước giờ bắt đầu > 2 tiếng',                                      N'Techcombank', N'1903556677889', N'HOANG THI NGOC', N'APPROVED', 1, N'Đã phê duyệt hoàn tiền 100% về tài khoản hội viên', DATEADD(DAY, -2, @Now));
 SET IDENTITY_INSERT dbo.refund_requests OFF;
 
 SET IDENTITY_INSERT dbo.support_tickets ON;
 INSERT INTO dbo.support_tickets (ticket_id, member_id, member_name, category, title, description, severity, status, admin_response, created_at) VALUES
     (1, 9,  N'Nguyễn Anh Khoa', N'FACILITY_ISSUE', N'Đề xuất bổ sung thêm tủ locker tại khu Pickleball', N'Vào khung giờ tối 18:00-20:00 khu Pickleball rất đông, mong trung tâm bổ sung thêm 1 dãy tủ khóa từ.', N'NORMAL', N'SUBMITTED', NULL, DATEADD(DAY, -1, @Now)),
-    (2, 10, N'Hoàng Thị Ngọc',  N'PAYMENT_ISSUE',  N'Xác nhận hóa đơn VAT gói VIP Diamond',            N'Nhờ bộ phận kế toán gửi giúp bản PDF biên lai thu tiền gói VIP Diamond qua email.',                      N'NORMAL', N'RESOLVED',  N'Lễ tân và Quản lý đã gửi biên lai điện tử qua email đăng ký của hội viên.', DATEADD(DAY, -4, @Now));
+    (2, 10, N'Hoàng Thị Ngọc',  N'BOOKING_SUPPORT', N'Hỗ trợ đổi khung giờ lớp Cầu lông sang buổi tối', N'Mình bận lịch họp đột xuất vào sáng thứ 5, nhờ quầy lễ tân hỗ trợ tư vấn lớp tối cùng tuần.', N'NORMAL', N'SUBMITTED', NULL, DATEADD(HOUR, -3, @Now));
 SET IDENTITY_INSERT dbo.support_tickets OFF;
 
 -- ----------------------------------------------------------------------------
@@ -1046,24 +1085,23 @@ SET IDENTITY_INSERT dbo.support_tickets OFF;
 -- ----------------------------------------------------------------------------
 SET IDENTITY_INSERT dbo.notifications ON;
 INSERT INTO dbo.notifications (notification_id, user_id, title, message, type, is_read, created_at) VALUES
-    (1, 9,  N'Chào mừng Hội viên VIP SportHub',       N'Thẻ Hội Viên Vàng Off-Peak của bạn đang hoạt động với 18 buổi lớp và 8 giờ sân còn lại.',          'MEMBERSHIP',   1, DATEADD(DAY, -10, @Now)),
-    (2, 9,  N'HLV Trần Văn Minh đã giao giáo án mới', N'Giáo án "Sức Mạnh & Phản Xạ Pickleball (Tuần 3)" đã sẵn sàng. Hãy tích hoàn thành bài tập sau buổi tập!', 'WORKOUT_PLAN', 0, DATEADD(DAY, -2,  @Now)),
-    (3, 9,  N'Nhắc lịch lớp học hôm nay 19:00',       N'Bạn có lịch Lớp Pickleball Nâng Cao K05 lúc 19:00 tại Cụm Sân Pickleball - Sân P2 (Indoor).',     'BOOKING',      0, DATEADD(HOUR, -3, @Now)),
-    (4, 10, N'Đã hoàn tất yêu cầu hoàn tiền',        N'Yêu cầu hoàn 180.000đ cho giao dịch CRT-2026-0016 đã được Quản lý phê duyệt.',                   'REFUND',       0, DATEADD(DAY, -2,  @Now)),
-    (5, 5,  N'Nhận đánh giá 5 sao mới',               N'Học viên Nguyễn Anh Khoa đã chấm 5/5 sao cho lớp Tennis Chuyên Kỹ Thuật Serve.',                  'FEEDBACK',     0, DATEADD(DAY, -3,  @Now)),
-    (6, 5,  N'Lịch dạy hôm nay 19:00',                N'Bạn có ca dạy Lớp Pickleball Nâng Cao K05 (2 học viên đã đăng ký) tại Sân P2.',                 'SCHEDULE',     0, DATEADD(HOUR, -4, @Now)),
-    (7, 1,  N'Có 1 gói tập mới chờ phê duyệt',        N'Hội viên Đỗ Phương Anh vừa thanh toán Gói Cầu Lông HS-SV (800.000đ) và đang chờ kích hoạt.',      'APPROVAL',     0, DATEADD(MINUTE, -45, @Now)),
-    (8, 1,  N'Có 1 đơn xin nghỉ phép HLV mới',        N'HLV Nguyễn Hoàng Nam vừa gửi đơn xin nghỉ phép (SICK_LEAVE) cần Quản lý xem xét.',               'LEAVE',        0, DATEADD(HOUR, -6, @Now));
+    (2,  9,  N'HLV Trần Văn Minh đã giao giáo án mới', N'Giáo án "Sức Mạnh & Phản Xạ Pickleball (Tuần 3)" đã sẵn sàng. Hãy tích hoàn thành bài tập sau buổi tập!', 'WORKOUT_PLAN', 0, DATEADD(DAY, -2,  @Now)),
+    (4,  10, N'Đã hoàn tất yêu cầu hoàn tiền',        N'Yêu cầu hoàn 180.000đ cho giao dịch CRT-2026-0016 đã được Quản lý phê duyệt.',                   'REFUND',       0, DATEADD(DAY, -2,  @Now)),
+    (5,  5,  N'Nhận đánh giá 5 sao mới',               N'Học viên Nguyễn Anh Khoa đã chấm 5/5 sao cho lớp Tennis Chuyên Kỹ Thuật Serve.',                  'FEEDBACK',     0, DATEADD(DAY, -3,  @Now)),
+    (7,  1,  N'Có 1 gói tập mới chờ phê duyệt',        N'Hội viên Đỗ Phương Anh vừa thanh toán Hạng Bạc (800.000đ) và đang chờ kích hoạt.',               'APPROVAL',     0, DATEADD(MINUTE, -45, @Now)),
+    (8,  1,  N'Có 1 đơn xin nghỉ phép HLV mới',        N'HLV Nguyễn Hoàng Nam vừa gửi đơn xin nghỉ phép (SICK_LEAVE) cần Quản lý xem xét.',               'LEAVE',        0, DATEADD(HOUR, -6, @Now)),
+    (14, 9,  N'Đã nhận thanh toán gói tập',            N'Gói tập đang chờ Quản lý phê duyệt.',                                                           'MEMBERSHIP',   0, '2026-11-20T00:04:04.2013993'),
+    (15, 9,  N'Gói tập đã được kích hoạt',             N'Gói tập ''Hạng Vàng'' của bạn đã được kích hoạt thành công! Hạn sử dụng: 2026-12-19. Quota: 20 buổi tập.', 'MEMBERSHIP', 0, '2026-11-20T00:04:29.9894414');
 SET IDENTITY_INSERT dbo.notifications OFF;
 
 SET IDENTITY_INSERT dbo.audit_logs ON;
 INSERT INTO dbo.audit_logs (log_id, actor_id, actor_name, actor_role, action, log_type, detail, user_email, user_id, ip_address, action_detail, status, created_at) VALUES
-    (1, 1, N'Nguyễn Văn Quản Lý', 'MANAGER',      'SYSTEM_INIT',            'SYSTEM',     N'Khởi tạo dữ liệu chuẩn hóa hệ thống SportHub',                  'manager@sporthub.com',      1, '127.0.0.1', N'Database seeded with 32 normalized tables', 'SUCCESS', DATEADD(DAY, -10, @Now)),
-    (2, 3, N'Lê Thị Lễ Tân',      'RECEPTIONIST', 'POS_MEMBERSHIP_SALE',    'PAYMENT',    N'Bán gói VIP Diamond tại quầy cho Hoàng Thị Ngọc (2.600.000đ)',  'reception.le@sporthub.com', 3, '127.0.0.1', N'POS sale um_id=3, method=CASH',             'SUCCESS', DATEADD(DAY, -6,  @Now)),
-    (3, 1, N'Nguyễn Văn Quản Lý', 'MANAGER',      'REFUND_APPROVED',        'REFUND',     N'Duyệt hoàn tiền 180.000đ cho Hoàng Thị Ngọc (CRT-2026-0016)',   'manager@sporthub.com',      1, '127.0.0.1', N'Approved refund_id=802',                    'SUCCESS', DATEADD(DAY, -2,  @Now)),
-    (4, 5, N'Trần Văn Minh',      'COACH',        'WORKOUT_PLAN_CREATED',   'COACHING',   N'Giao giáo án Sức Mạnh & Phản Xạ Pickleball cho Nguyễn Anh Khoa','coach.minh@sporthub.com',   5, '127.0.0.1', N'Created plan_id=1 for member_id=9',         'SUCCESS', DATEADD(DAY, -2,  @Now)),
-    (5, 3, N'Lê Thị Lễ Tân',      'RECEPTIONIST', 'EQUIPMENT_LOAN_CREATED', 'EQUIPMENT',  N'Cho hội viên Nguyễn Anh Khoa mượn Vợt Tennis Wilson Pro Staff', 'reception.le@sporthub.com', 3, '127.0.0.1', N'Created loan_id=501, item_id=1',            'SUCCESS', DATEADD(MINUTE, -90, @Now)),
-    (6, 1, N'Nguyễn Văn Quản Lý', 'MANAGER',      'MAINTENANCE_SCHEDULED',  'FACILITY',   N'Lên lịch bảo trì Hồ Bơi - Làn S2 (Làn bơi 02)',                 'manager@sporthub.com',      1, '127.0.0.1', N'Created maintenance_id=1 on court_id=17',   'SUCCESS', DATEADD(DAY, -1,  @Now));
+    (1, 1, N'Nguyễn Văn Quản Lý', 'MANAGER',      'SYSTEM_INIT',            'SYSTEM',              N'Khởi tạo dữ liệu chuẩn hóa hệ thống SportHub',                  'manager@sporthub.com',      1, '127.0.0.1', N'Database seeded with 32 normalized tables', 'SUCCESS', DATEADD(DAY, -10, @Now)),
+    (3, 1, N'Nguyễn Văn Quản Lý', 'MANAGER',      'REFUND_APPROVED',        'REFUND',              N'Duyệt hoàn tiền 180.000đ cho Hoàng Thị Ngọc (CRT-2026-0016)',   'manager@sporthub.com',      1, '127.0.0.1', N'Approved refund_id=802',                    'SUCCESS', DATEADD(DAY, -2,  @Now)),
+    (4, 5, N'Trần Văn Minh',      'COACH',        'WORKOUT_PLAN_CREATED',   'COACHING',            N'Giao giáo án Sức Mạnh & Phản Xạ Pickleball cho Nguyễn Anh Khoa','coach.minh@sporthub.com',   5, '127.0.0.1', N'Created plan_id=1 for member_id=9',         'SUCCESS', DATEADD(DAY, -2,  @Now)),
+    (5, 3, N'Lê Thị Lễ Tân',      'RECEPTIONIST', 'EQUIPMENT_LOAN_CREATED', 'EQUIPMENT',           N'Cho hội viên Nguyễn Anh Khoa mượn Vợt Tennis Wilson Pro Staff', 'reception.le@sporthub.com', 3, '127.0.0.1', N'Created loan_id=501, item_id=1',            'SUCCESS', DATEADD(MINUTE, -90, @Now)),
+    (6, 1, N'Nguyễn Văn Quản Lý', 'MANAGER',      'MAINTENANCE_SCHEDULED',  'FACILITY',            N'Lên lịch bảo trì Hồ Bơi - Làn S2 (Làn bơi 02)',                 'manager@sporthub.com',      1, '127.0.0.1', N'Created maintenance_id=1 on court_id=17',   'SUCCESS', DATEADD(DAY, -1,  @Now)),
+    (7, 8, N'Manager #1',         NULL,           'MEMBERSHIP_APPROVED',    'MEMBERSHIP_APPROVED', N'Approved membership #8 (Package: Hạng Vàng) for user #9. Quota granted: 20 sessions', N'Manager #1', 8, NULL, N'Approved membership #8 (Package: Hạng Vàng) for user #9. Quota granted: 20 sessions', 'SUCCESS', '2026-11-20T00:04:29.9942390');
 SET IDENTITY_INSERT dbo.audit_logs OFF;
 
 INSERT INTO dbo.system_settings (setting_key, setting_value, updated_at) VALUES
@@ -1073,6 +1111,21 @@ INSERT INTO dbo.system_settings (setting_key, setting_value, updated_at) VALUES
     ('ai_system_prompt',  N'Bạn là Trợ lý AI Thể thao chuyên nghiệp của F-Sport Center (SportHub). Hãy tư vấn lịch tập, kỹ thuật thể thao, dinh dưỡng và phục hồi chấn thương dựa trên hồ sơ thể trạng của hội viên.', @Now),
     ('SYSTEM_POLICIES',   N'{"bookingHoldTimeoutMinutes":10,"cancelRefundDeadlineHours":2,"coachCommissionPercent":40,"maxAdvanceBookingDays":14,"guestCourtDepositPercent":100,"checkInGracePeriodMinutes":15,"autoArchiveLogsDays":90,"allowSplitPayment":false}', @Now),
     ('ROLE_PERMISSIONS',  N'[{"screenId":"MEM_MGMT","screenName":"Quản lý Hội viên & Hồ sơ sức khỏe","module":"Hội viên","roles":{"admin":{"view":true,"create":true,"edit":true,"delete":true},"receptionist":{"view":true,"create":true,"edit":true,"delete":false},"coach":{"view":true,"create":false,"edit":false,"delete":false},"member":{"view":false,"create":false,"edit":false,"delete":false}}},{"screenId":"COURT_CLASS_BOOKING","screenName":"Đặt Sân bãi & Đăng ký Lớp học","module":"Booking","roles":{"admin":{"view":true,"create":true,"edit":true,"delete":true},"receptionist":{"view":true,"create":true,"edit":true,"delete":true},"coach":{"view":true,"create":false,"edit":false,"delete":false},"member":{"view":true,"create":true,"edit":true,"delete":false}}},{"screenId":"ATTENDANCE_CHECKIN","screenName":"Điểm danh 3 trạng thái & Check-in RFID","module":"Vận hành","roles":{"admin":{"view":true,"create":true,"edit":true,"delete":true},"receptionist":{"view":true,"create":true,"edit":true,"delete":false},"coach":{"view":true,"create":true,"edit":true,"delete":false},"member":{"view":true,"create":false,"edit":false,"delete":false}}},{"screenId":"POS_BILLING","screenName":"Thu ngân POS, Hóa đơn & Bán lẻ","module":"Tài chính","roles":{"admin":{"view":true,"create":true,"edit":true,"delete":true},"receptionist":{"view":true,"create":true,"edit":false,"delete":false},"coach":{"view":false,"create":false,"edit":false,"delete":false},"member":{"view":false,"create":false,"edit":false,"delete":false}}}]', @Now);
+GO
+
+-- Counts reflect the retained independent paid bookings only.
+UPDATE s SET booked_slots=(SELECT COUNT(*) FROM dbo.bookings b WHERE b.session_id=s.session_id AND b.status IN ('BOOKED','CONFIRMED'))
+FROM dbo.class_sessions s;
+
+UPDATE pt
+SET pt.processed_by = CAST(p.approved_by AS BIGINT)
+FROM dbo.payment_transactions pt
+JOIN dbo.payments p
+  ON pt.membership_id IS NOT NULL
+ AND p.um_id = pt.membership_id
+ AND p.member_id = pt.member_id
+WHERE pt.processed_by IS NULL
+  AND p.approved_by IS NOT NULL;
 GO
 
 USE [master];

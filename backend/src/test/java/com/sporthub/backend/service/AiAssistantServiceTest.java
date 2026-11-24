@@ -175,8 +175,140 @@ class AiAssistantServiceTest {
         assertNotNull(answer);
     }
 
+    @Test
+    void openAiCompatibleEndpointParsesLiveJsonResponseAndTrimsApiKey() throws Exception {
+        var capturedAuth = new java.util.concurrent.atomic.AtomicReference<String>();
+        var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1beta/openai/chat/completions", exchange -> {
+            capturedAuth.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            byte[] body = "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"Gợi ý tập luyện từ Gemini OK\"}}]}"
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json; charset=UTF-8");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var os = exchange.getResponseBody()) {
+                os.write(body);
+            }
+        });
+        server.start();
+        try {
+            String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1beta/openai/chat/completions";
+            AiAssistantService mockEndpointService = new AiAssistantService(
+                    healthProfileRepository,
+                    bookingRepository,
+                    classSessionRepository,
+                    new ObjectMapper(),
+                    "  AIzaFakeValidFormatKey  ",
+                    "gemini-flash-lite-latest",
+                    url);
+            when(healthProfileRepository.findByMemberId(12L)).thenReturn(Optional.empty());
+            when(bookingRepository.findByMemberIdAndStatusIn(12L, List.of("BOOKED", "CONFIRMED", "COMPLETED")))
+                    .thenReturn(List.of());
+
+            String answer = mockEndpointService.chatAsMember(12L, new AssistantChatRequest(
+                    List.of(new AssistantMessageRequest("user", "Tôi nên tập gì?"))));
+            assertEquals("Bearer AIzaFakeValidFormatKey", capturedAuth.get());
+            assertEquals("Gợi ý tập luyện từ Gemini OK", answer);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void nativeGeminiTrailingModelsSlashNormalizesUrlAndSkipsThoughtParts() throws Exception {
+        var capturedPath = new java.util.concurrent.atomic.AtomicReference<String>();
+        var capturedKey = new java.util.concurrent.atomic.AtomicReference<String>();
+        var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            capturedPath.set(exchange.getRequestURI().getPath());
+            capturedKey.set(exchange.getRequestHeaders().getFirst("x-goog-api-key"));
+            if ("/v1beta/models/gemini-flash-lite-latest:generateContent".equals(exchange.getRequestURI().getPath())) {
+                byte[] body = "{\"candidates\":[{\"content\":{\"parts\":[{\"thought\":true,\"text\":\"internal\"},{\"text\":\"Phản hồi native Gemini\"}]}}]}"
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().add("Content-Type", "application/json; charset=UTF-8");
+                exchange.sendResponseHeaders(200, body.length);
+                try (var os = exchange.getResponseBody()) {
+                    os.write(body);
+                }
+            } else {
+                exchange.sendResponseHeaders(404, 0);
+                exchange.getResponseBody().close();
+            }
+        });
+        server.start();
+        try {
+            String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1beta/models/";
+            AiAssistantService nativeService = new AiAssistantService(
+                    healthProfileRepository,
+                    bookingRepository,
+                    classSessionRepository,
+                    new ObjectMapper(),
+                    "AIzaFakeNativeKey",
+                    "gemini-flash-lite-latest",
+                    url);
+            when(healthProfileRepository.findByMemberId(12L)).thenReturn(Optional.empty());
+            when(bookingRepository.findByMemberIdAndStatusIn(12L, List.of("BOOKED", "CONFIRMED", "COMPLETED")))
+                    .thenReturn(List.of());
+
+            String answer = nativeService.chatAsMember(12L, new AssistantChatRequest(
+                    List.of(new AssistantMessageRequest("user", "Chào Gemini"))));
+            assertEquals("/v1beta/models/gemini-flash-lite-latest:generateContent", capturedPath.get());
+            assertEquals("AIzaFakeNativeKey", capturedKey.get());
+            assertEquals("Phản hồi native Gemini", answer);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void vertexExpressPublishersModelsBaseUrlUsesNativeGenerateContentWithAqKey() throws Exception {
+        var capturedPath = new java.util.concurrent.atomic.AtomicReference<String>();
+        var capturedKey = new java.util.concurrent.atomic.AtomicReference<String>();
+        var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            capturedPath.set(exchange.getRequestURI().getPath());
+            capturedKey.set(exchange.getRequestHeaders().getFirst("x-goog-api-key"));
+            if ("/v1/publishers/google/models/gemini-flash-lite-latest:generateContent".equals(exchange.getRequestURI().getPath())) {
+                byte[] body = "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Phản hồi Vertex Express OK\"}]}}]}"
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().add("Content-Type", "application/json; charset=UTF-8");
+                exchange.sendResponseHeaders(200, body.length);
+                try (var os = exchange.getResponseBody()) {
+                    os.write(body);
+                }
+            } else {
+                exchange.sendResponseHeaders(404, 0);
+                exchange.getResponseBody().close();
+            }
+        });
+        server.start();
+        try {
+            String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1/publishers/google/models";
+            AiAssistantService vertexService = new AiAssistantService(
+                    healthProfileRepository,
+                    bookingRepository,
+                    classSessionRepository,
+                    new ObjectMapper(),
+                    "AQ.FakeVertexExpressKey",
+                    "gemini-flash-lite-latest",
+                    url);
+            when(healthProfileRepository.findByMemberId(12L)).thenReturn(Optional.empty());
+            when(bookingRepository.findByMemberIdAndStatusIn(12L, List.of("BOOKED", "CONFIRMED", "COMPLETED")))
+                    .thenReturn(List.of());
+
+            String answer = vertexService.chatAsMember(12L, new AssistantChatRequest(
+                    List.of(new AssistantMessageRequest("user", "Xin chào Vertex"))));
+            assertEquals("/v1/publishers/google/models/gemini-flash-lite-latest:generateContent", capturedPath.get());
+            assertEquals("AQ.FakeVertexExpressKey", capturedKey.get());
+            assertEquals("Phản hồi Vertex Express OK", answer);
+        } finally {
+            server.stop(0);
+        }
+    }
+
     private boolean isValidApiKey(String key) {
-        return key != null && !key.isBlank() && key.startsWith("AIza") && !key.contains("your_");
+        return key != null && !key.isBlank()
+                && (key.startsWith("AIza") || key.startsWith("AQ."))
+                && !key.contains("your_");
     }
 
     private String resolveApiKey() {
@@ -185,14 +317,11 @@ class AiAssistantServiceTest {
             return key.trim();
         }
         try {
-            java.nio.file.Path envPath = java.nio.file.Paths.get(".env");
-            if (!java.nio.file.Files.exists(envPath)) {
-                envPath = java.nio.file.Paths.get("backend/.env");
-            }
-            if (!java.nio.file.Files.exists(envPath)) {
-                envPath = java.nio.file.Paths.get("../.env");
-            }
-            if (java.nio.file.Files.exists(envPath)) {
+            for (String candidate : List.of(".env", "backend/.env", "../.env")) {
+                java.nio.file.Path envPath = java.nio.file.Paths.get(candidate);
+                if (!java.nio.file.Files.exists(envPath)) {
+                    continue;
+                }
                 for (String line : java.nio.file.Files.readAllLines(envPath)) {
                     if (line.startsWith("GEMINI_API_KEY=")) {
                         String val = line.substring("GEMINI_API_KEY=".length()).trim();
@@ -234,7 +363,7 @@ class AiAssistantServiceTest {
         assertNotNull(answer);
         org.junit.jupiter.api.Assertions.assertFalse(answer.isBlank());
         // Verify it is NOT the fallback response
-        org.junit.jupiter.api.Assertions.assertFalse(answer.contains("Chào bạn! Tôi là **AI Smart Coach** của F Sport Center."),
+        org.junit.jupiter.api.Assertions.assertFalse(answer.contains("AI Smart Coach"),
                 "Should NOT return fallback domain answer when valid API key is present");
         System.out.println("=== [TEST SUCCESS] REAL GEMINI CHAT RESPONSE ===");
         System.out.println(answer);
@@ -282,7 +411,7 @@ class AiAssistantServiceTest {
         assertNotNull(plan);
         org.junit.jupiter.api.Assertions.assertFalse(plan.isBlank());
         // Verify it is NOT a fallback answer
-        org.junit.jupiter.api.Assertions.assertFalse(plan.contains("AI Smart Coach của F Sport Center"),
+        org.junit.jupiter.api.Assertions.assertFalse(plan.contains("AI Smart Coach"),
                 "Should NOT return fallback domain answer when valid API key is present");
         System.out.println("=== [TEST SUCCESS] REAL GEMINI COACH PLAN RESPONSE ===");
         System.out.println(plan);

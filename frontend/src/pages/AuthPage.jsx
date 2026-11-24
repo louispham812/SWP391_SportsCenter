@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 
@@ -10,11 +10,36 @@ const ROLE_HOME_PATHS = {
   coach: '/coach',
   admin: '/admin',
 };
+const REGISTRATION_ROLES = [
+  {
+    value: 'MEMBER',
+    label: 'Hội viên',
+    hint: 'Xác thực OTP email',
+    icon: 'person',
+  },
+  {
+    value: 'COACH',
+    label: 'Huấn luyện viên',
+    hint: 'Chờ Quản lý duyệt',
+    icon: 'sports',
+  },
+  {
+    value: 'RECEPTIONIST',
+    label: 'Lễ tân',
+    hint: 'Chờ Quản lý duyệt',
+    icon: 'support_agent',
+  },
+];
 
 export default function AuthPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { authenticateUser, currentUser, currentRole } = useApp();
+  const redirectFrom = typeof location.state?.from === 'string'
+    ? location.state.from
+    : location.state?.from?.pathname
+      ? `${location.state.from.pathname}${location.state.from.search || ''}`
+      : '';
 
   useEffect(() => {
     if (currentUser) {
@@ -33,48 +58,32 @@ export default function AuthPage() {
   // Password visibility
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [authNotice, setAuthNotice] = useState('');
+  const [authNotice, setAuthNotice] = useState(
+    location.state?.notice || location.state?.message || '',
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [infoDialog, setInfoDialog] = useState(null);
 
   // Login form state
-  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [loginIdentifier, setLoginIdentifier] = useState(location.state?.email || '');
   const [loginPassword, setLoginPassword] = useState('');
 
-  // Register form state (chỉ hỗ trợ tự đăng ký tài khoản MEMBER)
+  // Register form state (hỗ trợ MEMBER tự xác thực OTP và COACH/RECEPTIONIST chờ Quản lý phê duyệt)
   const [regForm, setRegForm] = useState({
     fullName: '',
     phone: '',
     email: '',
     password: '',
+    role: 'MEMBER',
     agreeTerms: true,
   });
 
-  // OTP Verification Modal State
-  const [otpModal, setOtpModal] = useState({
-    isOpen: false,
-    email: '',
-    pendingUser: null,
-    otpCode: '',
-    timer: 600, // 10 minutes (expires_at)
-  });
-
-  // OTP Timer countdown
-  useEffect(() => {
-    let interval = null;
-    if (otpModal.isOpen && otpModal.timer > 0) {
-      interval = setInterval(() => {
-        setOtpModal((prev) => ({ ...prev, timer: Math.max(0, prev.timer - 1) }));
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [otpModal.isOpen, otpModal.timer]);
-
-  const formatTimer = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  const handleRoleSelect = (roleValue) => {
+    setAuthError('');
+    setRegForm((prev) => ({
+      ...prev,
+      role: roleValue,
+    }));
   };
 
   const authenticate = (user) => {
@@ -90,7 +99,11 @@ export default function AuthPage() {
       throw new Error('Vai trò tài khoản không được hỗ trợ.');
     }
     authenticateUser(user, destination.key, user.token);
-    navigate(destination.path);
+    const allowedPrefix = destination.path;
+    const targetUrl = redirectFrom && (redirectFrom.startsWith(allowedPrefix) || redirectFrom === '/pricing')
+      ? redirectFrom
+      : destination.path;
+    navigate(targetUrl, { replace: true });
   };
 
   const getErrorMessage = async (response) => {
@@ -125,16 +138,14 @@ export default function AuthPage() {
         }),
       });
       if (!response.ok) {
-        // Parse error response
+        const rawBody = await response.text();
         let errorData = null;
         try {
-          errorData = await response.json();
-        } catch (parseError) {
-          // Nếu không parse được JSON, dùng text response
-          const errorText = await response.text();
-          throw new Error(errorText || `Đăng nhập thất bại (${response.status})`);
+          errorData = rawBody ? JSON.parse(rawBody) : null;
+        } catch {
+          throw new Error(rawBody || `Đăng nhập thất bại (${response.status})`);
         }
-        
+
         // Check nếu là lỗi PENDING_VERIFICATION
         if (errorData && errorData.error === 'PENDING_VERIFICATION') {
           setAuthNotice(errorData.message);
@@ -148,20 +159,20 @@ export default function AuthPage() {
           }, 2000);
           return;
         }
-        
+
         // Xử lý lỗi bình thường (user not found, wrong password, etc.)
         const errorMessage = errorData?.message || errorData?.error || 'Đăng nhập thất bại';
         throw new Error(errorMessage);
       }
-      
+
       const user = await response.json();
-      
+
       // ✅ CHECK requirePasswordChange flag (Staff cần đổi password lần đầu)
       if (user.requirePasswordChange === true) {
         // Lưu token tạm để /change-password dùng
         localStorage.setItem('authToken', user.token);
         localStorage.setItem('tempUserEmail', user.email);
-        
+
         navigate('/change-password', {
           state: {
             email: user.email,
@@ -172,10 +183,10 @@ export default function AuthPage() {
         });
         return;
       }
-      
+
       // Normal flow: authenticate user
       authenticate(user);
-      
+
     } catch (error) {
       setAuthError(getRequestErrorMessage(error, 'Đăng nhập'));
     } finally {
@@ -200,14 +211,34 @@ export default function AuthPage() {
           phone: regForm.phone.trim(),
           email: regForm.email.trim(),
           password: regForm.password,
-          role: 'MEMBER',
+          role: regForm.role,
         }),
       });
       if (!response.ok) {
         throw new Error(await getErrorMessage(response));
       }
       const user = await response.json();
-      // Điều hướng trực tiếp sang trang OTP Screen theo yêu cầu của team backend
+      const registeredRole = (user.role || regForm.role || 'MEMBER').toUpperCase();
+      if (regForm.role !== 'MEMBER' && registeredRole === 'MEMBER') {
+        throw new Error('Máy chủ chưa ghi nhận đúng vai trò nhân sự. Vui lòng thử lại sau.');
+      }
+      if (registeredRole !== 'MEMBER') {
+        setRegForm({
+          fullName: '',
+          phone: '',
+          email: '',
+          password: '',
+          role: 'MEMBER',
+          agreeTerms: true,
+        });
+        setAuthNotice(
+          user.message ||
+            'Đăng ký tài khoản nhân sự thành công. Tài khoản của bạn đang chờ Quản lý phê duyệt trước khi đăng nhập.',
+        );
+        setActiveTab('login', true);
+        return;
+      }
+      // Điều hướng trực tiếp sang trang OTP Screen đối với Hội viên
       navigate('/verify-otp', {
         state: {
           email: regForm.email.trim(),
@@ -222,61 +253,35 @@ export default function AuthPage() {
     }
   };
 
-  const handleVerifyOtp = (e) => {
-    e.preventDefault();
-    if (otpModal.otpCode.trim().length !== 6) {
-      setAuthError('Mã xác thực OTP gồm 6 chữ số.');
-      return;
-    }
-    if (otpModal.timer <= 0) {
-      setAuthError('Mã OTP đã hết hạn 10 phút. Vui lòng bấm gửi lại mã.');
-      return;
-    }
-    // Verify success: activate account and authenticate
-    const activeUser = {
-      ...(otpModal.pendingUser || {}),
-      status: 'ACTIVE',
-    };
-    setOtpModal({ isOpen: false, email: '', pendingUser: null, otpCode: '', timer: 600 });
-    authenticate(activeUser);
-  };
-
-  const handleResendOtp = () => {
-    setOtpModal((prev) => ({
-      ...prev,
-      timer: 600,
-      otpCode: '',
-    }));
-    setAuthNotice(`Mã OTP mới đã được gửi lại tới ${otpModal.email}. Có hiệu lực trong 10 phút.`);
-  };
-
   return (
-    <div className="min-h-screen bg-[#f7f9fb] font-body-md text-slate-800 antialiased selection:bg-orange-500 selection:text-white">
-      <main className="w-full min-h-screen">
-        <div className="flex flex-col lg:flex-row w-full min-h-screen">
-          
+    <div className="min-h-dvh lg:h-dvh bg-[#f7f9fb] font-body-md text-slate-800 antialiased selection:bg-orange-500 selection:text-white">
+      <main className="w-full min-h-dvh lg:h-full">
+        <div className="flex flex-col lg:flex-row w-full min-h-dvh lg:h-full">
+
           {/* =========================================
-              CỘT TRÁI (50% WIDTH, FULL HEIGHT, STICKY)
+              CỘT TRÁI (50% WIDTH, FULL HEIGHT ON DESKTOP)
              ========================================= */}
-          <div className="relative w-full lg:w-1/2 min-h-[580px] lg:min-h-screen lg:sticky lg:top-0 flex flex-col justify-between p-6 sm:p-10 lg:p-12 bg-slate-900 overflow-hidden">
-            {/* Background Image */}
-            <div
-              className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-105 opacity-80"
-              style={{
-                backgroundImage:
-                  "url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1600&auto=format&fit=crop')",
-              }}
-            ></div>
+          <div className="relative w-full lg:w-1/2 lg:h-full lg:overflow-y-auto overflow-x-clip flex flex-col justify-between gap-4 p-5 sm:p-8 lg:p-8 xl:p-10 bg-slate-900">
+            <div aria-hidden="true" className="absolute inset-0 overflow-hidden pointer-events-none">
+              {/* Background Image */}
+              <div
+                className="absolute inset-0 bg-cover bg-center opacity-80"
+                style={{
+                  backgroundImage:
+                    "url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1600&auto=format&fit=crop')",
+                }}
+              ></div>
 
-            {/* Gradient Scrim Overlays */}
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-slate-950/30"></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-transparent to-white/5"></div>
+              {/* Gradient Scrim Overlays */}
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-slate-950/30"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-transparent to-white/5"></div>
 
-            {/* Ambient Glow Accent (Cam F) */}
-            <div className="absolute top-1/3 -left-20 w-96 h-96 bg-orange-500/20 rounded-full blur-3xl pointer-events-none"></div>
+              {/* Ambient Glow Accent (Cam F) */}
+              <div className="absolute top-1/3 -left-20 w-96 h-96 bg-orange-500/20 rounded-full blur-3xl"></div>
+            </div>
 
             {/* Top Branding Meta (Đã thông thoáng không bị ô nổi đè lên) */}
-            <div className="relative z-10 flex flex-col gap-2 pt-2">
+            <div className="relative z-10 flex flex-col gap-1.5">
               <div className="flex items-center gap-2.5">
                 <div className="w-3.5 h-3.5 rounded-full bg-orange-500 shadow-[0_0_12px_#f97316] animate-pulse"></div>
                 <span className="font-headline-sm text-xl tracking-wider text-white font-black drop-shadow-sm uppercase">
@@ -289,46 +294,46 @@ export default function AuthPage() {
                 </span>
                 <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
                 <span className="text-[11px] text-orange-400 font-bold tracking-wider">
-                  HÀ NỘI • SAIGON
+                  HÀ NỘI • SÀI GÒN
                 </span>
               </div>
             </div>
 
             {/* Central Kinetic Content Cluster */}
-            <div className="relative z-10 flex flex-col gap-6 my-auto pt-8 pb-8">
+            <div className="relative z-10 flex flex-col gap-4 my-auto py-2">
               {/* Glassmorphic Panel */}
-              <div className="bg-white/95 backdrop-blur-xl p-6 sm:p-8 rounded-3xl shadow-2xl border border-white/70 space-y-4 text-slate-900">
+              <div className="bg-white/95 backdrop-blur-xl p-5 sm:p-6 xl:p-7 rounded-2xl lg:rounded-3xl shadow-2xl border border-white/70 space-y-3 text-slate-900">
                 <div className="flex items-center justify-between">
                   <span className="px-3 py-1 rounded-full bg-orange-500 text-white text-[10px] uppercase tracking-wider font-black">
                     Đặc quyền gia nhập
                   </span>
-                  <span className="material-symbols-outlined text-orange-600 font-bold text-[22px]">
+                  <span aria-hidden="true" className="material-symbols-outlined text-orange-600 font-bold text-[22px]">
                     verified
                   </span>
                 </div>
 
                 <h2
-                  className="font-headline-lg text-2xl sm:text-3xl text-slate-900 tracking-normal font-black uppercase leading-[1.32] sm:leading-[1.32]"
-                  style={{ lineHeight: 1.35 }}
+                  className="font-headline-lg text-xl sm:text-2xl xl:text-[1.65rem] text-slate-900 tracking-normal font-black uppercase leading-[1.3]"
+                  style={{ lineHeight: 1.32 }}
                 >
                   Bứt Phá Giới Hạn Cùng Hệ Sinh Thái Đẳng Cấp
                 </h2>
 
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-800 text-xs font-bold">
-                    <span className="material-symbols-outlined text-[16px] text-orange-600">
+                <div className="flex flex-wrap gap-2 pt-0.5">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-800 text-xs font-bold">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-orange-600">
                       sports_tennis
                     </span>
                     <span>Đặt sân trực tuyến 24/7</span>
                   </div>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-800 text-xs font-bold">
-                    <span className="material-symbols-outlined text-[16px] text-orange-600">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-800 text-xs font-bold">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-orange-600">
                       military_tech
                     </span>
                     <span>Đội ngũ HLV chuẩn NASM & PPR</span>
                   </div>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-800 text-xs font-bold">
-                    <span className="material-symbols-outlined text-[16px] text-orange-600">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-800 text-xs font-bold">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-orange-600">
                       vital_signs
                     </span>
                     <span>Đo chỉ số InBody 770 & PAR-Q miễn phí</span>
@@ -337,29 +342,29 @@ export default function AuthPage() {
               </div>
 
               {/* Telemetry Metrics Grid */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-white/90 backdrop-blur-md p-4 rounded-2xl flex flex-col border border-white/60 shadow-md">
-                  <span className="font-headline-md text-xl sm:text-2xl text-slate-900 font-black tracking-tight">
+              <div className="grid grid-cols-3 gap-2.5 lg:gap-3">
+                <div className="bg-white/90 backdrop-blur-md p-3 lg:p-3.5 rounded-2xl flex flex-col border border-white/60 shadow-md">
+                  <span className="font-headline-md text-lg sm:text-xl text-slate-900 font-black tracking-tight">
                     5.200+
                   </span>
-                  <span className="text-[10px] text-slate-600 uppercase tracking-wider mt-1 font-bold">
+                  <span className="text-[10px] text-slate-600 uppercase tracking-wider mt-0.5 font-bold">
                     Hội viên hoạt động
                   </span>
                 </div>
-                <div className="bg-white/90 backdrop-blur-md p-4 rounded-2xl flex flex-col border border-white/60 shadow-md">
-                  <span className="font-headline-md text-xl sm:text-2xl text-slate-900 font-black tracking-tight">
+                <div className="bg-white/90 backdrop-blur-md p-3 lg:p-3.5 rounded-2xl flex flex-col border border-white/60 shadow-md">
+                  <span className="font-headline-md text-lg sm:text-xl text-slate-900 font-black tracking-tight">
                     30+ SÂN
                   </span>
-                  <span className="text-[10px] text-slate-600 uppercase tracking-wider mt-1 font-bold">
+                  <span className="text-[10px] text-slate-600 uppercase tracking-wider mt-0.5 font-bold">
                     Pickleball & Tennis
                   </span>
                 </div>
-                <div className="bg-white/90 backdrop-blur-md p-4 rounded-2xl flex flex-col border border-white/60 shadow-md">
-                  <span className="font-headline-md text-xl sm:text-2xl text-slate-900 font-black tracking-tight">
+                <div className="bg-white/90 backdrop-blur-md p-3 lg:p-3.5 rounded-2xl flex flex-col border border-white/60 shadow-md">
+                  <span className="font-headline-md text-lg sm:text-xl text-slate-900 font-black tracking-tight">
                     50 HLV
                   </span>
-                  <span className="text-[10px] text-slate-600 uppercase tracking-wider mt-1 font-bold">
-                    Master Trainer Pro
+                  <span className="text-[10px] text-slate-600 uppercase tracking-wider mt-0.5 font-bold">
+                    HLV Chuyên nghiệp
                   </span>
                 </div>
               </div>
@@ -368,49 +373,49 @@ export default function AuthPage() {
             {/* Micro Footer */}
             <div className="relative z-10 flex items-center justify-between text-slate-300 text-xs">
               <span className="text-[10px] tracking-wider uppercase text-white/80 font-bold">
-                © 2026 F SPORT CENTER • ALL RIGHTS RESERVED
+                © 2026 F SPORT CENTER • BẢN QUYỀN ĐƯỢC BẢO LƯU
               </span>
               <span className="text-[10px] tracking-widest text-orange-400 font-black flex items-center gap-1.5 drop-shadow-sm uppercase">
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span> LIVE SYSTEM READY
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span> HỆ THỐNG SẴN SÀNG
               </span>
             </div>
           </div>
 
           {/* =========================================
-              CỘT PHẢI (50% WIDTH, AUTH FORM LIGHT MODE)
+              CỘT PHẢI (50% WIDTH, FULL-HEIGHT BALANCED AUTH FORM)
              ========================================= */}
-          <div className="w-full lg:w-1/2 flex flex-col justify-start bg-[#f7f9fb] px-6 sm:px-12 lg:px-16 py-10">
-            <div className="w-full max-w-xl mx-auto flex flex-col gap-6">
-              
-              {/* Header Navigation Cột Phải */}
-              <div className="flex items-center justify-between">
-                <Link
-                  to="/"
-                  className="group flex items-center gap-1.5 text-slate-600 hover:text-orange-600 transition-colors py-1.5 px-3 rounded-xl bg-white border border-slate-200/80 shadow-2xs text-xs font-bold uppercase tracking-wider"
-                >
-                  <span className="material-symbols-outlined text-[18px] group-hover:-translate-x-1 transition-transform">
-                    arrow_back
-                  </span>
-                  <span>Về trang chủ</span>
-                </Link>
+          <div className="w-full lg:w-1/2 lg:h-full lg:overflow-y-auto flex flex-col justify-between gap-3 [@media(min-height:760px)]:gap-4 [@media(min-height:840px)]:gap-6 bg-[#f7f9fb] px-5 sm:px-10 lg:px-10 xl:px-14 py-4 sm:py-6 lg:py-4 [@media(min-height:760px)]:py-6 [@media(min-height:840px)]:py-8">
+            {/* Header Navigation Cột Phải (Pinned Top) */}
+            <div className="w-full max-w-xl mx-auto flex items-center justify-between gap-2 shrink-0">
+              <Link
+                to="/"
+                className="group flex items-center gap-1.5 text-slate-600 hover:text-orange-600 transition-colors py-1.5 px-3 rounded-xl bg-white border border-slate-200/80 shadow-2xs text-xs font-bold uppercase tracking-wider"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-[17px] group-hover:-translate-x-0.5 transition-transform">
+                  arrow_back
+                </span>
+                <span>Về trang chủ</span>
+              </Link>
 
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-200/70 border border-slate-300/70 text-slate-700 text-[10px] font-bold tracking-wider">
-                  <span className="material-symbols-outlined text-[15px] text-orange-600">
-                    shield_lock
-                  </span>
-                  <span>CỔNG HỘI VIÊN BẢO MẬT SSL 256-BIT</span>
-                </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-200/70 border border-slate-300/70 text-slate-700 text-[10px] font-bold tracking-wider">
+                <span aria-hidden="true" className="material-symbols-outlined text-[15px] text-orange-600">
+                  shield_lock
+                </span>
+                <span>CỔNG HỘI VIÊN BẢO MẬT SSL 256-BIT</span>
               </div>
+            </div>
 
+            {/* Center Form Container */}
+            <div className="w-full max-w-xl mx-auto my-auto flex flex-col gap-2.5 [@media(min-height:760px)]:gap-3.5 [@media(min-height:840px)]:gap-5">
               {/* Headline Context */}
               <div className="flex flex-col gap-1">
                 <h1
-                  className="font-headline-xl text-3xl sm:text-4xl text-slate-900 font-black uppercase tracking-normal leading-[1.32] sm:leading-[1.32]"
-                  style={{ lineHeight: 1.35 }}
+                  className="font-headline-xl text-2xl sm:text-[1.75rem] [@media(min-height:840px)]:text-3xl text-slate-900 font-black uppercase tracking-normal leading-[1.3]"
+                  style={{ lineHeight: 1.3 }}
                 >
                   {activeTab === 'login' ? 'Đăng Nhập Tài Khoản' : 'Chào Mừng Đến Với F Sport'}
                 </h1>
-                <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-600 font-medium leading-snug">
                   {activeTab === 'login'
                     ? 'Chào mừng bạn quay trở lại với F Sport Center. Vui lòng nhập thông tin để truy cập lịch tập, thẻ hội viên và các dịch vụ thể thao.'
                     : 'Đăng ký tài khoản hội viên để bắt đầu lịch trình tập luyện, giữ chỗ cụm sân và nhận hỗ trợ từ huấn luyện viên chuyên nghiệp.'}
@@ -418,32 +423,32 @@ export default function AuthPage() {
               </div>
 
               {/* Mode Toggle Tabs */}
-              <div className="grid grid-cols-2 p-1 bg-slate-200/70 border border-slate-300/60 rounded-2xl">
+              <div className="grid grid-cols-2 p-1.5 bg-slate-200/70 border border-slate-300/60 rounded-2xl">
                 <button
                   type="button"
                   onClick={() => setActiveTab('login')}
-                  className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs tracking-wider transition-all cursor-pointer ${
+                  className={`flex items-center justify-center gap-2 py-2 [@media(min-height:840px)]:py-2.5 px-4 rounded-xl text-xs tracking-wider transition-all cursor-pointer ${
                     activeTab === 'login'
                       ? 'bg-white text-orange-600 shadow-xs border border-slate-200 font-black'
                       : 'text-slate-600 hover:text-slate-900 font-bold'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-[18px]">login</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">login</span>
                   <span>ĐĂNG NHẬP</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setActiveTab('register')}
-                  className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs tracking-wider transition-all cursor-pointer ${
+                  className={`flex items-center justify-center gap-2 py-2 [@media(min-height:840px)]:py-2.5 px-4 rounded-xl text-xs tracking-wider transition-all cursor-pointer ${
                     activeTab === 'register'
                       ? 'bg-white text-orange-600 shadow-xs border border-slate-200 font-black'
                       : 'text-slate-600 hover:text-slate-900 font-bold'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-[18px]">person_add</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">person_add</span>
                   <span>ĐĂNG KÝ MỚI</span>
-                  <span className="px-2 py-0.5 rounded-full bg-orange-500 text-white text-[9px] font-black uppercase">
+                  <span className="px-2 py-0.5 rounded-full bg-orange-500 text-white text-[9px] font-black uppercase leading-none">
                     Ưu đãi
                   </span>
                 </button>
@@ -453,8 +458,8 @@ export default function AuthPage() {
                   TAB 1: ĐĂNG NHẬP (LOGIN VIEW)
                  ========================================= */}
               {activeTab === 'login' && (
-                <div className="flex flex-col gap-6 animate-in fade-in duration-300">
-                  <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4 animate-in fade-in duration-300">
+                  <form onSubmit={handleLoginSubmit} className="flex flex-col gap-3.5 [@media(min-height:840px)]:gap-4">
                     {authError && (
                       <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
                         {authError}
@@ -466,18 +471,24 @@ export default function AuthPage() {
                       </p>
                     )}
 
-
                     {/* Identifier */}
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
+                      <label htmlFor="login-identifier" className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
                         Địa chỉ Email hoặc Số điện thoại
                       </label>
                       <div className="relative flex items-center">
-                        <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">
+                        <span aria-hidden="true" className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">
                           account_circle
                         </span>
                         <input
+                          id="login-identifier"
+                          name="username"
                           type="text"
+                          autoComplete="username"
+                          autoCorrect="off"
+                          autoCapitalize="none"
+                          spellCheck={false}
+                          enterKeyHint="next"
                           required
                           value={loginIdentifier}
                           onChange={(e) => {
@@ -485,7 +496,7 @@ export default function AuthPage() {
                             setAuthError('');
                           }}
                           placeholder="name@example.com / 0912..."
-                          className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-11 pr-4 py-3 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors shadow-2xs"
+                          className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-10 pr-4 py-2.5 [@media(min-height:840px)]:py-3 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors shadow-2xs"
                         />
                       </div>
                     </div>
@@ -493,7 +504,7 @@ export default function AuthPage() {
                     {/* Password */}
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-center justify-between">
-                        <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
+                        <label htmlFor="login-password" className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
                           Mật khẩu
                         </label>
                         <Link
@@ -504,11 +515,15 @@ export default function AuthPage() {
                         </Link>
                       </div>
                       <div className="relative flex items-center">
-                        <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">
+                        <span aria-hidden="true" className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">
                           lock
                         </span>
                         <input
+                          id="login-password"
+                          name="password"
                           type={showPassword ? 'text' : 'password'}
+                          autoComplete="current-password"
+                          enterKeyHint="done"
                           required
                           value={loginPassword}
                           onChange={(e) => {
@@ -516,14 +531,16 @@ export default function AuthPage() {
                             setAuthError('');
                           }}
                           placeholder="••••••••"
-                          className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-11 pr-11 py-3 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors shadow-2xs"
+                          className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-10 pr-11 py-2.5 [@media(min-height:840px)]:py-3 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors shadow-2xs"
                         />
                         <button
                           type="button"
+                          aria-pressed={showPassword}
+                          aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                           onClick={() => setShowPassword(!showPassword)}
                           className="absolute right-3.5 text-slate-400 hover:text-slate-700 transition-colors flex items-center cursor-pointer"
                         >
-                          <span className="material-symbols-outlined text-[20px]">
+                          <span aria-hidden="true" className="material-symbols-outlined text-[20px]">
                             {showPassword ? 'visibility_off' : 'visibility'}
                           </span>
                         </button>
@@ -534,13 +551,13 @@ export default function AuthPage() {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-xs uppercase tracking-wider font-black shadow-lg shadow-orange-500/30 active:scale-[0.99] transition-all flex items-center justify-center gap-2 mt-2 cursor-pointer"
+                      className="w-full py-3 [@media(min-height:840px)]:py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-xs sm:text-sm uppercase tracking-wider font-black shadow-lg shadow-orange-500/30 active:scale-[0.99] transition-all flex items-center justify-center gap-2 mt-1 cursor-pointer"
                     >
                       <span>{isSubmitting ? 'ĐANG XÁC THỰC...' : 'ĐĂNG NHẬP NGAY'}</span>
-                      <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                      <span aria-hidden="true" className="material-symbols-outlined text-[20px]">arrow_forward</span>
                     </button>
 
-                    <div className="flex items-center justify-center gap-1.5 pt-2 text-xs text-slate-600 font-medium">
+                    <div className="flex items-center justify-center gap-1.5 pt-1 text-xs sm:text-sm text-slate-600 font-medium">
                       <span>Chưa có tài khoản hội viên?</span>
                       <button
                         type="button"
@@ -558,8 +575,8 @@ export default function AuthPage() {
                   TAB 2: ĐĂNG KÝ (REGISTER VIEW)
                  ========================================= */}
               {activeTab === 'register' && (
-                <div className="flex flex-col gap-6 animate-in fade-in duration-300">
-                  <form onSubmit={handleRegisterSubmit} className="flex flex-col gap-6">
+                <div className="flex flex-col gap-3 animate-in fade-in duration-300">
+                  <form onSubmit={handleRegisterSubmit} className="flex flex-col gap-2.5 [@media(min-height:840px)]:gap-3.5">
                     {authError && (
                       <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
                         {authError}
@@ -570,12 +587,12 @@ export default function AuthPage() {
                         {authNotice}
                       </p>
                     )}
-                    
+
                     {/* NHÓM 1: THÔNG TIN CƠ BẢN */}
-                    <div className="flex flex-col gap-3.5">
+                    <div className="flex flex-col gap-2.5 [@media(min-height:840px)]:gap-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs flex items-center justify-center font-black">
+                          <span className="w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] flex items-center justify-center font-black">
                             1
                           </span>
                           <span className="text-xs text-slate-900 uppercase font-black tracking-wider">
@@ -587,133 +604,217 @@ export default function AuthPage() {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      {/* Vai trò đăng ký */}
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
+                          Vai trò tài khoản *
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          {REGISTRATION_ROLES.map((item) => {
+                            const selected = regForm.role === item.value;
+                            return (
+                              <button
+                                key={item.value}
+                                type="button"
+                                aria-pressed={selected}
+                                onClick={() => handleRoleSelect(item.value)}
+                                className={`flex flex-col items-start gap-0.5 rounded-xl border px-3 py-2 text-left transition-all cursor-pointer ${
+                                  selected
+                                    ? 'border-orange-500 bg-orange-50/90 text-orange-950 ring-1 ring-orange-500 shadow-2xs'
+                                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                                }`}
+                              >
+                                <span className="flex items-center gap-1.5 text-xs font-extrabold leading-tight">
+                                  <span
+                                    aria-hidden="true"
+                                    className={`material-symbols-outlined text-[16px] ${
+                                      selected ? 'text-orange-600' : 'text-slate-400'
+                                    }`}
+                                  >
+                                    {item.icon}
+                                  </span>
+                                  {item.label}
+                                </span>
+                                <span className="text-[11px] font-medium text-slate-500 leading-tight">
+                                  {item.hint}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 [@media(min-height:840px)]:gap-3">
                         {/* Họ và tên */}
-                        <div className="flex flex-col gap-1">
-                          <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <label htmlFor="register-fullname" className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
                             Họ và tên *
                           </label>
                           <div className="relative flex items-center">
-                            <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">
+                            <span aria-hidden="true" className="material-symbols-outlined absolute left-3 text-slate-400 text-[18px]">
                               person
                             </span>
                             <input
+                              id="register-fullname"
+                              name="fullName"
                               type="text"
+                              autoComplete="name"
+                              enterKeyHint="next"
                               required
                               maxLength={100}
                               value={regForm.fullName}
                               onChange={(e) => {
-                                setRegForm({ ...regForm, fullName: e.target.value });
+                                setRegForm((prev) => ({ ...prev, fullName: e.target.value }));
                                 setAuthError('');
                               }}
                               placeholder="Nguyễn Văn A"
-                              className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-11 pr-3 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors shadow-2xs"
+                              className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-9 pr-3 py-2 [@media(min-height:840px)]:py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors shadow-2xs"
                             />
                           </div>
                         </div>
 
                         {/* Số điện thoại */}
-                        <div className="flex flex-col gap-1">
-                          <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <label htmlFor="register-phone" className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
                             Số điện thoại *
                           </label>
                           <div className="relative flex items-center">
-                            <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">
+                            <span aria-hidden="true" className="material-symbols-outlined absolute left-3 text-slate-400 text-[18px]">
                               phone
                             </span>
                             <input
+                              id="register-phone"
+                              name="phone"
                               type="tel"
+                              autoComplete="tel"
+                              enterKeyHint="next"
                               required
                               maxLength={15}
                               value={regForm.phone}
                               onChange={(e) => {
-                                setRegForm({ ...regForm, phone: e.target.value });
+                                setRegForm((prev) => ({ ...prev, phone: e.target.value }));
                                 setAuthError('');
                               }}
                               placeholder="0912 345 678"
-                              className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-11 pr-3 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors shadow-2xs"
+                              className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-9 pr-3 py-2 [@media(min-height:840px)]:py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors shadow-2xs"
                             />
                           </div>
                         </div>
                       </div>
 
-                      {/* Email */}
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
-                          Địa chỉ Email *
-                        </label>
-                        <div className="relative flex items-center">
-                          <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">
-                            mail
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 [@media(min-height:840px)]:gap-3 items-start">
+                        {/* Email */}
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <label htmlFor="register-email" className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
+                            Địa chỉ Email *
+                          </label>
+                          <div className="relative flex items-center">
+                            <span aria-hidden="true" className="material-symbols-outlined absolute left-3 text-slate-400 text-[18px]">
+                              mail
+                            </span>
+                            <input
+                              id="register-email"
+                              name="email"
+                              type="email"
+                              autoComplete="username"
+                              spellCheck={false}
+                              enterKeyHint="next"
+                              required
+                              maxLength={100}
+                              value={regForm.email}
+                              onChange={(e) => {
+                                setRegForm((prev) => ({ ...prev, email: e.target.value }));
+                                setAuthError('');
+                              }}
+                              placeholder="name@example.com"
+                              className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-9 pr-3 py-2 [@media(min-height:840px)]:py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors shadow-2xs"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Password */}
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <label htmlFor="register-password" className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
+                            Mật khẩu bảo mật *
+                          </label>
+                          <div className="relative flex items-center">
+                            <span aria-hidden="true" className="material-symbols-outlined absolute left-3 text-slate-400 text-[18px]">
+                              lock
+                            </span>
+                            <input
+                              id="register-password"
+                              name="password"
+                              type={showPassword ? 'text' : 'password'}
+                              autoComplete="new-password"
+                              enterKeyHint="done"
+                              aria-describedby="register-password-hint"
+                              required
+                              minLength={8}
+                              value={regForm.password}
+                              onChange={(e) => {
+                                setRegForm((prev) => ({ ...prev, password: e.target.value }));
+                                setAuthError('');
+                              }}
+                              placeholder="••••••••"
+                              className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-9 pr-10 py-2 [@media(min-height:840px)]:py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors shadow-2xs"
+                            />
+                            <button
+                              type="button"
+                              aria-pressed={showPassword}
+                              aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="absolute right-2.5 text-slate-400 hover:text-slate-700 transition-colors flex items-center cursor-pointer"
+                            >
+                              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
+                                {showPassword ? 'visibility_off' : 'visibility'}
+                              </span>
+                            </button>
+                          </div>
+                          <span id="register-password-hint" className="text-[11px] text-slate-500 font-medium">
+                            Mật khẩu cần tối thiểu 8 ký tự.
                           </span>
-                          <input
-                            type="email"
-                            required
-                            maxLength={100}
-                            value={regForm.email}
-                            onChange={(e) => {
-                              setRegForm({ ...regForm, email: e.target.value });
-                              setAuthError('');
-                            }}
-                            placeholder="name@example.com"
-                            className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-11 pr-3 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors shadow-2xs"
-                          />
                         </div>
                       </div>
 
-                      {/* Password */}
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
-                          Mật khẩu bảo mật *
-                        </label>
-                        <div className="relative flex items-center">
-                          <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">
-                            lock
-                          </span>
-                          <input
-                            type={showPassword ? 'text' : 'password'}
-                            required
-                            minLength={8}
-                            value={regForm.password}
-                            onChange={(e) => {
-                              setRegForm({ ...regForm, password: e.target.value });
-                              setAuthError('');
-                            }}
-                            placeholder="••••••••"
-                            className="w-full bg-white text-slate-900 placeholder:text-slate-400 pl-11 pr-11 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors shadow-2xs"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3.5 text-slate-400 hover:text-slate-700 transition-colors flex items-center cursor-pointer"
-                          >
-                            <span className="material-symbols-outlined text-[20px]">
-                              {showPassword ? 'visibility_off' : 'visibility'}
-                            </span>
-                          </button>
-                        </div>
-                        <span className="text-[11px] text-slate-500 mt-0.5 font-medium">
-                          Mật khẩu cần tối thiểu 8 ký tự.
-                        </span>
-                      </div>
+                      {regForm.role !== 'MEMBER' && (
+                        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-800">
+                          {regForm.role === 'COACH'
+                            ? 'Tài khoản Huấn luyện viên sẽ chờ Quản lý phê duyệt và phân công bộ môn giảng dạy trước khi đăng nhập.'
+                            : 'Tài khoản Lễ tân sẽ chờ Quản lý phê duyệt trước khi đăng nhập.'}
+                        </p>
+                      )}
                     </div>
 
                     {/* Agree Terms Checkbox */}
-                    <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                    <label className="flex items-start gap-2 cursor-pointer select-none">
                       <input
                         type="checkbox"
                         required
                         checked={regForm.agreeTerms}
-                        onChange={(e) => setRegForm({ ...regForm, agreeTerms: e.target.checked })}
+                        onChange={(e) => setRegForm((prev) => ({ ...prev, agreeTerms: e.target.checked }))}
                         className="mt-0.5 w-4 h-4 rounded border-slate-300 text-orange-500 focus:ring-0 cursor-pointer"
                       />
-                      <span className="text-xs text-slate-600 font-medium">
+                      <span className="text-xs text-slate-600 font-medium leading-snug">
                         Tôi đồng ý với{' '}
-                        <button type="button" onClick={() => alert('Điều khoản dịch vụ bảo mật của F Sport Center.')} className="text-slate-900 font-bold hover:underline">
+                        <button
+                          type="button"
+                          onClick={() => setInfoDialog({
+                            title: 'Điều khoản dịch vụ',
+                            content: 'Hội viên tuân thủ nội quy an toàn tập luyện, đặt lịch trước và check-in đúng giờ tại quầy hoặc cổng tự động RFID/QR của F Sport Center.',
+                          })}
+                          className="text-slate-900 font-bold hover:underline cursor-pointer"
+                        >
                           Điều khoản dịch vụ
                         </button>{' '}
                         và{' '}
-                        <button type="button" onClick={() => alert('Chính sách bảo mật chuẩn y tế PAR-Q của F Sport Center.')} className="text-slate-900 font-bold hover:underline">
+                        <button
+                          type="button"
+                          onClick={() => setInfoDialog({
+                            title: 'Chính sách bảo mật',
+                            content: 'Thông tin cá nhân, chỉ số sức khỏe PAR-Q/InBody và lịch sử giao dịch của bạn chỉ được sử dụng cho vận hành hội viên tại F Sport Center và bảo mật theo quy định hiện hành.',
+                          })}
+                          className="text-slate-900 font-bold hover:underline cursor-pointer"
+                        >
                           Chính sách bảo mật
                         </button>{' '}
                         của F Sport Center.
@@ -724,43 +825,49 @@ export default function AuthPage() {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-xs uppercase tracking-wider font-black shadow-lg shadow-orange-500/30 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full py-2.5 [@media(min-height:840px)]:py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-xs sm:text-sm uppercase tracking-wider font-black shadow-lg shadow-orange-500/30 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <span>{isSubmitting ? 'ĐANG TẠO TÀI KHOẢN...' : 'ĐĂNG KÝ TÀI KHOẢN NGAY'}</span>
-                      <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                      <span aria-hidden="true" className="material-symbols-outlined text-[20px]">arrow_forward</span>
                     </button>
 
                   </form>
                 </div>
               )}
+            </div>
 
-              {/* Sticky Support Micro Footer */}
-              <div className="pt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 border-t border-slate-200">
-                <div className="flex items-center gap-1.5 font-medium">
-                  <span className="material-symbols-outlined text-[16px] text-orange-600">
-                    support_agent
-                  </span>
-                  <span>
-                    Hotline 24/7: <strong className="text-slate-900 font-bold">1900 8899</strong>
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 font-medium">
-                  <button
-                    type="button"
-                    onClick={() => alert('Trung tâm trợ giúp: Vui lòng gọi 1900 8899 hoặc gặp bộ phận Lễ tân.')}
-                    className="hover:text-slate-900 transition-colors cursor-pointer"
-                  >
-                    Trợ giúp
-                  </button>
-                  <span>•</span>
-                  <button
-                    type="button"
-                    onClick={() => alert('Nội quy: Tuân thủ quy định trang phục thể thao và giờ check-in.')}
-                    className="hover:text-slate-900 transition-colors cursor-pointer"
-                  >
-                    Nội quy sân đấu
-                  </button>
-                </div>
+            {/* Sticky Support Micro Footer (Pinned Bottom) */}
+            <div className="w-full max-w-xl mx-auto pt-2.5 [@media(min-height:760px)]:pt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 border-t border-slate-200 shrink-0">
+              <div className="flex items-center gap-1.5 font-medium">
+                <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-orange-600">
+                  support_agent
+                </span>
+                <span>
+                  Hotline 24/7: <strong className="text-slate-900 font-bold">1900 8899</strong>
+                </span>
+              </div>
+              <div className="flex items-center gap-3 font-medium">
+                <button
+                  type="button"
+                  onClick={() => setInfoDialog({
+                    title: 'Trung tâm trợ giúp',
+                    content: 'Cần hỗ trợ đăng nhập, xác thực OTP hoặc cấp lại mật khẩu, vui lòng gọi hotline 1900 8899 hoặc liên hệ trực tiếp bộ phận Lễ tân tại trung tâm.',
+                  })}
+                  className="hover:text-slate-900 transition-colors cursor-pointer"
+                >
+                  Trợ giúp
+                </button>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={() => setInfoDialog({
+                    title: 'Nội quy sân đấu',
+                    content: 'Vui lòng mang giày thể thao chuyên dụng, không mang thức ăn có mùi vào khu vực sân tập và đến check-in trước giờ đặt từ 10–15 phút.',
+                  })}
+                  className="hover:text-slate-900 transition-colors cursor-pointer"
+                >
+                  Nội quy sân đấu
+                </button>
               </div>
             </div>
           </div>
@@ -768,89 +875,41 @@ export default function AuthPage() {
         </div>
       </main>
 
-      {/* OTP Verification Modal Dialog (Workflow Đăng Ký - Section 2.1 & 2.2) */}
-      {otpModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
-          <div className="relative w-full max-w-md overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-5">
-            <div className="text-center space-y-2">
-              <div className="w-14 h-14 mx-auto rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center shadow-inner">
-                <span className="material-symbols-outlined text-3xl">mark_email_read</span>
-              </div>
-              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">
-                Xác Thực Tài Khoản Email
+      {infoDialog && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="auth-info-dialog-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs !m-0"
+          onClick={() => setInfoDialog(null)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h3 id="auth-info-dialog-title" className="text-base font-black text-slate-900 uppercase tracking-tight">
+                {infoDialog.title}
               </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Mã xác thực OTP gồm 6 chữ số đã được gửi tới{' '}
-                <strong className="text-slate-900 font-bold">{otpModal.email}</strong>.
-                Vui lòng nhập mã để kích hoạt tài khoản hội viên F Sport.
-              </p>
+              <button
+                type="button"
+                aria-label="Đóng hộp thoại"
+                onClick={() => setInfoDialog(null)}
+                className="w-8 h-8 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 flex items-center justify-center cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
             </div>
-
-            <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <div className="flex flex-col items-center gap-2">
-                <label htmlFor="otp-input" className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Mã Xác Thực OTP (6 số)
-                </label>
-                <input
-                  id="otp-input"
-                  type="text"
-                  required
-                  maxLength={6}
-                  autoFocus
-                  value={otpModal.otpCode}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, '');
-                    setOtpModal((prev) => ({ ...prev, otpCode: val }));
-                    setAuthError('');
-                  }}
-                  placeholder="123456"
-                  className="w-48 text-center text-2xl font-black tracking-widest py-3 px-4 rounded-2xl border-2 border-orange-500 bg-orange-50/40 text-slate-900 outline-none shadow-sm focus:ring-4 focus:ring-orange-500/20"
-                />
-              </div>
-
-              {/* Countdown timer */}
-              <div className="flex items-center justify-center gap-1.5 text-xs">
-                <span className="material-symbols-outlined text-[16px] text-orange-600">timer</span>
-                <span className="text-slate-500 font-medium">Mã hết hạn sau:</span>
-                <span className={`font-mono font-bold ${otpModal.timer < 60 ? 'text-red-600 animate-pulse' : 'text-slate-800'}`}>
-                  {formatTimer(otpModal.timer)}
-                </span>
-              </div>
-
-              {authError && (
-                <p role="alert" className="p-2.5 rounded-xl border border-red-200 bg-red-50 text-center text-xs font-bold text-red-700">
-                  {authError}
-                </p>
-              )}
-
-              <div className="space-y-2 pt-2">
-                <button
-                  type="submit"
-                  disabled={otpModal.otpCode.length !== 6}
-                  className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs uppercase tracking-wider font-black shadow-lg shadow-orange-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]">verified</span>
-                  <span>XÁC THỰC & KÍCH HOẠT NGAY</span>
-                </button>
-
-                <div className="flex items-center justify-between pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setOtpModal({ isOpen: false, email: '', pendingUser: null, otpCode: '', timer: 600 })}
-                    className="text-xs text-slate-500 hover:text-slate-800 font-semibold cursor-pointer"
-                  >
-                    Hủy bỏ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleResendOtp}
-                    className="text-xs text-orange-600 hover:underline font-bold cursor-pointer"
-                  >
-                    Gửi lại mã OTP
-                  </button>
-                </div>
-              </div>
-            </form>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+              {infoDialog.content}
+            </p>
+            <button
+              type="button"
+              onClick={() => setInfoDialog(null)}
+              className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black uppercase tracking-wider cursor-pointer"
+            >
+              Đã hiểu
+            </button>
           </div>
         </div>
       )}

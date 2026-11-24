@@ -1,8 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
 import CreateUserModal from '../../components/common/CreateUserModal';
 import QrCodeSvg from '../../components/common/QrCodeSvg';
 import Pagination from '../../components/common/Pagination';
+import { compressImageFile } from '../../utils/imageCompressor';
+import { getAvatarImageUrl } from '../../utils/avatarHelper';
 import {
   searchReceptionistMembers,
   updateReceptionMemberAvatar,
@@ -57,31 +59,7 @@ export default function ReceptionMembersPage() {
           });
         }
       });
-    const handleSaveEmergency = async (e) => {
-    e.preventDefault();
-    if (!emergencyMember) return;
-    setActionLoading(true);
-    setActionError('');
-    try {
-      await updateReceptionMemberEmergencyContact(emergencyMember.userId, {
-        emergencyContactName: emergencyForm.name.trim(),
-        emergencyContactPhone: emergencyForm.phone.trim(),
-      });
-      setActionSuccess('Cập nhật liên hệ khẩn cấp thành công!');
-      setTimeout(() => {
-        setEmergencyMember(null);
-        setEmergencyForm({ name: '', phone: '' });
-        setActionSuccess('');
-        setRefreshKey((k) => k + 1);
-      }, 1000);
-    } catch (err) {
-      setActionError(err.message || 'Không thể cập nhật liên hệ khẩn cấp.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  return () => {
+    return () => {
       active = false;
     };
   }, [submittedQuery, page, requestKey]);
@@ -105,7 +83,7 @@ export default function ReceptionMembersPage() {
         videoRef.current.play();
       }
       setCameraActive(true);
-    } catch (err) {
+    } catch {
       setCameraError('Không thể mở webcam hoặc quyền truy cập bị từ chối.');
     }
   };
@@ -130,19 +108,23 @@ export default function ReceptionMembersPage() {
     stopCamera();
   };
 
-  const handleAvatarFile = (e) => {
+  const handleAvatarFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setActionError('Vui lòng chọn ảnh dung lượng dưới 2MB.');
+    if (file.size > 5 * 1024 * 1024) {
+      setActionError('Vui lòng chọn ảnh dung lượng tối đa 5MB.');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setAvatarPreview(event.target.result);
+    try {
+      setActionError('');
+      const compressed = await compressImageFile(file, 500, 0.85);
+      setAvatarPreview(compressed);
       stopCamera();
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      setActionError(err.message || 'Không thể xử lý tệp hình ảnh.');
+    } finally {
+      if (e.target) e.target.value = '';
+    }
   };
 
   const handleSaveAvatar = async () => {
@@ -260,6 +242,7 @@ export default function ReceptionMembersPage() {
                       <th className="px-5 py-3.5">Mã</th>
                       <th className="px-5 py-3.5">Hội viên</th>
                       <th className="px-5 py-3.5">Liên hệ</th>
+                      <th className="px-5 py-3.5">Gói tập &amp; Quota</th>
                       <th className="px-5 py-3.5">Thẻ từ RFID / QR</th>
                       <th className="px-5 py-3.5">Trạng thái</th>
                       <th className="px-5 py-3.5 text-right">Thao tác quầy</th>
@@ -272,8 +255,8 @@ export default function ReceptionMembersPage() {
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full border border-slate-200 bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
-                              {member.avatar ? (
-                                <img src={member.avatar} alt={member.fullName} className="w-full h-full object-cover" />
+                              {getAvatarImageUrl(member.avatar) ? (
+                                <img src={getAvatarImageUrl(member.avatar)} alt={member.fullName} className="w-full h-full object-cover" />
                               ) : (
                                 <span className="font-bold text-xs text-slate-600">
                                   {member.fullName?.slice(0, 2).toUpperCase() || 'MB'}
@@ -293,6 +276,25 @@ export default function ReceptionMembersPage() {
                             <div className="text-[11px] text-red-600 font-medium mt-0.5">
                               SOS: {member.emergencyContactName} ({member.emergencyContactPhone || '—'})
                             </div>
+                          )}
+                        </td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          {member.activePackageName ? (
+                            <div className="space-y-0.5">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-orange-800 text-[11px] font-bold">
+                                {member.activePackageName}
+                              </span>
+                              <div className="text-[11px] text-slate-500">
+                                {member.activePackageEndDate
+                                  ? `HSD: ${new Date(`${member.activePackageEndDate}T00:00:00`).toLocaleDateString('vi-VN')}`
+                                  : 'Đang hiệu lực'}
+                                {member.remainingQuotaSessions > 0 ? ` · ${member.remainingQuotaSessions} buổi` : ''}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[11px] font-medium">
+                              Chưa có gói
+                            </span>
                           )}
                         </td>
                         <td className="px-5 py-4 whitespace-nowrap">
@@ -318,7 +320,7 @@ export default function ReceptionMembersPage() {
                               type="button"
                               onClick={() => {
                                 setAvatarMember(member);
-                                setAvatarPreview(member.avatar || '');
+                                setAvatarPreview(getAvatarImageUrl(member.avatar) || '');
                                 setActionError('');
                                 setActionSuccess('');
                               }}
@@ -421,7 +423,7 @@ export default function ReceptionMembersPage() {
                 </div>
               ) : avatarPreview ? (
                 <div className="w-40 h-40 rounded-2xl overflow-hidden border-2 border-orange-500 shadow-md">
-                  <img src={avatarPreview} alt="Preview" className="w-full h-full object-cover" />
+                  <img src={getAvatarImageUrl(avatarPreview) || avatarPreview} alt="Preview" className="w-full h-full object-cover" />
                 </div>
               ) : (
                 <div className="w-36 h-36 rounded-2xl bg-slate-200 flex flex-col items-center justify-center text-slate-400">
@@ -459,7 +461,7 @@ export default function ReceptionMembersPage() {
 
               <label className="py-2.5 px-3 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition cursor-pointer">
                 <span className="material-symbols-outlined text-[16px]">upload_file</span>
-                <span>Tải ảnh file</span>
+                <span>Tải ảnh (&le;5MB)</span>
                 <input type="file" accept="image/*" onChange={handleAvatarFile} className="hidden" />
               </label>
             </div>

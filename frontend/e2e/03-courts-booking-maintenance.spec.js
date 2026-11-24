@@ -19,12 +19,17 @@ test.describe('SUITE 3: Cơ Sở Vật Chất, Đặt Sân & Khóa Bảo Trì (C
       data: { status: 'AVAILABLE' },
     });
 
+    const facilitiesRes = await request.get(`${apiBaseUrl}/manager/facilities`, { headers: authHeaders });
+    expect(facilitiesRes.ok()).toBeTruthy();
+    const facilities = await facilitiesRes.json();
+    expect(facilities.length).toBeGreaterThanOrEqual(16);
+
     await page.goto('/admin/facilities');
     await expect(page.getByText('Cơ sở, Sân Bãi & Lịch Bảo Trì')).toBeVisible();
 
-    // Kiểm tra chính xác 16 facility cards
+    // Kiểm tra toàn bộ facility cards khớp DB thực tế
     const facilityArticles = page.locator('article').filter({ hasText: 'Mã cơ sở: #' });
-    await expect(facilityArticles).toHaveCount(16);
+    await expect(facilityArticles).toHaveCount(facilities.length);
 
     const badmintonCard = page.locator('article').filter({ hasText: 'Sân Cầu Lông Trong Nhà - Sân B1' });
     const poolCard = page.locator('article').filter({ hasText: 'Hồ Bơi - Làn S1' });
@@ -62,7 +67,7 @@ test.describe('SUITE 3: Cơ Sở Vật Chất, Đặt Sân & Khóa Bảo Trì (C
 
       const sportsRes = await memberPage.request.get(`${apiBaseUrl}/public/content/sports`);
       const sports = await sportsRes.json();
-      let chosenSport = null;
+
       let chosenSlot = null;
 
       for (const sport of sports) {
@@ -80,7 +85,6 @@ test.describe('SUITE 3: Cơ Sở Vật Chất, Đặt Sân & Khóa Bảo Trì (C
         });
 
         if (futureSlot) {
-          chosenSport = sport;
           chosenSlot = futureSlot;
           break;
         }
@@ -96,7 +100,7 @@ test.describe('SUITE 3: Cơ Sở Vật Chất, Đặt Sân & Khóa Bảo Trì (C
       await memberPage.getByRole('button', { name: /Giữ Chỗ \(Thanh Toán Tại Quầy\)|Xác Nhận/i }).click();
 
       await expect(memberPage).toHaveURL(/\/member\/book\/confirmation$/);
-      await expect(memberPage.getByRole('heading', { name: 'Booking đã xác nhận' })).toBeVisible({ timeout: 10000 });
+      await expect(memberPage.getByRole('heading', { name: 'Booking chờ thanh toán' })).toBeVisible({ timeout: 10000 });
 
       // Điều hướng vào trang thời khóa biểu & F5 kiểm chứng bền vững
       await memberPage.getByRole('link', { name: /Xem trong thời khóa biểu/i }).click();

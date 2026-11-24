@@ -21,6 +21,23 @@ import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 
 class LogicAuditRegressionTest {
+    @Test void eveningBookingSkipsSilverAndUsesGoldWithoutChangingLegacyContracts() {
+        var repo = mock(UserMembershipRepository.class);
+        var packages = mock(MembershipPackageRepository.class);
+        var silver = membership();
+        var gold = membership(); gold.setMembershipId(3L); gold.setPackageId(4L);
+        when(repo.findByUserIdAndStatus(9L, "ACTIVE")).thenReturn(List.of(silver, gold));
+        when(packages.findById(2L)).thenReturn(Optional.of(MembershipPackage.builder()
+                .packageType(PackageType.VIP).membershipTier("SILVER").accessType("OFF_PEAK").build()));
+        when(packages.findById(4L)).thenReturn(Optional.of(MembershipPackage.builder()
+                .packageType(PackageType.VIP).membershipTier("GOLD").accessType("ALL_DAY").build()));
+        var service = new MembershipService(repo, packages, null, null, null);
+        var start = LocalDate.now().atTime(18, 0);
+        assertSame(gold, service.getActiveMembershipWithQuota(9L, 1, "CLASS", null, start, start.plusHours(1)));
+        assertSame(gold, service.getActiveMembershipWithCourtQuota(9L, 1, start, start.plusHours(1)));
+        assertSame(silver, service.getActiveMembershipWithQuota(9L, 1, "CLASS", null, start.withHour(8), start.withHour(9)));
+        assertNull(service.getActiveMembershipWithCourtQuota(9L, 1, start.plusDays(1), start.plusDays(1).plusHours(1)));
+    }
     static UsernamePasswordAuthenticationToken actor(String role) { return new UsernamePasswordAuthenticationToken("9", "", List.of(new SimpleGrantedAuthority("ROLE_" + role))); }
     static UserMembership membership() {
         UserMembership m = new UserMembership(); m.setMembershipId(1L); m.setUserId(9L); m.setPackageId(2L);
@@ -79,11 +96,13 @@ class LogicAuditRegressionTest {
         assertThrows(IllegalArgumentException.class, () -> service.resendOtp(new ResendOtpRequest("audit@example.test")));
         verifyNoInteractions(tokens, email);
     }
-    @Test void publicRegistrationIgnoresRequestedStaffRole() {
+    @Test void publicRegistrationAllowsPendingStaffAndRejectsPrivilegedRole() {
         var users = mock(UserRepository.class); when(users.save(any())).thenAnswer(i -> { User u = i.getArgument(0); u.setUserId(9L); return u; });
         var service = new AuthService(users, mock(AuthSessionRepository.class), mock(VerificationTokenRepository.class), mock(PasswordEncoder.class), mock(EmailService.class), mock(AuditLogService.class));
-        AuthResponse result = service.register(new RegisterRequest("Audit Member", "audit@example.test", "0901234567", "Audit@12345", "RECEPTIONIST"));
-        assertEquals("MEMBER", result.getRole()); assertEquals("PENDING", result.getStatus());
+        AuthResponse result = service.register(new RegisterRequest("Audit Staff", "audit@example.test", "0901234567", "Audit@12345", "RECEPTIONIST"));
+        assertEquals("RECEPTIONIST", result.getRole()); assertEquals("PENDING", result.getStatus());
+        assertThrows(IllegalArgumentException.class, () ->
+                service.register(new RegisterRequest("Audit Admin", "admin@example.test", "0901234568", "Audit@12345", "ADMIN")));
     }
     @Test void wrongRegistrationOtpCommitsItsAttemptCountThroughSpringTransactionProxy() {
         var users = mock(UserRepository.class); var tokens = mock(VerificationTokenRepository.class);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
 import { apiRequest } from '../../services/apiClient';
 import { useApp } from '../../context/AppContext';
@@ -20,7 +20,27 @@ export default function ReceptionEquipmentPage() {
 
   // Return & Checkout Modal
   const [returningLoan, setReturningLoan] = useState(null);
+  const [returnReceipt, setReturnReceipt] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('CASH');
+  const [isReturning, setIsReturning] = useState(false);
+
+  const formatDateTime = (value) => {
+    if (!value) return '—';
+    return new Date(value).toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const formatMethodLabel = (method, fee) => {
+    if (!Number(fee || 0)) return 'Miễn phí';
+    const upper = String(method || 'CASH').toUpperCase();
+    if (upper === 'VNPAY' || upper === 'ONLINE') return 'VNPay';
+    if (upper === 'CASH' || upper === 'CASH_COUNTER') return 'Tiền mặt';
+    return upper;
+  };
 
   const loadEquipments = useCallback(async () => {
     try {
@@ -111,43 +131,66 @@ export default function ReceptionEquipmentPage() {
     }
   };
 
-  // Calculate rental fee upon return (hours = CEILING(diff in seconds / 3600))
+  // Calculate rental fee upon return (matches backend CEILING(minutes / 60))
   const calculateFee = (loan) => {
-    if (!loan.rentalPricePerHour || loan.rentalPricePerHour === 0) return 0;
-    const startMs = new Date(loan.loanedAt).getTime();
-    const nowMs = Date.now();
-    const elapsedHours = Math.max(1, Math.ceil((nowMs - startMs) / (1000 * 60 * 60)));
-    return elapsedHours * loan.rentalPricePerHour * (loan.quantity || 1);
+    const rate = Number(loan?.rentalPricePerHour || 0);
+    if (!rate || rate <= 0) return 0;
+    const startMs = loan?.loanedAt ? new Date(loan.loanedAt).getTime() : NaN;
+    const diffMinutes = Number.isFinite(startMs)
+      ? Math.max(1, Math.floor(Math.max(0, Date.now() - startMs) / 60000))
+      : 1;
+    const elapsedHours = Math.max(1, Math.ceil(diffMinutes / 60));
+    return elapsedHours * rate * (Number(loan?.quantity) || 1);
   };
 
   const openReturnModal = (loan) => {
+    setPaymentMethod('CASH');
     setReturningLoan(loan);
   };
 
   const handleConfirmReturn = async () => {
-    if (!returningLoan) return;
-    const fee = calculateFee(returningLoan);
+    if (!returningLoan || isReturning) return;
+    const estimatedFee = calculateFee(returningLoan);
 
+    setIsReturning(true);
     try {
-      await apiRequest(`/receptionist/equipment-loans/${returningLoan.loanId}/return`, {
+      const returned = await apiRequest(`/receptionist/equipment-loans/${returningLoan.loanId}/return`, {
         method: 'POST',
         body: JSON.stringify({ paymentMethod }),
       });
 
+      const actualFee = Number(returned?.rentalFee ?? estimatedFee);
+      const methodSummary = actualFee > 0
+        ? ` (${returned?.paymentMethod || paymentMethod})`
+        : ' (Miễn phí)';
+
       showToast(
         'Trả đồ hoàn tất',
-        `Đã nhận lại ${returningLoan.quantity} x "${returningLoan.itemName}". Phí thu: ${fee.toLocaleString()}đ (${paymentMethod}).`,
+        `Đã nhận lại ${returningLoan.quantity} x "${returningLoan.itemName}". Phí thu: ${actualFee.toLocaleString()}đ${methodSummary}.`,
         'success'
       );
+      setReturnReceipt({
+        loanId: returned?.loanId ?? returningLoan.loanId,
+        memberName: returned?.memberName ?? returningLoan.memberName,
+        phone: returned?.phone ?? returningLoan.phone,
+        itemName: returned?.itemName ?? returningLoan.itemName,
+        quantity: returned?.quantity ?? returningLoan.quantity,
+        loanedAt: returned?.loanedAt ?? returningLoan.loanedAt,
+        returnedAt: returned?.returnedAt || new Date().toISOString(),
+        rentalFee: actualFee,
+        paymentMethod: actualFee > 0 ? (returned?.paymentMethod || 'CASH') : 'FREE',
+      });
       setReturningLoan(null);
       await loadEquipments();
     } catch (err) {
       showToast('Lỗi trả đồ', err.message || 'Không thể xác nhận trả đồ.', 'error');
+    } finally {
+      setIsReturning(false);
     }
   };
 
-  const activeLoans = loans.filter((l) => l.status === 'BORROWED');
-  const returnedLoans = loans.filter((l) => l.status === 'RETURNED');
+  const activeLoans = loans.filter((l) => ['BORROWED', 'OVERDUE'].includes((l.status || '').toUpperCase()));
+  const returnedLoans = loans.filter((l) => (l.status || '').toUpperCase() === 'RETURNED');
 
   return (
     <ReceptionistLayout>
@@ -277,11 +320,15 @@ export default function ReceptionEquipmentPage() {
                   className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 outline-none focus:border-orange-500 cursor-pointer"
                 >
                   <option value="">-- Chọn dụng cụ trong kho --</option>
-                  {items.map((i) => (
-                    <option key={i.itemId} value={i.itemId} disabled={i.availableQuantity <= 0}>
-                      {i.itemName} (Còn {i.availableQuantity}/{i.totalQuantity}) — {i.rentalPricePerHour === 0 ? 'Miễn phí' : `${i.rentalPricePerHour.toLocaleString()}đ/giờ`}
-                    </option>
-                  ))}
+                  {items.map((i) => {
+                    const price = Number(i.rentalPricePerHour || 0);
+                    const isInactive = (i.status || '').toUpperCase() !== 'ACTIVE';
+                    return (
+                      <option key={i.itemId} value={i.itemId} disabled={i.availableQuantity <= 0 || isInactive}>
+                        {i.itemName} (Còn {i.availableQuantity}/{i.totalQuantity}) — {price === 0 ? 'Miễn phí' : `${price.toLocaleString()}đ/giờ`}{isInactive ? ' [Ngưng]' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -337,6 +384,8 @@ export default function ReceptionEquipmentPage() {
                     <tbody className="divide-y divide-slate-100 font-medium">
                       {activeLoans.map((loan) => {
                         const estimatedFee = calculateFee(loan);
+                        const rate = Number(loan.rentalPricePerHour || 0);
+                        const isOverdue = (loan.status || '').toUpperCase() === 'OVERDUE';
                         return (
                           <tr key={loan.loanId} className="hover:bg-slate-50">
                             <td className="px-4 py-3.5">
@@ -345,16 +394,21 @@ export default function ReceptionEquipmentPage() {
                             </td>
                             <td className="px-4 py-3.5">
                               <span className="font-bold text-slate-800">{loan.quantity}x {loan.itemName}</span>
+                              {isOverdue && (
+                                <span className="ml-1.5 inline-block px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold">
+                                  Quá hạn
+                                </span>
+                              )}
                             </td>
                             <td className="px-4 py-3.5 text-slate-600">
-                              {new Date(loan.loanedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                              {formatDateTime(loan.loanedAt)}
                             </td>
                             <td className="px-4 py-3.5">
-                              {loan.rentalPricePerHour === 0 ? (
+                              {rate === 0 ? (
                                 <span className="text-emerald-700 font-bold">0đ (Miễn phí)</span>
                               ) : (
                                 <span className="font-bold text-orange-600">
-                                  {loan.rentalPricePerHour.toLocaleString()}đ/h
+                                  {rate.toLocaleString()}đ/h
                                 </span>
                               )}
                             </td>
@@ -395,6 +449,7 @@ export default function ReceptionEquipmentPage() {
                     <th className="px-5 py-3">Dụng cụ</th>
                     <th className="px-5 py-3">Giờ mượn → Giờ trả</th>
                     <th className="px-5 py-3">Phí thuê đã thu</th>
+                    <th className="px-5 py-3">Thanh toán</th>
                     <th className="px-5 py-3">Trạng thái</th>
                   </tr>
                 </thead>
@@ -410,11 +465,14 @@ export default function ReceptionEquipmentPage() {
                         {loan.quantity}x {loan.itemName}
                       </td>
                       <td className="px-5 py-3.5 text-slate-600">
-                        {new Date(loan.loanedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} →{' '}
-                        {loan.returnedAt ? new Date(loan.returnedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                        {formatDateTime(loan.loanedAt)} →{' '}
+                        {formatDateTime(loan.returnedAt)}
                       </td>
                       <td className="px-5 py-3.5 font-black text-orange-600 text-sm">
-                        {(loan.rentalFee || 0).toLocaleString()}đ
+                        {Number(loan.rentalFee || 0).toLocaleString()}đ
+                      </td>
+                      <td className="px-5 py-3.5 text-slate-600 font-semibold">
+                        {formatMethodLabel(loan.paymentMethod, loan.rentalFee)}
                       </td>
                       <td className="px-5 py-3.5">
                         <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase">
@@ -455,7 +513,7 @@ export default function ReceptionEquipmentPage() {
                   <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
                     <span className="text-xs text-slate-500 font-medium">Giá thuê:</span>
                     <strong className="text-sm font-black text-orange-600">
-                      {item.rentalPricePerHour === 0 ? 'Miễn phí' : `${item.rentalPricePerHour.toLocaleString()}đ / giờ`}
+                      {Number(item.rentalPricePerHour || 0) === 0 ? 'Miễn phí' : `${Number(item.rentalPricePerHour).toLocaleString()}đ / giờ`}
                     </strong>
                   </div>
                 </div>
@@ -492,11 +550,11 @@ export default function ReceptionEquipmentPage() {
                 </div>
                 <div className="flex justify-between text-slate-600">
                   <span>Thời gian mượn:</span>
-                  <span>{new Date(returningLoan.loanedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span>{formatDateTime(returningLoan.loanedAt)}</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
                   <span>Thời gian trả:</span>
-                  <span>{new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span>{formatDateTime(new Date())}</span>
                 </div>
               </div>
 
@@ -510,14 +568,13 @@ export default function ReceptionEquipmentPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="font-bold uppercase text-slate-600 text-[11px]">Hình thức thu tiền</label>
+                    <label className="font-bold uppercase text-slate-600 text-[11px]">Hình thức thu tiền tại quầy</label>
                     <select
                       value={paymentMethod}
                       onChange={(e) => setPaymentMethod(e.target.value)}
                       className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 outline-none cursor-pointer"
                     >
                       <option value="CASH">Tiền mặt tại quầy (CASH)</option>
-                      <option value="VNPAY">Thanh toán VNPay (VNPAY)</option>
                     </select>
                   </div>
                 </div>
@@ -538,10 +595,90 @@ export default function ReceptionEquipmentPage() {
               </button>
               <button
                 type="button"
+                disabled={isReturning}
                 onClick={handleConfirmReturn}
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer"
               >
-                Hoàn tất &amp; In biên lai
+                {isReturning ? 'Đang xử lý...' : 'Hoàn tất & In biên lai'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Printable Equipment Return Receipt Modal */}
+      {returnReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs print:p-0 print:bg-white print:static !m-0">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 space-y-4 print:shadow-none print:border-none print:max-w-none print:w-full">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 print:hidden">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-emerald-600 text-[20px]">receipt_long</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-800">Biên Lai Hoàn Trả Dụng Cụ</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReturnReceipt(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+
+            <div className="p-4 bg-white text-slate-900 font-mono text-[11px] leading-tight space-y-2.5 border border-dashed border-slate-300 rounded-xl print:border-none print:p-0">
+              <div className="text-center pb-2 border-b border-dashed border-slate-400">
+                <div className="font-sans font-black text-sm uppercase text-slate-900">F SPORT CENTER</div>
+                <div className="font-bold text-xs pt-1 uppercase">BIÊN LAI TRẢ DỤNG CỤ</div>
+                <div className="text-[10px] text-slate-500">Phiếu mượn #{returnReceipt.loanId}</div>
+              </div>
+              <div className="space-y-1 text-[10px]">
+                <div className="flex justify-between">
+                  <span>Hội viên:</span>
+                  <strong>{returnReceipt.memberName}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Dụng cụ:</span>
+                  <strong>{returnReceipt.quantity}x {returnReceipt.itemName}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Giờ mượn:</span>
+                  <span>{formatDateTime(returnReceipt.loanedAt)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Giờ trả:</span>
+                  <span>{formatDateTime(returnReceipt.returnedAt)}</span>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-dashed border-slate-400 space-y-1">
+                <div className="flex justify-between font-bold text-xs">
+                  <span>PHÍ THUÊ THU:</span>
+                  <span className="text-orange-600">
+                    {Number(returnReceipt.rentalFee || 0) > 0
+                      ? `${Number(returnReceipt.rentalFee).toLocaleString()}đ`
+                      : 'Miễn phí'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-[10px]">
+                  <span>Thanh toán:</span>
+                  <span>{formatMethodLabel(returnReceipt.paymentMethod, returnReceipt.rentalFee)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 print:hidden">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex-1 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">print</span>
+                <span>In biên lai</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setReturnReceipt(null)}
+                className="py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider cursor-pointer"
+              >
+                Đóng
               </button>
             </div>
           </div>
