@@ -66,4 +66,7 @@ public class PaymentTransaction {
 
     @Column(name = "payment_completed_at")
     private LocalDateTime paymentCompletedAt; // Timestamp when payment was COMPLETED (for 2-hour refund window)
+
+    @Column(name = "processed_by")
+    private Long processedBy;
 }

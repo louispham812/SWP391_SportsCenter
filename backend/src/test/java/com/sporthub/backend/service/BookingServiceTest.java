@@ -828,7 +828,25 @@ class BookingServiceTest {
                 22L, 11L, "CASH", false, null, 3L, "RECEPTIONIST");
         assertEquals("PAID", enrollRes.paymentStatus());
         assertEquals("CONFIRMED", savedBooking.getStatus());
+        assertEquals(3L, savedTx.getProcessedBy());
         verify(engagementService).audit(eq(3L), eq("RECEPTIONIST"), eq("RECEPTION_CLASS_ENROLL"), any());
+
+        PaymentTransaction vnpayTx = new PaymentTransaction();
+        vnpayTx.setPaymentId(78L);
+        vnpayTx.setBookingType("CLASS");
+        vnpayTx.setPaymentMethod(PaymentConstants.METHOD_VNPAY);
+        vnpayTx.setPaymentStatus("PENDING");
+        vnpayTx.setReferenceCode("CLS-VNP78");
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> {
+            PaymentTransaction p = inv.getArgument(0);
+            if (p.getPaymentId() == null) p.setPaymentId(78L);
+            return p;
+        });
+        when(paymentTransactionRepository.findById(78L)).thenReturn(Optional.of(vnpayTx));
+        BookingConfirmationResponse vnpayEnrollRes = bookingService.enrollMemberInClassByReceptionist(
+                22L, 11L, "VNPAY", false, null, 4L, "RECEPTIONIST");
+        assertEquals("PENDING", vnpayEnrollRes.paymentStatus());
+        assertEquals(4L, vnpayTx.getProcessedBy());
 
         // Staff cancellation on a quota booking refunds quota and notifies member
         Booking quotaBooking = Booking.builder()

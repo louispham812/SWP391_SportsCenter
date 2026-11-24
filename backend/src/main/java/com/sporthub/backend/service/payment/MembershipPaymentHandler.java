@@ -33,7 +33,13 @@ public class MembershipPaymentHandler implements BookingPaymentHandler {
             membership.setStatus("PENDING_APPROVAL"); memberships.save(membership);
             receipts.findByMemberIdOrderByCreatedAtDesc(Math.toIntExact(payment.getMemberId())).stream()
                 .filter(r -> r.getMembershipId() != null && r.getMembershipId().longValue() == membership.getMembershipId())
-                .forEach(r -> { r.setPaymentStatus("COMPLETED"); receipts.save(r); });
+                .forEach(r -> {
+                    r.setPaymentStatus("COMPLETED");
+                    if (payment.getProcessedBy() != null && r.getApprovedBy() == null) {
+                        r.setApprovedBy(Math.toIntExact(payment.getProcessedBy()));
+                    }
+                    receipts.save(r);
+                });
             engagement.notifyUser(payment.getMemberId(), "Đã nhận thanh toán gói tập", "Gói tập đang chờ Quản lý phê duyệt.", "MEMBERSHIP");
         }
         PaymentConfirmationResult result = new PaymentConfirmationResult();

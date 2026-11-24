@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
 import { getReceptionistReport } from '../../services/receptionistApi';
+import { useApp } from '../../context/AppContext';
 import { StatCardSkeleton } from '../../components/common/Skeleton';
 import { exportToCsv } from '../../utils/csvExporter';
 
@@ -17,6 +18,7 @@ const currency = (value) => new Intl.NumberFormat('vi-VN', {
 }).format(value || 0);
 
 export default function ReceptionShiftReportPage() {
+  const { currentUser } = useApp();
   const [date, setDate] = useState(todayKey);
   const [refreshTick, setRefreshTick] = useState(0);
   const [reportResponse, setReportResponse] = useState(null);
@@ -49,6 +51,7 @@ export default function ReceptionShiftReportPage() {
     const rows = [
       ['BÁO CÁO DOANH THU & CA TRỰC LỄ TÂN F SPORT'],
       ['Ngày ca trực', date],
+      ['Nhân viên lễ tân', currentUser?.name || currentUser?.fullName || 'Lễ tân'],
       ['Tổng doanh thu đã thu (VNĐ)', report.totalRevenue || 0],
       ['Giao dịch hoàn tất', report.completedPayments || 0],
       ['Hội viên đăng ký mới', report.newMembers || 0],
@@ -81,7 +84,7 @@ export default function ReceptionShiftReportPage() {
               F SPORT RECEPTION · BÁO CÁO CA TRỰC
             </div>
             <h1 className="font-headline-xl text-2xl font-bold text-slate-900 sm:text-3xl">Báo cáo ca trực &amp; doanh thu</h1>
-            <p className="text-sm text-slate-500">Tổng hợp biên lai giao dịch thực tế theo ca và theo ngày của quầy lễ tân.</p>
+            <p className="text-sm text-slate-500">Tổng hợp doanh thu cá nhân (Tiền mặt &amp; VNPay) và các giao dịch bạn đã trực tiếp xử lý trong ngày.</p>
           </div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <button
@@ -167,8 +170,8 @@ export default function ReceptionShiftReportPage() {
 
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-100 px-5 py-4">
-                <h2 className="font-bold uppercase tracking-wider text-slate-900">Giao dịch trong ngày</h2>
-                <p className="mt-0.5 text-xs text-slate-500">Các khoản đang chờ duyệt không được cộng vào doanh thu đã thu.</p>
+                <h2 className="font-bold uppercase tracking-wider text-slate-900">Giao dịch bạn xử lý trong ngày</h2>
+                <p className="mt-0.5 text-xs text-slate-500">Chỉ hiển thị các giao dịch do bạn xử lý (Tiền mặt &amp; VNPay). Các khoản đang chờ thanh toán không được cộng vào doanh thu đã thu.</p>
               </div>
               {report.payments.length ? (
                 <div className="overflow-x-auto">

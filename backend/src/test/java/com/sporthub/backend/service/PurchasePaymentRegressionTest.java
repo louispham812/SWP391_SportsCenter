@@ -113,14 +113,21 @@ class PurchasePaymentRegressionTest {
         var membership = new UserMembership(); membership.setMembershipId(3L); membership.setUserId(9L); membership.setStatus("PENDING_PAYMENT");
         when(payments.findByIdForUpdate(4L)).thenReturn(Optional.of(payment));
         when(memberships.findByIdForUpdate(3L)).thenReturn(Optional.of(membership));
+        var legacyReceipt = new ReceptionPayment();
+        legacyReceipt.setPaymentId(9); legacyReceipt.setMemberId(9); legacyReceipt.setMembershipId(3);
+        legacyReceipt.setPaymentStatus("PENDING"); legacyReceipt.setApprovedBy(null);
+        when(receipts.findByMemberIdOrderByCreatedAtDesc(9)).thenReturn(List.of(legacyReceipt));
         var engagement = mock(EngagementService.class);
         var handler = new MembershipPaymentHandler(receipts, memberships, engagement);
         var controller = new PaymentCollectionController(payments, List.of(handler), engagement);
         var staff = new UsernamePasswordAuthenticationToken("1", "", List.of(new SimpleGrantedAuthority("ROLE_RECEPTIONIST")));
         controller.confirmCash(4L, staff);
         assertEquals("PAID", payment.getPaymentStatus());
+        assertEquals(1L, payment.getProcessedBy());
         assertNotNull(payment.getPaymentCompletedAt());
         assertEquals("PENDING_APPROVAL", membership.getStatus());
+        assertEquals("COMPLETED", legacyReceipt.getPaymentStatus());
+        assertEquals(1, legacyReceipt.getApprovedBy());
         assertNull(membership.getStartDate());
         assertThrows(ResponseStatusException.class, () -> controller.confirmCash(4L, staff));
     }

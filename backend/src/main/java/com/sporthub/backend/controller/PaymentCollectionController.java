@@ -35,12 +35,15 @@ public class PaymentCollectionController {
                 || payment.getCreatedAt() == null || !payment.getCreatedAt().plusMinutes(10).isAfter(LocalDateTime.now())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Giao dịch không còn chờ thu tiền tại quầy.");
         }
-        payment.setPaymentStatus("PAID"); payment.setPaymentCompletedAt(LocalDateTime.now());
+        Long staffId = Long.valueOf(auth.getName());
+        payment.setPaymentStatus("PAID");
+        payment.setPaymentCompletedAt(LocalDateTime.now());
+        payment.setProcessedBy(staffId);
         payments.save(payment);
         for (BookingPaymentHandler handler : handlers) {
             if (handler.handlePaymentConfirmation(payment, payment.getAmount().doubleValue()) != null) break;
         }
-        engagement.audit(Long.valueOf(auth.getName()), "RECEPTIONIST", "CASH_COLLECTED", "paymentId=" + id + ", amount=" + payment.getAmount());
+        engagement.audit(staffId, "RECEPTIONIST", "CASH_COLLECTED", "paymentId=" + id + ", amount=" + payment.getAmount());
         return payment;
     }
 }

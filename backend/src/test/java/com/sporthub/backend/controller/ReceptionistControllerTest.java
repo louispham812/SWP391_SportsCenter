@@ -54,6 +54,12 @@ class ReceptionistControllerTest {
     private final UsernamePasswordAuthenticationToken receptionist =
             new UsernamePasswordAuthenticationToken(
                     "3", "", List.of(new SimpleGrantedAuthority("ROLE_RECEPTIONIST")));
+    private final UsernamePasswordAuthenticationToken otherReceptionist =
+            new UsernamePasswordAuthenticationToken(
+                    "4", "", List.of(new SimpleGrantedAuthority("ROLE_RECEPTIONIST")));
+    private final UsernamePasswordAuthenticationToken manager =
+            new UsernamePasswordAuthenticationToken(
+                    "1", "", List.of(new SimpleGrantedAuthority("ROLE_MANAGER")));
 
     @Test
     void eligibilityPreviewReturnsReasonFromAdmissionValidation() {
@@ -187,12 +193,12 @@ class ReceptionistControllerTest {
 
         User member = User.builder().userId(9L).fullName("Nguyễn Anh Khoa").build();
         when(paymentRepository
-                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
-                        reportDate.atStartOfDay(), reportDate.plusDays(1).atStartOfDay()))
+                .findByApprovedByAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+                        3, reportDate.atStartOfDay(), reportDate.plusDays(1).atStartOfDay()))
                 .thenReturn(List.of(pendingPayment, membershipPayment));
         when(paymentTransactionRepository
-                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
-                        reportDate.atStartOfDay(), reportDate.plusDays(1).atStartOfDay()))
+                .findByProcessedByAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+                        3L, reportDate.atStartOfDay(), reportDate.plusDays(1).atStartOfDay()))
                 .thenReturn(List.of(bookingPayment, quotaBooking));
         when(userRepository.findAllById(List.of(9L))).thenReturn(List.of(member));
         when(userRepository.countByRoleIgnoreCaseAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
@@ -230,9 +236,9 @@ class ReceptionistControllerTest {
         when(userRepository.findAllById(any())).thenReturn(List.of(
                 User.builder().userId(9L).fullName("Hội viên").build()));
 
-        var day = controller.getDailyReport(paymentDate, receptionist);
-        var month = controller.getDailyReport(LocalDate.of(2026, 11, 1), "month", null, null, receptionist);
-        var year = controller.getDailyReport(LocalDate.of(2026, 1, 1), "year", null, null, receptionist);
+        var day = controller.getDailyReport(paymentDate, manager);
+        var month = controller.getDailyReport(LocalDate.of(2026, 11, 1), "month", null, null, manager);
+        var year = controller.getDailyReport(LocalDate.of(2026, 1, 1), "year", null, null, manager);
 
         assertEquals(new BigDecimal("2920000"), day.totalRevenue());
         assertEquals(day.totalRevenue(), month.totalRevenue());
@@ -416,12 +422,12 @@ class ReceptionistControllerTest {
                 .returnedAt(reportDate.atTime(11, 30))
                 .build();
 
-        when(paymentRepository.findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(start, end))
+        when(paymentRepository.findByApprovedByAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(3, start, end))
                 .thenReturn(List.of(membershipPayment));
-        when(paymentTransactionRepository.findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(start, end))
+        when(paymentTransactionRepository.findByProcessedByAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(3L, start, end))
                 .thenReturn(List.of());
-        when(equipmentLoanRepository.findByStatusIgnoreCaseAndReturnedAtGreaterThanEqualAndReturnedAtLessThanOrderByReturnedAtDesc(
-                "RETURNED", start, end))
+        when(equipmentLoanRepository.findByStatusIgnoreCaseAndRecordedByAndReturnedAtGreaterThanEqualAndReturnedAtLessThanOrderByReturnedAtDesc(
+                "RETURNED", 3L, start, end))
                 .thenReturn(List.of(cashLoan, vnpayLoan, freeLoan));
         when(userRepository.findAllById(List.of(9L, 10L)))
                 .thenReturn(List.of(User.builder().userId(9L).fullName("Nguyễn Anh Khoa").build()));
@@ -456,6 +462,7 @@ class ReceptionistControllerTest {
                 .rentalFee(new BigDecimal("90000"))
                 .paymentMethod("VNPAY")
                 .status("RETURNED")
+                .recordedBy(3L)
                 .returnedAt(today.atTime(10, 0))
                 .build();
         var borrowedLoan = com.sporthub.backend.entity.EquipmentLoan.builder()
@@ -467,12 +474,12 @@ class ReceptionistControllerTest {
                 .status("OVERDUE")
                 .build();
 
-        when(paymentRepository.findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(start, end))
+        when(paymentRepository.findByApprovedByAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(3, start, end))
                 .thenReturn(List.of());
-        when(paymentTransactionRepository.findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(start, end))
+        when(paymentTransactionRepository.findByProcessedByAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(3L, start, end))
                 .thenReturn(List.of());
-        when(equipmentLoanRepository.findByStatusIgnoreCaseAndReturnedAtGreaterThanEqualAndReturnedAtLessThanOrderByReturnedAtDesc(
-                "RETURNED", start, end))
+        when(equipmentLoanRepository.findByStatusIgnoreCaseAndRecordedByAndReturnedAtGreaterThanEqualAndReturnedAtLessThanOrderByReturnedAtDesc(
+                "RETURNED", 3L, start, end))
                 .thenReturn(List.of(returnedLoan));
         when(equipmentLoanRepository.findByStatusIgnoreCaseOrderByLoanedAtDesc("BORROWED"))
                 .thenReturn(List.of(borrowedLoan));
@@ -521,5 +528,216 @@ class ReceptionistControllerTest {
 
         assertEquals(1L, profile.shiftStats().totalSalesHandled());
         assertEquals(new BigDecimal("60000"), profile.shiftStats().totalRevenueCollected());
+    }
+
+    @Test
+    void reportIsolatesDailyRevenuePerReceptionistAcrossCashVnpayAndEquipment() {
+        var equipmentLoanRepository = mock(com.sporthub.backend.repository.EquipmentLoanRepository.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "equipmentLoanRepository", equipmentLoanRepository);
+
+        LocalDate reportDate = LocalDate.of(2026, 11, 19);
+        LocalDateTime start = reportDate.atStartOfDay();
+        LocalDateTime end = reportDate.plusDays(1).atStartOfDay();
+
+        // Receptionist A (id=3): 2M CASH + 2M VNPAY + 1M Equipment = 5M
+        PaymentTransaction recACash = new PaymentTransaction();
+        recACash.setPaymentId(101L);
+        recACash.setMemberId(9L);
+        recACash.setAmount(new BigDecimal("2000000"));
+        recACash.setPaymentMethod(PaymentConstants.METHOD_CASH_COUNTER);
+        recACash.setPaymentStatus("PAID");
+        recACash.setProcessedBy(3L);
+        recACash.setCreatedAt(reportDate.atTime(8, 30));
+
+        PaymentTransaction recAVnpay = new PaymentTransaction();
+        recAVnpay.setPaymentId(102L);
+        recAVnpay.setMemberId(9L);
+        recAVnpay.setAmount(new BigDecimal("2000000"));
+        recAVnpay.setPaymentMethod(PaymentConstants.METHOD_VNPAY);
+        recAVnpay.setPaymentStatus("PAID");
+        recAVnpay.setProcessedBy(3L);
+        recAVnpay.setCreatedAt(reportDate.atTime(9, 15));
+
+        var recALoan = com.sporthub.backend.entity.EquipmentLoan.builder()
+                .loanId(801L)
+                .memberId(9L)
+                .memberName("Nguyễn Anh Khoa")
+                .rentalFee(new BigDecimal("1000000"))
+                .paymentMethod("VNPAY")
+                .status("RETURNED")
+                .recordedBy(3L)
+                .returnedAt(reportDate.atTime(10, 0))
+                .build();
+
+        // Receptionist B (id=4): 3M VNPAY
+        PaymentTransaction recBVnpay = new PaymentTransaction();
+        recBVnpay.setPaymentId(103L);
+        recBVnpay.setMemberId(10L);
+        recBVnpay.setAmount(new BigDecimal("3000000"));
+        recBVnpay.setPaymentMethod(PaymentConstants.METHOD_VNPAY);
+        recBVnpay.setPaymentStatus("PAID");
+        recBVnpay.setProcessedBy(4L);
+        recBVnpay.setCreatedAt(reportDate.atTime(15, 0));
+
+        // Member self-service VNPay (processedBy = null): 2M -> only visible to Manager
+        PaymentTransaction memberSelf = new PaymentTransaction();
+        memberSelf.setPaymentId(104L);
+        memberSelf.setMemberId(10L);
+        memberSelf.setAmount(new BigDecimal("2000000"));
+        memberSelf.setPaymentMethod(PaymentConstants.METHOD_VNPAY);
+        memberSelf.setPaymentStatus("PAID");
+        memberSelf.setProcessedBy(null);
+        memberSelf.setCreatedAt(reportDate.atTime(20, 0));
+
+        when(paymentRepository.findByApprovedByAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(3, start, end))
+                .thenReturn(List.of());
+        when(paymentTransactionRepository.findByProcessedByAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(3L, start, end))
+                .thenReturn(List.of(recAVnpay, recACash));
+        when(equipmentLoanRepository.findByStatusIgnoreCaseAndRecordedByAndReturnedAtGreaterThanEqualAndReturnedAtLessThanOrderByReturnedAtDesc(
+                "RETURNED", 3L, start, end))
+                .thenReturn(List.of(recALoan));
+
+        when(paymentRepository.findByApprovedByAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(4, start, end))
+                .thenReturn(List.of());
+        when(paymentTransactionRepository.findByProcessedByAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(4L, start, end))
+                .thenReturn(List.of(recBVnpay));
+        when(equipmentLoanRepository.findByStatusIgnoreCaseAndRecordedByAndReturnedAtGreaterThanEqualAndReturnedAtLessThanOrderByReturnedAtDesc(
+                "RETURNED", 4L, start, end))
+                .thenReturn(List.of());
+
+        when(paymentRepository.findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(start, end))
+                .thenReturn(List.of());
+        when(paymentTransactionRepository.findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(start, end))
+                .thenReturn(List.of(memberSelf, recBVnpay, recAVnpay, recACash));
+        when(equipmentLoanRepository.findByStatusIgnoreCaseAndReturnedAtGreaterThanEqualAndReturnedAtLessThanOrderByReturnedAtDesc(
+                "RETURNED", start, end))
+                .thenReturn(List.of(recALoan));
+
+        when(userRepository.findAllById(any())).thenReturn(List.of(
+                User.builder().userId(9L).fullName("Nguyễn Anh Khoa").build(),
+                User.builder().userId(10L).fullName("Hoàng Thị Ngọc").build()));
+
+        var reportA = controller.getDailyReport(reportDate, receptionist);
+        var reportB = controller.getDailyReport(reportDate, otherReceptionist);
+        var reportManager = controller.getDailyReport(reportDate, manager);
+
+        assertEquals(new BigDecimal("5000000"), reportA.totalRevenue());
+        assertEquals(3, reportA.completedPayments());
+        assertEquals(new BigDecimal("3000000"), reportB.totalRevenue());
+        assertEquals(1, reportB.completedPayments());
+        assertEquals(new BigDecimal("10000000"), reportManager.totalRevenue());
+        assertEquals(5, reportManager.completedPayments());
+    }
+
+    @Test
+    void sellMembershipRecordsReceptionistAttributionForBothCashAndVnpay() {
+        var paymentService = new com.sporthub.backend.service.PaymentService(paymentTransactionRepository);
+        var controllerWithPayment = new ReceptionistController(
+                userRepository, paymentRepository, paymentTransactionRepository, membershipRepository,
+                packageRepository, checkInRepository, new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(),
+                emailService, auditLogService, authService, paymentService);
+
+        User member = User.builder().userId(9L).role("MEMBER").status("ACTIVE").build();
+        var pkg = com.sporthub.backend.entity.MembershipPackage.builder()
+                .packageId(5L).name("Gói Tháng").durationDays(30).price(new BigDecimal("500000")).status("ACTIVE").build();
+        when(userRepository.findByIdForUpdate(9L)).thenReturn(java.util.Optional.of(member));
+        when(packageRepository.findById(5L)).thenReturn(java.util.Optional.of(pkg));
+        when(membershipRepository.existsByUserIdAndPackageIdAndStatusIn(eq(9L), eq(5L), any())).thenReturn(false);
+        when(membershipRepository.save(any())).thenAnswer(inv -> {
+            var m = (com.sporthub.backend.entity.UserMembership) inv.getArgument(0);
+            if (m.getMembershipId() == null) m.setMembershipId(41L);
+            return m;
+        });
+        when(paymentTransactionRepository.save(any())).thenAnswer(inv -> {
+            PaymentTransaction tx = inv.getArgument(0);
+            if (tx.getPaymentId() == null) tx.setPaymentId(71L);
+            return tx;
+        });
+        when(paymentRepository.save(any())).thenAnswer(inv -> {
+            ReceptionPayment rp = inv.getArgument(0);
+            if (rp.getPaymentId() == null) rp.setPaymentId(81);
+            return rp;
+        });
+
+        controllerWithPayment.sellMembership(
+                new com.sporthub.backend.dto.ReceptionistMembershipSaleRequest(9L, 5L, "CASH"), receptionist);
+        controllerWithPayment.sellMembership(
+                new com.sporthub.backend.dto.ReceptionistMembershipSaleRequest(9L, 5L, "VNPAY"), otherReceptionist);
+
+        org.mockito.Mockito.verify(paymentTransactionRepository, org.mockito.Mockito.atLeastOnce()).save(
+                org.mockito.ArgumentMatchers.argThat(tx -> Long.valueOf(3L).equals(tx.getProcessedBy())
+                        && PaymentConstants.METHOD_CASH_COUNTER.equals(tx.getPaymentMethod())));
+        org.mockito.Mockito.verify(paymentTransactionRepository, org.mockito.Mockito.atLeastOnce()).save(
+                org.mockito.ArgumentMatchers.argThat(tx -> Long.valueOf(4L).equals(tx.getProcessedBy())
+                        && PaymentConstants.METHOD_VNPAY.equals(tx.getPaymentMethod())));
+        org.mockito.Mockito.verify(paymentRepository).save(
+                org.mockito.ArgumentMatchers.argThat(rp -> Integer.valueOf(3).equals(rp.getApprovedBy())
+                        && "COMPLETED".equals(rp.getPaymentStatus())));
+        org.mockito.Mockito.verify(paymentRepository).save(
+                org.mockito.ArgumentMatchers.argThat(rp -> Integer.valueOf(4).equals(rp.getApprovedBy())
+                        && "PENDING".equals(rp.getPaymentStatus())));
+    }
+
+    @Test
+    void getMyProfileIncludesCompletedClassAndCounterPaymentsWithoutDoubleCounting() {
+        User staff = User.builder()
+                .userId(3L)
+                .fullName("Phạm Minh Tú")
+                .email("tu.receptionist@sporthub.vn")
+                .phone("0912345678")
+                .role("RECEPTIONIST")
+                .status("ACTIVE")
+                .build();
+        when(userRepository.findById(3L)).thenReturn(java.util.Optional.of(staff));
+
+        LocalDateTime now = LocalDateTime.now();
+        // Paired membership purchase in both ReceptionPayment and PaymentTransaction -> count once (500k)
+        ReceptionPayment pairedLegacy = new ReceptionPayment();
+        pairedLegacy.setPaymentId(1);
+        pairedLegacy.setMemberId(9);
+        pairedLegacy.setMembershipId(41);
+        pairedLegacy.setAmount(new BigDecimal("500000"));
+        pairedLegacy.setPaymentStatus("COMPLETED");
+        pairedLegacy.setApprovedBy(3);
+        pairedLegacy.setCreatedAt(now);
+
+        PaymentTransaction pairedTx = new PaymentTransaction();
+        pairedTx.setPaymentId(10L);
+        pairedTx.setMemberId(9L);
+        pairedTx.setMembershipId(41L);
+        pairedTx.setAmount(new BigDecimal("500000"));
+        pairedTx.setPaymentMethod(PaymentConstants.METHOD_VNPAY);
+        pairedTx.setPaymentStatus("PAID");
+        pairedTx.setProcessedBy(3L);
+        pairedTx.setCreatedAt(now);
+
+        // Class VNPay enrollment handled by receptionist 3 -> only in PaymentTransaction (200k)
+        PaymentTransaction classTx = new PaymentTransaction();
+        classTx.setPaymentId(11L);
+        classTx.setMemberId(9L);
+        classTx.setBookingType("CLASS");
+        classTx.setAmount(new BigDecimal("200000"));
+        classTx.setPaymentMethod(PaymentConstants.METHOD_VNPAY);
+        classTx.setPaymentStatus("PAID");
+        classTx.setProcessedBy(3L);
+        classTx.setCreatedAt(now);
+
+        // Abandoned VNPay sale -> PENDING should not be counted
+        ReceptionPayment pendingLegacy = new ReceptionPayment();
+        pendingLegacy.setPaymentId(2);
+        pendingLegacy.setMemberId(10);
+        pendingLegacy.setMembershipId(42);
+        pendingLegacy.setAmount(new BigDecimal("999000"));
+        pendingLegacy.setPaymentStatus("PENDING");
+        pendingLegacy.setApprovedBy(3);
+        pendingLegacy.setCreatedAt(now);
+
+        when(paymentRepository.findByApprovedBy(3)).thenReturn(List.of(pairedLegacy, pendingLegacy));
+        when(paymentTransactionRepository.findByProcessedBy(3L)).thenReturn(List.of(pairedTx, classTx));
+
+        var profile = controller.getMyProfile(receptionist);
+
+        assertEquals(2L, profile.shiftStats().totalSalesHandled());
+        assertEquals(new BigDecimal("700000"), profile.shiftStats().totalRevenueCollected());
     }
 }

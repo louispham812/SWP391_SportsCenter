@@ -1578,6 +1578,7 @@ public class BookingService {
                 paymentTransactionRepository.findById(res.paymentId()).ifPresent(tx -> {
                     tx.setPaymentStatus("PAID");
                     tx.setPaymentCompletedAt(LocalDateTime.now());
+                    tx.setProcessedBy(actorId);
                     paymentTransactionRepository.save(tx);
                 });
             }
@@ -1595,6 +1596,12 @@ public class BookingService {
                     res.amountPaid(), "PAID", res.referenceCode(),
                     res.usedQuota(), res.quotaUsed(), res.quotaRemaining(), res.quotaMessage());
         } else if (!quota && "VNPAY".equals(effectiveMethod)) {
+            if (res.paymentId() != null) {
+                paymentTransactionRepository.findById(res.paymentId()).ifPresent(tx -> {
+                    tx.setProcessedBy(actorId);
+                    paymentTransactionRepository.save(tx);
+                });
+            }
             notifyMember(memberId, "Lịch học đang chờ thanh toán",
                     "Lễ tân đã giữ chỗ lớp \"" + res.itemName() + "\" cho bạn. Vui lòng hoàn tất thanh toán VNPay trong 10 phút.", "BOOKING");
         }

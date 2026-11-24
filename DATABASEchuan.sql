@@ -296,10 +296,12 @@ CREATE TABLE dbo.payment_transactions (
     payment_completed_at  DATETIME2(7)  NULL,
     item_type             VARCHAR(20)   NULL,
     item_description      NVARCHAR(500) NULL,
+    processed_by          BIGINT        NULL,
     CONSTRAINT FK_payment_transactions_member FOREIGN KEY (member_id) REFERENCES dbo.users(user_id),
     CONSTRAINT FK_payment_transactions_membership FOREIGN KEY (membership_id) REFERENCES dbo.user_memberships(um_id),
     CONSTRAINT FK_payment_transactions_voucher FOREIGN KEY (voucher_id) REFERENCES dbo.vouchers(voucher_id)
 );
+CREATE INDEX IX_payment_transactions_processed_by_created_at ON dbo.payment_transactions(processed_by, created_at);
 GO
 
 CREATE TABLE dbo.payment_attempts (
@@ -1096,6 +1098,16 @@ GO
 -- Counts reflect the retained independent paid bookings only.
 UPDATE s SET booked_slots=(SELECT COUNT(*) FROM dbo.bookings b WHERE b.session_id=s.session_id AND b.status IN ('BOOKED','CONFIRMED'))
 FROM dbo.class_sessions s;
+
+UPDATE pt
+SET pt.processed_by = CAST(p.approved_by AS BIGINT)
+FROM dbo.payment_transactions pt
+JOIN dbo.payments p
+  ON pt.membership_id IS NOT NULL
+ AND p.um_id = pt.membership_id
+ AND p.member_id = pt.member_id
+WHERE pt.processed_by IS NULL
+  AND p.approved_by IS NOT NULL;
 GO
 
 USE [master];

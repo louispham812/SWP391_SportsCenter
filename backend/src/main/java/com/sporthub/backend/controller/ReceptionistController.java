@@ -330,6 +330,7 @@ public class ReceptionistController {
         UserMembership savedMembership = membershipRepository.save(membership);
 
         String method = request.paymentMethod().toUpperCase(Locale.ROOT);
+        Long staffId = actorId(authentication);
         
         // Create PaymentTransaction (for VNPAY flow or CASH) with package name for history
         PaymentTransaction savedTransaction = paymentService.createPayment(
@@ -339,6 +340,7 @@ public class ReceptionistController {
                 membershipPackage.getPrice(), 
                 method);
         savedTransaction.setMembershipId(savedMembership.getMembershipId());
+        savedTransaction.setProcessedBy(staffId);
         if ("CASH".equals(method)) {
             savedTransaction.setPaymentStatus("PAID");
             savedTransaction.setPaymentCompletedAt(LocalDateTime.now());
@@ -359,7 +361,7 @@ public class ReceptionistController {
         payment.setAmount(membershipPackage.getPrice());
         payment.setPaymentMethod(receptionPaymentMethod);
         payment.setPaymentStatus(isInstantPaid ? "COMPLETED" : "PENDING");
-        payment.setApprovedBy(isInstantPaid ? Math.toIntExact(actorId(authentication)) : null);
+        payment.setApprovedBy(Math.toIntExact(staffId));
         payment.setCreatedAt(LocalDateTime.now());
         ReceptionPayment savedPayment = paymentRepository.save(payment);
         
@@ -425,10 +427,22 @@ public class ReceptionistController {
             periodMode = "day";
         }
 
-        List<ReceptionPayment> payments = paymentRepository
-                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(startOfDay, endOfDay);
-        List<PaymentTransaction> transactions = paymentTransactionRepository
-                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(startOfDay, endOfDay);
+        boolean scopeToCurrentStaff = !isManagerOrAdmin(authentication);
+        Long staffId = scopeToCurrentStaff ? actorId(authentication) : null;
+
+        List<ReceptionPayment> rawPayments = scopeToCurrentStaff
+                ? paymentRepository.findByApprovedByAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+                        Math.toIntExact(staffId), startOfDay, endOfDay)
+                : paymentRepository.findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+                        startOfDay, endOfDay);
+        List<ReceptionPayment> payments = rawPayments == null ? List.of() : rawPayments;
+
+        List<PaymentTransaction> rawTransactions = scopeToCurrentStaff
+                ? paymentTransactionRepository.findByProcessedByAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+                        staffId, startOfDay, endOfDay)
+                : paymentTransactionRepository.findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+                        startOfDay, endOfDay);
+        List<PaymentTransaction> transactions = rawTransactions == null ? List.of() : rawTransactions;
 
         List<PaymentEntry> allPayments = new ArrayList<>();
         Set<Integer> matchedPaymentIds = new HashSet<>();
@@ -463,15 +477,7 @@ public class ReceptionistController {
             // Find matching ReceptionPayment to prevent double counting
             for (ReceptionPayment rp : payments) {
                 if (matchedPaymentIds.contains(rp.getPaymentId())) continue;
-                boolean sameMember = rp.getMemberId() != null && Objects.equals(rp.getMemberId().longValue(), tx.getMemberId());
-                boolean sameAmount = rp.getAmount() != null && tx.getAmount() != null
-                        && rp.getAmount().compareTo(tx.getAmount()) == 0;
-                boolean nearTime = rp.getCreatedAt() != null && tx.getCreatedAt() != null
-                        && java.time.Duration.between(rp.getCreatedAt(), tx.getCreatedAt()).abs().toMinutes() <= 10;
-
-                boolean sameMembership = tx.getMembershipId() != null && rp.getMembershipId() != null
-                        && tx.getMembershipId().longValue() == rp.getMembershipId().longValue();
-                if (sameMember && (sameMembership || (tx.getMembershipId() == null && sameAmount && nearTime))) {
+                if (matchesTransaction(rp, tx)) {
                     matchedPaymentIds.add(rp.getPaymentId());
                     break;
                 }
@@ -497,8 +503,10 @@ public class ReceptionistController {
 
         // 3. Include paid equipment rentals collected on reportDate
         if (equipmentLoanRepository != null) {
-            List<EquipmentLoan> returnedLoans = equipmentLoanRepository
-                    .findByStatusIgnoreCaseAndReturnedAtGreaterThanEqualAndReturnedAtLessThanOrderByReturnedAtDesc(
+            List<EquipmentLoan> returnedLoans = scopeToCurrentStaff
+                    ? equipmentLoanRepository.findByStatusIgnoreCaseAndRecordedByAndReturnedAtGreaterThanEqualAndReturnedAtLessThanOrderByReturnedAtDesc(
+                            "RETURNED", staffId, startOfDay, endOfDay)
+                    : equipmentLoanRepository.findByStatusIgnoreCaseAndReturnedAtGreaterThanEqualAndReturnedAtLessThanOrderByReturnedAtDesc(
                             "RETURNED", startOfDay, endOfDay);
             if (returnedLoans != null) {
                 for (EquipmentLoan loan : returnedLoans) {
@@ -1006,9 +1014,30 @@ public class ReceptionistController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thông tin nhân viên lễ tân."));
 
         long checkInsHandled = checkInRepository != null ? checkInRepository.countByRecordedBy(id) : 0;
-        List<ReceptionPayment> myPayments = paymentRepository != null ? paymentRepository.findAll().stream()
-                .filter(p -> p.getApprovedBy() != null && p.getApprovedBy().longValue() == id)
-                .toList() : List.of();
+        List<ReceptionPayment> myPayments = paymentRepository != null
+                ? Optional.ofNullable(paymentRepository.findByApprovedBy(Math.toIntExact(id))).orElse(List.of()).stream()
+                        .filter(p -> isCompletedPaymentStatus(p.getPaymentStatus()))
+                        .toList()
+                : List.of();
+        List<PaymentTransaction> myTransactions = paymentTransactionRepository != null
+                ? Optional.ofNullable(paymentTransactionRepository.findByProcessedBy(id)).orElse(List.of()).stream()
+                        .filter(tx -> !"MEMBERSHIP_QUOTA".equalsIgnoreCase(tx.getPaymentMethod()))
+                        .filter(tx -> isCompletedPaymentStatus(tx.getPaymentStatus()))
+                        .toList()
+                : List.of();
+        Set<Integer> matchedLegacyIds = new HashSet<>();
+        for (PaymentTransaction tx : myTransactions) {
+            for (ReceptionPayment rp : myPayments) {
+                if (matchedLegacyIds.contains(rp.getPaymentId())) continue;
+                if (matchesTransaction(rp, tx)) {
+                    matchedLegacyIds.add(rp.getPaymentId());
+                    break;
+                }
+            }
+        }
+        List<ReceptionPayment> unmatchedPayments = myPayments.stream()
+                .filter(rp -> !matchedLegacyIds.contains(rp.getPaymentId()))
+                .toList();
         List<EquipmentLoan> myEquipmentLoans = equipmentLoanRepository != null
                 ? equipmentLoanRepository.findByStatusIgnoreCaseOrderByLoanedAtDesc("RETURNED").stream()
                         .filter(loan -> Objects.equals(loan.getRecordedBy(), id)
@@ -1016,12 +1045,15 @@ public class ReceptionistController {
                                 && loan.getRentalFee().signum() > 0)
                         .toList()
                 : List.of();
-        long salesHandled = myPayments.size() + myEquipmentLoans.size();
-        BigDecimal totalRevenueCollected = myPayments.stream()
-                .filter(p -> "COMPLETED".equalsIgnoreCase(p.getPaymentStatus()) || "PAID".equalsIgnoreCase(p.getPaymentStatus()))
-                .map(ReceptionPayment::getAmount)
+        long salesHandled = (long) myTransactions.size() + unmatchedPayments.size() + myEquipmentLoans.size();
+        BigDecimal totalRevenueCollected = myTransactions.stream()
+                .map(PaymentTransaction::getAmount)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .add(unmatchedPayments.stream()
+                        .map(ReceptionPayment::getAmount)
+                        .filter(Objects::nonNull)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add))
                 .add(myEquipmentLoans.stream()
                         .map(EquipmentLoan::getRentalFee)
                         .reduce(BigDecimal.ZERO, BigDecimal::add));
@@ -1207,6 +1239,34 @@ public class ReceptionistController {
         if (!isStaff) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền truy cập chức năng lễ tân.");
         }
+    }
+
+    private boolean isManagerOrAdmin(Authentication authentication) {
+        return authentication != null && authentication.getAuthorities().stream()
+                .map(authority -> authority.getAuthority())
+                .anyMatch(role -> List.of("ROLE_MANAGER", "ROLE_ADMIN").contains(role));
+    }
+
+    public static boolean matchesTransaction(ReceptionPayment rp, PaymentTransaction tx) {
+        if (rp == null || tx == null) {
+            return false;
+        }
+        boolean sameMember = rp.getMemberId() != null && Objects.equals(rp.getMemberId().longValue(), tx.getMemberId());
+        boolean sameAmount = rp.getAmount() != null && tx.getAmount() != null
+                && rp.getAmount().compareTo(tx.getAmount()) == 0;
+        boolean nearTime = rp.getCreatedAt() != null && tx.getCreatedAt() != null
+                && java.time.Duration.between(rp.getCreatedAt(), tx.getCreatedAt()).abs().toMinutes() <= 10;
+        boolean sameMembership = tx.getMembershipId() != null && rp.getMembershipId() != null
+                && tx.getMembershipId().longValue() == rp.getMembershipId().longValue();
+        return sameMember && (sameMembership || (tx.getMembershipId() == null && sameAmount && nearTime));
+    }
+
+    public static boolean isCompletedPaymentStatus(String status) {
+        if (status == null) {
+            return false;
+        }
+        String normalized = status.trim().toUpperCase(Locale.ROOT);
+        return "COMPLETED".equals(normalized) || "PAID".equals(normalized) || "SUCCESS".equals(normalized);
     }
 
     private Long actorId(Authentication authentication) {

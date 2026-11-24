@@ -1052,3 +1052,19 @@ IF OBJECT_ID(N'dbo.coach_sports', N'U') IS NOT NULL
           WHERE cs.coach_id = u.user_id
             AND cs.sport_id = s.sport_id
       );
+
+-- Attribution of counter/receptionist-processed payments (CASH and VNPay).
+IF OBJECT_ID(N'dbo.payment_transactions', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.payment_transactions', N'processed_by') IS NULL
+    ALTER TABLE dbo.payment_transactions ADD processed_by BIGINT NULL;
+
+IF OBJECT_ID(N'dbo.payment_transactions', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.payment_transactions', N'processed_by') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_payment_transactions_processed_by_created_at' AND object_id = OBJECT_ID(N'dbo.payment_transactions'))
+    EXEC(N'CREATE INDEX IX_payment_transactions_processed_by_created_at ON dbo.payment_transactions(processed_by, created_at)');
+
+IF OBJECT_ID(N'dbo.payment_transactions', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.payments', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.payment_transactions', N'processed_by') IS NOT NULL
+   AND COL_LENGTH(N'dbo.payments', N'approved_by') IS NOT NULL
+    EXEC(N'UPDATE pt SET pt.processed_by = CAST(p.approved_by AS BIGINT) FROM dbo.payment_transactions pt JOIN dbo.payments p ON pt.membership_id IS NOT NULL AND p.um_id = pt.membership_id AND p.member_id = pt.member_id WHERE pt.processed_by IS NULL AND p.approved_by IS NOT NULL');

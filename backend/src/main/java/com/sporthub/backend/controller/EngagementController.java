@@ -74,6 +74,8 @@ public class EngagementController {
 
     @Autowired(required = false)
     private com.sporthub.backend.repository.EquipmentLoanRepository equipmentLoanRepository;
+    @Autowired(required = false)
+    private com.sporthub.backend.repository.PaymentTransactionRepository paymentTransactionRepository;
 
     @Autowired
     public EngagementController(
@@ -569,6 +571,13 @@ public class EngagementController {
 
         List<Map<String, Object>> recStats = new ArrayList<>();
 
+        List<com.sporthub.backend.entity.ReceptionPayment> allReceptionPayments = paymentRepository != null
+                ? java.util.Optional.ofNullable(paymentRepository.findAll()).orElse(List.of())
+                : List.of();
+        List<com.sporthub.backend.entity.EquipmentLoan> allReturnedLoans = equipmentLoanRepository != null
+                ? java.util.Optional.ofNullable(equipmentLoanRepository.findByStatusIgnoreCaseOrderByLoanedAtDesc("RETURNED")).orElse(List.of())
+                : List.of();
+
         for (User rec : receptionists) {
             int checkIns = 0;
             if (memberCheckInRepository != null) {
@@ -576,31 +585,46 @@ public class EngagementController {
                         .filter(c -> c.getRecordedBy() != null && c.getRecordedBy().equals(rec.getUserId()))
                         .count();
             }
-            BigDecimal posSales = BigDecimal.ZERO;
-            int txCount = 0;
-            if (paymentRepository != null) {
-                Integer recUserId = Math.toIntExact(rec.getUserId());
-                var payments = paymentRepository.findAll().stream()
-                        .filter(p -> ("COMPLETED".equalsIgnoreCase(p.getPaymentStatus()) || "PAID".equalsIgnoreCase(p.getPaymentStatus()))
-                                && !"REFUNDED".equalsIgnoreCase(p.getPaymentStatus())
-                                && !"CANCELLED".equalsIgnoreCase(p.getPaymentStatus()))
-                        .filter(p -> p.getApprovedBy() != null && p.getApprovedBy().equals(recUserId))
-                        .toList();
-                posSales = payments.stream()
-                        .map(p -> p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-                txCount = payments.size();
+            Integer recUserId = Math.toIntExact(rec.getUserId());
+            var payments = allReceptionPayments.stream()
+                    .filter(p -> ReceptionistController.isCompletedPaymentStatus(p.getPaymentStatus()))
+                    .filter(p -> p.getApprovedBy() != null && p.getApprovedBy().equals(recUserId))
+                    .toList();
+            var transactions = paymentTransactionRepository != null
+                    ? java.util.Optional.ofNullable(paymentTransactionRepository.findByProcessedBy(rec.getUserId())).orElse(List.of()).stream()
+                            .filter(tx -> !"MEMBERSHIP_QUOTA".equalsIgnoreCase(tx.getPaymentMethod()))
+                            .filter(tx -> ReceptionistController.isCompletedPaymentStatus(tx.getPaymentStatus()))
+                            .toList()
+                    : List.<com.sporthub.backend.entity.PaymentTransaction>of();
+            java.util.Set<Integer> matchedIds = new java.util.HashSet<>();
+            for (var tx : transactions) {
+                for (var rp : payments) {
+                    if (matchedIds.contains(rp.getPaymentId())) continue;
+                    if (ReceptionistController.matchesTransaction(rp, tx)) {
+                        matchedIds.add(rp.getPaymentId());
+                        break;
+                    }
+                }
             }
-            if (equipmentLoanRepository != null) {
-                var returnedLoans = equipmentLoanRepository.findByStatusIgnoreCaseOrderByLoanedAtDesc("RETURNED").stream()
-                        .filter(loan -> loan.getRecordedBy() != null && loan.getRecordedBy().equals(rec.getUserId()))
-                        .toList();
-                BigDecimal loanRevenue = returnedLoans.stream()
-                        .map(loan -> loan.getRentalFee() != null ? loan.getRentalFee() : BigDecimal.ZERO)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-                posSales = posSales.add(loanRevenue);
-                txCount += returnedLoans.size();
-            }
+            var unmatchedPayments = payments.stream()
+                    .filter(rp -> !matchedIds.contains(rp.getPaymentId()))
+                    .toList();
+            BigDecimal posSales = transactions.stream()
+                    .map(tx -> tx.getAmount() != null ? tx.getAmount() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .add(unmatchedPayments.stream()
+                            .map(p -> p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add));
+            int txCount = transactions.size() + unmatchedPayments.size();
+
+            var returnedLoans = allReturnedLoans.stream()
+                    .filter(loan -> loan.getRecordedBy() != null && loan.getRecordedBy().equals(rec.getUserId()))
+                    .toList();
+            BigDecimal loanRevenue = returnedLoans.stream()
+                    .map(loan -> loan.getRentalFee() != null ? loan.getRentalFee() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            posSales = posSales.add(loanRevenue);
+            txCount += returnedLoans.size();
 
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("userId", rec.getUserId());

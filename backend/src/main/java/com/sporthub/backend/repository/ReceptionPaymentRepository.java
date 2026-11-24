@@ -9,6 +9,9 @@ import java.util.List;
 public interface ReceptionPaymentRepository extends JpaRepository<ReceptionPayment, Integer> {
     List<ReceptionPayment> findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
             LocalDateTime start, LocalDateTime end);
+    List<ReceptionPayment> findByApprovedByAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+            Integer approvedBy, LocalDateTime start, LocalDateTime end);
+    List<ReceptionPayment> findByApprovedBy(Integer approvedBy);
     
     List<ReceptionPayment> findByMemberIdOrderByCreatedAtDesc(Integer memberId);
 }

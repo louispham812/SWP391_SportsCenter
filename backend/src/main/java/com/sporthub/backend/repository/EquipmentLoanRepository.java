@@ -18,5 +18,7 @@ public interface EquipmentLoanRepository extends JpaRepository<EquipmentLoan, Lo
     List<EquipmentLoan> findByStatusIgnoreCaseAndLoanedAtBefore(String status, LocalDateTime before);
     List<EquipmentLoan> findByStatusIgnoreCaseAndReturnedAtGreaterThanEqualAndReturnedAtLessThanOrderByReturnedAtDesc(
             String status, LocalDateTime start, LocalDateTime end);
+    List<EquipmentLoan> findByStatusIgnoreCaseAndRecordedByAndReturnedAtGreaterThanEqualAndReturnedAtLessThanOrderByReturnedAtDesc(
+            String status, Long recordedBy, LocalDateTime start, LocalDateTime end);
 }
 
