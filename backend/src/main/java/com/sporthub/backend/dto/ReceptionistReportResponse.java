@@ -39,7 +39,22 @@ public record ReceptionistReportResponse(
             String phone,
             String email,
             String type,
-            String description) {
+            String description,
+            String processedByName) {
+
+        public PaymentRecord(
+                String paymentId,
+                String memberName,
+                BigDecimal amount,
+                String method,
+                String status,
+                LocalDateTime createdAt,
+                String phone,
+                String email,
+                String type,
+                String description) {
+            this(paymentId, memberName, amount, method, status, createdAt, phone, email, type, description, null);
+        }
 
         public PaymentRecord(
                 String paymentId,
@@ -48,7 +63,7 @@ public record ReceptionistReportResponse(
                 String method,
                 String status,
                 LocalDateTime createdAt) {
-            this(paymentId, memberName, amount, method, status, createdAt, null, null, "Dịch vụ", "Thanh toán dịch vụ");
+            this(paymentId, memberName, amount, method, status, createdAt, null, null, "Dịch vụ", "Thanh toán dịch vụ", null);
         }
     }
 }

@@ -615,7 +615,9 @@ class ReceptionistControllerTest {
 
         when(userRepository.findAllById(any())).thenReturn(List.of(
                 User.builder().userId(9L).fullName("Nguyễn Anh Khoa").build(),
-                User.builder().userId(10L).fullName("Hoàng Thị Ngọc").build()));
+                User.builder().userId(10L).fullName("Hoàng Thị Ngọc").build(),
+                User.builder().userId(3L).fullName("Lê Thị Lễ Tân").build(),
+                User.builder().userId(4L).fullName("Phạm Minh Tú").build()));
 
         var reportA = controller.getDailyReport(reportDate, receptionist);
         var reportB = controller.getDailyReport(reportDate, otherReceptionist);
@@ -627,6 +629,9 @@ class ReceptionistControllerTest {
         assertEquals(1, reportB.completedPayments());
         assertEquals(new BigDecimal("10000000"), reportManager.totalRevenue());
         assertEquals(5, reportManager.completedPayments());
+        assertEquals("Tự thanh toán", reportManager.payments().get(0).processedByName());
+        assertEquals("Phạm Minh Tú", reportManager.payments().get(1).processedByName());
+        assertEquals("Lê Thị Lễ Tân", reportManager.payments().get(2).processedByName());
     }
 
     @Test

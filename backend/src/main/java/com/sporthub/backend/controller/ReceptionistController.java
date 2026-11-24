@@ -472,7 +472,8 @@ public class ReceptionistController {
                     tx.getCreatedAt(),
                     null,
                     type,
-                    desc));
+                    desc,
+                    tx.getProcessedBy()));
 
             // Find matching ReceptionPayment to prevent double counting
             for (ReceptionPayment rp : payments) {
@@ -498,7 +499,8 @@ public class ReceptionistController {
                     rp.getCreatedAt(),
                     null,
                     "POS",
-                    "Thanh toán gói tập / dịch vụ tại quầy"));
+                    "Thanh toán gói tập / dịch vụ tại quầy",
+                    rp.getApprovedBy() == null ? null : rp.getApprovedBy().longValue()));
         }
 
         // 3. Include paid equipment rentals collected on reportDate
@@ -527,7 +529,8 @@ public class ReceptionistController {
                             loan.getReturnedAt(),
                             loan.getMemberName(),
                             "EQUIPMENT",
-                            "Thu phí thuê " + (loan.getItemName() != null ? loan.getItemName() : "dụng cụ") + " (SL: " + loan.getQuantity() + ")"));
+                            "Thu phí thuê " + (loan.getItemName() != null ? loan.getItemName() : "dụng cụ") + " (SL: " + loan.getQuantity() + ")",
+                            loan.getRecordedBy()));
                 }
             }
         }
@@ -561,6 +564,15 @@ public class ReceptionistController {
                 .toList();
         Map<Long, User> members = userRepository.findAllById(memberIds).stream()
                 .collect(Collectors.toMap(User::getUserId, Function.identity()));
+        List<Long> staffIds = allPayments.stream()
+                .map(PaymentEntry::processedBy)
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        Map<Long, User> staffUsers = staffIds.isEmpty()
+                ? Map.of()
+                : Optional.ofNullable(userRepository.findAllById(staffIds)).orElse(List.of()).stream()
+                        .collect(Collectors.toMap(User::getUserId, Function.identity(), (a, b) -> a));
         List<ReceptionistReportResponse.PaymentRecord> records = allPayments.stream()
                 .map(payment -> {
                     User member = payment.memberId() == null
@@ -573,6 +585,12 @@ public class ReceptionistController {
                                     : "Không rõ hội viên");
                     String phone = member != null ? member.getPhone() : null;
                     String email = member != null ? member.getEmail() : null;
+                    User staffUser = payment.processedBy() == null ? null : staffUsers.get(payment.processedBy());
+                    String processedByName = payment.processedBy() == null
+                            ? "Tự thanh toán"
+                            : (staffUser != null && staffUser.getFullName() != null && !staffUser.getFullName().isBlank()
+                                    ? staffUser.getFullName()
+                                    : "Nhân viên #" + payment.processedBy());
                     return new ReceptionistReportResponse.PaymentRecord(
                             payment.id(),
                             memberName,
@@ -583,7 +601,8 @@ public class ReceptionistController {
                             phone,
                             email,
                             payment.type(),
-                            payment.description());
+                            payment.description(),
+                            processedByName);
                 })
                 .sorted(java.util.Comparator.comparing(
                         ReceptionistReportResponse.PaymentRecord::createdAt,
@@ -1329,7 +1348,20 @@ public class ReceptionistController {
             java.time.LocalDateTime createdAt,
             String fallbackMemberName,
             String type,
-            String description) {
+            String description,
+            Long processedBy) {
+        private PaymentEntry(
+                String id,
+                Long memberId,
+                BigDecimal amount,
+                String method,
+                String status,
+                java.time.LocalDateTime createdAt,
+                String fallbackMemberName,
+                String type,
+                String description) {
+            this(id, memberId, amount, method, status, createdAt, fallbackMemberName, type, description, null);
+        }
         private PaymentEntry(
                 String id,
                 Long memberId,
@@ -1338,7 +1370,7 @@ public class ReceptionistController {
                 String status,
                 java.time.LocalDateTime createdAt,
                 String fallbackMemberName) {
-            this(id, memberId, amount, method, status, createdAt, fallbackMemberName, "Dịch vụ", "Thanh toán dịch vụ");
+            this(id, memberId, amount, method, status, createdAt, fallbackMemberName, "Dịch vụ", "Thanh toán dịch vụ", null);
         }
         private PaymentEntry(
                 String id,
@@ -1347,7 +1379,7 @@ public class ReceptionistController {
                 String method,
                 String status,
                 java.time.LocalDateTime createdAt) {
-            this(id, memberId, amount, method, status, createdAt, null, "Dịch vụ", "Thanh toán dịch vụ");
+            this(id, memberId, amount, method, status, createdAt, null, "Dịch vụ", "Thanh toán dịch vụ", null);
         }
     }
 }

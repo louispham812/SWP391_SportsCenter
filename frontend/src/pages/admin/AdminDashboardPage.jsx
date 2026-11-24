@@ -41,6 +41,7 @@ const transactionRows = (payments) => [
     'Dịch vụ',
     'Diễn giải',
     'Phương thức',
+    'Người xử lý',
     'Trạng thái',
     'Số tiền (VNĐ)',
     'Thời gian',
@@ -53,6 +54,7 @@ const transactionRows = (payments) => [
     paymentCategory(p.type),
     p.description,
     p.method,
+    p.processedByName || 'Tự thanh toán',
     getPaymentStatus(p.status).label,
     p.amount,
     formatDate(p.createdAt, true),
@@ -193,7 +195,7 @@ export default function AdminDashboardPage() {
         (statusFilter === 'all' || getPaymentStatus(p.status).key === statusFilter) &&
         (methodFilter === 'all' || (p.method || 'Khác') === methodFilter) &&
         (!keyword ||
-          [p.paymentId, p.memberName, p.phone, p.email, p.description, p.type, paymentCategory(p.type)].some((value) =>
+          [p.paymentId, p.memberName, p.phone, p.email, p.description, p.type, paymentCategory(p.type), p.processedByName].some((value) =>
             String(value || '')
               .toLocaleLowerCase('vi')
               .includes(keyword),
@@ -587,6 +589,7 @@ export default function AdminDashboardPage() {
                               'Hội viên',
                               'Dịch vụ',
                               'Phương thức',
+                              'Người xử lý',
                               'Thời gian',
                               'Trạng thái',
                               'Số tiền',
@@ -594,7 +597,7 @@ export default function AdminDashboardPage() {
                               <th
                                 scope="col"
                                 key={label}
-                                className={`px-5 py-3 font-semibold ${i === 6 ? 'text-right' : ''}`}
+                                className={`px-5 py-3 font-semibold ${i === 7 ? 'text-right' : ''}`}
                               >
                                 {label}
                               </th>
@@ -620,6 +623,15 @@ export default function AdminDashboardPage() {
                               </td>
                               <td className="px-5 py-4 text-slate-600">{paymentCategory(p.type)}</td>
                               <td className="px-5 py-4 text-slate-600">{p.method || 'Khác'}</td>
+                              <td className="whitespace-nowrap px-5 py-4">
+                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                  p.processedByName && p.processedByName !== 'Tự thanh toán'
+                                    ? 'bg-orange-50 text-orange-800 border border-orange-200'
+                                    : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {p.processedByName || 'Tự thanh toán'}
+                                </span>
+                              </td>
                               <td className="whitespace-nowrap px-5 py-4 text-xs text-slate-500">
                                 {formatDate(p.createdAt, true)}
                               </td>
@@ -821,6 +833,7 @@ export default function AdminDashboardPage() {
                   ['Dịch vụ', paymentCategory(selectedTx.type)],
                   ['Diễn giải', selectedTx.description],
                   ['Phương thức', selectedTx.method],
+                  ['Người xử lý', selectedTx.processedByName || 'Tự thanh toán'],
                   ['Thời gian', formatDate(selectedTx.createdAt, true)],
                 ].map(([label, value]) => (
                   <div key={label} className="grid grid-cols-[1fr_2fr] gap-4 py-3">
