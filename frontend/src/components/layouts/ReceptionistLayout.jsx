@@ -122,7 +122,7 @@ export default function ReceptionistLayout({ children }) {
         res.result === 'VALID' ? 'success' : 'warning'
       );
       setShowRfidModal(false);
-
+      window.dispatchEvent(new CustomEvent('reception:checkin-updated'));
     } catch (err) {
       showToast('Lỗi quét thẻ', err.message || 'Không thể ghi nhận check-in RFID.', 'error');
     } finally {

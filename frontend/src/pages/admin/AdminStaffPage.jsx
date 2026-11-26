@@ -762,10 +762,23 @@ export default function AdminStaffPage() {
                             {Number(r.totalSalesAmount ?? r.packageSalesRevenue ?? 0).toLocaleString()}₫
                           </td>
                           <td className="px-5 py-3.5 text-center">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                              TỐT (ĐẠT CHỈ TIÊU)
-                            </span>
+                            {(() => {
+                              const hasActivity =
+                                Number(r.checkInsCount ?? r.checkInCount ?? 0) > 0 ||
+                                Number(r.posTransactionsCount || 0) > 0 ||
+                                Number(r.totalSalesAmount ?? r.packageSalesRevenue ?? 0) > 0;
+                              return hasActivity ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                  ĐẠT CHỈ TIÊU
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                  CHƯA PHÁT SINH
+                                </span>
+                              );
+                            })()}
                           </td>
                         </tr>
                       ))}

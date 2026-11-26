@@ -146,7 +146,6 @@ public class VoucherController {
             v.setDiscountValue(req.discountValue());
             if ("PERCENT".equalsIgnoreCase(v.getDiscountType())) {
                 v.setDiscountPercent(req.discountValue().intValue());
-                v.setDiscountAmount(null);
             } else {
                 v.setDiscountAmount(req.discountValue());
             }

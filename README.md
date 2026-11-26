@@ -114,7 +114,7 @@ SWP391_SportsCenter/
 │
 ├── docs/                                # Tài liệu dự án & hồ sơ bảo vệ
 │   ├── BUSINESS_RULES.md                # Đặc tả 23 Quy tắc Nghiệp vụ (BR-01..BR-23) & BUSINESS_RULES.csv
-│   ├── demo/                            # Kịch bản bảo vệ 27/11/2026 (KICH_BAN_DEMO_BAO_VE.md & .docx)
+│   ├── demo/                            # Kịch bản bảo vệ 28/11/2026 (KICH_BAN_DEMO_BAO_VE.md & .docx)
 │   ├── specs/                           # Đặc tả yêu cầu phần mềm (SRD_Document.md) & PROJECT_TRACKING_FINAL.csv
 │   ├── diagrams/                        # Sơ đồ Kiến trúc Hệ thống, ERD (.drawio/.png) & Usecase
 │   └── slides/                          # Slide thuyết trình HTML/PPTX
@@ -124,13 +124,13 @@ SWP391_SportsCenter/
 └── .env.example                         # Mẫu cấu hình biến môi trường (DB, Mail SMTP, Gemini AI, VNPay)
 ```
 
-> 📘 **Tài liệu Demo Bảo vệ Hội đồng (27/11/2026):** Xem [`docs/demo/KICH_BAN_DEMO_BAO_VE.md`](./docs/demo/KICH_BAN_DEMO_BAO_VE.md).
+> 📘 **Tài liệu Demo Bảo vệ Hội đồng (28/11/2026):** Xem [`docs/demo/KICH_BAN_DEMO_BAO_VE.md`](./docs/demo/KICH_BAN_DEMO_BAO_VE.md).
 
 ---
 
 ## 🔑 5. Tài Khoản Dùng Thử (Demo Accounts)
 
-Sau khi nạp dữ liệu từ [`DATABASEchuan.sql`](./DATABASEchuan.sql), ngày **Thứ Sáu `27/11/2026` (`@DefenseDay`) được để trống 100%** lịch sân, lớp học, bảo trì và nghỉ phép HLV để phục vụ trình diễn trực tiếp.
+Sau khi nạp dữ liệu từ [`DATABASEchuan.sql`](./DATABASEchuan.sql), ngày **Thứ Bảy `28/11/2026` (`@DefenseDay`) được để trống 100%** lịch sân, lớp học, bảo trì và nghỉ phép HLV để phục vụ trình diễn trực tiếp.
 - **Mật khẩu mặc định cho tài khoản mẫu (ID 1–16):** **`SportHub@123`**
 
 | ID | Vai trò (`role`) | Cổng truy cập | Họ và tên | Email đăng nhập | Số điện thoại | Ghi chú dữ liệu mẫu (`DATABASEchuan.sql`) |

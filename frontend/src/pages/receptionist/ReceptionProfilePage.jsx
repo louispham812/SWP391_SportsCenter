@@ -172,6 +172,18 @@ export default function ReceptionProfilePage() {
       showToast({ title: 'Cảnh báo', message: 'Mật khẩu mới phải có ít nhất 8 ký tự.', type: 'warning' });
       return;
     }
+    const hasUpper = /[A-Z]/.test(passwordForm.newPassword);
+    const hasLower = /[a-z]/.test(passwordForm.newPassword);
+    const hasDigit = /\d/.test(passwordForm.newPassword);
+    const hasSpecial = /[^A-Za-z0-9]/.test(passwordForm.newPassword);
+    if (!hasUpper || !hasLower || !hasDigit || !hasSpecial) {
+      showToast({
+        title: 'Cảnh báo',
+        message: 'Mật khẩu mới phải gồm chữ hoa, chữ thường, số và ký tự đặc biệt.',
+        type: 'warning',
+      });
+      return;
+    }
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       showToast({ title: 'Cảnh báo', message: 'Xác nhận mật khẩu mới không khớp.', type: 'warning' });
       return;
@@ -180,8 +192,10 @@ export default function ReceptionProfilePage() {
     try {
       setPasswordSaving(true);
       await changeReceptionistPassword({
-        currentPassword: passwordForm.currentPassword,
+        email: profileData?.email || currentUser?.email,
+        oldPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
+        confirmPassword: passwordForm.confirmPassword,
       });
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       showToast({

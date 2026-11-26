@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
 import { getMemberHealthProfile, updateMemberHealthProfile, getMemberAttendance } from '../../services/memberApi';
 import { getMyWorkoutProgress, createWorkoutPlan, recordBodyProgress, togglePlanExercise } from '../../services/workoutApi';
+import { sendMemberAssistantMessages } from '../../services/aiAssistantApi';
 import { useApp } from '../../context/AppContext';
 import FormattedAiText from '../../components/common/FormattedAiText';
 import { CardGridSkeleton } from '../../components/common/Skeleton';
@@ -284,52 +285,100 @@ export default function MemberWorkoutPlansPage() {
   };
 
   // Sinh Lộ Trình Bằng AI (MEM-23)
-  const handleGenerateAiPlan = () => {
-    setGeneratingAi(true);
-    setTimeout(() => {
-      let title = 'Lộ trình Tăng Cơ & Giảm Mỡ Cân Đối';
-      let goal = 'Tối ưu phát triển khối cơ nạc SMM, giảm 2% mỡ PBF trong 4 tuần';
-      let exercises = [
-        { name: 'Goblet Squat tạ chuông (Kettlebell)', sets: 4, reps: 12, weightKg: 16, note: 'Siết mông ở đỉnh, hít sâu khi xuống' },
-        { name: 'Dumbbell Incline Bench Press', sets: 4, reps: 10, weightKg: 18, note: 'Ép chặt bả vai, góc đẩy 30-45 độ' },
-        { name: 'Lat Pulldown kéo cáp', sets: 4, reps: 12, weightKg: 40, note: 'Kéo thanh đòn về ngang xương quai xanh' },
-        { name: 'Plank nâng chân luân phiên', sets: 3, reps: 30, weightKg: 0, note: 'Giữ hông thăng bằng không lắc lư' },
+  const buildFallbackAiPlan = () => {
+    let title = 'Lộ trình Tăng Cơ & Giảm Mỡ Cân Đối';
+    let goal = 'Tối ưu phát triển khối cơ nạc SMM, giảm 2% mỡ PBF trong 4 tuần';
+    let exercises = [
+      { name: 'Goblet Squat tạ chuông (Kettlebell)', sets: 4, reps: 12, weightKg: 16, note: 'Siết mông ở đỉnh, hít sâu khi xuống' },
+      { name: 'Dumbbell Incline Bench Press', sets: 4, reps: 10, weightKg: 18, note: 'Ép chặt bả vai, góc đẩy 30-45 độ' },
+      { name: 'Lat Pulldown kéo cáp', sets: 4, reps: 12, weightKg: 40, note: 'Kéo thanh đòn về ngang xương quai xanh' },
+      { name: 'Plank nâng chân luân phiên', sets: 3, reps: 30, weightKg: 0, note: 'Giữ hông thăng bằng không lắc lư' },
+    ];
+    let homework = 'Cardio đi bộ dốc 25 phút sau buổi tập. Bổ sung 2 lít nước và 120g ức gà hoặc cá ngừ.';
+
+    if (aiGoal === 'SPORT_PERFORMANCE') {
+      title = 'Giáo án Tăng Tốc Độ & Sức Bật Thể Thao (Pickleball / Tennis)';
+      goal = 'Tăng sức mạnh bộc phát chân, độ linh hoạt cổ tay và phản xạ lưới';
+      exercises = [
+        { name: 'Box Jump (Bật nhảy bục)', sets: 4, reps: 8, weightKg: 0, note: 'Tiếp đất êm ái bằng nửa bàn chân trước' },
+        { name: 'Lateral Lunges tạ đơn', sets: 3, reps: 12, weightKg: 12, note: 'Mở rộng khớp háng, giữ lưng thẳng' },
+        { name: 'Medicine Ball Rotational Throw', sets: 4, reps: 10, weightKg: 6, note: 'Xoay hông dứt khoát mô phỏng cú đánh' },
+        { name: 'Footwork Agility Ladder', sets: 4, reps: 30, weightKg: 0, note: 'Nhịp thở nhanh, mắt nhìn thẳng' },
       ];
-      let homework = 'Cardio đi bộ dốc 25 phút sau buổi tập. Bổ sung 2 lít nước và 120g ức gà hoặc cá ngừ.';
+      homework = 'Tập giao bóng và footwork 20 phút tại nhà. Ngâm chân nước ấm trước khi ngủ.';
+    } else if (aiGoal === 'RECOVERY') {
+      title = 'Lộ trình Phục Hồi Thể Lực & Yoga Cột Sống';
+      goal = 'Giải tỏa căng cứng cơ bắp, hỗ trợ lưu thông máu và cân chỉnh tư thế';
+      exercises = [
+        { name: 'Cat-Cow Stretch', sets: 3, reps: 15, weightKg: 0, note: 'Chuyển động uốn cong lưng chậm rãi' },
+        { name: 'Bird Dog thăng bằng', sets: 3, reps: 12, weightKg: 0, note: 'Siết cơ bụng, giữ tay và chân thẳng hàng' },
+        { name: 'Foam Rolling đùi & lưng', sets: 3, reps: 45, weightKg: 0, note: 'Lăn chậm qua các điểm co thắt' },
+        { name: 'Child Pose (Tư thế đứa trẻ)', sets: 2, reps: 60, weightKg: 0, note: 'Thở bụng sâu và thư giãn toàn thân' },
+      ];
+      homework = 'Uống trà hoa cúc ấm, ngủ đủ 8 tiếng, hạn chế nhìn màn hình trước khi ngủ 30 phút.';
+    }
 
-      if (aiGoal === 'SPORT_PERFORMANCE') {
-        title = 'Giáo án Tăng Tốc Độ & Sức Bật Thể Thao (Pickleball / Tennis)';
-        goal = 'Tăng sức mạnh bộc phát chân, độ linh hoạt cổ tay và phản xạ lưới';
-        exercises = [
-          { name: 'Box Jump (Bật nhảy bục)', sets: 4, reps: 8, weightKg: 0, note: 'Tiếp đất êm ái bằng nửa bàn chân trước' },
-          { name: 'Lateral Lunges tạ đơn', sets: 3, reps: 12, weightKg: 12, note: 'Mở rộng khớp háng, giữ lưng thẳng' },
-          { name: 'Medicine Ball Rotational Throw', sets: 4, reps: 10, weightKg: 6, note: 'Xoay hông dứt khoát mô phỏng cú đánh' },
-          { name: 'Footwork Agility Ladder', sets: 4, reps: 30, weightKg: 0, note: 'Nhịp thở nhanh, mắt nhìn thẳng' },
-        ];
-        homework = 'Tập giao bóng và footwork 20 phút tại nhà. Ngâm chân nước ấm trước khi ngủ.';
-      } else if (aiGoal === 'RECOVERY') {
-        title = 'Lộ trình Phục Hồi Thể Lực & Yoga Cột Sống';
-        goal = 'Giải tỏa căng cứng cơ bắp, hỗ trợ lưu thông máu và cân chỉnh tư thế';
-        exercises = [
-          { name: 'Cat-Cow Stretch', sets: 3, reps: 15, weightKg: 0, note: 'Chuyển động uốn cong lưng chậm rãi' },
-          { name: 'Bird Dog thăng bằng', sets: 3, reps: 12, weightKg: 0, note: 'Siết cơ bụng, giữ tay và chân thẳng hàng' },
-          { name: 'Foam Rolling đùi & lưng', sets: 3, reps: 45, weightKg: 0, note: 'Lăn chậm qua các điểm co thắt' },
-          { name: 'Child Pose (Tư thế đứa trẻ)', sets: 2, reps: 60, weightKg: 0, note: 'Thở bụng sâu và thư giãn toàn thân' },
-        ];
-        homework = 'Uống trà hoa cúc ấm, ngủ đủ 8 tiếng, hạn chế nhìn màn hình trước khi ngủ 30 phút.';
+    return {
+      title,
+      goal: aiCustomNote ? `${goal} (Yêu cầu thêm: ${aiCustomNote})` : goal,
+      exercises,
+      homework,
+      sessionResult: 'Học viên tự giác hoàn thành theo giáo án gợi ý.',
+      coachFeedback: 'Phân bố bài tập phù hợp với thể trạng hiện tại của bạn.',
+    };
+  };
+
+  const handleGenerateAiPlan = async () => {
+    setGeneratingAi(true);
+    const goalLabel = aiGoal === 'SPORT_PERFORMANCE'
+      ? 'Tăng tốc độ, sức bật & phản xạ thể thao'
+      : aiGoal === 'RECOVERY'
+      ? 'Phục hồi thể lực, giãn cơ & cột sống'
+      : 'Tăng cơ nạc & giảm mỡ cân đối';
+
+    const prompt = [
+      'Hãy thiết kế 1 giáo án tập luyện cá nhân hóa bằng tiếng Việt và CHỈ trả về JSON hợp lệ (không giải thích thêm, không markdown) theo đúng cấu trúc:',
+      '{"title":"...","goal":"...","exercises":[{"name":"...","sets":3,"reps":12,"weightKg":0,"note":"..."}],"homework":"...","coachFeedback":"..."}',
+      `Mục tiêu: ${goalLabel}.`,
+      `Chỉ số cơ thể: cân nặng=${healthProfile.weightKg || 'chưa rõ'}kg, chiều cao=${healthProfile.heightCm || 'chưa rõ'}cm, BMI=${healthProfile.bmi || 'chưa rõ'}, tiền sử chấn thương="${healthProfile.injuryHistory || 'không có'}".`,
+      aiCustomNote ? `Lưu ý/chấn thương từ hội viên (bắt buộc tôn trọng, tránh bài tập gây đau): "${aiCustomNote}".` : '',
+      'Tạo 4 bài tập an toàn, thực tế.',
+    ].filter(Boolean).join('\n');
+
+    try {
+      const res = await sendMemberAssistantMessages([{ role: 'user', content: prompt }]);
+      const rawText = String(res?.reply || res?.message || res?.content || '').trim();
+      const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+      const firstBrace = cleaned.indexOf('{');
+      const lastBrace = cleaned.lastIndexOf('}');
+      if (firstBrace >= 0 && lastBrace > firstBrace) {
+        const parsed = JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+        if (parsed && Array.isArray(parsed.exercises) && parsed.exercises.length > 0) {
+          setAiGeneratedPlan({
+            title: parsed.title || `Giáo án AI: ${goalLabel}`,
+            goal: parsed.goal || goalLabel,
+            exercises: parsed.exercises.map((ex) => ({
+              name: ex.name || 'Bài tập bổ trợ',
+              sets: Number(ex.sets) > 0 ? Number(ex.sets) : 3,
+              reps: Number(ex.reps) > 0 ? Number(ex.reps) : 12,
+              weightKg: Number(ex.weightKg) >= 0 ? Number(ex.weightKg) : 0,
+              note: ex.note || '',
+            })),
+            homework: parsed.homework || 'Giãn cơ 10 phút và uống đủ nước sau buổi tập.',
+            sessionResult: 'Học viên tự giác hoàn thành theo giáo án gợi ý của Trợ lý AI.',
+            coachFeedback: parsed.coachFeedback || 'Giáo án được AI cá nhân hóa theo hồ sơ thể trạng và ghi chú của bạn.',
+          });
+          showToast('Thành công', 'Trợ lý AI đã thiết kế giáo án cá nhân hóa theo chỉ số và ghi chú của bạn!', 'success');
+          return;
+        }
       }
-
-      setAiGeneratedPlan({
-        title,
-        goal: aiCustomNote ? `${goal} (Yêu cầu thêm: ${aiCustomNote})` : goal,
-        exercises,
-        homework,
-        sessionResult: 'Học viên tự giác hoàn thành theo giáo án gợi ý của Trợ lý AI.',
-        coachFeedback: 'Hệ thống AI đánh giá phân bố bài tập phù hợp với thể trạng hiện tại của bạn.',
-      });
+      throw new Error('AI response parse fallback');
+    } catch {
+      setAiGeneratedPlan(buildFallbackAiPlan());
+      showToast('Gợi ý giáo án', 'Đã tạo giáo án theo mục tiêu dựa trên mẫu chuẩn (AI trực tuyến đang bận).', 'warning');
+    } finally {
       setGeneratingAi(false);
-      showToast('Thành công', 'Trợ lý AI đã thiết kế giáo án phù hợp với chỉ số thể chất của bạn!', 'success');
-    }, 800);
+    }
   };
 
   // Lưu giáo án AI vào DB (MEM-23)
@@ -457,7 +506,7 @@ export default function MemberWorkoutPlansPage() {
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tỉ Lệ Mỡ (PBF)</span>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-3xl font-black text-orange-600">
-                {healthProfile.pbfPercent != null ? `${healthProfile.pbfPercent}%` : '--'}
+                {healthProfile.pbfPercent !== '' && healthProfile.pbfPercent != null ? `${healthProfile.pbfPercent}%` : '--'}
               </span>
             </div>
             <span className="text-xs text-slate-400 mt-1 block">Percent Body Fat</span>

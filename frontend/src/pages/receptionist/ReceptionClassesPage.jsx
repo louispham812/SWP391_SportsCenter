@@ -427,14 +427,13 @@ export default function ReceptionClassesPage() {
                     {pendingVnpayUrl && (
                       <div className="p-3 rounded-xl border border-blue-200 bg-blue-50 text-xs text-blue-900 flex flex-wrap items-center justify-between gap-2">
                         <span>Đơn VNPay đang chờ thanh toán (10 phút):</span>
-                        <a
-                          href={pendingVnpayUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700"
+                        <button
+                          type="button"
+                          onClick={() => window.location.assign(pendingVnpayUrl)}
+                          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 cursor-pointer"
                         >
                           Mở cổng thanh toán VNPay
-                        </a>
+                        </button>
                       </div>
                     )}
 

@@ -63,6 +63,7 @@ export default function RefundRequestModal({
   const [bankName, setBankName] = useState('Vietcombank');
   const [bankAccount, setBankAccount] = useState('');
   const [accountHolder, setAccountHolder] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   // Filter only paid transactions with amount > 0 (cannot refund quota or already refunded)
   const paidTransactions = transactions.filter(
@@ -110,6 +111,7 @@ export default function RefundRequestModal({
     if (!targetTx) return;
 
     try {
+      setSubmitting(true);
       await apiRequest('/members/me/refunds', {
         method: 'POST',
         body: JSON.stringify({
@@ -139,6 +141,8 @@ export default function RefundRequestModal({
       await onSuccess();
     } catch (err) {
       showToast('Lỗi yêu cầu hoàn tiền', err.message || 'Không thể gửi yêu cầu hoàn tiền.', 'error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -268,9 +272,10 @@ export default function RefundRequestModal({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md cursor-pointer"
+              disabled={submitting}
+              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold shadow-md cursor-pointer"
             >
-              Gửi Yêu Cầu Hoàn Tiền
+              {submitting ? 'Đang gửi...' : 'Gửi Yêu Cầu Hoàn Tiền'}
             </button>
           </div>
         </form>

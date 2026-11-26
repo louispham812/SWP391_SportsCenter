@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import CoachLayout from '../../components/layouts/CoachLayout';
 import { TableSkeleton } from '../../components/common/Skeleton';
 import { getSessionRoster, getUpcomingClasses, updateBookingAttendance } from '../../services/bookingApi';
@@ -12,6 +13,8 @@ const formatDateTime = (value) => new Date(value).toLocaleString('vi-VN', {
 });
 
 export default function CoachAttendancePage() {
+  const [searchParams] = useSearchParams();
+  const requestedSessionId = searchParams.get('sessionId');
   const [classes, setClasses] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [roster, setRoster] = useState([]);
@@ -28,12 +31,19 @@ export default function CoachAttendancePage() {
         if (!isCurrent) return;
         setClasses(classRows);
         if (classRows && classRows.length > 0) {
-          const now = new Date();
-          const startedClasses = classRows.filter((c) => c.startTime && new Date(c.startTime) <= now);
-          const activeSession = startedClasses.find((c) => !c.endTime || new Date(c.endTime) >= now)
-            || startedClasses[startedClasses.length - 1]
-            || classRows[0];
-          setSelectedSessionId(activeSession?.sessionId?.toString() || classRows[0].sessionId.toString());
+          const requestedMatch = requestedSessionId
+            ? classRows.find((c) => String(c.sessionId) === String(requestedSessionId))
+            : null;
+          if (requestedMatch) {
+            setSelectedSessionId(requestedMatch.sessionId.toString());
+          } else {
+            const now = new Date();
+            const startedClasses = classRows.filter((c) => c.startTime && new Date(c.startTime) <= now);
+            const activeSession = startedClasses.find((c) => !c.endTime || new Date(c.endTime) >= now)
+              || startedClasses[startedClasses.length - 1]
+              || classRows[0];
+            setSelectedSessionId(activeSession?.sessionId?.toString() || classRows[0].sessionId.toString());
+          }
         } else {
           setSelectedSessionId('');
         }

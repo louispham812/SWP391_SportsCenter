@@ -15,6 +15,9 @@ import jakarta.persistence.LockModeType;
 public interface BookingRepository extends JpaRepository<Booking, Long> {
     @Query("select b from Booking b join ClassSession s on b.sessionId = s.sessionId where b.memberId = :memberId and b.status = 'CONFIRMED' and s.status in ('SCHEDULED', 'IN_PROGRESS') and s.startTime <= :now and s.endTime > :now order by s.startTime, b.bookingId")
     List<Booking> findCheckInEligibleClasses(@Param("memberId") Long memberId, @Param("now") LocalDateTime now);
+
+    @Query("select b from Booking b join ClassSession s on b.sessionId = s.sessionId where b.memberId = :memberId and b.status = 'CONFIRMED' and s.status in ('SCHEDULED', 'IN_PROGRESS') and s.startTime <= :startCutoff and s.endTime > :now order by s.startTime, b.bookingId")
+    List<Booking> findCheckInEligibleClassesWithGrace(@Param("memberId") Long memberId, @Param("startCutoff") LocalDateTime startCutoff, @Param("now") LocalDateTime now);
     @Query("select count(b) > 0 from Booking b join ClassSession s on b.sessionId = s.sessionId where b.memberId = :memberId and s.coachId = :coachId and b.status in ('BOOKED', 'CONFIRMED') and s.status <> 'CANCELLED'")
     boolean isAssignedStudent(@Param("coachId") Long coachId, @Param("memberId") Long memberId);
 

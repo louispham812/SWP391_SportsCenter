@@ -22,6 +22,8 @@ public class CheckInEligibilityService {
     private final FacilityCourtSyncService sync;
     private final MembershipService memberships;
     @PersistenceContext private EntityManager entityManager;
+    @org.springframework.beans.factory.annotation.Autowired(required = false) private SystemSettingRepository systemSettingRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false) private RefundRequestRepository refundRequestRepository;
     public CheckInEligibilityService(SportsCourtRepository sportsCourts, CourtBookingRepository courts,
             CourtMaintenanceRepository maintenance, PaymentTransactionRepository payments, BookingRepository bookings,
             ClassSessionRepository sessions, PublicFacilityRepository facilities, FacilityCourtSyncService sync, MembershipService memberships) {
@@ -38,6 +40,7 @@ public class CheckInEligibilityService {
         if (!memberId.equals(b.getMemberId()) || !court.getCourtId().equals(b.getCourtId())
                 || (payment != null && !payment.getPaymentId().equals(b.getPaymentId())) || !"CONFIRMED".equals(b.getStatus())) throw conflict("Booking sân đã thay đổi hoặc không thuộc hội viên.");
         requireTime(b.getStartTime(), b.getEndTime(), now);
+        requireNoPendingRefund(b.getPaymentId());
         requireOpenCourt(court, b.getStartTime(), b.getEndTime());
         if (Boolean.TRUE.equals(b.getUsesMembershipQuota())) {
             if (b.getMembershipId() == null || (b.getQuotaState() != null && !"HELD".equals(b.getQuotaState()))) throw conflict("Quota của booking không còn ở trạng thái giữ.");
@@ -67,6 +70,7 @@ public class CheckInEligibilityService {
         Booking b = bookings.findByIdForUpdate(candidate.getBookingId()).orElseThrow(() -> conflict("Không tìm thấy booking.")); refresh(b);
         if (!memberId.equals(b.getMemberId()) || !session.getSessionId().equals(b.getSessionId()) || !"CONFIRMED".equals(b.getStatus())
                 || (payment != null && !payment.getPaymentId().equals(b.getPaymentId()))) throw conflict("Booking lớp không còn hợp lệ.");
+        requireNoPendingRefund(b.getPaymentId());
         if (Boolean.TRUE.equals(b.getUsesMembershipQuota())) {
             if (b.getMembershipId() == null || !"HELD".equals(memberships.sessionQuotaState(b, b.getAttendanceStatus()))) throw conflict("Quota buổi học không còn được giữ.");
             memberships.requireSessionCheckIn(b.getMembershipId()); requireMembershipOwner(b.getMembershipId(), memberId);
@@ -88,7 +92,16 @@ public class CheckInEligibilityService {
             throw conflict("Booking chưa có chứng từ PAID đúng chủ sở hữu và số tiền; cần đối soát tại quầy.");
     }
     private void requireTime(LocalDateTime start, LocalDateTime end, LocalDateTime now) {
-        if (start == null || end == null || start.isAfter(now) || !end.isAfter(now)) throw conflict("Chưa đúng giờ hoặc lịch đã kết thúc.");
+        int graceMinutes = systemSettingRepository == null ? 0 : com.sporthub.backend.util.SystemPolicyHelper.checkInGracePeriodMinutes(systemSettingRepository);
+        if (start == null || end == null || start.minusMinutes(graceMinutes).isAfter(now) || !end.isAfter(now)) {
+            throw conflict("Chưa đúng giờ hoặc lịch đã kết thúc.");
+        }
+    }
+    private void requireNoPendingRefund(Long paymentId) {
+        if (paymentId != null && refundRequestRepository != null
+                && refundRequestRepository.existsByTransactionIdAndStatusIn(paymentId, List.of("PENDING", "PENDING_APPROVAL"))) {
+            throw conflict("Booking đang có yêu cầu hoàn tiền chờ duyệt, không thể check-in.");
+        }
     }
     private void requireOpenCourt(SportsCourt court, LocalDateTime start, LocalDateTime end) {
         if (!court.isActive() || maintenance.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(court.getCourtId(), end, start))

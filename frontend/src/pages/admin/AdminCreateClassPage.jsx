@@ -239,7 +239,7 @@ export default function AdminCreateClassPage() {
                 </label>
               </div>
               <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => navigate('/admin/facilities')}
+                <button type="button" onClick={() => navigate('/admin/classes')}
                   className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold">Hủy</button>
                 <button type="submit" disabled={loading || saving || String(sessionForm.priceAmount).trim() === '' || !Number.isFinite(Number(sessionForm.priceAmount)) || Number(sessionForm.priceAmount) < 0}
                   className="rounded-xl bg-orange-500 hover:bg-orange-600 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/20 active:scale-[0.98] transition-all disabled:opacity-60">

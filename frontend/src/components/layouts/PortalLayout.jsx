@@ -63,8 +63,14 @@ const getActiveMenuPath = (pathname, menuItems, role) => {
   const matches = menuItems.filter(
     (item) => pathname === item.path || (item.path !== `/${role}` && pathname.startsWith(`${item.path}/`)),
   );
-  if (matches.length === 0) return null;
-  return matches.reduce((best, item) => (item.path.length > best.path.length ? item : best)).path;
+  if (matches.length > 0) {
+    return matches.reduce((best, item) => (item.path.length > best.path.length ? item : best)).path;
+  }
+  if (pathname.startsWith('/member/book/')) {
+    const bookItem = menuItems.find((item) => item.path.startsWith('/member/book'));
+    if (bookItem) return bookItem.path;
+  }
+  return null;
 };
 
 export default function PortalLayout({
@@ -156,9 +162,7 @@ export default function PortalLayout({
       }
     }
 
-    if (generalList.length > 0) {
-      setLiveNotifications(generalList);
-    }
+    setLiveNotifications(generalList);
   }, [role]);
 
   useEffect(() => {
