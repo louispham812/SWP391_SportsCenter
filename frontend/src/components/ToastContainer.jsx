@@ -10,7 +10,7 @@ export default function ToastContainer() {
     <div className="fixed top-5 right-5 z-[100000] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
       {toasts.map((toast) => {
         const isSuccess = toast.type === 'success';
-        const isError = toast.type === 'error';
+        const isError = toast.type === 'error' || toast.type === 'danger';
         const isWarning = toast.type === 'warning';
 
         return (

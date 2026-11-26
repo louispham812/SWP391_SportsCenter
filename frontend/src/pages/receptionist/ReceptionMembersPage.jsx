@@ -78,15 +78,25 @@ export default function ReceptionMembersPage() {
         video: { width: 480, height: 480, facingMode: 'user' },
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
       setCameraActive(true);
     } catch {
       setCameraError('Không thể mở webcam hoặc quyền truy cập bị từ chối.');
     }
   };
+
+  useEffect(() => {
+    if (cameraActive && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [cameraActive]);
+
+  useEffect(() => () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  }, []);
 
   const stopCamera = () => {
     if (streamRef.current) {

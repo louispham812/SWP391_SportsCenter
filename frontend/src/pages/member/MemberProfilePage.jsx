@@ -192,7 +192,7 @@ export default function MemberProfilePage() {
 
   const handleDownloadQr = () => {
     const qrText = digitalCard?.qrToken || `SPORTHUB-MEMBER-${currentUser.memberId || currentUser.id}`;
-    const svgElement = document.getElementById('member-digital-qr-svg');
+    const svgElement = document.getElementById('member-digital-qr-svg') || document.getElementById('member-digital-qr-inline-svg');
     if (svgElement) {
       const svgData = new XMLSerializer().serializeToString(svgElement);
       const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
@@ -347,6 +347,7 @@ export default function MemberProfilePage() {
               <div className="relative z-10 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md flex flex-col sm:flex-row items-center gap-4">
                 <div className="bg-white p-2.5 rounded-xl shadow-lg shrink-0 flex items-center justify-center">
                   <QrCodeSvg
+                    id="member-digital-qr-inline-svg"
                     text={digitalCard?.qrToken || `SPORTHUB-MEMBER-${currentUser.memberId || currentUser.id}`}
                     size={130}
                   />
@@ -694,7 +695,7 @@ export default function MemberProfilePage() {
                     <input
                       type="number"
                       value={inbodyForm.height}
-                      onChange={(e) => setInbodyForm({ ...inbodyForm, height: Number(e.target.value) })}
+                      onChange={(e) => setInbodyForm({ ...inbodyForm, height: e.target.value })}
                       className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-base font-bold outline-none"
                     />
                   </div>
@@ -705,7 +706,7 @@ export default function MemberProfilePage() {
                       type="number"
                       step="0.1"
                       value={inbodyForm.smm}
-                      onChange={(e) => setInbodyForm({ ...inbodyForm, smm: Number(e.target.value) })}
+                      onChange={(e) => setInbodyForm({ ...inbodyForm, smm: e.target.value })}
                       className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-base font-bold outline-none text-emerald-700"
                     />
                   </div>
@@ -716,7 +717,7 @@ export default function MemberProfilePage() {
                       type="number"
                       step="0.1"
                       value={inbodyForm.pbf}
-                      onChange={(e) => setInbodyForm({ ...inbodyForm, pbf: Number(e.target.value) })}
+                      onChange={(e) => setInbodyForm({ ...inbodyForm, pbf: e.target.value })}
                       className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-base font-bold outline-none text-orange-600"
                     />
                   </div>
@@ -727,7 +728,11 @@ export default function MemberProfilePage() {
                   <span>
                     Chỉ số BMI tính toán tự động:{' '}
                     {Number(inbodyForm.height) > 0 && Number(inbodyForm.weight) > 0
-                      ? `${(Number(inbodyForm.weight) / Math.pow(Number(inbodyForm.height) / 100, 2)).toFixed(1)} (Bình thường / Thể hình)`
+                      ? (() => {
+                          const bmi = Number(inbodyForm.weight) / Math.pow(Number(inbodyForm.height) / 100, 2);
+                          const label = bmi < 18.5 ? 'Thiếu cân' : bmi < 25 ? 'Bình thường' : bmi < 30 ? 'Thừa cân' : 'Béo phì';
+                          return `${bmi.toFixed(1)} (${label})`;
+                        })()
                       : 'Chưa đủ chiều cao & cân nặng để tính'}
                   </span>
                 </div>

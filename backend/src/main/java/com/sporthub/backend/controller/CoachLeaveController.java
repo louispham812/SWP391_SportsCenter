@@ -363,10 +363,12 @@ public class CoachLeaveController {
         List<ClassSession> source = allSessions != null && !allSessions.isEmpty()
                 ? allSessions
                 : classSessionRepository.findByCoachIdOrderByStartTimeAsc(req.getCoachId());
+        LocalDateTime now = LocalDateTime.now();
         return source.stream()
                 .filter(s -> Objects.equals(s.getCoachId(), req.getCoachId()))
-                .filter(s -> !"CANCELLED".equalsIgnoreCase(s.getStatus()))
-                .filter(s -> s.getStartTime() != null && !s.getStartTime().isBefore(startDt) && s.getStartTime().isBefore(endDt))
+                .filter(s -> !"CANCELLED".equalsIgnoreCase(s.getStatus()) && !"COMPLETED".equalsIgnoreCase(s.getStatus()))
+                .filter(s -> s.getStartTime() != null && s.getStartTime().isAfter(now)
+                        && !s.getStartTime().isBefore(startDt) && s.getStartTime().isBefore(endDt))
                 .sorted(Comparator.comparing(ClassSession::getStartTime))
                 .toList();
     }

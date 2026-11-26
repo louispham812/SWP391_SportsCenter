@@ -371,7 +371,7 @@ export default function CoachDashboardPage() {
                   </div>
 
                   <Link
-                    to="/coach/attendance"
+                    to={`/coach/attendance?sessionId=${cls.sessionId}`}
                     className="flex items-center justify-center gap-1.5 w-full rounded-xl bg-orange-500 hover:bg-orange-600 py-2 text-center text-xs font-bold uppercase tracking-wider text-white shadow-xs transition-all"
                   >
                     <span className="material-symbols-outlined text-[16px]">fact_check</span>

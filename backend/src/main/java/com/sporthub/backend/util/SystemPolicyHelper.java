@@ -19,6 +19,7 @@ public final class SystemPolicyHelper {
     public static final int DEFAULT_CANCEL_REFUND_DEADLINE_HOURS = 2;
     public static final int DEFAULT_COACH_COMMISSION_PERCENT = 40;
     public static final int DEFAULT_MAX_ADVANCE_BOOKING_DAYS = 14;
+    public static final int DEFAULT_CHECKIN_GRACE_MINUTES = 15;
     public static final BigDecimal DEFAULT_PT_HOURLY_RATE = BigDecimal.valueOf(250000);
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -40,6 +41,10 @@ public final class SystemPolicyHelper {
 
     public static int maxAdvanceBookingDays(SystemSettingRepository repo) {
         return readPositiveInt(repo, "maxAdvanceBookingDays", DEFAULT_MAX_ADVANCE_BOOKING_DAYS, 1, 365);
+    }
+
+    public static int checkInGracePeriodMinutes(SystemSettingRepository repo) {
+        return readPositiveInt(repo, "checkInGracePeriodMinutes", DEFAULT_CHECKIN_GRACE_MINUTES, 0, 120);
     }
 
     public static BigDecimal ptHourlyRate(SystemSettingRepository repo) {

@@ -1189,7 +1189,15 @@ export default function MemberSchedulePage() {
                       <span>Đang xử lý...</span>
                     </>
                   ) : (
-                    <span>{isUnpaidBooking(cancelingBooking) ? 'Xác Nhận Hủy Yêu Cầu' : Number(cancelingBooking.amountPaid) > 0 ? 'Xác Nhận Hủy (Hoàn 100%)' : 'Xác Nhận Hủy Lịch'}</span>
+                    <span>
+                      {isUnpaidBooking(cancelingBooking)
+                        ? 'Xác Nhận Hủy Yêu Cầu'
+                        : !cancelingBooking.hasMaintenanceConflict && !isWithinFreeCancelWindow(cancelingBooking)
+                        ? 'Xác Nhận Hủy (Không hoàn)'
+                        : Number(cancelingBooking.amountPaid) > 0
+                        ? 'Xác Nhận Hủy (Hoàn 100%)'
+                        : 'Xác Nhận Hủy Lịch'}
+                    </span>
                   )}
                 </button>
               </div>

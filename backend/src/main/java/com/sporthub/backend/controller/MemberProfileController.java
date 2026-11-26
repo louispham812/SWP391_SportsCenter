@@ -83,6 +83,8 @@ public class MemberProfileController {
     private final PublicSportRepository publicSportRepository;
     private final PaymentService paymentService;
     @Autowired(required = false)
+    private com.sporthub.backend.repository.SportRepository sportRepository;
+    @Autowired(required = false)
     private CourtBookingRepository courtBookingRepository;
     @Autowired(required = false)
     private SportsCourtRepository sportsCourtRepository;
@@ -273,15 +275,27 @@ public class MemberProfileController {
     public MembershipQuotaResponse getQuota(Authentication authentication,
             @RequestParam(defaultValue = "CLASS") String bookingType,
             @RequestParam(required = false) Long itemId,
-            @RequestParam(defaultValue = "1") double requiredHours) {
+            @RequestParam(defaultValue = "1") double requiredHours,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime startTime,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime endTime) {
         Long userId = memberId(authentication);
         
         Long sportId = null;
         if ("CLASS".equalsIgnoreCase(bookingType) && itemId != null) sportId = classSessionRepository.findById(itemId).map(ClassSession::getSportId).orElse(null);
-        if ("PT".equalsIgnoreCase(bookingType) && itemId != null) sportId = classSessionRepository.findByCoachIdOrderByStartTimeAsc(itemId).stream().map(ClassSession::getSportId).filter(java.util.Objects::nonNull).findFirst().orElse(null);
+        if ("PT".equalsIgnoreCase(bookingType) && itemId != null) {
+            List<com.sporthub.backend.entity.Sport> allSports = sportRepository != null ? sportRepository.findAll() : List.of();
+            sportId = userRepository.findById(itemId)
+                    .map(coach -> com.sporthub.backend.util.CoachSportHelper.resolveCoachSportIds(coach, allSports))
+                    .flatMap(ids -> ids.stream().findFirst())
+                    .orElseGet(() -> classSessionRepository.findByCoachIdOrderByStartTimeAsc(itemId).stream()
+                            .map(ClassSession::getSportId)
+                            .filter(java.util.Objects::nonNull)
+                            .findFirst()
+                            .orElse(null));
+        }
         UserMembership chosen = "COURT".equalsIgnoreCase(bookingType)
-            ? entitlementService.getActiveMembershipWithCourtQuota(userId, requiredHours)
-            : entitlementService.getActiveMembershipWithQuota(userId, 1, bookingType.toUpperCase(Locale.ROOT), sportId);
+            ? entitlementService.getActiveMembershipWithCourtQuota(userId, requiredHours, startTime, endTime)
+            : entitlementService.getActiveMembershipWithQuota(userId, 1, bookingType.toUpperCase(Locale.ROOT), sportId, startTime, endTime);
         List<UserMembership> activeMemberships = chosen == null ? List.of() : List.of(chosen);
         if (activeMemberships.isEmpty()) {
             // Không có gói tập nào đang active

@@ -125,7 +125,13 @@ function BookingHome() {
 
   const buildOptionPath = (type) => {
     if (!matchedSport?.sportId) return `/member/book/${type}/sports`;
-    if (type === 'court') return `/member/book/courts/${matchedSport.sportId}`;
+    const slug = matchedSport.slug || matchedSport.code;
+    if (type === 'court') {
+      if (slug === 'gym-fitness' || slug === 'yoga-pilates') {
+        return '/member/book/court/sports';
+      }
+      return `/member/book/courts/${matchedSport.sportId}`;
+    }
     if (type === 'class') return `/member/book/classes/${matchedSport.sportId}`;
     return `/member/book/coaches/${matchedSport.sportId}`;
   };
@@ -607,7 +613,7 @@ function CourtPicker({ sportId }) {
           </div>
 
           {selectedCourtInfo && totalSelectedHours > 0 && (
-            <div className="fixed bottom-4 left-4 right-4 z-40 mx-auto max-w-4xl rounded-2xl border border-slate-800 bg-slate-900/95 p-4 text-white shadow-2xl backdrop-blur-md">
+            <div className="fixed bottom-20 lg:bottom-4 left-4 right-4 z-40 mx-auto max-w-4xl rounded-2xl border border-slate-800 bg-slate-900/95 p-4 text-white shadow-2xl backdrop-blur-md">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">

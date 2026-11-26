@@ -380,7 +380,7 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
                                     </span>
                                   </div>
                                   <Link
-                                    to="/coach/attendance"
+                                    to={`/coach/attendance?sessionId=${classItem.sessionId}`}
                                     className="mt-3 flex items-center justify-center gap-1.5 w-full rounded-lg bg-orange-500 hover:bg-orange-600 py-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-white shadow-xs transition-all"
                                   >
                                     <span className="material-symbols-outlined text-[15px]">fact_check</span>

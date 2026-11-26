@@ -123,6 +123,8 @@ export default function AdminSettingsPage() {
 
   const [auditFilter, setAuditFilter] = useState('ALL');
   const [auditSearch, setAuditSearch] = useState('');
+  const [savingPolicies, setSavingPolicies] = useState(false);
+  const [savingPermissions, setSavingPermissions] = useState(false);
 
   // Load Policies & Permissions from Database (MGR-14 / MGR-02)
   useEffect(() => {
@@ -159,28 +161,26 @@ export default function AdminSettingsPage() {
 
   useEffect(() => {
     let active = true;
-    if (activeTab === 'ai') {
-      setAiLoading(true);
-      getAiConfig()
-        .then((data) => {
-          if (active && data) {
-            setAiConfig({
-              ai_enabled: data.ai_enabled === true || String(data.ai_enabled) === 'true',
-              ai_model: data.ai_model || 'gemini-flash-lite-latest',
-              ai_temperature: data.ai_temperature != null ? Number(data.ai_temperature) : 0.7,
-              ai_system_prompt: data.ai_system_prompt || '',
-            });
-          }
-        })
-        .catch((err) => console.warn('Không thể tải cấu hình AI:', err))
-        .finally(() => {
-          if (active) setAiLoading(false);
-        });
-    }
+    setAiLoading(true);
+    getAiConfig()
+      .then((data) => {
+        if (active && data) {
+          setAiConfig({
+            ai_enabled: data.ai_enabled === true || String(data.ai_enabled) === 'true',
+            ai_model: data.ai_model || 'gemini-flash-lite-latest',
+            ai_temperature: data.ai_temperature != null ? Number(data.ai_temperature) : 0.7,
+            ai_system_prompt: data.ai_system_prompt || '',
+          });
+        }
+      })
+      .catch((err) => console.warn('Không thể tải cấu hình AI:', err))
+      .finally(() => {
+        if (active) setAiLoading(false);
+      });
     return () => {
       active = false;
     };
-  }, [activeTab]);
+  }, []);
 
   const handleSaveAiConfig = async (e) => {
     e.preventDefault();
@@ -234,28 +234,46 @@ export default function AdminSettingsPage() {
 
   const savePolicies = async (e) => {
     e.preventDefault();
+    setSavingPolicies(true);
     try {
       await updateSystemSettings({ policies });
       showToast('Thành công', 'Đã lưu cấu hình chính sách vận hành vào database.', 'success');
     } catch (err) {
       showToast('Lỗi', err.message || 'Không thể lưu chính sách.', 'error');
+    } finally {
+      setSavingPolicies(false);
     }
   };
 
   const savePermissions = async () => {
+    setSavingPermissions(true);
     try {
       await updateSystemSettings({ permissions });
       showToast('Thành công', 'Đã cập nhật Ma trận Phân quyền vào database.', 'success');
     } catch (err) {
       showToast('Lỗi', err.message || 'Không thể lưu phân quyền.', 'error');
+    } finally {
+      setSavingPermissions(false);
     }
   };
 
   const togglePermission = (screenIndex, roleKey, permKey) => {
-    const updated = [...permissions];
-    const currentVal = updated[screenIndex].roles[roleKey][permKey];
-    updated[screenIndex].roles[roleKey][permKey] = !currentVal;
-    setPermissions(updated);
+    setPermissions((prev) =>
+      prev.map((row, idx) =>
+        idx !== screenIndex
+          ? row
+          : {
+              ...row,
+              roles: {
+                ...row.roles,
+                [roleKey]: {
+                  ...row.roles[roleKey],
+                  [permKey]: !row.roles[roleKey][permKey],
+                },
+              },
+            },
+      ),
+    );
   };
 
   const AUDIT_FILTER_GROUPS = {
@@ -471,10 +489,11 @@ export default function AdminSettingsPage() {
             <div className="flex justify-end pt-4 border-t border-slate-100">
               <button
                 type="submit"
-                className="px-6 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs shadow-md shadow-orange-500/20 transition cursor-pointer flex items-center gap-2"
+                disabled={savingPolicies}
+                className="px-6 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-orange-500/20 transition cursor-pointer flex items-center gap-2"
               >
                 <span className="material-symbols-outlined text-[18px]">save</span>
-                Lưu Thay Đổi Chính Sách
+                {savingPolicies ? 'Đang lưu...' : 'Lưu Thay Đổi Chính Sách'}
               </button>
             </div>
           </form>
@@ -493,10 +512,11 @@ export default function AdminSettingsPage() {
               <button
                 onClick={savePermissions}
                 type="button"
-                className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs shadow-md shadow-orange-500/20 transition cursor-pointer flex items-center gap-2"
+                disabled={savingPermissions}
+                className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-orange-500/20 transition cursor-pointer flex items-center gap-2"
               >
                 <span className="material-symbols-outlined text-[16px]">save</span>
-                Lưu Ma Trận Phân Quyền
+                {savingPermissions ? 'Đang lưu...' : 'Lưu Ma Trận Phân Quyền'}
               </button>
             </div>
 

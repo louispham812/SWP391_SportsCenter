@@ -23,6 +23,15 @@ public interface CourtBookingRepository extends JpaRepository<CourtBooking, Long
             @Param("dayStart") LocalDateTime dayStart, @Param("dayEnd") LocalDateTime dayEnd,
             @Param("now") LocalDateTime now);
 
+    @Query("""
+            select b from CourtBooking b where b.memberId = :memberId and b.status = 'CONFIRMED'
+              and b.startTime >= :dayStart and b.startTime < :dayEnd and b.startTime <= :startCutoff and b.endTime > :now
+            order by b.startTime, b.courtBookingId
+            """)
+    List<CourtBooking> findCheckInEligibleBookingsWithGrace(@Param("memberId") Long memberId,
+            @Param("dayStart") LocalDateTime dayStart, @Param("dayEnd") LocalDateTime dayEnd,
+            @Param("startCutoff") LocalDateTime startCutoff, @Param("now") LocalDateTime now);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select booking from CourtBooking booking where booking.courtBookingId = :bookingId")
     Optional<CourtBooking> findByIdForUpdate(@Param("bookingId") Long bookingId);

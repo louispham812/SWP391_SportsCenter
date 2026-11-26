@@ -31,7 +31,7 @@ public class PaymentTimeoutScheduler {
             PaymentTransaction payment = candidate.getPaymentId() == null ? null : payments.findByIdForUpdate(candidate.getPaymentId()).orElse(null);
             Booking booking = bookings.findByIdForUpdate(candidate.getBookingId()).orElseThrow();
             if (!"BOOKED".equals(booking.getStatus()) || payment == null || !List.of("PENDING", "FAILED").contains(payment.getPaymentStatus())) continue;
-            booking.setStatus("CANCELLED"); bookings.save(booking); fail(payment);
+            booking.setStatus("CANCELLED"); bookings.save(booking); fail(payment, holdMinutes);
             if (sessions != null) {
                 ClassSession session = sessions.findByIdForUpdate(booking.getSessionId()).orElseThrow();
                 if ("PT".equals(payment.getBookingType())) session.setStatus("CANCELLED");
@@ -42,27 +42,33 @@ public class PaymentTimeoutScheduler {
             PaymentTransaction payment = candidate.getPaymentId() == null ? null : payments.findByIdForUpdate(candidate.getPaymentId()).orElse(null);
             CourtBooking booking = courts.findByIdForUpdate(candidate.getCourtBookingId()).orElseThrow();
             if (!"PENDING".equals(booking.getStatus()) || payment == null || !List.of("PENDING", "FAILED").contains(payment.getPaymentStatus())) continue;
-            booking.setStatus("CANCELLED"); courts.save(booking); fail(payment);
+            booking.setStatus("CANCELLED"); courts.save(booking); fail(payment, holdMinutes);
         }
         for (PaymentTransaction candidate : java.util.stream.Stream.concat(
                 payments.findByBookingTypeAndPaymentStatusIgnoreCaseAndCreatedAtBefore("MEMBERSHIP_PACKAGE", "PENDING", cutoff).stream(),
                 payments.findByBookingTypeAndPaymentStatusIgnoreCaseAndCreatedAtBefore("MEMBERSHIP_PACKAGE", "FAILED", cutoff).stream()).toList()) {
             PaymentTransaction payment = payments.findByIdForUpdate(candidate.getPaymentId()).orElseThrow();
             if (!List.of("PENDING", "FAILED").contains(payment.getPaymentStatus())) continue;
-            fail(payment);
+            if ("PENDING".equalsIgnoreCase(payment.getPaymentStatus())) {
+                fail(payment, holdMinutes);
+            }
             if (memberships != null && payment.getMembershipId() != null) memberships.findByIdForUpdate(payment.getMembershipId()).ifPresent(m -> {
                 if ("PENDING_PAYMENT".equals(m.getStatus())) { m.setStatus("CANCELLED"); memberships.save(m); }
                 if (receipts != null) {
                     receipts.findByMemberIdOrderByCreatedAtDesc(Math.toIntExact(payment.getMemberId())).stream()
-                        .filter(r -> r.getMembershipId() != null && r.getMembershipId().longValue() == m.getMembershipId())
+                        .filter(r -> r.getMembershipId() != null && r.getMembershipId().longValue() == m.getMembershipId()
+                                && !"FAILED".equalsIgnoreCase(r.getPaymentStatus()))
                         .forEach(r -> { r.setPaymentStatus("FAILED"); receipts.save(r); });
                 }
             });
         }
     }
-    private void fail(PaymentTransaction payment) {
+    private void fail(PaymentTransaction payment, int holdMinutes) {
+        boolean wasAlreadyFailed = "FAILED".equalsIgnoreCase(payment.getPaymentStatus());
         payment.setPaymentStatus("FAILED"); payments.save(payment);
         if (vouchers != null) vouchers.release(payment);
-        if (engagement != null) engagement.notifyUser(payment.getMemberId(), "Giữ chỗ đã hết hạn", "Giao dịch #" + payment.getPaymentId() + " đã quá 10 phút thanh toán.", "PAYMENT");
+        if (engagement != null && !wasAlreadyFailed) {
+            engagement.notifyUser(payment.getMemberId(), "Giữ chỗ đã hết hạn", "Giao dịch #" + payment.getPaymentId() + " đã quá " + holdMinutes + " phút thanh toán.", "PAYMENT");
+        }
     }
 }

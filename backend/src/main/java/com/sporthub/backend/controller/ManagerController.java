@@ -402,11 +402,26 @@ public class ManagerController {
                 ? packageRepository.findById(approved.getPackageId()).orElse(null)
                 : null;
         if (approved != null) {
+            int initSess = approved.getInitialQuotaSessions() != null ? approved.getInitialQuotaSessions() : 0;
+            int remSess = approved.getRemainingQuotaSessions() != null ? approved.getRemainingQuotaSessions() : 0;
+            int heldSess = approved.getHeldQuotaSessions() != null ? approved.getHeldQuotaSessions() : 0;
+            int usedSess = approved.getUsedQuotaSessions() != null ? approved.getUsedQuotaSessions() : 0;
+            int initCourts = approved.getInitialQuotaCourts() != null ? approved.getInitialQuotaCourts() : 0;
+            int remCourts = approved.getRemainingQuotaCourts() != null ? approved.getRemainingQuotaCourts() : 0;
+            int heldCourts = approved.getHeldQuotaCourts() != null ? approved.getHeldQuotaCourts() : 0;
+            int usedCourts = approved.getUsedQuotaCourts() != null ? approved.getUsedQuotaCourts() : 0;
             return new MembershipQuotaResponse(
                     membershipId,
+                    pkg != null ? pkg.getPackageId() : approved.getPackageId(),
                     pkg != null && pkg.getName() != null ? pkg.getName() : "Membership Package",
-                    approved.getRemainingQuotaCourts() != null ? approved.getRemainingQuotaCourts() : 0,
-                    approved.getRemainingQuotaSessions() != null ? approved.getRemainingQuotaSessions() : 0
+                    pkg != null && pkg.getPackageType() != null ? pkg.getPackageType().name() : "VIP",
+                    approved.getStartDate(),
+                    approved.getEndDate(),
+                    initSess, remSess, heldSess, usedSess,
+                    remSess > 0,
+                    String.format("Còn %d/%d buổi", remSess, initSess),
+                    initCourts, remCourts, heldCourts, usedCourts,
+                    remCourts > 0
             );
         }
         return new MembershipQuotaResponse(

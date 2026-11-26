@@ -26,6 +26,7 @@ public class CheckInService {
     private final CourtBookingRepository courtBookingRepository;
     private final MembershipService membershipService;
     @org.springframework.beans.factory.annotation.Autowired private CheckInEligibilityService eligibility;
+    @org.springframework.beans.factory.annotation.Autowired(required = false) private com.sporthub.backend.repository.SystemSettingRepository systemSettingRepository;
 
     public CheckInService(MemberCheckInRepository checkInRepository,
                           UserRepository userRepository, BookingRepository bookingRepository,
@@ -95,9 +96,13 @@ public class CheckInService {
         if (!"ACTIVE".equals(member.getStatus())) throw new ResponseStatusException(HttpStatus.CONFLICT, "Tài khoản không hoạt động.");
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime dayStart = now.toLocalDate().atStartOfDay();
+        int graceMinutes = systemSettingRepository == null ? 0 : com.sporthub.backend.util.SystemPolicyHelper.checkInGracePeriodMinutes(systemSettingRepository);
         // Lock eligible court bookings before checking for duplicate scans.
-        List<CourtBooking> courts = courtBookingRepository.findCheckInEligibleBookings(
-                memberId, dayStart, dayStart.plusDays(1), now);
+        List<CourtBooking> courts = graceMinutes > 0
+                ? courtBookingRepository.findCheckInEligibleBookingsWithGrace(
+                        memberId, dayStart, dayStart.plusDays(1), now.plusMinutes(graceMinutes), now)
+                : courtBookingRepository.findCheckInEligibleBookings(
+                        memberId, dayStart, dayStart.plusDays(1), now);
         if (bookingId != null) courts = courts.stream().filter(b -> bookingId.equals(b.getCourtBookingId())).toList();
         if (bookingId != null && courts.isEmpty()) throw new ResponseStatusException(HttpStatus.CONFLICT, "Đặt sân không hợp lệ, chưa đến giờ hoặc đã check-in.");
         if (bookingId == null && courts.size() > 1) throw new ResponseStatusException(HttpStatus.CONFLICT, "Có nhiều sân; vui lòng chọn sân cần check-in.");
@@ -107,7 +112,9 @@ public class CheckInService {
         }
         if (eligibility == null) throw new IllegalStateException("Dịch vụ kiểm tra check-in chưa sẵn sàng.");
         if (courts.isEmpty()) {
-            var classes = bookingRepository.findCheckInEligibleClasses(memberId, now);
+            var classes = graceMinutes > 0
+                    ? bookingRepository.findCheckInEligibleClassesWithGrace(memberId, now.plusMinutes(graceMinutes), now)
+                    : bookingRepository.findCheckInEligibleClasses(memberId, now);
             if (classes.isEmpty()) throw new ResponseStatusException(HttpStatus.CONFLICT, "Không có lịch đã xác nhận trong khung giờ hiện tại.");
             // Admission does not replace the coach's attendance or consume class/PT quota.
             for (var booking : classes) eligibility.validateClass(booking, memberId, now);

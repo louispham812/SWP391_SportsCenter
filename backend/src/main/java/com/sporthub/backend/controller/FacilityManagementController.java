@@ -53,6 +53,18 @@ public class FacilityManagementController {
     @Autowired(required = false)
     private com.sporthub.backend.repository.CourtMaintenanceRepository courtMaintenanceRepository;
 
+    @Autowired(required = false)
+    private com.sporthub.backend.service.MembershipService membershipService;
+
+    @Autowired(required = false)
+    private com.sporthub.backend.repository.RefundRequestRepository refundRequestRepository;
+
+    @Autowired(required = false)
+    private com.sporthub.backend.service.VoucherService voucherService;
+
+    @Autowired(required = false)
+    private com.sporthub.backend.repository.CourtBookingRepository courtBookingRepository;
+
     @Autowired
     public FacilityManagementController(
             FacilityRepository facilityRepository,
@@ -200,6 +212,10 @@ public class FacilityManagementController {
             if (hasMaintenanceOverlap(request.facilityId(), request.sportId(), start, end)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                         "Sân / cơ sở đang có lịch bảo trì trùng khung giờ lớp học này.");
+            }
+            if (hasCourtBookingOverlap(request.facilityId(), request.sportId(), start, end)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Sân / cơ sở đã có lịch đặt sân của hội viên trùng khung giờ lớp học này.");
             }
         }
 
@@ -352,6 +368,10 @@ public class FacilityManagementController {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                         "Sân / cơ sở đang có lịch bảo trì trùng khung giờ lớp học này.");
             }
+            if (hasCourtBookingOverlap(session.getFacilityId(), session.getSportId(), targetStart, targetEnd)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Sân / cơ sở đã có lịch đặt sân của hội viên trùng khung giờ lớp học này.");
+            }
         }
         if (request.maxSlots() != null && request.maxSlots() > 0) {
             session.setMaxSlots(request.maxSlots());
@@ -396,33 +416,86 @@ public class FacilityManagementController {
         ClassSession session = classSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy ca học."));
 
+        if ("CANCELLED".equalsIgnoreCase(session.getStatus()) || "COMPLETED".equalsIgnoreCase(session.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ca học đã kết thúc hoặc đã bị hủy trước đó.");
+        }
+
         session.setStatus("CANCELLED");
+        session.setBookedSlots(0);
         classSessionRepository.save(session);
 
-        // MGR-08: Tự động gửi thông báo hủy cho HLV và học viên
+        if (bookingRepository != null) {
+            List<Booking> bookings = bookingRepository.findBySessionIdInAndStatusIn(List.of(sessionId), List.of("BOOKED", "CONFIRMED"));
+            for (Booking b : bookings) {
+                b.setStatus("CANCELLED");
+                String memberNotice;
+                if (Boolean.TRUE.equals(b.getUsesMembershipQuota())
+                        && b.getMembershipId() != null
+                        && !"RELEASED".equalsIgnoreCase(b.getQuotaState())
+                        && !"USED".equalsIgnoreCase(b.getQuotaState())) {
+                    if (membershipService != null) {
+                        membershipService.refundQuotaForExcusedAbsence(b.getMembershipId(), 1, session.getStartTime());
+                    }
+                    b.setQuotaState("RELEASED");
+                    memberNotice = "Lớp học '" + session.getClassName() + "' vào lúc " + session.getStartTime().toString().replace("T", " ")
+                            + " đã bị hủy. Lượt quota hội viên của bạn đã được hoàn lại. Lý do: " + reason;
+                } else if (paymentTransactionRepository != null && b.getPaymentId() != null) {
+                    boolean[] createdRefund = { false };
+                    paymentTransactionRepository.findById(b.getPaymentId()).ifPresent(orig -> {
+                        if ("PENDING".equalsIgnoreCase(orig.getPaymentStatus())) {
+                            orig.setPaymentStatus("FAILED");
+                            paymentTransactionRepository.save(orig);
+                            if (voucherService != null) {
+                                voucherService.release(orig);
+                            }
+                        } else if ("PAID".equalsIgnoreCase(orig.getPaymentStatus())
+                                && orig.getAmount() != null && orig.getAmount().signum() > 0) {
+                            if (refundRequestRepository != null
+                                    && !refundRequestRepository.existsByTransactionIdAndStatusIn(
+                                            orig.getPaymentId(), List.of("PENDING", "PENDING_APPROVAL", "APPROVED"))) {
+                                User member = userRepository.findById(b.getMemberId()).orElse(null);
+                                com.sporthub.backend.entity.RefundRequest rr = com.sporthub.backend.entity.RefundRequest.builder()
+                                        .memberId(b.getMemberId())
+                                        .memberName(member != null ? member.getFullName() : "Hội viên #" + b.getMemberId())
+                                        .phone(member != null ? member.getPhone() : null)
+                                        .transactionId(orig.getPaymentId())
+                                        .referenceCode(orig.getReferenceCode())
+                                        .bookingId(b.getBookingId())
+                                        .bookingType(orig.getBookingType())
+                                        .bookingDescription(session.getClassName())
+                                        .refundAmount(orig.getAmount())
+                                        .reason("Lớp học bị hủy bởi Quản lý: " + reason)
+                                        .status("PENDING_APPROVAL")
+                                        .createdAt(LocalDateTime.now())
+                                        .build();
+                                refundRequestRepository.save(rr);
+                                createdRefund[0] = true;
+                            }
+                        }
+                    });
+                    memberNotice = createdRefund[0]
+                            ? "Lớp học '" + session.getClassName() + "' vào lúc " + session.getStartTime().toString().replace("T", " ")
+                                    + " đã bị hủy. Yêu cầu hoàn tiền đã được tạo và chuyển Quản lý duyệt. Lý do: " + reason
+                            : "Lớp học '" + session.getClassName() + "' vào lúc " + session.getStartTime().toString().replace("T", " ")
+                                    + " đã bị hủy. Lý do: " + reason;
+                } else {
+                    memberNotice = "Lớp học '" + session.getClassName() + "' vào lúc " + session.getStartTime().toString().replace("T", " ")
+                            + " đã bị hủy. Lý do: " + reason;
+                }
+                bookingRepository.save(b);
+
+                if (engagementService != null) {
+                    engagementService.notifyUser(b.getMemberId(), "Thông Báo Hủy Lớp Học: " + session.getClassName(), memberNotice, "MEMBER");
+                }
+            }
+        }
+
+        // MGR-08: Tự động gửi thông báo hủy cho HLV và ghi audit
         if (engagementService != null) {
             String coachMsg = "Ca dạy '" + session.getClassName() + "' vào lúc "
                     + session.getStartTime().toString().replace("T", " ") + " đã bị hủy bởi Quản lý. Lý do: " + reason;
             engagementService.notifyUser(session.getCoachId(), "Hủy Ca Dạy: " + session.getClassName(), coachMsg, "COACH");
 
-            if (bookingRepository != null) {
-                List<Booking> bookings = bookingRepository.findBySessionIdInAndStatusIn(List.of(sessionId), List.of("BOOKED", "CONFIRMED"));
-                for (Booking b : bookings) {
-                    b.setStatus("CANCELLED");
-                    bookingRepository.save(b);
-
-                    if (paymentTransactionRepository != null && b.getPaymentId() != null) {
-                        paymentTransactionRepository.findById(b.getPaymentId()).ifPresent(orig -> {
-                            orig.setPaymentStatus("REFUNDED");
-                            paymentTransactionRepository.save(orig);
-                        });
-                    }
-
-                    engagementService.notifyUser(b.getMemberId(), "Thông Báo Hủy Lớp Học: " + session.getClassName(),
-                            "Lớp học '" + session.getClassName() + "' vào lúc " + session.getStartTime().toString().replace("T", " ")
-                                    + " đã bị hủy. Học phí/lượt học của bạn đã được hoàn lại. Lý do: " + reason, "MEMBER");
-                }
-            }
             engagementService.audit(actorId(authentication), actorRole(authentication),
                     "CLASS_SESSION_CANCELLED", "sessionId=" + sessionId + ", reason=" + reason);
         }
@@ -466,6 +539,19 @@ public class FacilityManagementController {
         }
         return courtIds.stream().anyMatch(courtId ->
                 courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(courtId, end, start));
+    }
+
+    private boolean hasCourtBookingOverlap(Long facilityId, Long sportId, LocalDateTime start, LocalDateTime end) {
+        if (syncService == null || courtBookingRepository == null || facilityId == null || start == null || end == null) {
+            return false;
+        }
+        String facilityName = facilityRepository.findById(facilityId).map(Facility::getFacilityName).orElse(null);
+        List<Long> courtIds = syncService.getCourtIdsForFacility(facilityId, sportId, facilityName);
+        if (courtIds == null || courtIds.isEmpty()) {
+            return false;
+        }
+        return courtIds.stream().anyMatch(courtId ->
+                courtBookingRepository.existsConfirmedOverlap(courtId, start, end));
     }
 
     private Long actorId(Authentication authentication) {

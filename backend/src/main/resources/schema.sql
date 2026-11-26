@@ -504,7 +504,7 @@ OUTER APPLY (
     ORDER BY coach.user_id
 ) anyCoach
 WHERE COALESCE(preferredCoach.user_id, anyCoach.user_id) IS NOT NULL
-  AND CAST(classTime.start_time AS DATE) <> '2026-11-20'
+  AND CAST(classTime.start_time AS DATE) NOT IN ('2026-11-20', '2026-11-28')
   AND NOT EXISTS (
       SELECT 1
       FROM dbo.class_sessions existing
@@ -517,7 +517,9 @@ WHERE COALESCE(preferredCoach.user_id, anyCoach.user_id) IS NOT NULL
 IF OBJECT_ID(N'dbo.class_sessions', N'U') IS NOT NULL
     UPDATE dbo.class_sessions
        SET price_amount = 100000 + (session_id % 5) * 25000
-     WHERE price_amount = 0;
+     WHERE price_amount = 0
+       AND class_name NOT LIKE N'Huấn Luyện%'
+       AND class_name NOT LIKE N'PT%';
 
 IF NOT EXISTS (SELECT 1 FROM dbo.public_facilities WHERE slug = N'check-in-qr')
     INSERT INTO dbo.public_facilities (slug, name, description, icon, highlight, active)

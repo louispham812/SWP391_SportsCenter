@@ -72,7 +72,7 @@ export default function AboutPage() {
       name: 'HLV Lê Anh Tuấn',
       role: 'Master Coach Pickleball & PT Biomechanics',
       cert: 'Chứng chỉ PPR Level 2 Pro & NASM CPT',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
       exp: '6 năm kinh nghiệm huấn luyện thi đấu chuyên nghiệp',
     },
     {

@@ -437,6 +437,9 @@ public class BookingService {
         LocalDate today = LocalDate.now();
         int maxAdvanceDays = com.sporthub.backend.util.SystemPolicyHelper.maxAdvanceBookingDays(systemSettingRepository);
         LocalDateTime horizon = today.plusDays(maxAdvanceDays).atStartOfDay();
+        List<ClassSession> allActiveSessions = classSessionRepository.findAll().stream()
+                .filter(s -> !"CANCELLED".equalsIgnoreCase(s.getStatus()) && s.getStartTime() != null && s.getEndTime() != null)
+                .toList();
         return sportsCourtRepository.findBySportIdOrderByCourtIdAsc(sportId).stream()
                 .flatMap(court -> {
                     LocalDateTime from = today.atStartOfDay();
@@ -444,11 +447,40 @@ public class BookingService {
                             .findByCourtIdAndStatusAndStartTimeBetween(court.getCourtId(), "CONFIRMED", from, horizon);
                     List<CourtMaintenance> maintenanceWindows = courtMaintenanceRepository
                             .findByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(court.getCourtId(), horizon, from);
+                    List<ClassSession> courtClassSessions = mappedSessionsForCourt(court, allActiveSessions);
                     return java.util.stream.Stream.iterate(today, date -> date.plusDays(1))
                             .limit(maxAdvanceDays)
-                            .flatMap(date -> slotsForDay(court, sport, date, existingBookings, maintenanceWindows).stream());
+                            .flatMap(date -> slotsForDay(court, sport, date, existingBookings, maintenanceWindows, courtClassSessions).stream());
                 })
                 .toList();
+    }
+
+    private List<ClassSession> mappedSessionsForCourt(SportsCourt court, List<ClassSession> activeSessions) {
+        if (syncService == null || court == null || activeSessions == null || activeSessions.isEmpty()) {
+            return List.of();
+        }
+        List<Long> facilityIds = syncService.getFacilityIdsForCourt(court.getCourtId(), court.getSportId(), court.getCourtName());
+        if (facilityIds == null || facilityIds.isEmpty()) {
+            return List.of();
+        }
+        return activeSessions.stream()
+                .filter(s -> s.getFacilityId() != null && facilityIds.contains(s.getFacilityId()))
+                .toList();
+    }
+
+    private boolean hasClassSessionOverlapForCourt(SportsCourt court, LocalDateTime start, LocalDateTime end) {
+        if (syncService == null || court == null || start == null || end == null) {
+            return false;
+        }
+        List<Long> facilityIds = syncService.getFacilityIdsForCourt(court.getCourtId(), court.getSportId(), court.getCourtName());
+        if (facilityIds == null || facilityIds.isEmpty()) {
+            return false;
+        }
+        return classSessionRepository.findAll().stream()
+                .filter(s -> !"CANCELLED".equalsIgnoreCase(s.getStatus())
+                        && s.getFacilityId() != null && facilityIds.contains(s.getFacilityId())
+                        && s.getStartTime() != null && s.getEndTime() != null)
+                .anyMatch(s -> s.getStartTime().isBefore(end) && s.getEndTime().isAfter(start));
     }
 
     private List<CourtSlotResponse> slotsForDay(
@@ -456,7 +488,8 @@ public class BookingService {
             PublicSport sport,
             LocalDate date,
             List<CourtBooking> existingBookings,
-            List<CourtMaintenance> maintenanceWindows) {
+            List<CourtMaintenance> maintenanceWindows,
+            List<ClassSession> courtClassSessions) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime slot = date.atTime(court.getOpensAt());
         LocalDateTime close = date.atTime(court.getClosesAt());
@@ -466,7 +499,9 @@ public class BookingService {
             LocalDateTime end = slot.plusHours(1);
             LocalDateTime candidate = slot;
             boolean occupied = existingBookings.stream().anyMatch(booking ->
-                    booking.getStartTime().isBefore(end) && booking.getEndTime().isAfter(candidate));
+                    booking.getStartTime().isBefore(end) && booking.getEndTime().isAfter(candidate))
+                    || (courtClassSessions != null && courtClassSessions.stream().anyMatch(session ->
+                    session.getStartTime().isBefore(end) && session.getEndTime().isAfter(candidate)));
             boolean underMaintenance = courtInactive || (maintenanceWindows != null && maintenanceWindows.stream().anyMatch(m ->
                     m.getStartTime().isBefore(end) && m.getEndTime().isAfter(candidate)));
             if (slot.isAfter(now)) {
@@ -758,6 +793,10 @@ public class BookingService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, 
                 "Sân này đã được đặt trong khung giờ bạn chọn. Vui lòng chọn sân khác hoặc thời gian khác.");
         }
+        if (hasClassSessionOverlapForCourt(court, request.startTime(), request.endTime())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Sân này đang có lịch lớp học trong khung giờ bạn chọn. Vui lòng chọn khung giờ khác.");
+        }
 
         // 5. BR-COURT-02: Check member concurrent court limit (max 3 courts at same time)
         long memberConcurrentCourts = courtBookingRepository.countMemberConcurrentCourts(
@@ -901,6 +940,10 @@ public class BookingService {
         // 5. Find membership with quota (Rule: remaining_quota_sessions >= 1)
         UserMembership membership = membershipService.getActiveMembershipWithQuota(memberId, 1, "CLASS", session.getSportId(), session.getStartTime(), session.getEndTime());
         if (membership == null) {
+            UserMembership fallback = membershipService.getActiveMembershipWithQuota(memberId, 1, "CLASS", session.getSportId());
+            if (fallback != null) {
+                membershipService.requireBookingAccess(fallback.getMembershipId(), session.getStartTime(), session.getEndTime());
+            }
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
                 "Không có gói membership còn quota. Vui lòng chọn thanh toán giá lẻ.");
         }
@@ -1015,6 +1058,10 @@ public class BookingService {
         Long ptSportId = resolveCoachPrimarySportId(coach, coachSessions);
         UserMembership membership = membershipService.getActiveMembershipWithQuota(memberId, 1, "PT", ptSportId, start, end);
         if (membership == null) {
+            UserMembership fallback = membershipService.getActiveMembershipWithQuota(memberId, 1, "PT", ptSportId);
+            if (fallback != null) {
+                membershipService.requireBookingAccess(fallback.getMembershipId(), start, end);
+            }
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
                 "Không có gói membership còn quota. Vui lòng chọn thanh toán giá lẻ.");
         }
@@ -1693,6 +1740,9 @@ public class BookingService {
         CourtBooking booking = courtBookingRepository.findByIdForUpdate(id).orElseThrow(() -> notFound("Không tìm thấy đặt sân."));
         if (!booking.getMemberId().equals(userId)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         if (!List.of("PENDING", "CONFIRMED").contains(booking.getStatus())) throw new ResponseStatusException(HttpStatus.CONFLICT, "Lịch không thể hủy.");
+        if (booking.getStartTime() == null || !booking.getStartTime().isAfter(LocalDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Lịch đặt sân đã bắt đầu hoặc đã kết thúc, không thể hủy.");
+        }
         int cancelDeadlineHours = com.sporthub.backend.util.SystemPolicyHelper.cancelRefundDeadlineHours(systemSettingRepository);
         boolean timely = !booking.getStartTime().minusHours(cancelDeadlineHours).isBefore(LocalDateTime.now())
             || courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(booking.getCourtId(), booking.getEndTime(), booking.getStartTime());
@@ -1833,9 +1883,27 @@ public class BookingService {
     @Transactional
     public void restoreBookingAfterRefundRejection(Long id, String type) {
         if (id == null || type == null) return;
+        LocalDateTime now = LocalDateTime.now();
         if ("COURT".equalsIgnoreCase(type)) {
             courtBookingRepository.findByIdForUpdate(id).ifPresent(booking -> {
                 if ("CANCELLED".equalsIgnoreCase(booking.getStatus())) {
+                    if (booking.getStartTime() != null && !booking.getStartTime().isAfter(now)) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                "Khung giờ sân đã qua giờ; không thể khôi phục lịch sau khi từ chối hoàn tiền.");
+                    }
+                    if (booking.getCourtId() != null && booking.getStartTime() != null && booking.getEndTime() != null) {
+                        SportsCourt court = sportsCourtRepository.findByIdForUpdate(booking.getCourtId()).orElse(null);
+                        boolean courtUnavailable = court == null || !court.isActive()
+                                || courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(
+                                        booking.getCourtId(), booking.getEndTime(), booking.getStartTime())
+                                || courtBookingRepository.existsConfirmedOverlapExcluding(
+                                        booking.getCourtId(), booking.getCourtBookingId(), booking.getStartTime(), booking.getEndTime())
+                                || hasClassSessionOverlapForCourt(court, booking.getStartTime(), booking.getEndTime());
+                        if (courtUnavailable) {
+                            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                    "Khung giờ sân không còn trống; không thể khôi phục lịch sau khi từ chối hoàn tiền.");
+                        }
+                    }
                     booking.setStatus("CONFIRMED");
                     courtBookingRepository.save(booking);
                 }
@@ -1843,18 +1911,41 @@ public class BookingService {
         } else {
             bookingRepository.findByIdForUpdate(id).ifPresent(booking -> {
                 if ("CANCELLED".equalsIgnoreCase(booking.getStatus())) {
-                    booking.setStatus("CONFIRMED");
-                    bookingRepository.save(booking);
-                    classSessionRepository.findByIdForUpdate(booking.getSessionId()).ifPresent(session -> {
-                        boolean isPt = "PT".equalsIgnoreCase(type) || (booking.getPaymentId() != null
-                                && paymentTransactionRepository.findById(booking.getPaymentId())
-                                        .map(p -> "PT".equals(p.getBookingType())).orElse(false));
-                        if (isPt && "CANCELLED".equalsIgnoreCase(session.getStatus())) {
+                    ClassSession session = classSessionRepository.findByIdForUpdate(booking.getSessionId())
+                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Không tìm thấy ca học để khôi phục."));
+                    if (session.getStartTime() != null && !session.getStartTime().isAfter(now)) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "Lớp học đã qua giờ; không thể khôi phục đăng ký.");
+                    }
+                    boolean isPt = "PT".equalsIgnoreCase(type) || (booking.getPaymentId() != null
+                            && paymentTransactionRepository.findById(booking.getPaymentId())
+                                    .map(p -> "PT".equals(p.getBookingType())).orElse(false));
+                    if (isPt) {
+                        if (session.getCoachId() != null && session.getStartTime() != null && session.getEndTime() != null) {
+                            boolean coachBusy = classSessionRepository.findByCoachIdOrderByStartTimeAsc(session.getCoachId()).stream()
+                                    .anyMatch(existing -> !existing.getSessionId().equals(session.getSessionId())
+                                            && !"CANCELLED".equalsIgnoreCase(existing.getStatus())
+                                            && session.getStartTime().isBefore(existing.getEndTime())
+                                            && session.getEndTime().isAfter(existing.getStartTime()));
+                            if (coachBusy) {
+                                throw new ResponseStatusException(HttpStatus.CONFLICT, "HLV đã có lịch khác trùng giờ; không thể khôi phục buổi PT.");
+                            }
+                        }
+                        if ("CANCELLED".equalsIgnoreCase(session.getStatus())) {
                             session.setStatus("SCHEDULED");
                         }
-                        session.setBookedSlots((int) bookingRepository.countBySessionIdAndStatusIn(session.getSessionId(), ACTIVE_STATUSES));
-                        classSessionRepository.save(session);
-                    });
+                    } else {
+                        if ("CANCELLED".equalsIgnoreCase(session.getStatus())) {
+                            throw new ResponseStatusException(HttpStatus.CONFLICT, "Lớp học đã bị hủy; không thể khôi phục đăng ký.");
+                        }
+                        long activeCount = bookingRepository.countActiveBookingsWithLock(session.getSessionId(), ACTIVE_STATUSES);
+                        if (session.getMaxSlots() != null && activeCount >= session.getMaxSlots()) {
+                            throw new ResponseStatusException(HttpStatus.CONFLICT, "Lớp học đã đủ sĩ số; không thể khôi phục đăng ký.");
+                        }
+                    }
+                    booking.setStatus("CONFIRMED");
+                    bookingRepository.save(booking);
+                    session.setBookedSlots((int) bookingRepository.countBySessionIdAndStatusIn(session.getSessionId(), ACTIVE_STATUSES));
+                    classSessionRepository.save(session);
                 }
             });
         }
@@ -1905,6 +1996,9 @@ public class BookingService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Đổi lịch chỉ áp dụng sân cùng bộ môn và đơn giá; hãy hủy và đặt mới.");
         if (bookingRepository.existsOverlappingBookingForMember(userId, ALL_ACTIVE_STATUSES, newStartTime, newEndTime))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có lịch học trong khung giờ mới.");
+        if (Boolean.TRUE.equals(courtBooking.getUsesMembershipQuota()) && courtBooking.getMembershipId() != null) {
+            membershipService.requireBookingAccess(courtBooking.getMembershipId(), newStartTime, newEndTime);
+        }
         // Validate court opens/closes
         validateCourtSlot(targetCourt, newStartTime, newEndTime);
 
@@ -1920,12 +2014,15 @@ public class BookingService {
         if (courtOverlap) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Khung giờ tại sân này đã có người khác đặt.");
         }
+        if (hasClassSessionOverlapForCourt(targetCourt, newStartTime, newEndTime)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Sân này đang có lịch lớp học trong khung giờ bạn chọn. Vui lòng chọn khung giờ khác.");
+        }
 
         // Check member doesn't have other overlapping booking
         boolean memberOverlap = courtBookingRepository.findAll().stream().anyMatch(cb ->
                 !cb.getCourtBookingId().equals(courtBookingId)
                 && cb.getMemberId().equals(userId)
-                && List.of("CONFIRMED", "CHECKED_IN").contains(cb.getStatus())
+                && List.of("PENDING", "CONFIRMED", "CHECKED_IN").contains(cb.getStatus())
                 && cb.getStartTime().isBefore(newEndTime)
                 && cb.getEndTime().isAfter(newStartTime));
         if (memberOverlap) {
@@ -1997,6 +2094,10 @@ public class BookingService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "Khung giờ này đã có người đặt. Vui lòng chọn thời gian khác.");
         }
+        if (hasClassSessionOverlapForCourt(court, request.startTime(), request.endTime())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Sân này đang có lịch lớp học trong khung giờ bạn chọn. Vui lòng chọn khung giờ khác.");
+        }
 
         long memberConcurrentCourts = courtBookingRepository.countMemberConcurrentCourts(
                 memberId, request.startTime(), request.endTime());
@@ -2013,6 +2114,12 @@ public class BookingService {
 
         // 5. Get and validate membership with court quota
         UserMembership membership = membershipService.getActiveMembershipWithCourtQuota(memberId, exactHours, request.startTime(), request.endTime());
+        if (membership == null) {
+            UserMembership fallback = membershipService.getActiveMembershipWithCourtQuota(memberId, exactHours);
+            if (fallback != null && fallback.getRemainingQuotaCourts() != null && fallback.getRemainingQuotaCourts() >= exactHours) {
+                membershipService.requireBookingAccess(fallback.getMembershipId(), request.startTime(), request.endTime());
+            }
+        }
         if (membership == null || membership.getRemainingQuotaCourts() < exactHours) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 String.format("Số giờ sân trong gói hội viên của bạn không đủ (cần %.1f giờ, hiện còn %d giờ). " +

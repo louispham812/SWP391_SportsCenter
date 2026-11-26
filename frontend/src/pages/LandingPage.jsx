@@ -37,9 +37,9 @@ export default function LandingPage() {
 
   const metrics = [
     { value: '15.000m²', label: 'Diện tích quy hoạch', icon: 'aspect_ratio' },
-    { value: '10 Bộ Môn', label: 'Chuẩn Olympic & ITF', icon: 'stadium' },
-    { value: '16 Tiện Ích', label: 'Cơ sở & Sân thi đấu', icon: 'workspace_premium' },
-    { value: '24/7', label: 'Check-in RFID & AI Smart', icon: 'schedule' },
+    { value: `${sports.length || 10} Bộ Môn`, label: 'Chuẩn Olympic & ITF', icon: 'stadium' },
+    { value: `${facilities.length || 16} Tiện Ích`, label: 'Cơ sở & Sân thi đấu', icon: 'workspace_premium' },
+    { value: '05:30 - 23:00', label: 'Mở cửa mỗi ngày · RFID & AI', icon: 'schedule' },
   ];
 
   const highlights = [
