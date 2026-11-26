@@ -40,6 +40,16 @@ class SecurityConfigTest {
         mockMvc.perform(post("/api/v1/manager/vouchers").with(staff)).andExpect(status().isForbidden());
     }
 
+    @Test
+    void receptionistCanAccessManagerCourtsAndMaintenanceReadEndpoints() throws Exception {
+        var staff = org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("3").roles("RECEPTIONIST");
+        var member = org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("9").roles("MEMBER");
+        mockMvc.perform(get("/api/v1/manager/courts").with(staff)).andExpect(status().is(org.hamcrest.Matchers.not(403)));
+        mockMvc.perform(get("/api/v1/manager/maintenance").with(staff)).andExpect(status().is(org.hamcrest.Matchers.not(403)));
+        mockMvc.perform(get("/api/v1/manager/courts").with(member)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/manager/maintenance").with(member)).andExpect(status().isForbidden());
+    }
+
     @Autowired
     private MockMvc mockMvc;
 
