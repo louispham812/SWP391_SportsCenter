@@ -54,27 +54,29 @@ echo     Backend    ^(8080^) : %BE_STATUS%
 echo     Frontend   ^(5174^) : %FE_STATUS%
 echo %C_DIM%  ------------------------------------------------------------%C_RESET%
 echo.
-echo   %C_CYAN%[1]%C_RESET% Khoi dong he thong ^(Chay ngam BE + FE ^& tu mo trinh duyet^)
-echo   %C_CYAN%[2]%C_RESET% Reset Database sach ^(Nap lai DATABASEchuan.sql^)
-echo   %C_CYAN%[3]%C_RESET% %C_BOLD%Reset sach DB + Restart toan bo ^(Chuan bi bao ve^)%C_RESET%
-echo   %C_CYAN%[4]%C_RESET% Dung Backend ^& Frontend ^(Kill cong 8080 ^& 5174^)
-echo   %C_CYAN%[5]%C_RESET% Xem Log Backend / Frontend ngay trong cua so nay
-echo   %C_CYAN%[6]%C_RESET% Kiem tra chat luong ^(Lint + Build Frontend^)
-echo   %C_CYAN%[0]%C_RESET% Thoat
+echo   %C_CYAN%[1]%C_RESET% Khoi dong BE ^& FE ^(Chay ngam + mo trinh duyet^)
+echo   %C_CYAN%[2]%C_RESET% Build ^& Restart ^(BE / FE / Ca hai - giu nguyen DB^)
+echo   %C_CYAN%[3]%C_RESET% Reset DB sach ^(Nap lai DATABASEchuan.sql^)
+echo   %C_CYAN%[4]%C_RESET% %C_BOLD%Reset DB + Restart toan bo ^(Chuan bi bao ve^)%C_RESET%
+echo   %C_CYAN%[5]%C_RESET% Dung BE ^& FE ^(Giu cua so launcher^)
+echo   %C_CYAN%[6]%C_RESET% Xem Log BE / FE
+echo   %C_CYAN%[7]%C_RESET% Kiem tra Build ^& Lint ^(BE / FE^)
+echo   %C_CYAN%[0]%C_RESET% Dung BE ^& FE va Thoat
 echo.
 set "CHOICE="
-set /p "CHOICE=  Chon thao tac [0-6]: "
+set /p "CHOICE=  Chon thao tac [0-7]: "
 
 if "%CHOICE%"=="1" goto :ACTION_START_ONLY
-if "%CHOICE%"=="2" goto :ACTION_RESET_DB
-if "%CHOICE%"=="3" goto :ACTION_FULL_RESTART
-if "%CHOICE%"=="4" goto :ACTION_STOP_ALL
-if "%CHOICE%"=="5" goto :ACTION_VIEW_LOGS
-if "%CHOICE%"=="6" goto :ACTION_CHECK_FE
-if "%CHOICE%"=="0" exit /b 0
+if "%CHOICE%"=="2" goto :ACTION_REBUILD_RESTART
+if "%CHOICE%"=="3" goto :ACTION_RESET_DB
+if "%CHOICE%"=="4" goto :ACTION_FULL_RESTART
+if "%CHOICE%"=="5" goto :ACTION_STOP_ALL
+if "%CHOICE%"=="6" goto :ACTION_VIEW_LOGS
+if "%CHOICE%"=="7" goto :ACTION_CHECK_QUALITY
+if "%CHOICE%"=="0" goto :ACTION_STOP_AND_EXIT
 
 echo.
-echo   %C_YELLOW%[WARN] Lua chon khong hop le. Vui long chon tu 0 den 6.%C_RESET%
+echo   %C_YELLOW%[WARN] Lua chon khong hop le. Vui long chon tu 0 den 7.%C_RESET%
 timeout /t 2 >nul
 goto :MENU
 
@@ -88,6 +90,58 @@ call :PREFLIGHT_BUILD_TOOLS
 if errorlevel 1 goto :BACK_OR_EXIT
 call :START_SERVICES
 call :WAIT_AND_OPEN_BROWSER
+goto :BACK_OR_EXIT
+
+:ACTION_REBUILD_RESTART
+echo.
+echo   %C_CYAN%[1]%C_RESET% Build ^& Restart Backend ^(8080^)
+echo   %C_CYAN%[2]%C_RESET% Build ^& Restart Frontend ^(5174^)
+echo   %C_CYAN%[3]%C_RESET% Build ^& Restart ca hai ^(BE + FE^)
+echo   %C_CYAN%[0]%C_RESET% Quay lai
+echo.
+set "RB_CHOICE="
+set /p "RB_CHOICE=  Chon [0-3]: "
+if "%RB_CHOICE%"=="0" goto :MENU
+if not "%RB_CHOICE%"=="1" if not "%RB_CHOICE%"=="2" if not "%RB_CHOICE%"=="3" (
+    echo   %C_YELLOW%[WARN] Lua chon khong hop le.%C_RESET%
+    timeout /t 1 >nul
+    goto :MENU
+)
+
+call :PREFLIGHT_BUILD_TOOLS
+if errorlevel 1 goto :BACK_OR_EXIT
+
+if "%RB_CHOICE%"=="1" goto :REBUILD_BE_ONLY
+if "%RB_CHOICE%"=="2" goto :REBUILD_FE_ONLY
+if "%RB_CHOICE%"=="3" goto :REBUILD_BOTH
+
+:REBUILD_BE_ONLY
+call :STOP_PORT 8080 "Backend"
+call :COMPILE_BE
+if errorlevel 1 goto :BACK_OR_EXIT
+call :START_BE
+call :WAIT_BE
+goto :BACK_OR_EXIT
+
+:REBUILD_FE_ONLY
+call :STOP_PORT 5174 "Frontend"
+call :BUILD_FE
+if errorlevel 1 goto :BACK_OR_EXIT
+call :START_FE
+call :WAIT_FE
+goto :BACK_OR_EXIT
+
+:REBUILD_BOTH
+call :STOP_PORT 8080 "Backend"
+call :STOP_PORT 5174 "Frontend"
+call :COMPILE_BE
+if errorlevel 1 goto :BACK_OR_EXIT
+call :BUILD_FE
+if errorlevel 1 goto :BACK_OR_EXIT
+call :START_BE
+call :START_FE
+call :WAIT_BE
+call :WAIT_FE
 goto :BACK_OR_EXIT
 
 :ACTION_RESET_DB
@@ -113,6 +167,14 @@ call :STOP_PORT 8080 "Backend"
 call :STOP_PORT 5174 "Frontend"
 echo   %C_GREEN%[OK]%C_RESET% Da don dep xong cong 8080 va 5174.
 goto :BACK_OR_EXIT
+
+:ACTION_STOP_AND_EXIT
+echo.
+call :STOP_PORT 8080 "Backend"
+call :STOP_PORT 5174 "Frontend"
+echo   %C_GREEN%[OK]%C_RESET% Da dung BE ^& FE.
+timeout /t 1 >nul
+exit /b 0
 
 :ACTION_VIEW_LOGS
 echo.
@@ -149,30 +211,37 @@ if "%LOG_CHOICE%"=="3" (
 )
 goto :MENU
 
-:ACTION_CHECK_FE
+:ACTION_CHECK_QUALITY
 echo.
-where npm >nul 2>&1
-if errorlevel 1 (
-    echo   %C_RED%[ERR]%C_RESET% Khong tim thay npm trong PATH.
+echo   %C_CYAN%[1]%C_RESET% Kiem tra Frontend ^(Lint + Build^)
+echo   %C_CYAN%[2]%C_RESET% Kiem tra Backend ^(mvn test-compile^)
+echo   %C_CYAN%[3]%C_RESET% Kiem tra ca hai ^(BE + FE^)
+echo   %C_CYAN%[0]%C_RESET% Quay lai
+echo.
+set "CHK_CHOICE="
+set /p "CHK_CHOICE=  Chon [0-3]: "
+if "%CHK_CHOICE%"=="0" goto :MENU
+if not "%CHK_CHOICE%"=="1" if not "%CHK_CHOICE%"=="2" if not "%CHK_CHOICE%"=="3" (
+    echo   %C_YELLOW%[WARN] Lua chon khong hop le.%C_RESET%
+    timeout /t 1 >nul
+    goto :MENU
+)
+
+if "%CHK_CHOICE%"=="1" (
+    call :LINT_AND_BUILD_FE
     goto :BACK_OR_EXIT
 )
-pushd "%FRONTEND_DIR%"
-echo   %C_CYAN%[1/2]%C_RESET% Dang chay npm run lint...
-call npm run lint
-if errorlevel 1 (
-    popd
-    echo   %C_RED%[ERR]%C_RESET% Lint that bai.
+if "%CHK_CHOICE%"=="2" (
+    call :CHECK_BE_COMPILE
     goto :BACK_OR_EXIT
 )
-echo   %C_CYAN%[2/2]%C_RESET% Dang chay npm run build...
-call npm run build
-popd
-if errorlevel 1 (
-    echo   %C_RED%[ERR]%C_RESET% Build that bai.
-) else (
-    echo   %C_GREEN%[OK]%C_RESET% Frontend lint + build PASS!
+if "%CHK_CHOICE%"=="3" (
+    call :CHECK_BE_COMPILE
+    if errorlevel 1 goto :BACK_OR_EXIT
+    call :LINT_AND_BUILD_FE
+    goto :BACK_OR_EXIT
 )
-goto :BACK_OR_EXIT
+goto :MENU
 
 :BACK_OR_EXIT
 echo.
@@ -235,7 +304,72 @@ if errorlevel 1 (
 echo   %C_GREEN%[OK]%C_RESET% Da reset database SportsCenterDB thanh cong!
 exit /b 0
 
-:START_SERVICES
+:COMPILE_BE
+echo   %C_CYAN%[BE]%C_RESET% Dang build Backend ^(mvn compile^)...
+pushd "%BACKEND_DIR%"
+call mvn compile
+popd
+if errorlevel 1 (
+    echo   %C_RED%[ERR]%C_RESET% Build Backend that bai.
+    exit /b 1
+)
+echo   %C_GREEN%[OK]%C_RESET% Build Backend thanh cong.
+exit /b 0
+
+:CHECK_BE_COMPILE
+where mvn >nul 2>&1
+if errorlevel 1 (
+    echo   %C_RED%[ERR]%C_RESET% Khong tim thay Maven ^(mvn^) trong PATH.
+    exit /b 1
+)
+echo   %C_CYAN%[BE]%C_RESET% Dang kiem tra mvn test-compile...
+pushd "%BACKEND_DIR%"
+call mvn test-compile
+popd
+if errorlevel 1 (
+    echo   %C_RED%[ERR]%C_RESET% Backend compile that bai.
+    exit /b 1
+)
+echo   %C_GREEN%[OK]%C_RESET% Backend compile PASS!
+exit /b 0
+
+:BUILD_FE
+echo   %C_CYAN%[FE]%C_RESET% Dang build Frontend ^(npm run build^)...
+pushd "%FRONTEND_DIR%"
+call npm run build
+popd
+if errorlevel 1 (
+    echo   %C_RED%[ERR]%C_RESET% Build Frontend that bai.
+    exit /b 1
+)
+echo   %C_GREEN%[OK]%C_RESET% Build Frontend thanh cong.
+exit /b 0
+
+:LINT_AND_BUILD_FE
+where npm >nul 2>&1
+if errorlevel 1 (
+    echo   %C_RED%[ERR]%C_RESET% Khong tim thay npm trong PATH.
+    exit /b 1
+)
+pushd "%FRONTEND_DIR%"
+echo   %C_CYAN%[1/2]%C_RESET% Dang chay npm run lint...
+call npm run lint
+if errorlevel 1 (
+    popd
+    echo   %C_RED%[ERR]%C_RESET% Lint that bai.
+    exit /b 1
+)
+echo   %C_CYAN%[2/2]%C_RESET% Dang chay npm run build...
+call npm run build
+popd
+if errorlevel 1 (
+    echo   %C_RED%[ERR]%C_RESET% Build that bai.
+    exit /b 1
+)
+echo   %C_GREEN%[OK]%C_RESET% Frontend lint + build PASS!
+exit /b 0
+
+:START_BE
 netstat -ano | findstr /r /c:":8080 .*LISTENING" >nul 2>&1
 if not errorlevel 1 (
     echo   %C_YELLOW%[WARN]%C_RESET% Cong 8080 dang chay san, giu nguyen tien trinh hien tai.
@@ -243,7 +377,9 @@ if not errorlevel 1 (
     echo   %C_CYAN%[BE]%C_RESET% Dang khoi dong ngam Backend ^(http://localhost:8080^)...
     powershell -NoProfile -Command "Start-Process -FilePath 'cmd.exe' -ArgumentList '/c','mvn spring-boot:run > \"%BE_LOG%\" 2>&1' -WorkingDirectory '%BACKEND_DIR%' -WindowStyle Hidden"
 )
+exit /b 0
 
+:START_FE
 netstat -ano | findstr /r /c:":5174 .*LISTENING" >nul 2>&1
 if not errorlevel 1 (
     echo   %C_YELLOW%[WARN]%C_RESET% Cong 5174 dang chay san, giu nguyen tien trinh hien tai.
@@ -251,6 +387,21 @@ if not errorlevel 1 (
     echo   %C_CYAN%[FE]%C_RESET% Dang khoi dong ngam Frontend ^(http://localhost:5174^)...
     powershell -NoProfile -Command "Start-Process -FilePath 'cmd.exe' -ArgumentList '/c','npm run dev > \"%FE_LOG%\" 2>&1' -WorkingDirectory '%FRONTEND_DIR%' -WindowStyle Hidden"
 )
+exit /b 0
+
+:WAIT_BE
+echo   %C_DIM%Dang cho Backend ^(8080^) san sang ^(toi da 90 giay^)...%C_RESET%
+powershell -NoProfile -Command "$d=(Get-Date).AddSeconds(90); while((Get-Date) -lt $d){ try{ $r=Invoke-WebRequest -Uri 'http://127.0.0.1:8080/api/v1/public/content/sports' -UseBasicParsing -TimeoutSec 2; if($r.StatusCode -eq 200){ Write-Host '  [OK] Backend (8080) da san sang!' -ForegroundColor Green; exit 0 } } catch {}; Start-Sleep -Milliseconds 700 }; Write-Host '  [INFO] Het thoi gian cho Backend, kiem tra log [6] neu can.' -ForegroundColor Yellow"
+exit /b 0
+
+:WAIT_FE
+echo   %C_DIM%Dang cho Frontend ^(5174^) san sang ^(toi da 45 giay^)...%C_RESET%
+powershell -NoProfile -Command "$d=(Get-Date).AddSeconds(45); while((Get-Date) -lt $d){ try{ $r=Invoke-WebRequest -Uri 'http://localhost:5174' -UseBasicParsing -TimeoutSec 2; if($r.StatusCode -eq 200){ Write-Host '  [OK] Frontend (5174) da san sang!' -ForegroundColor Cyan; exit 0 } } catch {}; Start-Sleep -Milliseconds 500 }; Write-Host '  [INFO] Het thoi gian cho Frontend, kiem tra log [6] neu can.' -ForegroundColor Yellow"
+exit /b 0
+
+:START_SERVICES
+call :START_BE
+call :START_FE
 exit /b 0
 
 :WAIT_AND_OPEN_BROWSER
@@ -264,7 +415,7 @@ echo   %C_BOLD%Thong tin truy cap nhanh:%C_RESET%
 echo     - Web App  : %C_CYAN%http://localhost:5174%C_RESET%
 echo     - API Base : %C_CYAN%http://localhost:8080/api/v1%C_RESET%
 echo     - Mat khau : %C_GREEN%SportHub@123%C_RESET% ^(manager@sporthub.com / reception.le@sporthub.com / coach.minh@sporthub.com / khoa.member@gmail.com^)
-echo     - Xem Log  : Chon %C_CYAN%[5]%C_RESET% ngay trong cua so nay ^(hoac %LOG_DIR%^)
+echo     - Xem Log  : Chon %C_CYAN%[6]%C_RESET% ngay trong cua so nay ^(hoac %LOG_DIR%^)
 exit /b 0
 
 :CHECK_PORT
