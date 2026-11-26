@@ -408,21 +408,14 @@ export default function ChangePasswordPage() {
               )}
             </button>
 
-            {/* Navigation links */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+            {/* Navigation link */}
+            <div className="flex items-center justify-center pt-2 border-t border-slate-100 text-xs">
               <Link
                 to="/login"
                 className="text-slate-500 hover:text-slate-900 font-bold flex items-center gap-1 transition-colors"
               >
                 <span className="material-symbols-outlined text-[16px]">arrow_back</span>
                 <span>Quay lại Đăng nhập</span>
-              </Link>
-              <Link
-                to="/verify-otp"
-                className="text-orange-600 hover:underline font-bold flex items-center gap-1"
-              >
-                <span>Xác thực OTP Email</span>
-                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
               </Link>
             </div>
 
