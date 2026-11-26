@@ -616,8 +616,9 @@ export default function MemberClassesPage() {
                       </div>
 
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-500">Thời lượng:</span>
+                        <span className="text-slate-500">Khung giờ:</span>
                         <span className="font-semibold text-slate-800">
+                          {new Date(cls.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} –{' '}
                           {new Date(cls.endTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                           {formatDurationMinutes(cls.startTime, cls.endTime) ? ` (${formatDurationMinutes(cls.startTime, cls.endTime)} phút)` : ''}
                         </span>

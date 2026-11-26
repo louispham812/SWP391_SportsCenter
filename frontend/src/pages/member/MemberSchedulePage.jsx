@@ -361,7 +361,7 @@ export default function MemberSchedulePage() {
         <div className="p-4 bg-orange-50/70 border border-orange-200 rounded-2xl flex items-start gap-3 text-xs text-orange-950">
           <span className="material-symbols-outlined text-orange-600 text-[20px] shrink-0 mt-0.5">policy</span>
           <div className="leading-relaxed">
-            <strong className="block font-bold mb-0.5">Chính sách hủy lịch &amp; hoàn phí tự động 100%:</strong>
+            <strong className="block font-bold mb-0.5">Chính sách hủy lịch &amp; hoàn tiền / hoàn quota:</strong>
             Yêu cầu chưa thanh toán có thể hủy để trả lại chỗ giữ. Với đơn đã thanh toán, hủy <strong>trước giờ bắt đầu ít nhất 2 tiếng</strong> sẽ tạo yêu cầu hoàn tiền để Quản lý duyệt; đơn dùng gói tập được xử lý quota theo quy định.
           </div>
         </div>
@@ -451,10 +451,10 @@ export default function MemberSchedulePage() {
                     ? 'bg-white text-orange-600 shadow-xs'
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
-                title="Dạng lưới cột tuần chuẩn Coach"
+                title="Xem dạng lưới theo tuần"
               >
                 <span className="material-symbols-outlined text-[16px]">calendar_view_week</span>
-                <span>Lưới Tuần (Chuẩn Coach)</span>
+                <span>Lịch Tuần</span>
               </button>
               <button
                 type="button"

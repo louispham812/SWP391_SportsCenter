@@ -346,7 +346,7 @@ export default function AdminSettingsPage() {
             }`}
           >
             <span className="material-symbols-outlined text-[18px]">policy</span>
-            Chính Sách Vận Hành (System Policies)
+            Chính Sách Vận Hành
           </button>
 
           <button
@@ -850,7 +850,7 @@ export default function AdminSettingsPage() {
                 <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-3">
                   <span className="material-symbols-outlined text-amber-600 text-lg shrink-0 mt-0.5">verified_user</span>
                   <div className="leading-relaxed">
-                    <strong>Bảo mật &amp; Kiểm toán:</strong> Mọi thao tác thay đổi cấu hình Trợ lý AI đều được lưu vào cơ sở dữ liệu bảng <code>system_settings</code> và tự động ghi vết trong nhật ký <code>audit_logs</code> kèm thời gian thực, IP và mã tài khoản Quản lý.
+                    <strong>Bảo mật &amp; Kiểm toán:</strong> Mọi thao tác thay đổi cấu hình Trợ lý AI đều được lưu vào hệ thống cài đặt và tự động ghi vết trong Nhật ký hoạt động kèm thời gian thực, IP và mã tài khoản Quản lý.
                   </div>
                 </div>
 

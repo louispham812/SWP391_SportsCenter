@@ -247,7 +247,7 @@ export default function ChangePasswordPage() {
             {/* Field 1: Old Password (mật khẩu tạm từ email) */}
             <div className="space-y-1.5">
               <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold flex items-center justify-between">
-                <span>Old Password (mật khẩu tạm từ email) *</span>
+                <span>Mật khẩu hiện tại / tạm thời *</span>
                 <span className="text-[11px] text-orange-600 font-semibold lowercase">
                   từ hộp thư đến
                 </span>
@@ -286,7 +286,7 @@ export default function ChangePasswordPage() {
             {/* Field 2: New Password */}
             <div className="space-y-1.5">
               <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold flex items-center justify-between">
-                <span>New Password *</span>
+                <span>Mật khẩu mới *</span>
                 <span className={`text-[11px] font-bold ${strength.score >= 3 ? 'text-emerald-600' : 'text-slate-500'}`}>
                   Độ mạnh: {strength.label}
                 </span>
@@ -332,7 +332,7 @@ export default function ChangePasswordPage() {
             {/* Field 3: Confirm New Password */}
             <div className="space-y-1.5">
               <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold flex items-center justify-between">
-                <span>Confirm New Password *</span>
+                <span>Xác nhận mật khẩu mới *</span>
                 {isMatch && (
                   <span className="text-[11px] text-emerald-600 font-bold flex items-center gap-1">
                     <span className="material-symbols-outlined text-[14px]">check_circle</span>

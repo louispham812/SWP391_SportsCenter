@@ -17,6 +17,7 @@ public class PaymentAttemptService {
     private final GatewayReceiptRepository receipts;
     private final EngagementService engagement;
     private final UserRepository users;
+    @org.springframework.beans.factory.annotation.Autowired(required = false) private SystemSettingRepository systemSettingRepository;
     public PaymentAttemptService(PaymentAttemptRepository attempts, GatewayReceiptRepository receipts,
             EngagementService engagement, UserRepository users) {
         this.attempts = attempts; this.receipts = receipts; this.engagement = engagement; this.users = users;
@@ -31,7 +32,8 @@ public class PaymentAttemptService {
         if (attempt == null) {
             attempt = new PaymentAttempt(); attempt.setPaymentId(payment.getPaymentId()); attempt.setAmount(payment.getAmount());
             attempt.setGatewayReference(payment.getPaymentId() + "_" + UUID.randomUUID().toString().replace("-", ""));
-            attempt.setStatus("CREATED"); attempt.setCreatedAt(now); attempt.setExpiresAt(payment.getCreatedAt().plusMinutes(10));
+            int holdMinutes = com.sporthub.backend.util.SystemPolicyHelper.bookingHoldTimeoutMinutes(systemSettingRepository);
+            attempt.setStatus("CREATED"); attempt.setCreatedAt(now); attempt.setExpiresAt(payment.getCreatedAt().plusMinutes(holdMinutes));
             Map<String, Object> result = gateway.generatePaymentAttempt(payment.getPaymentId(), payment.getAmount(), payment.getItemDescription(), ip,
                 attempt.getGatewayReference(), attempt.getExpiresAt());
             Object url = result.get("paymentUrl");

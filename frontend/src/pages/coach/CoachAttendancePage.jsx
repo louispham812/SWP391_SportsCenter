@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import CoachLayout from '../../components/layouts/CoachLayout';
 import { TableSkeleton } from '../../components/common/Skeleton';
 import { getSessionRoster, getUpcomingClasses, updateBookingAttendance } from '../../services/bookingApi';
+import { formatStatusLabel } from '../../utils/enumLabels';
 
 const formatDateTime = (value) => new Date(value).toLocaleString('vi-VN', {
   weekday: 'long',
@@ -217,7 +218,7 @@ export default function CoachAttendancePage() {
                 const lockReason = isSessionNotStarted
                   ? 'Chưa đến giờ bắt đầu buổi học'
                   : !isBookingConfirmed
-                  ? `Chờ xác nhận / thanh toán (${booking.bookingStatus})`
+                  ? `Chờ xác nhận / thanh toán (${formatStatusLabel(booking.bookingStatus)})`
                   : '';
 
                 return (
@@ -264,9 +265,9 @@ export default function CoachAttendancePage() {
                         className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold focus:border-orange-500 outline-none disabled:bg-slate-100 disabled:text-slate-400"
                       >
                         <option value="">-- Chọn trạng thái --</option>
-                        <option value="PRESENT">✅ Có mặt (PRESENT)</option>
-                        <option value="EXCUSED_ABSENCE">ℹ️ Vắng có phép (EXCUSED)</option>
-                        <option value="UNEXCUSED_ABSENCE">❌ Vắng không phép (UNEXCUSED)</option>
+                        <option value="PRESENT">✅ Có mặt</option>
+                        <option value="EXCUSED_ABSENCE">ℹ️ Vắng có phép</option>
+                        <option value="UNEXCUSED_ABSENCE">❌ Vắng không phép</option>
                       </select>
                     </label>
                     <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">

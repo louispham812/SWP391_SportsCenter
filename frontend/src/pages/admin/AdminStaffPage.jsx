@@ -592,7 +592,7 @@ export default function AdminStaffPage() {
                     ? '...'
                     : `${(
                         performanceData?.coaches?.reduce((sum, c) => sum + Number(c.commissionAmount ?? c.totalCommission ?? 0), 0) || 0
-                      ).toLocaleString()}₫`}
+                      ).toLocaleString('vi-VN')}₫`}
                 </div>
                 <div className="mt-1 text-xs text-emerald-600 font-bold flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px]">trending_up</span>
@@ -625,7 +625,7 @@ export default function AdminStaffPage() {
                     ? '...'
                     : `${(
                         performanceData?.receptionists?.reduce((sum, r) => sum + Number(r.totalSalesAmount ?? r.packageSalesRevenue ?? 0), 0) || 0
-                      ).toLocaleString()}₫`}
+                      ).toLocaleString('vi-VN')}₫`}
                 </div>
                 <div className="mt-1 text-xs text-slate-500">Bán gói &amp; thanh toán POS</div>
               </div>
@@ -702,10 +702,10 @@ export default function AdminStaffPage() {
                             )}
                           </td>
                           <td className="px-5 py-3.5 text-right font-semibold text-slate-800">
-                            {Number(c.totalRevenue || 0).toLocaleString()}₫
+                            {Number(c.totalRevenue || 0).toLocaleString('vi-VN')}₫
                           </td>
                           <td className="px-5 py-3.5 text-right font-black text-orange-600 text-sm">
-                            {Number(c.commissionAmount ?? c.totalCommission ?? 0).toLocaleString()}₫
+                            {Number(c.commissionAmount ?? c.totalCommission ?? 0).toLocaleString('vi-VN')}₫
                           </td>
                         </tr>
                       ))}
@@ -759,7 +759,7 @@ export default function AdminStaffPage() {
                             {r.posTransactionsCount || 0} đơn
                           </td>
                           <td className="px-5 py-3.5 text-right font-black text-emerald-600 text-sm">
-                            {Number(r.totalSalesAmount ?? r.packageSalesRevenue ?? 0).toLocaleString()}₫
+                            {Number(r.totalSalesAmount ?? r.packageSalesRevenue ?? 0).toLocaleString('vi-VN')}₫
                           </td>
                           <td className="px-5 py-3.5 text-center">
                             {(() => {

@@ -27,6 +27,7 @@ public class BookingLifecycleService {
     @org.springframework.beans.factory.annotation.Autowired(required = false) private CourtMaintenanceRepository maintenance;
     @org.springframework.beans.factory.annotation.Autowired(required = false) private FacilityCourtSyncService facilitySync;
     @org.springframework.beans.factory.annotation.Autowired(required = false) private RefundRequestRepository refundRequests;
+    @org.springframework.beans.factory.annotation.Autowired(required = false) private SystemSettingRepository systemSettingRepository;
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BookingLifecycleService.class);
     public BookingLifecycleService(BookingRepository bookings, CourtBookingRepository courts, ClassSessionRepository sessions,
             SportsCourtRepository sportsCourts, UserMembershipRepository memberships, MembershipService quotas, PaymentService payments, EngagementService engagement) {
@@ -190,7 +191,8 @@ public class BookingLifecycleService {
                 .anyMatch(r -> r != null && !"REJECTED".equalsIgnoreCase(r.getStatus()));
     }
     private void notifyExpiry(Long user, Long paymentId) {
-        engagement.notifyUser(user, "Gói hết hạn: lịch chuyển sang giá lẻ", "Giao dịch #" + paymentId + " cần thanh toán trong 10 phút để tiếp tục giữ chỗ.", "PAYMENT");
+        int holdMinutes = com.sporthub.backend.util.SystemPolicyHelper.bookingHoldTimeoutMinutes(systemSettingRepository);
+        engagement.notifyUser(user, "Gói hết hạn: lịch chuyển sang giá lẻ", "Giao dịch #" + paymentId + " cần thanh toán trong " + holdMinutes + " phút để tiếp tục giữ chỗ.", "PAYMENT");
         engagement.audit(user, "SYSTEM", "EXPIRED_QUOTA_CONVERTED", "paymentId=" + paymentId);
     }
 }

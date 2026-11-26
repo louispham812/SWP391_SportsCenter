@@ -166,7 +166,7 @@ export default function ReceptionEquipmentPage() {
 
       showToast(
         'Trả đồ hoàn tất',
-        `Đã nhận lại ${returningLoan.quantity} x "${returningLoan.itemName}". Phí thu: ${actualFee.toLocaleString()}đ${methodSummary}.`,
+        `Đã nhận lại ${returningLoan.quantity} x "${returningLoan.itemName}". Phí thu: ${actualFee.toLocaleString('vi-VN')}đ${methodSummary}.`,
         'success'
       );
       setReturnReceipt({
@@ -325,7 +325,7 @@ export default function ReceptionEquipmentPage() {
                     const isInactive = (i.status || '').toUpperCase() !== 'ACTIVE';
                     return (
                       <option key={i.itemId} value={i.itemId} disabled={i.availableQuantity <= 0 || isInactive}>
-                        {i.itemName} (Còn {i.availableQuantity}/{i.totalQuantity}) — {price === 0 ? 'Miễn phí' : `${price.toLocaleString()}đ/giờ`}{isInactive ? ' [Ngưng]' : ''}
+                        {i.itemName} (Còn {i.availableQuantity}/{i.totalQuantity}) — {price === 0 ? 'Miễn phí' : `${price.toLocaleString('vi-VN')}đ/giờ`}{isInactive ? ' [Ngưng]' : ''}
                       </option>
                     );
                   })}
@@ -408,7 +408,7 @@ export default function ReceptionEquipmentPage() {
                                 <span className="text-emerald-700 font-bold">0đ (Miễn phí)</span>
                               ) : (
                                 <span className="font-bold text-orange-600">
-                                  {rate.toLocaleString()}đ/h
+                                  {rate.toLocaleString('vi-VN')}đ/h
                                 </span>
                               )}
                             </td>
@@ -418,7 +418,7 @@ export default function ReceptionEquipmentPage() {
                                 onClick={() => openReturnModal(loan)}
                                 className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-orange-500 text-white text-[11px] font-bold uppercase transition-all shadow-2xs cursor-pointer"
                               >
-                                Nhận trả đồ ({estimatedFee > 0 ? `${estimatedFee.toLocaleString()}đ` : '0đ'})
+                                Nhận trả đồ ({estimatedFee > 0 ? `${estimatedFee.toLocaleString('vi-VN')}đ` : '0đ'})
                               </button>
                             </td>
                           </tr>
@@ -469,7 +469,7 @@ export default function ReceptionEquipmentPage() {
                         {formatDateTime(loan.returnedAt)}
                       </td>
                       <td className="px-5 py-3.5 font-black text-orange-600 text-sm">
-                        {Number(loan.rentalFee || 0).toLocaleString()}đ
+                        {Number(loan.rentalFee || 0).toLocaleString('vi-VN')}đ
                       </td>
                       <td className="px-5 py-3.5 text-slate-600 font-semibold">
                         {formatMethodLabel(loan.paymentMethod, loan.rentalFee)}
@@ -513,7 +513,7 @@ export default function ReceptionEquipmentPage() {
                   <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
                     <span className="text-xs text-slate-500 font-medium">Giá thuê:</span>
                     <strong className="text-sm font-black text-orange-600">
-                      {Number(item.rentalPricePerHour || 0) === 0 ? 'Miễn phí' : `${Number(item.rentalPricePerHour).toLocaleString()}đ / giờ`}
+                      {Number(item.rentalPricePerHour || 0) === 0 ? 'Miễn phí' : `${Number(item.rentalPricePerHour).toLocaleString('vi-VN')}đ / giờ`}
                     </strong>
                   </div>
                 </div>
@@ -563,7 +563,7 @@ export default function ReceptionEquipmentPage() {
                   <div className="flex justify-between items-center p-3 rounded-xl bg-orange-50 border border-orange-200">
                     <span className="font-bold text-slate-700">Tổng phí thuê theo giờ:</span>
                     <strong className="text-lg font-black text-orange-600">
-                      {calculateFee(returningLoan).toLocaleString()}đ
+                      {calculateFee(returningLoan).toLocaleString('vi-VN')}đ
                     </strong>
                   </div>
 
@@ -653,7 +653,7 @@ export default function ReceptionEquipmentPage() {
                   <span>PHÍ THUÊ THU:</span>
                   <span className="text-orange-600">
                     {Number(returnReceipt.rentalFee || 0) > 0
-                      ? `${Number(returnReceipt.rentalFee).toLocaleString()}đ`
+                      ? `${Number(returnReceipt.rentalFee).toLocaleString('vi-VN')}đ`
                       : 'Miễn phí'}
                   </span>
                 </div>

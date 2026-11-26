@@ -111,7 +111,7 @@ public class CoachProfileController {
         if (request.emergencyContactPhone() != null) {
             coach.setEmergencyContactPhone(request.emergencyContactPhone().trim());
         }
-        if (request.specialty() != null) {
+        if (request.specialty() != null && (coach.getCoachedSports() == null || coach.getCoachedSports().isEmpty())) {
             coach.setSpecialty(request.specialty().trim());
         }
         if (request.experienceYears() != null) {
@@ -197,7 +197,7 @@ public class CoachProfileController {
         List<CoachIncomeResponse.SessionIncomeDetail> details = new ArrayList<>();
         for (ClassSession s : sessions) {
             List<Booking> bookings = bookingRepository.findBySessionIdInAndStatusIn(
-                    List.of(s.getSessionId()), ACTIVE_STATUSES);
+                    List.of(s.getSessionId()), List.of("CONFIRMED"));
             int students = bookings.size();
             totalStudents += students;
 
@@ -205,9 +205,9 @@ public class CoachProfileController {
             BigDecimal sessionRevenue = price.multiply(BigDecimal.valueOf(students));
             totalRevenue = totalRevenue.add(sessionRevenue);
 
-            // Thù lao theo cấu hình hệ thống (mặc định 40%) hoặc tối thiểu 200,000đ/ca nếu lớp không bị hủy
+            // Thù lao theo cấu hình hệ thống (mặc định 40%) hoặc tối thiểu 200,000đ/ca khi lớp có học viên
             BigDecimal commission = sessionRevenue.multiply(commissionRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            if (commission.compareTo(BigDecimal.valueOf(200000)) < 0 && !"CANCELLED".equalsIgnoreCase(s.getStatus())) {
+            if (students > 0 && commission.compareTo(BigDecimal.valueOf(200000)) < 0 && !"CANCELLED".equalsIgnoreCase(s.getStatus())) {
                 commission = BigDecimal.valueOf(200000);
             }
             totalIncome = totalIncome.add(commission);

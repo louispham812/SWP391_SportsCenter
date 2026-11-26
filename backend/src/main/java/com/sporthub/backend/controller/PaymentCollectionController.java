@@ -18,21 +18,24 @@ public class PaymentCollectionController {
     private final PaymentTransactionRepository payments;
     private final List<BookingPaymentHandler> handlers;
     private final EngagementService engagement;
+    @org.springframework.beans.factory.annotation.Autowired(required = false) private com.sporthub.backend.repository.SystemSettingRepository systemSettingRepository;
     public PaymentCollectionController(PaymentTransactionRepository payments, List<BookingPaymentHandler> handlers, EngagementService engagement) {
         this.payments = payments; this.handlers = handlers; this.engagement = engagement;
     }
     @GetMapping("/pending-cash")
     @Transactional(readOnly = true)
     public List<PaymentTransaction> pendingCash() {
+        int holdMinutes = com.sporthub.backend.util.SystemPolicyHelper.bookingHoldTimeoutMinutes(systemSettingRepository);
         return payments.findByPaymentMethodAndPaymentStatusOrderByCreatedAtDesc("CASH_COUNTER", "PENDING").stream()
-            .filter(p -> p.getCreatedAt() != null && p.getCreatedAt().plusMinutes(10).isAfter(LocalDateTime.now())).toList();
+            .filter(p -> p.getCreatedAt() != null && p.getCreatedAt().plusMinutes(holdMinutes).isAfter(LocalDateTime.now())).toList();
     }
     @PostMapping("/{id}/confirm-cash")
     @Transactional
     public PaymentTransaction confirmCash(@PathVariable Long id, Authentication auth) {
+        int holdMinutes = com.sporthub.backend.util.SystemPolicyHelper.bookingHoldTimeoutMinutes(systemSettingRepository);
         PaymentTransaction payment = payments.findByIdForUpdate(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         if (!"CASH_COUNTER".equals(payment.getPaymentMethod()) || !"PENDING".equals(payment.getPaymentStatus())
-                || payment.getCreatedAt() == null || !payment.getCreatedAt().plusMinutes(10).isAfter(LocalDateTime.now())) {
+                || payment.getCreatedAt() == null || !payment.getCreatedAt().plusMinutes(holdMinutes).isAfter(LocalDateTime.now())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Giao dịch không còn chờ thu tiền tại quầy.");
         }
         Long staffId = Long.valueOf(auth.getName());

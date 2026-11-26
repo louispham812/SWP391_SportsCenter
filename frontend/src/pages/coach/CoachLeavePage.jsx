@@ -299,9 +299,9 @@ export default function CoachLeavePage() {
                 onChange={(e) => setLeaveForm({ ...leaveForm, leaveType: e.target.value })}
                 className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-bold text-slate-800 outline-none focus:border-orange-500"
               >
-                <option value="SICK_LEAVE">Nghỉ ốm / Khám bệnh y tế (SICK_LEAVE)</option>
-                <option value="PERSONAL_LEAVE">Nghỉ việc cá nhân / Gia đình (PERSONAL_LEAVE)</option>
-                <option value="SCHEDULE_CHANGE">Yêu cầu đổi ca trực / Dời lịch (SCHEDULE_CHANGE)</option>
+                <option value="SICK_LEAVE">Nghỉ ốm / Khám bệnh y tế</option>
+                <option value="PERSONAL_LEAVE">Nghỉ việc cá nhân / Gia đình</option>
+                <option value="SCHEDULE_CHANGE">Yêu cầu đổi ca trực / Dời lịch</option>
               </select>
             </div>
 

@@ -109,7 +109,7 @@ export default function CoachIncomePage() {
               <span className="material-symbols-outlined text-orange-500 text-[20px]">account_balance_wallet</span>
             </div>
             <div className="mt-2 text-2xl font-black text-slate-900 tracking-tight">
-              {incomeLoading ? '...' : `${Number(incomeData?.totalIncome || 0).toLocaleString()}₫`}
+              {incomeLoading ? '...' : `${Number(incomeData?.totalIncome || 0).toLocaleString('vi-VN')}₫`}
             </div>
             <div className="mt-1 text-xs text-emerald-600 font-bold flex items-center gap-1">
               <span className="material-symbols-outlined text-[14px]">verified</span>
@@ -204,9 +204,9 @@ export default function CoachIncomePage() {
                         {row.startTime ? new Date(row.startTime).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
                       </td>
                       <td className="px-5 py-3.5 font-semibold whitespace-nowrap">{row.studentsCount ?? row.enrolledStudents ?? 0} học viên</td>
-                      <td className="px-5 py-3.5 text-slate-600 whitespace-nowrap">{Number(row.priceAmount ?? row.classPrice ?? 0).toLocaleString()}₫</td>
-                      <td className="px-5 py-3.5 font-bold text-slate-900 whitespace-nowrap">{Number(row.sessionRevenue ?? row.totalClassRevenue ?? 0).toLocaleString()}₫</td>
-                      <td className="px-5 py-3.5 text-right font-black text-orange-600 whitespace-nowrap">{Number(row.coachCommission ?? row.coachIncome ?? 0).toLocaleString()}₫</td>
+                      <td className="px-5 py-3.5 text-slate-600 whitespace-nowrap">{Number(row.priceAmount ?? row.classPrice ?? 0).toLocaleString('vi-VN')}₫</td>
+                      <td className="px-5 py-3.5 font-bold text-slate-900 whitespace-nowrap">{Number(row.sessionRevenue ?? row.totalClassRevenue ?? 0).toLocaleString('vi-VN')}₫</td>
+                      <td className="px-5 py-3.5 text-right font-black text-orange-600 whitespace-nowrap">{Number(row.coachCommission ?? row.coachIncome ?? 0).toLocaleString('vi-VN')}₫</td>
                       <td className="px-5 py-3.5 text-center whitespace-nowrap">
                         <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 whitespace-nowrap">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>

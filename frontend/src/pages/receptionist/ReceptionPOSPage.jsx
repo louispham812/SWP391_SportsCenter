@@ -3,6 +3,8 @@ import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
 import { apiRequest, generatePayment } from '../../services/apiClient';
 import { redirectToPayment } from '../../services/paymentNavigation';
 import QrCodeSvg from '../../components/common/QrCodeSvg';
+import { useApp } from '../../context/AppContext';
+import { formatBookingTypeLabel, formatStatusLabel } from '../../utils/enumLabels';
 
 const formatPrice = (amount) => new Intl.NumberFormat('vi-VN', {
   style: 'currency',
@@ -11,6 +13,7 @@ const formatPrice = (amount) => new Intl.NumberFormat('vi-VN', {
 }).format(amount || 0);
 
 export default function ReceptionPOSPage() {
+  const { currentUser } = useApp();
   const [packages, setPackages] = useState([]);
   const [memberSearchResult, setMemberSearchResult] = useState(null);
   const [search, setSearch] = useState('');
@@ -174,7 +177,7 @@ export default function ReceptionPOSPage() {
           ) : (
             pendingCash.map((payment) => (
               <div key={payment.paymentId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-sm">
-                <span>Giao dịch #{payment.paymentId} · Hội viên #{payment.memberId} · {payment.itemDescription || payment.bookingType} · <strong>{formatPrice(payment.amount)}</strong></span>
+                <span>Giao dịch #{payment.paymentId} · Hội viên #{payment.memberId} · {payment.itemDescription || formatBookingTypeLabel(payment.bookingType)} · <strong>{formatPrice(payment.amount)}</strong></span>
                 <button type="button" disabled={collectingPayment !== null} onClick={() => collectCash(payment)} className="rounded-lg bg-emerald-700 px-3 py-2 font-bold text-white disabled:opacity-50 cursor-pointer">
                   {collectingPayment === payment.paymentId ? 'Đang xác nhận...' : 'Đã thu đủ tiền mặt'}
                 </button>
@@ -209,7 +212,7 @@ export default function ReceptionPOSPage() {
                   Giao dịch thành công! Mã hóa đơn: #{receipt.paymentId}
                 </div>
                 <div className="text-xs text-emerald-800 mt-0.5">
-                  Gói <strong>{receipt.packageName}</strong> · Số tiền: <strong>{formatPrice(receipt.amount)}</strong> · Trạng thái: <span className="font-bold uppercase text-[11px] px-2 py-0.5 bg-emerald-200/80 rounded-full">{receipt.paymentStatus}</span>
+                  Gói <strong>{receipt.packageName}</strong> · Số tiền: <strong>{formatPrice(receipt.amount)}</strong> · Trạng thái: <span className="font-bold uppercase text-[11px] px-2 py-0.5 bg-emerald-200/80 rounded-full">{formatStatusLabel(receipt.paymentStatus)}</span>
                 </div>
               </div>
             </div>
@@ -267,7 +270,7 @@ export default function ReceptionPOSPage() {
                       </div>
                       {isInactiveMember && (
                         <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
-                          {member.status === 'PENDING' ? 'Chờ kích hoạt' : member.status}
+                          {member.status === 'PENDING' ? 'Chờ kích hoạt' : formatStatusLabel(member.status)}
                         </span>
                       )}
                     </button>
@@ -367,7 +370,7 @@ export default function ReceptionPOSPage() {
               <div className="text-center space-y-1 pb-2 border-b border-dashed border-slate-400">
                 <div className="font-sans font-black text-sm tracking-wider uppercase text-slate-900">F SPORT CENTER</div>
                 <div className="text-[10px] text-slate-600">Trung Tâm Thể Thao Đa Năng Cao Cấp</div>
-                <div className="text-[9px] text-slate-500">Hotline: 1900 6868 · www.fsport.vn</div>
+                <div className="text-[9px] text-slate-500">Hotline: 1900 8899 · www.fsport.vn</div>
                 <div className="font-bold text-xs pt-1 uppercase">HÓA ĐƠN THANH TOÁN DỊCH VỤ</div>
                 <div className="text-[10px] text-slate-600">Số HĐ: #HD-{receipt.paymentId}</div>
                 <div className="text-[9px] text-slate-500">{receipt.createdAtFormatted}</div>
@@ -388,7 +391,7 @@ export default function ReceptionPOSPage() {
                 </div>
                 <div className="flex justify-between">
                   <span>Thu ngân:</span>
-                  <span>Lễ tân ca trực</span>
+                  <span>{currentUser?.name || currentUser?.fullName || 'Lễ tân ca trực'}</span>
                 </div>
               </div>
 

@@ -197,7 +197,7 @@ export default function ForgotPasswordPage() {
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold flex items-center justify-between">
                   <span>Địa chỉ Email tài khoản</span>
-                  <span className="text-[11px] text-slate-400 font-normal lowercase tracking-normal">Ví dụ: hoidongvien@fsport.vn</span>
+                  <span className="text-[11px] text-slate-400 font-normal lowercase tracking-normal">Ví dụ: hoivien@fsport.vn</span>
                 </label>
                 <div className="relative flex items-center">
                   <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">
