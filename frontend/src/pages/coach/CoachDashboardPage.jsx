@@ -107,7 +107,7 @@ export default function CoachDashboardPage() {
     {
       title: 'Thù lao & Doanh thu',
       desc: income?.totalIncome != null
-        ? `Tổng thu nhập hiện tại: ${Number(income.totalIncome).toLocaleString()}₫ (${income.totalSessions || 0} ca)`
+        ? `Tổng thu nhập hiện tại: ${Number(income.totalIncome).toLocaleString('vi-VN')}₫ (${income.totalSessions || 0} ca)`
         : 'Theo dõi thu nhập buổi dạy, tỷ lệ hoa hồng và bảng kê đối soát',
       icon: 'payments',
       path: '/coach/income',

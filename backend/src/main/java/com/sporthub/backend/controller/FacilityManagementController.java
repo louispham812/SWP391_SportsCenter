@@ -322,6 +322,9 @@ public class FacilityManagementController {
             session.setFacilityId(request.facilityId());
         }
         if (request.startTime() != null && request.endTime() != null) {
+            if (request.startTime().isBefore(LocalDateTime.now())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời gian bắt đầu mới phải ở trong tương lai.");
+            }
             if (!request.endTime().isAfter(request.startTime())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời gian kết thúc phải sau thời gian bắt đầu.");
             }
@@ -331,6 +334,10 @@ public class FacilityManagementController {
         String targetStatus = (request.status() != null && !request.status().isBlank())
                 ? request.status().trim().toUpperCase(Locale.ROOT)
                 : session.getStatus();
+        if ("CANCELLED".equalsIgnoreCase(targetStatus) && !"CANCELLED".equalsIgnoreCase(session.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Vui lòng sử dụng nút Hủy lớp để hoàn trả quota/học phí đúng quy trình.");
+        }
         if (!"CANCELLED".equalsIgnoreCase(targetStatus)
                 && (request.coachId() != null || (request.startTime() != null && request.endTime() != null))
                 && targetCoach != null && session.getStartTime() != null && session.getEndTime() != null) {
@@ -373,7 +380,17 @@ public class FacilityManagementController {
                         "Sân / cơ sở đã có lịch đặt sân của hội viên trùng khung giờ lớp học này.");
             }
         }
-        if (request.maxSlots() != null && request.maxSlots() > 0) {
+        if (request.maxSlots() != null) {
+            if (request.maxSlots() < 1) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sĩ số tối đa phải lớn hơn 0.");
+            }
+            if (bookingRepository != null) {
+                long activeBooked = bookingRepository.countBySessionIdAndStatusIn(sessionId, List.of("BOOKED", "CONFIRMED"));
+                if (request.maxSlots() < activeBooked) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Sĩ số tối đa mới không được nhỏ hơn số học viên đã đăng ký (" + activeBooked + ").");
+                }
+            }
             session.setMaxSlots(request.maxSlots());
         }
         if (request.priceAmount() != null) {

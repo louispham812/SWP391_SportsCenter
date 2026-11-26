@@ -522,7 +522,7 @@ public class EngagementController {
 
             for (ClassSession s : sessions) {
                 List<Booking> bookings = bookingRepository.findBySessionIdInAndStatusIn(
-                        List.of(s.getSessionId()), List.of("BOOKED", "CONFIRMED"));
+                        List.of(s.getSessionId()), List.of("CONFIRMED"));
                 int students = bookings.size();
                 totalStudents += students;
                 BigDecimal price = s.getPriceAmount() != null ? s.getPriceAmount() : BigDecimal.valueOf(100000);
@@ -530,7 +530,7 @@ public class EngagementController {
                 coachRevenue = coachRevenue.add(sRevenue);
 
                 BigDecimal commission = sRevenue.multiply(commissionRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                if (commission.compareTo(BigDecimal.valueOf(200000)) < 0) {
+                if (students > 0 && commission.compareTo(BigDecimal.valueOf(200000)) < 0) {
                     commission = BigDecimal.valueOf(200000);
                 }
                 coachCommission = coachCommission.add(commission);
@@ -619,6 +619,7 @@ public class EngagementController {
 
             var returnedLoans = allReturnedLoans.stream()
                     .filter(loan -> loan.getRecordedBy() != null && loan.getRecordedBy().equals(rec.getUserId()))
+                    .filter(loan -> loan.getRentalFee() != null && loan.getRentalFee().signum() > 0)
                     .toList();
             BigDecimal loanRevenue = returnedLoans.stream()
                     .map(loan -> loan.getRentalFee() != null ? loan.getRentalFee() : BigDecimal.ZERO)

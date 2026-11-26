@@ -7,6 +7,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import Pagination from '../../components/common/Pagination';
 import { TableSkeleton } from '../../components/common/Skeleton';
+import { formatPaymentMethod } from '../../utils/enumLabels';
 
 // Import only 2 reusable modals
 import ReceiptModal from '../../components/member/ReceiptModal';
@@ -348,15 +349,15 @@ export default function MemberTransactionsPage() {
 
                           {/* Payment Method */}
                           <td className="py-3.5 px-2.5 whitespace-nowrap">
-                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-semibold whitespace-nowrap">
-                              {isQuota ? 'MEMBERSHIP_QUOTA' : tx.paymentMethod || 'SANDBOX'}
+                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-semibold whitespace-nowrap">
+                              {isQuota ? formatPaymentMethod('MEMBERSHIP_QUOTA') : formatPaymentMethod(tx.paymentMethod || 'SANDBOX')}
                             </span>
                           </td>
 
                           {/* Amount */}
                           <td className="py-3.5 px-2.5 font-bold whitespace-nowrap">
                             {isQuota ? (
-                              <span className="text-amber-600 font-extrabold whitespace-nowrap">0 ₫ (Quota VIP)</span>
+                              <span className="text-amber-600 font-extrabold whitespace-nowrap">0 ₫ (Quota gói tập)</span>
                             ) : isRefund ? (
                               <span className="text-indigo-600 whitespace-nowrap">+{formatMoney(tx.amount)}</span>
                             ) : (

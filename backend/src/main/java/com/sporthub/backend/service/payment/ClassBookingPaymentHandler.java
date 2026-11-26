@@ -14,6 +14,7 @@ public class ClassBookingPaymentHandler implements BookingPaymentHandler {
     private final EngagementService engagement;
     @org.springframework.beans.factory.annotation.Autowired private ClassSessionRepository sessions;
     @org.springframework.beans.factory.annotation.Autowired private LatePaymentService latePayments;
+    @org.springframework.beans.factory.annotation.Autowired(required = false) private SystemSettingRepository systemSettingRepository;
     public ClassBookingPaymentHandler(BookingRepository bookings, EngagementService engagement) { this.bookings = bookings; this.engagement = engagement; }
     @Override public String getSupportedBookingType() { return "CLASS"; }
     @Override @Transactional
@@ -24,8 +25,9 @@ public class ClassBookingPaymentHandler implements BookingPaymentHandler {
         Booking booking = bookings.findByIdForUpdate(candidate.getBookingId()).orElseThrow();
         ClassSession session = sessions.findByIdForUpdate(booking.getSessionId()).orElseThrow();
         if (!"CONFIRMED".equals(booking.getStatus())) {
+            int holdMinutes = com.sporthub.backend.util.SystemPolicyHelper.bookingHoldTimeoutMinutes(systemSettingRepository);
             boolean available = "BOOKED".equals(booking.getStatus()) && !"CANCELLED".equals(session.getStatus())
-                && booking.getBookingTime() != null && booking.getBookingTime().plusMinutes(10).isAfter(LocalDateTime.now())
+                && booking.getBookingTime() != null && booking.getBookingTime().plusMinutes(holdMinutes).isAfter(LocalDateTime.now())
                 && bookings.countBySessionIdAndStatusIn(session.getSessionId(), List.of("BOOKED", "CONFIRMED")) <= session.getMaxSlots();
             booking.setStatus(available ? "CONFIRMED" : "CANCELLED"); bookings.save(booking);
             if (!available) {

@@ -367,7 +367,7 @@ export default function MemberPackagesPage() {
                   <div className="text-xs text-orange-800 font-semibold uppercase tracking-wider">Gói thành viên</div>
                   <div className="text-xl font-bold text-slate-900 mt-0.5">{selectedPackage.name}</div>
                   <div className="text-xs text-slate-600 mt-1">
-                    Thời lượng: {selectedPackage.durationDays} ngày · {selectedPackage.accessType === 'ALL_DAY' ? 'Toàn thời gian (All-Day)' : 'Tiêu chuẩn (Standard)'}
+                    Thời lượng: {selectedPackage.durationDays} ngày · {selectedPackage.accessType === 'ALL_DAY' ? 'Toàn thời gian (All-Day)' : selectedPackage.accessType === 'OFF_PEAK' ? 'Giờ thấp điểm (08:00–16:00)' : 'Giờ cao điểm'}
                   </div>
                 </div>
 

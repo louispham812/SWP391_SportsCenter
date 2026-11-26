@@ -60,7 +60,7 @@ function ClassSessionRows({ groupName, items, onEdit, onCancel }) {
               </span>
             </td>
             <td className="px-2 py-3.5 text-right font-bold text-slate-900 whitespace-nowrap">
-              {Number(session.priceAmount || 0).toLocaleString()}₫
+              {Number(session.priceAmount || 0).toLocaleString('vi-VN')}₫
             </td>
             <td className="px-2 py-3.5 text-center whitespace-nowrap">
               <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${

@@ -568,7 +568,7 @@ export default function MemberAttendancePage() {
                               </span>
                               {paidAmount != null && (
                                 <span className="inline-flex items-center gap-1 text-slate-900 font-bold">
-                                  {Number(paidAmount).toLocaleString()}₫
+                                  {Number(paidAmount).toLocaleString('vi-VN')}₫
                                 </span>
                               )}
                             </div>

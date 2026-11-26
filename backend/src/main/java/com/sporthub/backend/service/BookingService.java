@@ -705,6 +705,10 @@ public class BookingService {
         if (end == null || !end.isAfter(start)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời gian kết thúc phải sau thời gian bắt đầu.");
         }
+        int maxAdvanceDays = com.sporthub.backend.util.SystemPolicyHelper.maxAdvanceBookingDays(systemSettingRepository);
+        if (start.toLocalDate().isAfter(LocalDate.now().plusDays(maxAdvanceDays))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ có thể đặt lịch trước tối đa " + maxAdvanceDays + " ngày.");
+        }
 
         if (coachAvailability != null) coachAvailability.requireAvailable(coach, start, end);
         if (classSessionRepository.existsOverlappingSessionForCoach(coach.getUserId(), start, end)) {
@@ -717,17 +721,25 @@ public class BookingService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Bạn đã có lịch đặt sân thi đấu trong khung giờ này.");
         }
 
+        List<ClassSession> coachSessions = classSessionRepository.findByCoachIdOrderByStartTimeAsc(coach.getUserId());
+        Long sportId = resolveCoachPrimarySportId(coach, coachSessions);
+        Long facilityId = resolveCoachPrimaryFacilityId(coachSessions, sportId);
+        if (syncService != null && facilityId != null && courtMaintenanceRepository != null) {
+            boolean underMaint = syncService.getCourtIdsForFacility(facilityId, sportId, null).stream()
+                    .anyMatch(cid -> courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(cid, end, start));
+            if (underMaint) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Cơ sở tập luyện đang có lịch bảo trì trong khung giờ này.");
+            }
+        }
+
         BigDecimal hourlyRate = com.sporthub.backend.util.SystemPolicyHelper.ptHourlyRate(systemSettingRepository);
         long minutes = Math.max(30, Duration.between(start, end).toMinutes());
         double hours = Math.max(1.0, minutes / 60.0);
         BigDecimal originalPrice = hourlyRate.multiply(BigDecimal.valueOf(hours)).setScale(0, RoundingMode.HALF_UP);
 
         DiscountInfo discount = calculateDiscount(memberId, "PT", originalPrice);
-        PaymentTransaction payment = createRetailPayment(memberId, "PT", null, discount.finalAmount(), request);
-
-        List<ClassSession> coachSessions = classSessionRepository.findByCoachIdOrderByStartTimeAsc(coach.getUserId());
-        Long sportId = resolveCoachPrimarySportId(coach, coachSessions);
-        Long facilityId = resolveCoachPrimaryFacilityId(coachSessions, sportId);
+        String ptDescription = "Huấn Luyện 1-1 (" + coach.getFullName() + ")";
+        PaymentTransaction payment = createRetailPayment(memberId, "PT", ptDescription, discount.finalAmount(), request);
 
         ClassSession session = new ClassSession();
         session.setClassName("Huấn Luyện 1-1 (" + coach.getFullName() + ")");
@@ -1040,6 +1052,10 @@ public class BookingService {
         if (end == null || !end.isAfter(start)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thời gian kết thúc phải sau thời gian bắt đầu.");
         }
+        int maxAdvanceDays = com.sporthub.backend.util.SystemPolicyHelper.maxAdvanceBookingDays(systemSettingRepository);
+        if (start.toLocalDate().isAfter(LocalDate.now().plusDays(maxAdvanceDays))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ có thể đặt lịch trước tối đa " + maxAdvanceDays + " ngày.");
+        }
 
         // 3. Check time conflicts
         if (coachAvailability != null) coachAvailability.requireAvailable(coach, start, end);
@@ -1056,9 +1072,20 @@ public class BookingService {
         // 4. Find membership with quota
         List<ClassSession> coachSessions = classSessionRepository.findByCoachIdOrderByStartTimeAsc(coach.getUserId());
         Long ptSportId = resolveCoachPrimarySportId(coach, coachSessions);
-        UserMembership membership = membershipService.getActiveMembershipWithQuota(memberId, 1, "PT", ptSportId, start, end);
+        Long sportId = ptSportId != null ? ptSportId
+                : publicSportRepository.findAll().stream().map(PublicSport::getSportId).findFirst().orElse(1L);
+        Long facilityId = resolveCoachPrimaryFacilityId(coachSessions, sportId);
+        if (syncService != null && facilityId != null && courtMaintenanceRepository != null) {
+            boolean underMaint = syncService.getCourtIdsForFacility(facilityId, sportId, null).stream()
+                    .anyMatch(cid -> courtMaintenanceRepository.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(cid, end, start));
+            if (underMaint) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Cơ sở tập luyện đang có lịch bảo trì trong khung giờ này.");
+            }
+        }
+        int requiredSessions = Math.max(1, (int) Math.ceil(Math.max(30, Duration.between(start, end).toMinutes()) / 60.0));
+        UserMembership membership = membershipService.getActiveMembershipWithQuota(memberId, requiredSessions, "PT", ptSportId, start, end);
         if (membership == null) {
-            UserMembership fallback = membershipService.getActiveMembershipWithQuota(memberId, 1, "PT", ptSportId);
+            UserMembership fallback = membershipService.getActiveMembershipWithQuota(memberId, requiredSessions, "PT", ptSportId);
             if (fallback != null) {
                 membershipService.requireBookingAccess(fallback.getMembershipId(), start, end);
             }
@@ -1068,7 +1095,7 @@ public class BookingService {
 
         // 5. Hold quota (remaining → held)
         membershipService.requireBookingAccess(membership.getMembershipId(), start, end);
-        membershipService.holdQuota(membership.getMembershipId(), 1);
+        membershipService.holdQuota(membership.getMembershipId(), requiredSessions);
 
         // 5.5. Create 0đ payment transaction for quota tracking
         String ptDescription = "Huấn Luyện 1-1 (" + coach.getFullName() + ")";
@@ -1082,9 +1109,6 @@ public class BookingService {
         );
 
         // 6. Create PT session
-        Long sportId = ptSportId != null ? ptSportId
-                : publicSportRepository.findAll().stream().map(PublicSport::getSportId).findFirst().orElse(1L);
-        Long facilityId = resolveCoachPrimaryFacilityId(coachSessions, sportId);
 
         ClassSession session = new ClassSession();
         session.setClassName("Huấn Luyện 1-1 (" + coach.getFullName() + ")");

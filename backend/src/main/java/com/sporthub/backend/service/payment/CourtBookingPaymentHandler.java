@@ -24,6 +24,7 @@ public class CourtBookingPaymentHandler implements BookingPaymentHandler {
     @org.springframework.beans.factory.annotation.Autowired private com.sporthub.backend.repository.SportsCourtRepository courts;
     @org.springframework.beans.factory.annotation.Autowired private com.sporthub.backend.repository.CourtMaintenanceRepository maintenance;
     @org.springframework.beans.factory.annotation.Autowired private com.sporthub.backend.service.LatePaymentService latePayments;
+    @org.springframework.beans.factory.annotation.Autowired(required = false) private com.sporthub.backend.repository.SystemSettingRepository systemSettingRepository;
     
     public CourtBookingPaymentHandler(
             CourtBookingRepository courtBookingRepository,
@@ -51,8 +52,9 @@ public class CourtBookingPaymentHandler implements BookingPaymentHandler {
         if (courts != null) courts.findByIdForUpdate(courtBooking.getCourtId()).orElseThrow();
         courtBooking = courtBookingRepository.findByIdForUpdate(courtBooking.getCourtBookingId()).orElseThrow();
         if ("CONFIRMED".equals(courtBooking.getStatus()) || "CHECKED_IN".equals(courtBooking.getStatus())) return confirmation(payment, courtBooking);
+        int holdMinutes = com.sporthub.backend.util.SystemPolicyHelper.bookingHoldTimeoutMinutes(systemSettingRepository);
         boolean unavailable = !"PENDING".equals(courtBooking.getStatus()) || courtBooking.getCreatedAt() == null
-            || !courtBooking.getCreatedAt().plusMinutes(10).isAfter(java.time.LocalDateTime.now())
+            || !courtBooking.getCreatedAt().plusMinutes(holdMinutes).isAfter(java.time.LocalDateTime.now())
             || courtBookingRepository.existsConfirmedOverlapExcluding(courtBooking.getCourtId(), courtBooking.getCourtBookingId(), courtBooking.getStartTime(), courtBooking.getEndTime())
             || (maintenance != null && maintenance.existsByCourtIdAndStartTimeLessThanAndEndTimeGreaterThan(courtBooking.getCourtId(), courtBooking.getEndTime(), courtBooking.getStartTime()));
         if (unavailable) {

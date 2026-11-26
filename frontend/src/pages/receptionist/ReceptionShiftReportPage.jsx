@@ -4,6 +4,7 @@ import { getReceptionistReport } from '../../services/receptionistApi';
 import { useApp } from '../../context/AppContext';
 import { StatCardSkeleton } from '../../components/common/Skeleton';
 import { exportToCsv } from '../../utils/csvExporter';
+import { formatPaymentMethod, formatStatusLabel } from '../../utils/enumLabels';
 
 const todayKey = () => {
   const now = new Date();
@@ -159,7 +160,7 @@ export default function ReceptionShiftReportPage() {
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   {report.paymentMethods.map((method) => (
                     <div key={method.method} className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{method.method}</p>
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{formatPaymentMethod(method.method)}</p>
                       <p className="mt-1.5 font-black text-slate-900 text-lg">{currency(method.amount)}</p>
                       <p className="mt-1 text-xs text-slate-400 font-medium">{method.count} giao dịch</p>
                     </div>
@@ -192,14 +193,14 @@ export default function ReceptionShiftReportPage() {
                           </td>
                           <td className="px-5 py-4 font-bold text-slate-900">{payment.memberName}</td>
                           <td className="px-5 py-4 text-slate-500">{payment.createdAt ? new Date(payment.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
-                          <td className="px-5 py-4 text-slate-600 font-medium">{payment.method}</td>
+                          <td className="px-5 py-4 text-slate-600 font-medium">{formatPaymentMethod(payment.method)}</td>
                           <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
                             payment.status?.toUpperCase() === 'HOÀN TẤT' || payment.status?.toUpperCase() === 'COMPLETED' || payment.status?.toUpperCase() === 'PAID'
                               ? 'bg-emerald-100 text-emerald-800'
                               : payment.status?.toUpperCase() === 'THẤT BẠI' || payment.status?.toUpperCase() === 'FAILED' || payment.status?.toUpperCase() === 'ĐÃ HỦY' || payment.status?.toUpperCase() === 'CANCELLED'
                               ? 'bg-red-100 text-red-800'
                               : 'bg-amber-100 text-amber-800'
-                          }`}>{payment.status}</span></td>
+                          }`}>{formatStatusLabel(payment.status)}</span></td>
                           <td className="px-5 py-4 text-right font-black text-slate-900">{currency(payment.amount)}</td>
                         </tr>
                       ))}

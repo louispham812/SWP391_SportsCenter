@@ -145,9 +145,13 @@ public class PaymentController {
         if (!staff && !payment.getMemberId().toString().equals(auth.getName())) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
     }
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.sporthub.backend.repository.SystemSettingRepository systemSettingRepository;
+
     private void requirePayable(PaymentTransaction payment) {
+        int holdMinutes = com.sporthub.backend.util.SystemPolicyHelper.bookingHoldTimeoutMinutes(systemSettingRepository);
         if (!java.util.List.of("PENDING", "FAILED").contains(payment.getPaymentStatus()) || payment.getAmount().signum() <= 0
-                || payment.getCreatedAt() == null || !payment.getCreatedAt().plusMinutes(10).isAfter(java.time.LocalDateTime.now())) {
+                || payment.getCreatedAt() == null || !payment.getCreatedAt().plusMinutes(holdMinutes).isAfter(java.time.LocalDateTime.now())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Giao dịch không còn trong thời hạn thanh toán.");
         }
     }
