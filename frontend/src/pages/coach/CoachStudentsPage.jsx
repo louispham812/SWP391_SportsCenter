@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import CoachLayout from '../../components/layouts/CoachLayout';
 import { getCoachStudents, getUpcomingClasses } from '../../services/bookingApi';
 import { generateCoachPlan } from '../../services/aiAssistantApi';
@@ -12,6 +11,7 @@ import Pagination from '../../components/common/Pagination';
 import { getAvatarImageUrl } from '../../utils/avatarHelper';
 import FormattedAiText from '../../components/common/FormattedAiText';
 import { parseAiWorkoutPlan } from '../../utils/markdownUtils';
+import { matchesAnyVietnamese } from '../../utils/vietnameseSearch';
 
 const SESSION_STATUS_META = {
   PRESENT: { label: 'Có mặt', className: 'bg-emerald-100 text-emerald-800' },
@@ -238,13 +238,12 @@ export default function CoachStudentsPage() {
 
   // Filter students by search, class and fitness level
   const filteredStudents = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = searchQuery.trim();
     return students.filter((student) => {
-      const matchName = (student.name || '').toLowerCase().includes(query);
-      const matchPhone = (student.phone || '').includes(query);
-      const matchEmail = (student.email || '').toLowerCase().includes(query);
-      const matchGoal = (student.fitnessGoals || '').toLowerCase().includes(query);
-      const matchesSearch = !query || matchName || matchPhone || matchEmail || matchGoal;
+      const matchesSearch = !query || matchesAnyVietnamese(
+        [student.name, student.phone, student.email, student.fitnessGoals, student.id],
+        query,
+      );
 
       const matchesClass =
         selectedClassFilter === 'ALL' ||
@@ -749,6 +748,19 @@ export default function CoachStudentsPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 flex flex-col items-center justify-center gap-2">
             <span className="material-symbols-outlined text-3xl text-slate-300">groups</span>
             <span>Không tìm thấy học viên nào phù hợp với bộ lọc hiện tại.</span>
+            {(searchQuery || selectedClassFilter !== 'ALL' || selectedLevelFilter !== 'ALL') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedClassFilter('ALL');
+                  setSelectedLevelFilter('ALL');
+                }}
+                className="mt-1 rounded-xl border border-slate-200 px-3.5 py-1.5 text-xs font-bold text-orange-600 hover:bg-orange-50 transition cursor-pointer"
+              >
+                Xóa bộ lọc
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-6">
@@ -943,43 +955,52 @@ export default function CoachStudentsPage() {
         </div>
 
         {/* MODAL: SOẠN GIÁO ÁN & ĐÁNH GIÁ (CÁ NHÂN HOẶC CẢ LỚP) */}
-        {(selectedStudentForPlan || planScope === 'class') && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-hidden !m-0">
-            <div className="relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-3xl bg-white shadow-2xl overflow-hidden">
-              {/* Modal Header */}
-              <div className="shrink-0 flex items-center justify-between border-b border-slate-100 px-6 pt-6 pb-4 bg-white">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-black">
-                    <span className="material-symbols-outlined text-[22px]">fitness_center</span>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900">
-                      {planScope === 'class'
-                        ? 'Giao Giáo Án Đồng Bộ Cho Cả Lớp'
-                        : `Soạn Kế Hoạch & Đánh Giá PT · ${selectedStudentForPlan?.name}`}
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      {planScope === 'class'
-                        ? 'Tạo và phân bổ giáo án tập luyện đồng bộ đến toàn bộ học viên đã đăng ký ca này'
-                        : `ID Học viên: #${selectedStudentForPlan?.id} · ĐT: ${selectedStudentForPlan?.phone || 'N/A'}`}
-                    </p>
-                  </div>
+        <ModalDialog
+          open={Boolean(selectedStudentForPlan || planScope === 'class')}
+          onClose={() => {
+            setSelectedStudentForPlan(null);
+            setPlanScope('individual');
+          }}
+          titleId="coach-plan-modal-title"
+          maxWidthClass="max-w-3xl"
+          preventClose={savingPlan}
+        >
+          <div className="max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="shrink-0 flex items-center justify-between border-b border-slate-100 px-6 pt-6 pb-4 bg-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-black">
+                  <span className="material-symbols-outlined text-[22px]">fitness_center</span>
                 </div>
-                <button
-                  type="button"
-                  aria-label="Đóng"
-                  onClick={() => {
-                    setSelectedStudentForPlan(null);
-                    setPlanScope('individual');
-                  }}
-                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]">close</span>
-                </button>
+                <div>
+                  <h3 id="coach-plan-modal-title" className="text-base font-bold text-slate-900">
+                    {planScope === 'class'
+                      ? 'Giao Giáo Án Đồng Bộ Cho Cả Lớp'
+                      : `Soạn Kế Hoạch & Đánh Giá PT · ${selectedStudentForPlan?.name}`}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {planScope === 'class'
+                      ? 'Tạo và phân bổ giáo án tập luyện đồng bộ đến toàn bộ học viên đã đăng ký ca này'
+                      : `ID Học viên: #${selectedStudentForPlan?.id} · ĐT: ${selectedStudentForPlan?.phone || 'N/A'}`}
+                  </p>
+                </div>
               </div>
+              <button
+                type="button"
+                disabled={savingPlan}
+                aria-label="Đóng"
+                onClick={() => {
+                  setSelectedStudentForPlan(null);
+                  setPlanScope('individual');
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
 
-              {/* Single Scrollable Modal Body */}
-              <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
+            {/* Single Scrollable Modal Body */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
 
               {/* ITEM 3: PHẠM VI ÁP DỤNG GIÁO ÁN (CÁ NHÂN VS CẢ LỚP) */}
               <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1153,7 +1174,7 @@ export default function CoachStudentsPage() {
                             placeholder="Tên bài tập..."
                             value={ex.name}
                             onChange={(e) => handleExerciseChange(idx, 'name', e.target.value)}
-                            className="flex-2 px-2.5 py-1.5 rounded-lg border border-slate-200 font-bold text-slate-800"
+                            className="flex-[2] px-2.5 py-1.5 rounded-lg border border-slate-200 font-bold text-slate-800"
                           />
                           <div className="flex items-center gap-1">
                             <input
@@ -1191,7 +1212,7 @@ export default function CoachStudentsPage() {
                             placeholder="Lưu ý kỹ thuật..."
                             value={ex.note}
                             onChange={(e) => handleExerciseChange(idx, 'note', e.target.value)}
-                            className="flex-2 px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-[11px]"
+                            className="flex-[2] px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-[11px]"
                           />
                           <button
                             type="button"
@@ -1528,33 +1549,37 @@ export default function CoachStudentsPage() {
               )}
               </div>
             </div>
-          </div>,
-          document.body
-        )}
+          </ModalDialog>
 
         {/* ITEM 7: MODAL GỬI THÔNG BÁO / NHẮC NHỞ CHO HỌC VIÊN HOẶC CẢ LỚP */}
-        {noticeModalOpen && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto !m-0">
-            <div className="relative w-full max-w-xl max-h-[90vh] my-auto overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-blue-500 text-white flex items-center justify-center font-black">
-                    <span className="material-symbols-outlined text-[20px]">campaign</span>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900">Gửi Thông Báo / Nhắc Nhở</h3>
-                    <p className="text-xs text-slate-500">Gửi thông điệp trực tiếp đến học viên qua hệ thống thông báo F Sport</p>
-                  </div>
+        <ModalDialog
+          open={noticeModalOpen}
+          onClose={() => setNoticeModalOpen(false)}
+          titleId="coach-notice-modal-title"
+          maxWidthClass="max-w-xl"
+          preventClose={sendingNotice}
+        >
+          <div className="max-h-[90vh] overflow-y-auto p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-500 text-white flex items-center justify-center font-black">
+                  <span className="material-symbols-outlined text-[20px]">campaign</span>
                 </div>
-                <button
-                  type="button"
-                  aria-label="Đóng"
-                  onClick={() => setNoticeModalOpen(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]">close</span>
-                </button>
+                <div>
+                  <h3 id="coach-notice-modal-title" className="text-base font-bold text-slate-900">Gửi Thông Báo / Nhắc Nhở</h3>
+                  <p className="text-xs text-slate-500">Gửi thông điệp trực tiếp đến học viên qua hệ thống thông báo F Sport</p>
+                </div>
               </div>
+              <button
+                type="button"
+                disabled={sendingNotice}
+                aria-label="Đóng"
+                onClick={() => setNoticeModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
 
               {/* Phạm vi thông báo */}
               <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
@@ -1701,9 +1726,7 @@ export default function CoachStudentsPage() {
                 </div>
               </form>
             </div>
-          </div>,
-          document.body
-        )}
+          </ModalDialog>
 
         {/* MODAL: DANH SÁCH CA HỌC ĐĂNG KÝ CỦA HỌC VIÊN */}
         <ModalDialog

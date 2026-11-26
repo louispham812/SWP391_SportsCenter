@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
+import ModalDialog from '../../components/common/ModalDialog';
 import { getMemberHealthProfile, updateMemberHealthProfile, getMemberAttendance } from '../../services/memberApi';
 import { getMyWorkoutProgress, createWorkoutPlan, recordBodyProgress, togglePlanExercise } from '../../services/workoutApi';
 import { sendMemberAssistantMessages } from '../../services/aiAssistantApi';
@@ -739,7 +739,15 @@ export default function MemberWorkoutPlansPage() {
                                   return (
                                     <div
                                       key={idx}
+                                      role="button"
+                                      tabIndex={0}
                                       onClick={() => handleToggleExercise(plan.planId, idx)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault();
+                                          handleToggleExercise(plan.planId, idx);
+                                        }
+                                      }}
                                       className={`flex items-center justify-between text-xs p-2 rounded-lg border transition-all cursor-pointer select-none ${
                                         isDone
                                           ? 'bg-emerald-50/70 border-emerald-300 text-emerald-950 font-medium'
@@ -1022,6 +1030,12 @@ export default function MemberWorkoutPlansPage() {
                   placeholder="Ghi chú thêm cho AI (VD: Tôi bị đau cổ chân nhẹ, hãy giảm các bài bật nhảy cao)..."
                   value={aiCustomNote}
                   onChange={(e) => setAiCustomNote(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !generatingAi) {
+                      e.preventDefault();
+                      handleGenerateAiPlan();
+                    }
+                  }}
                   className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-xs text-white placeholder:text-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-400"
                 />
               </div>
@@ -1057,7 +1071,7 @@ export default function MemberWorkoutPlansPage() {
                     className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md shadow-purple-600/20 transition cursor-pointer disabled:opacity-50"
                   >
                     <span className="material-symbols-outlined text-[18px]">bookmark_add</span>
-                    {savingAiPlan ? 'Đang lưu vào DB...' : 'Lưu Vào Kế Hoạch Của Tôi'}
+                    {savingAiPlan ? 'Đang lưu kế hoạch...' : 'Lưu Vào Kế Hoạch Của Tôi'}
                   </button>
                 </div>
 
@@ -1093,134 +1107,140 @@ export default function MemberWorkoutPlansPage() {
         )}
 
         {/* MODAL: THÊM MỐC ĐO TIẾN ĐỘ MỚI (MEM-21) */}
-        {showAddLogModal && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto !m-0">
-            <div className="relative w-full max-w-lg my-auto rounded-3xl bg-white p-6 shadow-2xl space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[20px]">monitor_weight</span>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900">Ghi Nhận Mốc Đo Tiến Độ Mới</h3>
-                    <p className="text-xs text-slate-500">Lưu lại chỉ số cơ thể & mức tạ 1RM mới nhất</p>
-                  </div>
+        <ModalDialog
+          open={showAddLogModal}
+          onClose={() => setShowAddLogModal(false)}
+          preventClose={savingLog}
+          titleId="workout-add-log-title"
+          maxWidthClass="max-w-lg"
+        >
+          <div className="p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center">
+                  <span aria-hidden="true" className="material-symbols-outlined text-[20px]">monitor_weight</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowAddLogModal(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]">close</span>
-                </button>
+                <div>
+                  <h3 id="workout-add-log-title" className="text-base font-bold text-slate-900">Ghi Nhận Mốc Đo Tiến Độ Mới</h3>
+                  <p className="text-xs text-slate-500">Lưu lại chỉ số cơ thể &amp; mức tạ 1RM mới nhất</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Đóng"
+                disabled={savingLog}
+                onClick={() => setShowAddLogModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer disabled:opacity-50"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveNewLog} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Ngày đo *</label>
+                <input
+                  type="date"
+                  required
+                  value={newLog.recordedDate}
+                  onChange={(e) => setNewLog({ ...newLog, recordedDate: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 font-semibold"
+                />
               </div>
 
-              <form onSubmit={handleSaveNewLog} className="space-y-3.5 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Ngày đo *</label>
+                  <label className="block font-bold text-slate-700 mb-1">Cân nặng (kg) *</label>
                   <input
-                    type="date"
+                    type="number"
+                    step="0.1"
                     required
-                    value={newLog.recordedDate}
-                    onChange={(e) => setNewLog({ ...newLog, recordedDate: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 font-semibold"
+                    placeholder="VD: 72.5"
+                    value={newLog.weightKg}
+                    onChange={(e) => setNewLog({ ...newLog, weightKg: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 font-bold"
                   />
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Cân nặng (kg) *</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      required
-                      placeholder="VD: 72.5"
-                      value={newLog.weightKg}
-                      onChange={(e) => setNewLog({ ...newLog, weightKg: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Chiều cao (cm)</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      placeholder="VD: 173"
-                      value={newLog.heightCm}
-                      onChange={(e) => setNewLog({ ...newLog, heightCm: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 font-bold"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Cơ SMM (kg)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      placeholder="VD: 33.2"
-                      value={newLog.smmKg}
-                      onChange={(e) => setNewLog({ ...newLog, smmKg: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 font-bold text-emerald-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Mỡ PBF (%)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      placeholder="VD: 19.5"
-                      value={newLog.pbfPercent}
-                      onChange={(e) => setNewLog({ ...newLog, pbfPercent: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 font-bold text-orange-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">1RM Tối Đa (kg)</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      placeholder="VD: 95"
-                      value={newLog.maxLiftKg}
-                      onChange={(e) => setNewLog({ ...newLog, maxLiftKg: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 font-bold text-blue-600"
-                    />
-                  </div>
-                </div>
-
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Ghi chú tiến độ</label>
+                  <label className="block font-bold text-slate-700 mb-1">Chiều cao (cm)</label>
                   <input
-                    type="text"
-                    placeholder="VD: Đo sau buổi tập chân, cảm thấy cơ đùi căng và khỏe hơn..."
-                    value={newLog.note}
-                    onChange={(e) => setNewLog({ ...newLog, note: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200"
+                    type="number"
+                    step="0.5"
+                    placeholder="VD: 173"
+                    value={newLog.heightCm}
+                    onChange={(e) => setNewLog({ ...newLog, heightCm: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 font-bold"
                   />
                 </div>
+              </div>
 
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddLogModal(false)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={savingLog}
-                    className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-orange-500 hover:bg-orange-600 transition shadow-xs cursor-pointer disabled:opacity-50"
-                  >
-                    {savingLog ? 'Đang lưu...' : 'Lưu Mốc Đo'}
-                  </button>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Cơ SMM (kg)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="VD: 33.2"
+                    value={newLog.smmKg}
+                    onChange={(e) => setNewLog({ ...newLog, smmKg: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 font-bold text-emerald-600"
+                  />
                 </div>
-              </form>
-            </div>
-          </div>,
-          document.body
-        )}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Mỡ PBF (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="VD: 19.5"
+                    value={newLog.pbfPercent}
+                    onChange={(e) => setNewLog({ ...newLog, pbfPercent: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 font-bold text-orange-600"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">1RM Tối Đa (kg)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    placeholder="VD: 95"
+                    value={newLog.maxLiftKg}
+                    onChange={(e) => setNewLog({ ...newLog, maxLiftKg: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 font-bold text-blue-600"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Ghi chú tiến độ</label>
+                <input
+                  type="text"
+                  placeholder="VD: Đo sau buổi tập chân, cảm thấy cơ đùi căng và khỏe hơn..."
+                  value={newLog.note}
+                  onChange={(e) => setNewLog({ ...newLog, note: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={savingLog}
+                  onClick={() => setShowAddLogModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition cursor-pointer disabled:opacity-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingLog}
+                  className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-orange-500 hover:bg-orange-600 transition shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  {savingLog ? 'Đang lưu...' : 'Lưu Mốc Đo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </ModalDialog>
       </div>
     </MemberLayout>
   );

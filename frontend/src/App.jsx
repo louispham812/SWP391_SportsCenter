@@ -68,6 +68,7 @@ import AdminMaintenancePage from './pages/admin/AdminMaintenancePage';
 import AdminTicketsPage from './pages/admin/AdminTicketsPage';
 import ToastContainer from './components/ToastContainer';
 import PaymentResumeBoundary from './components/PaymentResumeBoundary';
+import ScrollToTop from './components/ScrollToTop';
 
 import { AppProvider, useApp } from './context/AppContext';
 
@@ -76,7 +77,16 @@ function RequireRole({ role, roles, children }) {
   const location = useLocation();
 
   if (!currentUser) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{
+          from: location,
+          notice: 'Vui lòng đăng nhập để tiếp tục sử dụng dịch vụ.',
+        }}
+      />
+    );
   }
   const allowedRoles = roles || (role ? [role] : []);
   if (allowedRoles.length > 0 && !allowedRoles.includes(currentRole)) {
@@ -89,6 +99,7 @@ function App() {
   return (
     <AppProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <ToastContainer />
         <PaymentResumeBoundary>
         <Routes>

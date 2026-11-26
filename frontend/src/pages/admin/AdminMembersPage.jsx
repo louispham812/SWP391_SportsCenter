@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import CreateUserModal from '../../components/common/CreateUserModal';
+import ModalDialog from '../../components/common/ModalDialog';
 import { TableSkeleton } from '../../components/common/Skeleton';
 import Pagination from '../../components/common/Pagination';
 import {
@@ -167,7 +168,7 @@ export default function AdminMembersPage() {
 
   return (
     <AdminLayout>
-      <main className="space-y-6">
+      <div className="space-y-6">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
@@ -350,7 +351,7 @@ export default function AdminMembersPage() {
             </>
           )}
         </section>
-      </main>
+      </div>
       <CreateUserModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
@@ -358,18 +359,26 @@ export default function AdminMembersPage() {
         memberOnly
       />
 
-      {editingMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs !m-0">
-          <div className="relative w-full max-w-md overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-2xl">
+      <ModalDialog
+        open={Boolean(editingMember)}
+        onClose={() => setEditingMember(null)}
+        titleId="admin-member-edit-title"
+        maxWidthClass="max-w-md"
+        preventClose={savingEdit}
+      >
+        {editingMember && (
+          <div>
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
               <div>
-                <h2 className="text-base font-bold text-slate-900">Sửa thông tin hội viên</h2>
+                <h2 id="admin-member-edit-title" className="text-base font-bold text-slate-900">Sửa thông tin hội viên</h2>
                 <p className="text-xs text-slate-500">{editingMember.email}</p>
               </div>
               <button
                 type="button"
+                disabled={savingEdit}
                 onClick={() => setEditingMember(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                aria-label="Đóng hộp thoại sửa hội viên"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -381,8 +390,9 @@ export default function AdminMembersPage() {
                 </div>
               )}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">Họ và tên *</label>
+                <label className="text-xs font-bold text-slate-700" htmlFor="edit-member-fullname">Họ và tên *</label>
                 <input
+                  id="edit-member-fullname"
                   type="text"
                   required
                   value={editForm.fullName}
@@ -391,8 +401,9 @@ export default function AdminMembersPage() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">Số điện thoại</label>
+                <label className="text-xs font-bold text-slate-700" htmlFor="edit-member-phone">Số điện thoại</label>
                 <input
+                  id="edit-member-phone"
                   type="text"
                   value={editForm.phone}
                   onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
@@ -418,18 +429,24 @@ export default function AdminMembersPage() {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
 
-      {deletingMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs !m-0">
-          <div className="relative w-full max-w-sm overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 space-y-4">
+      <ModalDialog
+        open={Boolean(deletingMember)}
+        onClose={() => setDeletingMember(null)}
+        titleId="admin-member-delete-title"
+        maxWidthClass="max-w-sm"
+        preventClose={Boolean(deletingMember && processingId === deletingMember.userId)}
+      >
+        {deletingMember && (
+          <div className="p-6 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-[22px]">delete_forever</span>
               </div>
               <div>
-                <h2 className="text-base font-bold text-slate-900">Xác nhận xóa hội viên</h2>
+                <h2 id="admin-member-delete-title" className="text-base font-bold text-slate-900">Xác nhận xóa hội viên</h2>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Bạn có chắc muốn xóa tài khoản <strong>{deletingMember.fullName}</strong> ({deletingMember.email})?
                 </p>
@@ -454,8 +471,8 @@ export default function AdminMembersPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
     </AdminLayout>
   );
 }

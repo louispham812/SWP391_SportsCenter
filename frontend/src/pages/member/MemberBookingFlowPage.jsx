@@ -23,17 +23,67 @@ const formatDate = (value) => new Date(value).toLocaleString('vi-VN', {
   minute: '2-digit',
 });
 
-function PageFrame({ title, description, children }) {
+function PageFrame({
+  title,
+  description,
+  showBack = true,
+  backTo = '/member/book',
+  backLabel = 'Booking hội viên',
+  step = null,
+  children,
+}) {
+  const navigate = useNavigate();
+  const steps = [
+    { num: 1, label: 'Chọn môn' },
+    { num: 2, label: 'Chọn lịch' },
+    { num: 3, label: 'Thanh toán' },
+  ];
+
   return (
     <MemberLayout>
       <div className="mx-auto max-w-6xl space-y-6">
-        <header>
-          <Link to="/member/book" className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-orange-600 transition">
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-            Booking hội viên
-          </Link>
-          <h1 className="mt-2 font-headline-xl text-2xl font-bold text-slate-900 sm:text-3xl">{title}</h1>
-          <p className="mt-1 text-sm text-slate-500">{description}</p>
+        <header className="space-y-2">
+          {showBack && (
+            backTo === -1 ? (
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-orange-600 transition cursor-pointer"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-[16px]">arrow_back</span>
+                {backLabel}
+              </button>
+            ) : (
+              <Link to={backTo} className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-orange-600 transition">
+                <span aria-hidden="true" className="material-symbols-outlined text-[16px]">arrow_back</span>
+                {backLabel}
+              </Link>
+            )
+          )}
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+            <div>
+              <h1 className="font-headline-xl text-2xl font-bold text-slate-900 sm:text-3xl">{title}</h1>
+              <p className="mt-1 text-sm text-slate-500">{description}</p>
+            </div>
+            {step && (
+              <ol aria-label="Các bước đặt lịch" className="flex items-center gap-1.5 text-[11px] font-bold shrink-0">
+                {steps.map((s) => (
+                  <li
+                    key={s.num}
+                    className={`px-2.5 py-1 rounded-full border ${
+                      s.num === step
+                        ? 'bg-orange-500 text-white border-orange-500'
+                        : s.num < step
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-white text-slate-400 border-slate-200'
+                    }`}
+                  >
+                    {s.num}. {s.label}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
         </header>
         {children}
       </div>
@@ -140,6 +190,7 @@ function BookingHome() {
     <PageFrame
       title="Đặt Lịch & Đăng Ký Dịch Vụ"
       description="Chọn thuê sân chơi thể thao theo khung giờ hoặc đăng ký lớp huấn luyện cùng HLV chuyên nghiệp."
+      showBack={false}
     >
       {matchedSport && (
         <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-xs font-semibold text-orange-900 flex flex-wrap items-center justify-between gap-2">
@@ -279,6 +330,9 @@ function SportPicker({ bookingType }) {
           ? 'Chọn bộ môn để xem danh sách HLV chuyên môn và đặt lịch PT 1-1.'
           : 'Chọn bộ môn để xem các lớp học và thời khóa biểu.'
       }`}
+      backTo="/member/book"
+      backLabel="Chọn loại dịch vụ"
+      step={1}
     >
       <ErrorNotice error={error} />
       {loading ? (
@@ -469,6 +523,9 @@ function CourtPicker({ sportId }) {
     <PageFrame
       title="Chọn sân và khung giờ"
       description="Bạn có thể chọn 1 giờ hoặc nhiều giờ liên tiếp trên cùng một sân. Nhấn vào khung giờ đầu và khung giờ cuối để nối nhanh cả dải giờ trống."
+      backTo="/member/book/court/sports"
+      backLabel="Chọn lại môn thể thao"
+      step={2}
     >
       <ErrorNotice error={error} />
       {loading ? (
@@ -613,7 +670,7 @@ function CourtPicker({ sportId }) {
           </div>
 
           {selectedCourtInfo && totalSelectedHours > 0 && (
-            <div className="fixed bottom-20 lg:bottom-4 left-4 right-4 z-40 mx-auto max-w-4xl rounded-2xl border border-slate-800 bg-slate-900/95 p-4 text-white shadow-2xl backdrop-blur-md">
+            <div className="fixed bottom-20 lg:bottom-4 left-4 right-4 lg:left-[calc(18rem+1rem)] z-40 mx-auto max-w-4xl rounded-2xl border border-slate-800 bg-slate-900/95 p-4 text-white shadow-2xl backdrop-blur-md">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
@@ -703,10 +760,16 @@ function ClassPicker({ sportId }) {
   }, [sportId]);
 
   return (
-    <PageFrame title="Chọn lớp học và thời khóa biểu" description="Chọn đúng lớp, ngày học và mức phí trước khi xác nhận thanh toán.">
+    <PageFrame
+      title="Chọn lớp học và thời khóa biểu"
+      description="Chọn đúng lớp, ngày học và mức phí trước khi xác nhận thanh toán."
+      backTo="/member/book/class/sports"
+      backLabel="Chọn lại môn thể thao"
+      step={2}
+    >
       <ErrorNotice error={error} />
       {loading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Đang tải lớp học từ database...</div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Đang tải danh sách lớp học...</div>
       ) : classes.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Chưa có lớp sắp diễn ra cho bộ môn này.</div>
       ) : (
@@ -815,6 +878,9 @@ function CoachPicker({ sportId }) {
     <PageFrame
       title="Chọn Huấn Luyện Viên Cá Nhân (PT 1-1)"
       description="Bước 2 trong 3 · Lựa chọn HLV phù hợp theo bảng giá, chứng chỉ chuyên môn và chọn giờ tập thuận tiện."
+      backTo="/member/book/pt/sports"
+      backLabel="Chọn lại môn thể thao"
+      step={2}
     >
       <ErrorNotice error={error} />
       <div className="flex flex-wrap items-center gap-2 mb-6">
@@ -1017,6 +1083,7 @@ function CheckoutPage({ bookingType, itemId }) {
   const [voucherCode, setVoucherCode] = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState(null);
   const [voucherError, setVoucherError] = useState('');
+  const [validatingVoucher, setValidatingVoucher] = useState(false);
 
   useEffect(() => {
     let current = true;
@@ -1040,9 +1107,10 @@ function CheckoutPage({ bookingType, itemId }) {
   // Handle Voucher Application (MGR-18)
   const applyVoucher = async () => {
     setVoucherError('');
-    if (!voucherCode.trim()) return;
+    if (!voucherCode.trim() || validatingVoucher) return;
 
     const code = voucherCode.trim().toUpperCase();
+    setValidatingVoucher(true);
     try {
       const res = await apiRequest('/vouchers/validate', {
         method: 'POST',
@@ -1055,6 +1123,8 @@ function CheckoutPage({ bookingType, itemId }) {
       }
     } catch (err) {
       setVoucherError(err.message || 'Không thể xác thực mã ưu đãi từ hệ thống.');
+    } finally {
+      setValidatingVoucher(false);
     }
   };
 
@@ -1181,6 +1251,9 @@ function CheckoutPage({ bookingType, itemId }) {
     <PageFrame
       title="Xác nhận booking & thanh toán"
       description={`Lựa chọn khấu trừ ${isCourtBooking ? 'số giờ sân' : 'số buổi'} từ gói hội viên hoặc thanh toán theo giá niêm yết bán lẻ.`}
+      backTo={-1}
+      backLabel="Quay lại chọn lịch"
+      step={3}
     >
       <ErrorNotice error={error} />
       {loading ? (
@@ -1246,6 +1319,16 @@ function CheckoutPage({ bookingType, itemId }) {
                   Khấu trừ Quota Gói Hội Viên ({memberQuota.packageName}):
                 </span>
                 <strong className="font-bold text-orange-700">Trừ {requiredQuota} {quotaUnitTitle} (0đ)</strong>
+              </div>
+            )}
+
+            {paymentMode === 'RETAIL' && systemDiscount > 0 && (
+              <div className="flex justify-between items-center rounded-lg bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800">
+                <span className="flex items-center gap-1.5 font-semibold">
+                  <span aria-hidden="true" className="material-symbols-outlined text-sm text-emerald-600">stars</span>
+                  {quote?.discountLabel || 'Ưu đãi thẻ hội viên'}
+                </span>
+                <strong className="font-bold text-emerald-700">-{formatMoney(systemDiscount)}</strong>
               </div>
             )}
 
@@ -1379,14 +1462,21 @@ function CheckoutPage({ bookingType, itemId }) {
                     placeholder="Nhập mã (ví dụ: WELCOME20, SUMMER50K)"
                     value={voucherCode}
                     onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        applyVoucher();
+                      }
+                    }}
                     className="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold uppercase tracking-wider bg-white focus:ring-2 focus:ring-orange-500"
                   />
                   <button
                     type="button"
+                    disabled={!voucherCode.trim() || validatingVoucher}
                     onClick={applyVoucher}
-                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-sm transition cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white font-bold text-xs shadow-sm transition cursor-pointer"
                   >
-                    Áp Dụng
+                    {validatingVoucher ? 'Đang kiểm tra...' : 'Áp Dụng'}
                   </button>
                 </div>
               )}
@@ -1419,6 +1509,7 @@ function CheckoutPage({ bookingType, itemId }) {
 
 function BookingConfirmationPage() {
   const location = useLocation();
+  const [copiedRef, setCopiedRef] = useState(false);
   const confirmation = location.state?.confirmation;
   if (!confirmation) {
     return (
@@ -1427,12 +1518,33 @@ function BookingConfirmationPage() {
       </PageFrame>
     );
   }
+  const handleCopyRef = async () => {
+    if (!confirmation.referenceCode) return;
+    try {
+      await navigator.clipboard.writeText(confirmation.referenceCode);
+      setCopiedRef(true);
+      window.setTimeout(() => setCopiedRef(false), 1800);
+    } catch {
+      // ignore clipboard errors
+    }
+  };
   return (
     <PageFrame title={confirmation.paymentStatus === 'PAID' ? 'Booking đã xác nhận' : 'Booking chờ thanh toán'} description={confirmation.paymentStatus === 'PAID' ? 'Giao dịch và lịch hẹn đã được xác nhận.' : 'Chỗ được giữ tối đa 10 phút. Lịch chỉ được xác nhận sau khi lễ tân thu tiền hoặc ngân hàng xác nhận thanh toán.'}>
       <div className="mx-auto max-w-2xl rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm sm:p-8 space-y-4">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold uppercase tracking-wider">
-          <span className="material-symbols-outlined text-[16px]">check_circle</span>
-          {confirmation.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chờ thanh toán'} · {confirmation.referenceCode}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold uppercase tracking-wider">
+            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">check_circle</span>
+            {confirmation.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chờ thanh toán'} · {confirmation.referenceCode}
+          </div>
+          {confirmation.referenceCode && (
+            <button
+              type="button"
+              onClick={handleCopyRef}
+              className="px-2.5 py-1 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[11px] font-bold text-slate-600 cursor-pointer"
+            >
+              {copiedRef ? 'Đã sao chép mã' : 'Sao chép mã'}
+            </button>
+          )}
         </div>
         <h2 className="text-2xl font-bold text-slate-900">{confirmation.itemName}</h2>
         <p className="text-sm text-slate-500">{confirmation.sportName} · {confirmation.location}</p>

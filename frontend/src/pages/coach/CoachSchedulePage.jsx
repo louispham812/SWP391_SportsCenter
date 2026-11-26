@@ -185,6 +185,31 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
     }
   };
 
+  // Bulk toggle all availability slots
+  const handleToggleAllAvailability = async (enabled) => {
+    if (savingAvailability) return;
+    const updated = availability.map((item) => ({
+      ...item,
+      morning: enabled,
+      afternoon: enabled,
+      evening: enabled,
+    }));
+    setSavingAvailability(true);
+    try {
+      await updateCoachAvailability(JSON.stringify(updated));
+      setAvailability(updated);
+      showToast(
+        enabled ? 'Đã bật toàn bộ lịch rảnh' : 'Đã tắt toàn bộ lịch rảnh',
+        enabled ? 'Tất cả khung giờ trong tuần đã sẵn sàng nhận lớp.' : 'Đã tạm tắt toàn bộ khung giờ nhận lớp mới.',
+        'success',
+      );
+    } catch (err) {
+      showToast('Không thể cập nhật lịch rảnh', err.message || 'Không thể cập nhật lịch rảnh.', 'danger');
+    } finally {
+      setSavingAvailability(false);
+    }
+  };
+
   // Toggle Shift Availability (COA-14)
   const handleToggleShift = async (dayCode, shiftKey) => {
     if (savingAvailability) return;
@@ -424,15 +449,33 @@ export default function CoachSchedulePage({ initialTab = 'schedule' }) {
                     Áp dụng lặp lại cho mọi tuần. Click vào ô để bật/tắt ca nhận lớp mới.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleSaveAvailability}
-                  disabled={savingAvailability}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold shadow-sm transition-all cursor-pointer self-start sm:self-auto"
-                >
-                  <span className="material-symbols-outlined text-[16px]">save</span>
-                  <span>{savingAvailability ? 'Đang lưu...' : 'Lưu Lịch Rảnh Lên Máy Chủ'}</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleAllAvailability(true)}
+                    disabled={savingAvailability}
+                    className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                  >
+                    Bật tất cả
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleAllAvailability(false)}
+                    disabled={savingAvailability}
+                    className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                  >
+                    Tắt tất cả
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveAvailability}
+                    disabled={savingAvailability}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">save</span>
+                    <span>{savingAvailability ? 'Đang lưu...' : 'Lưu Lịch Rảnh Lên Máy Chủ'}</span>
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-7 gap-3">

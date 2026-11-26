@@ -3,6 +3,7 @@ import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
 import { apiRequest, generatePayment } from '../../services/apiClient';
 import { redirectToPayment } from '../../services/paymentNavigation';
 import QrCodeSvg from '../../components/common/QrCodeSvg';
+import { TableSkeleton } from '../../components/common/Skeleton';
 import { useApp } from '../../context/AppContext';
 import { formatBookingTypeLabel, formatStatusLabel } from '../../utils/enumLabels';
 
@@ -16,6 +17,7 @@ export default function ReceptionPOSPage() {
   const { currentUser } = useApp();
   const [packages, setPackages] = useState([]);
   const [memberSearchResult, setMemberSearchResult] = useState(null);
+  const [searchingMembers, setSearchingMembers] = useState(false);
   const [search, setSearch] = useState('');
   const [memberId, setMemberId] = useState('');
   const [packageId, setPackageId] = useState('');
@@ -72,18 +74,24 @@ export default function ReceptionPOSPage() {
 
   useEffect(() => {
     let current = true;
-    if (search.trim().length < 2) {
+    const trimmed = search.trim();
+    if (trimmed.length < 2) {
+      setSearchingMembers(false);
       return () => {
         current = false;
       };
     }
+    setSearchingMembers(true);
     const timeoutId = window.setTimeout(() => {
-      apiRequest(`/receptionist/members?query=${encodeURIComponent(search.trim())}&page=0&size=20`)
+      apiRequest(`/receptionist/members?query=${encodeURIComponent(trimmed)}&page=0&size=20`)
         .then((result) => {
-          if (current) setMemberSearchResult({ query: search.trim(), members: result.content || [] });
+          if (current) setMemberSearchResult({ query: trimmed, members: result.content || [] });
         })
         .catch((requestError) => {
           if (current) setError(requestError.message || 'Không thể tìm hội viên.');
+        })
+        .finally(() => {
+          if (current) setSearchingMembers(false);
         });
     }, 250);
     return () => {
@@ -91,6 +99,15 @@ export default function ReceptionPOSPage() {
       window.clearTimeout(timeoutId);
     };
   }, [search]);
+
+  useEffect(() => {
+    if (!showPrintModal) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setShowPrintModal(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showPrintModal]);
 
   const members = memberSearchResult?.query === search.trim()
     ? memberSearchResult.members
@@ -158,7 +175,18 @@ export default function ReceptionPOSPage() {
 
   return (
     <ReceptionistLayout>
-      <main className="mx-auto max-w-5xl space-y-6">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <header>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold uppercase tracking-wider mb-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            F SPORT RECEPTION · THU NGÂN POS
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Thu Ngân &amp; Đăng Ký Gói Tập</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Tra cứu hội viên, chọn gói thẻ đang mở bán, tự động gia hạn nối tiếp và in biên lai nhiệt 80mm chuẩn POS.
+          </p>
+        </header>
+
         <section className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-bold text-slate-900">Giao dịch hội viên chờ trả tiền tại quầy ({pendingCash.length})</h2>
@@ -172,30 +200,21 @@ export default function ReceptionPOSPage() {
               {cashSuccessMessage}
             </p>
           )}
-          {!loadingPendingCash && pendingCash.length === 0 ? (
+          {loadingPendingCash ? (
+            <TableSkeleton bare rows={3} cols={3} />
+          ) : pendingCash.length === 0 ? (
             <p className="text-xs text-slate-400">Hiện không có giao dịch chờ thu tiền mặt.</p>
           ) : (
             pendingCash.map((payment) => (
               <div key={payment.paymentId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-sm">
                 <span>Giao dịch #{payment.paymentId} · Hội viên #{payment.memberId} · {payment.itemDescription || formatBookingTypeLabel(payment.bookingType)} · <strong>{formatPrice(payment.amount)}</strong></span>
-                <button type="button" disabled={collectingPayment !== null} onClick={() => collectCash(payment)} className="rounded-lg bg-emerald-700 px-3 py-2 font-bold text-white disabled:opacity-50 cursor-pointer">
+                <button type="button" disabled={collectingPayment !== null} onClick={() => collectCash(payment)} className="rounded-lg bg-emerald-700 hover:bg-emerald-800 px-3 py-2 font-bold text-white disabled:opacity-50 cursor-pointer">
                   {collectingPayment === payment.paymentId ? 'Đang xác nhận...' : 'Đã thu đủ tiền mặt'}
                 </button>
               </div>
             ))
           )}
         </section>
-
-        <header>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold uppercase tracking-wider mb-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            F SPORT RECEPTION · THU NGÂN POS
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Thu Ngân &amp; Đăng Ký Gói Tập</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Tra cứu hội viên, chọn gói thẻ đang mở bán, tự động gia hạn nối tiếp và in biên lai nhiệt 80mm chuẩn POS.
-          </p>
-        </header>
 
         {error && (
           <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
@@ -216,7 +235,7 @@ export default function ReceptionPOSPage() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 self-start sm:self-auto">
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
               <button
                 type="button"
                 onClick={() => setShowPrintModal(true)}
@@ -224,6 +243,19 @@ export default function ReceptionPOSPage() {
               >
                 <span className="material-symbols-outlined text-[16px]">receipt_long</span>
                 <span>Xem &amp; In Biên Lai (80mm)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setReceipt(null);
+                  setMemberId('');
+                  setPackageId('');
+                  setSearch('');
+                  setError('');
+                }}
+                className="py-2 px-3.5 rounded-xl border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-800 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
+              >
+                Giao dịch mới
               </button>
             </div>
           </section>
@@ -234,19 +266,37 @@ export default function ReceptionPOSPage() {
             <label className="block text-sm font-bold text-slate-800" htmlFor="member-search">
               Tìm hội viên theo tên, email hoặc số điện thoại
             </label>
-            <input
-              id="member-search"
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setMemberId('');
-              }}
-              placeholder="Nhập tên, số điện thoại hoặc email (tối thiểu 2 ký tự)..."
-              className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
-            />
+            <div className="relative">
+              <input
+                id="member-search"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setMemberId('');
+                }}
+                placeholder="Nhập tên, số điện thoại hoặc email (tối thiểu 2 ký tự)..."
+                className="w-full rounded-xl border border-slate-300 pl-3.5 pr-9 py-2 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch('');
+                    setMemberId('');
+                    setMemberSearchResult(null);
+                  }}
+                  aria-label="Xóa từ khóa tìm hội viên"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              )}
+            </div>
             {search.trim().length >= 2 && (
               <div className="max-h-56 space-y-2 overflow-y-auto">
-                {members.length === 0 ? (
+                {searchingMembers || memberSearchResult?.query !== search.trim() ? (
+                  <p className="text-xs text-slate-500 p-2">Đang tìm kiếm hội viên...</p>
+                ) : members.length === 0 ? (
                   <p className="text-xs text-slate-500 p-2">Không tìm thấy hội viên phù hợp.</p>
                 ) : members.map((member) => {
                   const isInactiveMember = Boolean(member.status && member.status !== 'ACTIVE');
@@ -279,9 +329,21 @@ export default function ReceptionPOSPage() {
               </div>
             )}
             {selectedMember && (
-              <div className="flex items-center gap-2 rounded-xl bg-orange-50 border border-orange-200 p-3 text-sm text-orange-900">
-                <span className="material-symbols-outlined text-orange-600 text-[18px]">account_circle</span>
-                <span>Hội viên đã chọn: <strong>{selectedMember.fullName}</strong> ({selectedMember.phone || selectedMember.email})</span>
+              <div className="flex items-center justify-between gap-2 rounded-xl bg-orange-50 border border-orange-200 p-3 text-sm text-orange-900">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-orange-600 text-[18px]">account_circle</span>
+                  <span>Hội viên đã chọn: <strong>{selectedMember.fullName}</strong> ({selectedMember.phone || selectedMember.email})</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMemberId('');
+                    setSearch('');
+                  }}
+                  className="text-xs font-bold text-orange-700 hover:underline cursor-pointer shrink-0"
+                >
+                  Đổi
+                </button>
               </div>
             )}
 
@@ -313,7 +375,7 @@ export default function ReceptionPOSPage() {
             </p>
           </section>
 
-          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-2 flex flex-col justify-between">
+          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-2 lg:sticky lg:top-20 self-start flex flex-col justify-between">
             <div className="space-y-4">
               <h2 className="font-bold uppercase tracking-wider text-slate-900">Thanh toán tại quầy</h2>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-600" htmlFor="payment-method">
@@ -345,12 +407,17 @@ export default function ReceptionPOSPage() {
             </button>
           </section>
         </form>
-      </main>
+      </div>
 
       {/* Modal Xem & In Hóa Đơn Nhiệt 80mm Chuẩn POS (REC-19) */}
       {showPrintModal && receipt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static !m-0">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 space-y-4 print:shadow-none print:border-none print:max-w-none print:w-full print:p-0">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static !m-0"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowPrintModal(false);
+          }}
+        >
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 space-y-4 print:max-h-none print:overflow-visible print:shadow-none print:border-none print:max-w-none print:w-full print:p-0">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 print:hidden">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-orange-500 text-[20px]">print</span>
@@ -366,7 +433,7 @@ export default function ReceptionPOSPage() {
             </div>
 
             {/* Template Hóa Đơn Khổ 80mm */}
-            <div id="receipt-print-area" className="w-[80mm] max-w-full mx-auto p-4 bg-white text-slate-900 font-mono text-[11px] leading-tight space-y-3 border border-dashed border-slate-300 rounded-xl print:border-none print:p-0">
+            <div id="receipt-print-area" className="receipt-print-area w-[80mm] max-w-full mx-auto p-4 bg-white text-slate-900 font-mono text-[11px] leading-tight space-y-3 border border-dashed border-slate-300 rounded-xl print:border-none print:p-0">
               <div className="text-center space-y-1 pb-2 border-b border-dashed border-slate-400">
                 <div className="font-sans font-black text-sm tracking-wider uppercase text-slate-900">F SPORT CENTER</div>
                 <div className="text-[10px] text-slate-600">Trung Tâm Thể Thao Đa Năng Cao Cấp</div>

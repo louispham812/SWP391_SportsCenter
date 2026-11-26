@@ -89,6 +89,7 @@ export default function MemberNotificationsPage() {
     try {
       await markAllNotificationsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true, read: true })));
+      window.dispatchEvent(new Event('sporthub:notifications-updated'));
     } catch (err) {
       console.warn('Lỗi đánh dấu đã đọc tất cả:', err);
     }
@@ -102,6 +103,7 @@ export default function MemberNotificationsPage() {
         setNotifications((prev) =>
           prev.map((n) => (n.id === item.id ? { ...n, isRead: true, read: true } : n))
         );
+        window.dispatchEvent(new Event('sporthub:notifications-updated'));
       }
     } catch (err) {
       console.warn('Lỗi đánh dấu đã đọc:', err);
@@ -358,16 +360,18 @@ export default function MemberNotificationsPage() {
             {filteredNotifications.map((item) => {
               const meta = getTypeMeta(item.type);
               return (
-                <div
+                <button
+                  type="button"
                   key={item.id}
                   onClick={() => handleNotificationClick(item)}
-                  className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer flex items-start gap-4 ${
+                  className={`w-full text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer flex items-start gap-4 ${
                     item.isRead
                       ? 'bg-white border-slate-200 hover:border-slate-300'
                       : 'bg-orange-50/30 border-orange-200 shadow-sm hover:border-orange-300'
                   }`}
                 >
                   <div
+                    aria-hidden="true"
                     className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${meta.color}`}
                   >
                     <span className="material-symbols-outlined text-[22px]">{meta.icon}</span>
@@ -392,11 +396,11 @@ export default function MemberNotificationsPage() {
                     {item.link && (
                       <div className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-700">
                         <span>Xem chi tiết</span>
-                        <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                        <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_forward</span>
                       </div>
                     )}
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

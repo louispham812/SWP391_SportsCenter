@@ -16,9 +16,9 @@ export function StatCardSkeleton({ count = 4, className = "grid grid-cols-1 sm:g
   );
 }
 
-export function TableSkeleton({ rows = 5, cols = 5, className = "" }) {
+export function TableSkeleton({ rows = 5, cols = 5, bare = false, className = "" }) {
   return (
-    <div className={`overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs ${className}`}>
+    <div className={`overflow-x-auto ${bare ? '' : 'rounded-2xl border border-slate-200 bg-white shadow-xs'} ${className}`}>
       <table className="w-full text-left text-sm">
         <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
           <tr>
@@ -74,6 +74,13 @@ export function CardGridSkeleton({
 }
 
 export function ScheduleSkeleton({ rows = 5, cols = 7, className = "" }) {
+  const colGridClass =
+    cols === 7
+      ? 'grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2'
+      : cols === 4
+      ? 'grid grid-cols-2 lg:grid-cols-4 gap-2'
+      : 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2';
+
   return (
     <div className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3 ${className}`}>
       <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -83,14 +90,14 @@ export function ScheduleSkeleton({ rows = 5, cols = 7, className = "" }) {
           <div className="h-8 w-20 rounded-lg skeleton-shimmer" />
         </div>
       </div>
-      <div className="grid grid-cols-7 gap-2">
+      <div className={colGridClass}>
         {Array.from({ length: cols }).map((_, i) => (
           <div key={i} className="h-10 rounded-xl skeleton-shimmer" />
         ))}
       </div>
       <div className="space-y-2.5 pt-2">
         {Array.from({ length: rows }).map((_, rIdx) => (
-          <div key={rIdx} className="grid grid-cols-7 gap-2">
+          <div key={rIdx} className={colGridClass}>
             {Array.from({ length: cols }).map((_, cIdx) => (
               <div key={cIdx} className="h-16 rounded-xl skeleton-shimmer opacity-75" />
             ))}

@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import CoachLayout from '../../components/layouts/CoachLayout';
 import { TableSkeleton } from '../../components/common/Skeleton';
+import { useApp } from '../../context/AppContext';
 import { getSessionRoster, getUpcomingClasses, updateBookingAttendance } from '../../services/bookingApi';
 import { formatStatusLabel } from '../../utils/enumLabels';
+import { matchesAnyVietnamese } from '../../utils/vietnameseSearch';
 
 const formatDateTime = (value) => new Date(value).toLocaleString('vi-VN', {
   weekday: 'long',
@@ -14,14 +16,19 @@ const formatDateTime = (value) => new Date(value).toLocaleString('vi-VN', {
 });
 
 export default function CoachAttendancePage() {
+  const { showToast } = useApp();
   const [searchParams] = useSearchParams();
   const requestedSessionId = searchParams.get('sessionId');
   const [classes, setClasses] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [roster, setRoster] = useState([]);
-  const [rosterSessionId, setRosterSessionId] = useState('');
+  const [loadingRoster, setLoadingRoster] = useState(false);
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
   const [savingBookingId, setSavingBookingId] = useState(null);
+  const [savingAll, setSavingAll] = useState(false);
+  const [dirtyIds, setDirtyIds] = useState({});
+  const [studentSearch, setStudentSearch] = useState('');
+  const [onlyUnmarked, setOnlyUnmarked] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -58,21 +65,25 @@ export default function CoachAttendancePage() {
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [requestedSessionId]);
 
   useEffect(() => {
     if (!selectedSessionId) return undefined;
     let isCurrent = true;
+    setLoadingRoster(true);
+    setDirtyIds({});
     getSessionRoster(selectedSessionId)
       .then((bookingRows) => {
         if (isCurrent) {
           setRoster(bookingRows);
-          setRosterSessionId(selectedSessionId);
         }
       })
       .catch((requestError) => {
         if (isCurrent) setError(requestError.message || 'Không thể tải danh sách hội viên.');
       })
+      .finally(() => {
+        if (isCurrent) setLoadingRoster(false);
+      });
     return () => {
       isCurrent = false;
     };
@@ -82,6 +93,7 @@ export default function CoachAttendancePage() {
     setRoster((current) => current.map((booking) => (
       booking.bookingId === bookingId ? { ...booking, ...changes } : booking
     )));
+    setDirtyIds((prev) => ({ ...prev, [bookingId]: true }));
   };
 
   const handleSaveAttendance = async (booking) => {
@@ -99,17 +111,105 @@ export default function CoachAttendancePage() {
         booking.attendanceStatus,
         booking.coachNote,
       );
-      updateLocalRoster(booking.bookingId, {
-        attendanceStatus: saved.attendanceStatus || booking.attendanceStatus,
-        coachNote: saved.coachNote || booking.coachNote,
+      setRoster((current) => current.map((item) => (
+        item.bookingId === booking.bookingId
+          ? {
+              ...item,
+              attendanceStatus: saved?.attendanceStatus || booking.attendanceStatus,
+              coachNote: saved?.coachNote ?? booking.coachNote,
+            }
+          : item
+      )));
+      setDirtyIds((prev) => {
+        const next = { ...prev };
+        delete next[booking.bookingId];
+        return next;
       });
-      setSuccessMessage(`Đã lưu điểm danh cho học viên ${booking.memberName || ''}.`);
+      const msg = `Đã lưu điểm danh cho học viên ${booking.memberName || ''}.`;
+      setSuccessMessage(msg);
+      showToast('Lưu điểm danh', msg, 'success');
     } catch (requestError) {
       setError(requestError.message || 'Không thể lưu điểm danh.');
     } finally {
       setSavingBookingId(null);
     }
   };
+
+  const dirtyBookings = useMemo(() => {
+    const validStatuses = ['PRESENT', 'EXCUSED_ABSENCE', 'UNEXCUSED_ABSENCE'];
+    return roster.filter((b) => dirtyIds[b.bookingId] && validStatuses.includes(b.attendanceStatus));
+  }, [roster, dirtyIds]);
+
+  const handleMarkAllPresent = () => {
+    const unmarkedIds = roster
+      .filter((booking) => (
+        (!booking.bookingStatus || booking.bookingStatus === 'CONFIRMED')
+        && (!booking.attendanceStatus || booking.attendanceStatus === 'PENDING')
+      ))
+      .map((booking) => booking.bookingId);
+    if (unmarkedIds.length === 0) return;
+    const unmarkedSet = new Set(unmarkedIds);
+    setRoster((current) => current.map((booking) => (
+      unmarkedSet.has(booking.bookingId) ? { ...booking, attendanceStatus: 'PRESENT' } : booking
+    )));
+    setDirtyIds((prev) => {
+      const next = { ...prev };
+      unmarkedIds.forEach((id) => { next[id] = true; });
+      return next;
+    });
+    showToast('Đã đánh dấu nhanh', `Đã chọn "Có mặt" cho ${unmarkedIds.length} học viên chưa điểm danh. Bấm "Lưu tất cả" để xác nhận.`, 'info');
+  };
+
+  const handleSaveAllDirty = async () => {
+    if (dirtyBookings.length === 0) return;
+    setSavingAll(true);
+    setError('');
+    setSuccessMessage('');
+    let savedCount = 0;
+    try {
+      for (const booking of dirtyBookings) {
+        const saved = await updateBookingAttendance(
+          booking.bookingId,
+          booking.attendanceStatus,
+          booking.coachNote,
+        );
+        setRoster((current) => current.map((item) => (
+          item.bookingId === booking.bookingId
+            ? {
+                ...item,
+                attendanceStatus: saved?.attendanceStatus || booking.attendanceStatus,
+                coachNote: saved?.coachNote ?? booking.coachNote,
+              }
+            : item
+        )));
+        savedCount += 1;
+        setDirtyIds((prev) => {
+          const next = { ...prev };
+          delete next[booking.bookingId];
+          return next;
+        });
+      }
+      const msg = `Đã lưu điểm danh cho ${savedCount} học viên.`;
+      setSuccessMessage(msg);
+      showToast('Lưu hàng loạt thành công', msg, 'success');
+    } catch (requestError) {
+      setError(requestError.message || 'Không thể lưu toàn bộ điểm danh.');
+    } finally {
+      setSavingAll(false);
+    }
+  };
+
+  const filteredRoster = useMemo(() => {
+    return roster.filter((booking) => {
+      if (onlyUnmarked && booking.attendanceStatus && booking.attendanceStatus !== 'PENDING') {
+        return false;
+      }
+      if (studentSearch.trim()) {
+        return matchesAnyVietnamese([booking.memberName, booking.memberPhone, booking.bookingId], studentSearch);
+      }
+      return true;
+    });
+  }, [roster, onlyUnmarked, studentSearch]);
 
   const selectedClass = classes.find((item) => item.sessionId.toString() === selectedSessionId);
   const isSessionNotStarted = Boolean(selectedClass?.startTime && new Date(selectedClass.startTime) > new Date());
@@ -158,10 +258,11 @@ export default function CoachAttendancePage() {
               id="attendance-session"
               value={selectedSessionId}
               onChange={(event) => {
-                setRosterSessionId('');
                 setRoster([]);
+                setDirtyIds({});
                 setSelectedSessionId(event.target.value);
                 setError('');
+                setSuccessMessage('');
               }}
               className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 sm:max-w-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all font-medium"
             >
@@ -204,7 +305,7 @@ export default function CoachAttendancePage() {
 
         {selectedSessionId && (
           <section className="space-y-3">
-            {rosterSessionId !== selectedSessionId ? (
+            {loadingRoster ? (
               <TableSkeleton rows={4} cols={4} />
             ) : roster.length === 0 ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 flex flex-col items-center justify-center gap-2">
@@ -212,7 +313,79 @@ export default function CoachAttendancePage() {
                 <span>Chưa có hội viên nào đặt chỗ cho buổi học này.</span>
               </div>
             ) : (
-              roster.map((booking) => {
+              <>
+                <div className="sticky top-16 z-10 rounded-2xl border border-slate-200 bg-white/95 backdrop-blur-xs p-3.5 shadow-xs flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap items-center gap-2 flex-1">
+                    <div className="relative flex-1 min-w-[180px] max-w-xs">
+                      <input
+                        type="text"
+                        value={studentSearch}
+                        onChange={(e) => setStudentSearch(e.target.value)}
+                        placeholder="Tìm học viên trong lớp..."
+                        className="w-full rounded-xl border border-slate-200 pl-3 pr-8 py-1.5 text-xs outline-none focus:border-orange-500"
+                      />
+                      {studentSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setStudentSearch('')}
+                          aria-label="Xóa tìm học viên"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">close</span>
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setOnlyUnmarked((v) => !v)}
+                      className={`rounded-xl px-3 py-1.5 text-xs font-bold border transition cursor-pointer ${
+                        onlyUnmarked
+                          ? 'bg-orange-50 border-orange-300 text-orange-700'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      Chưa điểm danh
+                    </button>
+                  </div>
+                  {!isSessionNotStarted && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleMarkAllPresent}
+                        className="rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-800 transition cursor-pointer"
+                      >
+                        Có mặt tất cả (chưa điểm danh)
+                      </button>
+                      {dirtyBookings.length > 0 && (
+                        <button
+                          type="button"
+                          disabled={savingAll}
+                          onClick={handleSaveAllDirty}
+                          className="rounded-xl bg-orange-500 hover:bg-orange-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition cursor-pointer disabled:opacity-60"
+                        >
+                          {savingAll ? 'Đang lưu...' : `Lưu tất cả thay đổi (${dirtyBookings.length})`}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {filteredRoster.length === 0 ? (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 space-y-2">
+                    <p>Không tìm thấy học viên phù hợp bộ lọc.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStudentSearch('');
+                        setOnlyUnmarked(false);
+                      }}
+                      className="text-xs font-bold text-orange-600 hover:underline cursor-pointer"
+                    >
+                      Xóa bộ lọc
+                    </button>
+                  </div>
+                ) : (
+                  filteredRoster.map((booking) => {
                 const isBookingConfirmed = !booking.bookingStatus || booking.bookingStatus === 'CONFIRMED';
                 const canMarkAttendance = !isSessionNotStarted && isBookingConfirmed;
                 const lockReason = isSessionNotStarted
@@ -248,9 +421,35 @@ export default function CoachAttendancePage() {
                         </p>
                       )}
                     </div>
-                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                      Trạng thái điểm danh *
+                    <div className="space-y-1.5">
+                      <span className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+                        Trạng thái điểm danh *
+                      </span>
+                      <div className="grid grid-cols-3 gap-1">
+                        {[
+                          { value: 'PRESENT', label: 'Có mặt', active: 'bg-emerald-600 text-white border-emerald-600' },
+                          { value: 'EXCUSED_ABSENCE', label: 'Có phép', active: 'bg-blue-600 text-white border-blue-600' },
+                          { value: 'UNEXCUSED_ABSENCE', label: 'Không phép', active: 'bg-rose-600 text-white border-rose-600' },
+                        ].map((opt) => {
+                          const currentVal = booking.attendanceStatus === 'ABSENT' ? 'UNEXCUSED_ABSENCE' : booking.attendanceStatus;
+                          const isSelected = currentVal === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              disabled={!canMarkAttendance}
+                              onClick={() => updateLocalRoster(booking.bookingId, { attendanceStatus: opt.value })}
+                              className={`rounded-lg border px-1.5 py-1 text-[11px] font-bold transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                                isSelected ? opt.active : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
                       <select
+                        aria-label={`Trạng thái điểm danh ${booking.memberName || `#${booking.memberId}`}`}
                         disabled={!canMarkAttendance}
                         value={
                           booking.attendanceStatus === 'ABSENT'
@@ -262,14 +461,14 @@ export default function CoachAttendancePage() {
                         onChange={(event) => updateLocalRoster(booking.bookingId, {
                           attendanceStatus: event.target.value,
                         })}
-                        className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold focus:border-orange-500 outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                        className="block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold focus:border-orange-500 outline-none disabled:bg-slate-100 disabled:text-slate-400"
                       >
                         <option value="">-- Chọn trạng thái --</option>
                         <option value="PRESENT">✅ Có mặt</option>
                         <option value="EXCUSED_ABSENCE">ℹ️ Vắng có phép</option>
                         <option value="UNEXCUSED_ABSENCE">❌ Vắng không phép</option>
                       </select>
-                    </label>
+                    </div>
                     <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
                       Nhận xét & Dặn dò
                       <textarea
@@ -301,7 +500,9 @@ export default function CoachAttendancePage() {
                   </div>
                 </article>
                 );
-              })
+                  })
+                )}
+              </>
             )}
           </section>
         )}

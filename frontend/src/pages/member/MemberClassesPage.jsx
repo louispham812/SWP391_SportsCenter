@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
+import ModalDialog from '../../components/common/ModalDialog';
 import { useApp } from '../../context/AppContext';
+import { matchesAnyVietnamese } from '../../utils/vietnameseSearch';
 import {
   cancelMemberBooking,
   checkoutBooking,
@@ -113,6 +114,7 @@ export default function MemberClassesPage() {
   const [voucherCode, setVoucherCode] = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState(null);
   const [voucherError, setVoucherError] = useState('');
+  const [validatingVoucher, setValidatingVoucher] = useState(false);
 
   // Load quote with active membership discount and sport-specific quota whenever a session is selected
   useEffect(() => {
@@ -154,7 +156,7 @@ export default function MemberClassesPage() {
     try {
       const [sportList, classList] = await Promise.all([
         getBookingSports(),
-        getAllBookableClasses(selectedSportId || null),
+        getAllBookableClasses(null),
       ]);
       setSports(sportList || []);
       setClasses(classList || []);
@@ -167,7 +169,7 @@ export default function MemberClassesPage() {
 
   useEffect(() => {
     loadData();
-  }, [selectedSportId]);
+  }, []);
 
   // Lọc danh sách lớp học
   const filteredClasses = useMemo(() => {
@@ -198,12 +200,11 @@ export default function MemberClassesPage() {
       if (timeFilter === 'AFTERNOON' && (hour < 12 || hour >= 17)) return false;
       if (timeFilter === 'EVENING' && (hour < 17 || hour >= 23)) return false;
 
-      // Text search
+      // Text search (Vietnamese accent-insensitive)
       if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase().trim();
-        const classNameMatch = cls.className?.toLowerCase().includes(query);
-        const coachMatch = cls.coachName?.toLowerCase().includes(query);
-        if (!classNameMatch && !coachMatch) return false;
+        if (!matchesAnyVietnamese([cls.className, cls.coachName, cls.facilityName], searchQuery)) {
+          return false;
+        }
       }
 
       return true;
@@ -237,10 +238,11 @@ export default function MemberClassesPage() {
   // Handle Voucher Application (MGR-18)
   const applyVoucher = async () => {
     setVoucherError('');
-    if (!voucherCode.trim() || !registeringSession || quoteLoading) return;
+    if (!voucherCode.trim() || !registeringSession || quoteLoading || validatingVoucher) return;
     setAppliedVoucher(null);
 
     const code = voucherCode.trim().toUpperCase();
+    setValidatingVoucher(true);
     try {
       const res = await apiRequest('/vouchers/validate', {
         method: 'POST',
@@ -257,6 +259,8 @@ export default function MemberClassesPage() {
       }
     } catch (err) {
       setVoucherError(err.message || 'Không thể xác thực mã ưu đãi từ hệ thống.');
+    } finally {
+      setValidatingVoucher(false);
     }
   };
 
@@ -350,8 +354,8 @@ export default function MemberClassesPage() {
       setRegisteringSession(null);
       await loadData();
     } catch (err) {
-      console.error('[CLASS] Checkout error:', err);
-      showToast('Đăng ký thất bại', err.message || 'Không thể đăng ký lớp học này.', 'error');
+      setRegisterError(err.message || 'Không thể hoàn tất đăng ký lớp học.');
+      showToast('Đăng ký thất bại', err.message || 'Không thể hoàn tất đăng ký lớp học.', 'error');
     } finally {
       setSubmittingRegister(false);
     }
@@ -429,14 +433,24 @@ export default function MemberClassesPage() {
           {/* Search + Time + Date */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-slate-400">search</span>
+              <span aria-hidden="true" className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-slate-400">search</span>
               <input
                 type="text"
                 placeholder="Tìm tên lớp hoặc huấn luyện viên..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-orange-500"
+                className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-orange-500"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  aria-label="Xóa tìm kiếm"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[15px]">close</span>
+                </button>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -516,8 +530,23 @@ export default function MemberClassesPage() {
             ))}
           </div>
         ) : filteredClasses.length === 0 ? (
-          <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500">
-            Không tìm thấy lớp học nào phù hợp với bộ lọc hiện tại.
+          <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 space-y-3">
+            <p>Không tìm thấy lớp học nào phù hợp với bộ lọc hiện tại.</p>
+            {(selectedSportId || timeFilter !== 'ALL' || dateFilter !== 'ALL' || searchQuery.trim()) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedSportId('');
+                  setTimeFilter('ALL');
+                  setDateFilter('ALL');
+                  setSearchQuery('');
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-[16px]">filter_alt_off</span>
+                Xóa bộ lọc
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-6">
@@ -706,20 +735,26 @@ export default function MemberClassesPage() {
         )}
 
         {/* Modal Coach Profile */}
-        {selectedCoach && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto !m-0">
-            <div className="w-full max-w-md my-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200">
+        <ModalDialog
+          open={Boolean(selectedCoach)}
+          onClose={() => setSelectedCoach(null)}
+          titleId="member-class-coach-title"
+          maxWidthClass="max-w-md"
+        >
+          {selectedCoach && (
+            <div className="p-6 sm:p-8">
               <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-2xl text-orange-500">sports_score</span>
-                  <h3 className="text-lg font-bold text-slate-900">Thông Tin Huấn Luyện Viên</h3>
+                  <span aria-hidden="true" className="material-symbols-outlined text-2xl text-orange-500">sports_score</span>
+                  <h3 id="member-class-coach-title" className="text-lg font-bold text-slate-900">Thông Tin Huấn Luyện Viên</h3>
                 </div>
                 <button
                   type="button"
+                  aria-label="Đóng"
                   onClick={() => setSelectedCoach(null)}
                   className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[20px]">close</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[20px]">close</span>
                 </button>
               </div>
 
@@ -767,9 +802,8 @@ export default function MemberClassesPage() {
                 Đóng
               </button>
             </div>
-          </div>,
-          document.body
-        )}
+          )}
+        </ModalDialog>
 
         {/* Full Page Payment UI (like court booking) */}
         {registeringSession && (() => {
@@ -792,20 +826,28 @@ export default function MemberClassesPage() {
             ? `Thanh Toán Qua VNPAY — ${formatMoney(finalPrice)}`
             : `Xác Nhận & Thanh Toán ${formatMoney(finalPrice)}`;
 
-          return createPortal(
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto !m-0">
-              <div className="w-full max-w-3xl max-h-[92vh] my-auto flex flex-col rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+          return (
+            <ModalDialog
+              open={Boolean(registeringSession)}
+              onClose={() => setRegisteringSession(null)}
+              preventClose={submittingRegister}
+              titleId="member-class-register-title"
+              maxWidthClass="max-w-3xl"
+            >
+              <div className="w-full max-h-[88dvh] flex flex-col bg-white overflow-hidden">
                 <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100 shrink-0">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-2xl text-orange-500">how_to_reg</span>
-                    <h3 className="text-lg font-bold text-slate-900">Xác Nhận Đăng Ký & Thanh Toán</h3>
+                    <span aria-hidden="true" className="material-symbols-outlined text-2xl text-orange-500">how_to_reg</span>
+                    <h3 id="member-class-register-title" className="text-lg font-bold text-slate-900">Xác Nhận Đăng Ký &amp; Thanh Toán</h3>
                   </div>
                   <button
                     type="button"
+                    aria-label="Đóng"
+                    disabled={submittingRegister}
                     onClick={() => setRegisteringSession(null)}
-                    className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
+                    className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer disabled:opacity-50"
                   >
-                    <span className="material-symbols-outlined text-[20px]">close</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[20px]">close</span>
                   </button>
                 </div>
 
@@ -1018,14 +1060,21 @@ export default function MemberClassesPage() {
                               placeholder="Nhập mã (ví dụ: WELCOME20, SUMMER50K)"
                               value={voucherCode}
                               onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  applyVoucher();
+                                }
+                              }}
                               className="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold uppercase tracking-wider bg-white focus:ring-2 focus:ring-orange-500 outline-none"
                             />
                             <button
                               type="button"
+                              disabled={!voucherCode.trim() || quoteLoading || validatingVoucher}
                               onClick={applyVoucher}
-                              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-sm transition cursor-pointer"
+                              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white font-bold text-xs shadow-sm transition cursor-pointer"
                             >
-                              Áp Dụng
+                              {validatingVoucher ? 'Đang kiểm tra...' : 'Áp Dụng'}
                             </button>
                           </div>
                         )}
@@ -1085,26 +1134,31 @@ export default function MemberClassesPage() {
                   </button>
                   <button
                     type="button"
-                    disabled={submittingRegister}
+                    disabled={submittingRegister || quoteLoading}
                     onClick={handleConfirmRegister}
                     className="flex-[2] rounded-xl bg-orange-500 hover:bg-orange-600 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-orange-500/25 transition disabled:opacity-60 cursor-pointer"
                   >
-                    {actionBtnLabel}
+                    {quoteLoading ? 'Đang tính giá...' : actionBtnLabel}
                   </button>
                 </div>
               </div>
-            </div>,
-            document.body
+            </ModalDialog>
           );
         })()}
 
         {/* Modal Cancel Registration */}
-        {cancelingBooking && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto !m-0">
-            <div className="w-full max-w-md my-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200">
+        <ModalDialog
+          open={Boolean(cancelingBooking)}
+          onClose={() => setCancelingBooking(null)}
+          preventClose={submittingCancel}
+          titleId="member-class-cancel-title"
+          maxWidthClass="max-w-md"
+        >
+          {cancelingBooking && (
+            <div className="p-6 sm:p-8">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100 text-red-600">
-                <span className="material-symbols-outlined text-2xl">cancel</span>
-                <h3 className="text-lg font-bold text-slate-900">{cancelingBooking.status === 'BOOKED' ? 'Hủy Yêu Cầu Giữ Chỗ' : 'Hủy Đăng Ký Lớp Học'}</h3>
+                <span aria-hidden="true" className="material-symbols-outlined text-2xl">cancel</span>
+                <h3 id="member-class-cancel-title" className="text-lg font-bold text-slate-900">{cancelingBooking.status === 'BOOKED' ? 'Hủy Yêu Cầu Giữ Chỗ' : 'Hủy Đăng Ký Lớp Học'}</h3>
               </div>
 
               <div className="my-5 space-y-3">
@@ -1142,9 +1196,8 @@ export default function MemberClassesPage() {
                 </button>
               </div>
             </div>
-          </div>,
-          document.body
-        )}
+          )}
+        </ModalDialog>
 
       </div>
     </MemberLayout>

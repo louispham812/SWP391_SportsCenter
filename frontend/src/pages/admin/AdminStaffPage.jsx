@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
 import CreateUserModal from '../../components/common/CreateUserModal';
 import CoachSportSelector from '../../components/common/CoachSportSelector';
+import ModalDialog from '../../components/common/ModalDialog';
 import { TableSkeleton } from '../../components/common/Skeleton';
 import Pagination from '../../components/common/Pagination';
 import { apiRequest } from '../../services/apiClient';
@@ -298,7 +299,7 @@ export default function AdminStaffPage() {
 
   return (
     <AdminLayout>
-      <main className="space-y-6">
+      <div className="space-y-6">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
@@ -789,7 +790,7 @@ export default function AdminStaffPage() {
             </section>
           </div>
         )}
-      </main>
+      </div>
       <CreateUserModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
@@ -797,18 +798,26 @@ export default function AdminStaffPage() {
         staffOnly
       />
 
-      {editingStaff && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs !m-0">
-          <div className="relative w-full max-w-md overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-2xl">
+      <ModalDialog
+        open={Boolean(editingStaff)}
+        onClose={() => setEditingStaff(null)}
+        titleId="admin-staff-edit-title"
+        maxWidthClass="max-w-md"
+        preventClose={savingStaff}
+      >
+        {editingStaff && (
+          <div>
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
               <div>
-                <h2 className="text-base font-bold text-slate-900">Sửa thông tin nhân sự</h2>
+                <h2 id="admin-staff-edit-title" className="text-base font-bold text-slate-900">Sửa thông tin nhân sự</h2>
                 <p className="text-xs text-slate-500">{editingStaff.email}</p>
               </div>
               <button
                 type="button"
+                disabled={savingEdit}
                 onClick={() => setEditingStaff(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                aria-label="Đóng hộp thoại sửa nhân sự"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -881,18 +890,24 @@ export default function AdminStaffPage() {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
 
-      {deletingStaff && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs !m-0">
-          <div className="relative w-full max-w-sm overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 space-y-4">
+      <ModalDialog
+        open={Boolean(deletingStaff)}
+        onClose={() => setDeletingStaff(null)}
+        titleId="admin-staff-delete-title"
+        maxWidthClass="max-w-sm"
+        preventClose={Boolean(deletingStaff && busyUserId === deletingStaff.userId)}
+      >
+        {deletingStaff && (
+          <div className="p-6 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-[22px]">delete_forever</span>
               </div>
               <div>
-                <h2 className="text-base font-bold text-slate-900">Xác nhận xóa nhân sự</h2>
+                <h2 id="admin-staff-delete-title" className="text-base font-bold text-slate-900">Xác nhận xóa nhân sự</h2>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Bạn có chắc muốn xóa tài khoản <strong>{deletingStaff.fullName}</strong> ({deletingStaff.email})?
                 </p>
@@ -917,23 +932,31 @@ export default function AdminStaffPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
 
-      {editingCoach && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs !m-0">
-          <div className="relative w-full max-w-md overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-2xl">
+      <ModalDialog
+        open={Boolean(editingCoach)}
+        onClose={() => setEditingCoach(null)}
+        titleId="admin-coach-sports-title"
+        maxWidthClass="max-w-md"
+        preventClose={savingCoachSports}
+      >
+        {editingCoach && (
+          <div>
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
               <div>
-                <h2 className="text-base font-bold text-slate-900">Gán bộ môn cho HLV</h2>
+                <h2 id="admin-coach-sports-title" className="text-base font-bold text-slate-900">Gán bộ môn cho HLV</h2>
                 <p className="text-xs text-slate-500">
                   {editingCoach.fullName} ({editingCoach.email})
                 </p>
               </div>
               <button
                 type="button"
+                disabled={savingCoachSports}
                 onClick={() => setEditingCoach(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                aria-label="Đóng hộp thoại gán bộ môn"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -972,8 +995,8 @@ export default function AdminStaffPage() {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
     </AdminLayout>
   );
 }

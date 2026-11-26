@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { apiRequest } from '../services/apiClient';
 
 const AppContext = createContext();
@@ -27,12 +27,47 @@ const getAuthSession = () => {
 export function AppProvider({ children }) {
   const [authSession, setAuthSession] = useState(getAuthSession);
   const [toasts, setToasts] = useState([]);
+  const toastTimersRef = useRef(new Map());
   const currentRole = authSession?.role || null;
   const currentUser = authSession?.user || null;
 
-  const removeToast = (id) => {
+  const clearToastTimer = useCallback((id) => {
+    const existing = toastTimersRef.current.get(id);
+    if (existing) {
+      window.clearTimeout(existing);
+      toastTimersRef.current.delete(id);
+    }
+  }, []);
+
+  const removeToast = useCallback((id) => {
+    clearToastTimer(id);
     setToasts((current) => current.filter((toast) => toast.id !== id));
-  };
+  }, [clearToastTimer]);
+
+  const scheduleToastRemoval = useCallback((id, delayMs = 4500) => {
+    clearToastTimer(id);
+    const timerId = window.setTimeout(() => {
+      toastTimersRef.current.delete(id);
+      setToasts((current) => current.filter((toast) => toast.id !== id));
+    }, delayMs);
+    toastTimersRef.current.set(id, timerId);
+  }, [clearToastTimer]);
+
+  const pauseToast = useCallback((id) => {
+    clearToastTimer(id);
+  }, [clearToastTimer]);
+
+  const resumeToast = useCallback((id) => {
+    scheduleToastRemoval(id, 3000);
+  }, [scheduleToastRemoval]);
+
+  useEffect(() => {
+    const timers = toastTimersRef.current;
+    return () => {
+      timers.forEach((timerId) => window.clearTimeout(timerId));
+      timers.clear();
+    };
+  }, []);
 
   const formatToastMessage = (rawMsg) => {
     if (!rawMsg) return '';
@@ -58,28 +93,27 @@ export function AppProvider({ children }) {
   const showToast = (titleOrObj, message, type = 'success') => {
     idCounter += 1;
     const id = `toast_${Date.now()}_${idCounter}`;
-    if (typeof titleOrObj === 'object' && titleOrObj !== null) {
-      setToasts((current) => [
-        ...current,
-        {
-          id,
-          title: titleOrObj.title || '',
-          message: formatToastMessage(titleOrObj.message || ''),
-          type: titleOrObj.type || 'success',
-        },
-      ]);
-    } else {
-      setToasts((current) => [
-        ...current,
-        {
-          id,
-          title: titleOrObj || '',
-          message: formatToastMessage(message || ''),
-          type: type || 'success',
-        },
-      ]);
-    }
-    setTimeout(() => removeToast(id), 4500);
+    const nextToast =
+      typeof titleOrObj === 'object' && titleOrObj !== null
+        ? {
+            id,
+            title: titleOrObj.title || '',
+            message: formatToastMessage(titleOrObj.message || ''),
+            type: titleOrObj.type || 'success',
+          }
+        : {
+            id,
+            title: titleOrObj || '',
+            message: formatToastMessage(message || ''),
+            type: type || 'success',
+          };
+    setToasts((current) => {
+      if (current.length >= 4) {
+        clearToastTimer(current[0].id);
+      }
+      return [...current.slice(-3), nextToast];
+    });
+    scheduleToastRemoval(id, 4500);
   };
 
   const authenticateUser = (user, roleKey, token) => {
@@ -155,6 +189,8 @@ export function AppProvider({ children }) {
       logout,
       toasts,
       removeToast,
+      pauseToast,
+      resumeToast,
       showToast,
     }}>
       {children}

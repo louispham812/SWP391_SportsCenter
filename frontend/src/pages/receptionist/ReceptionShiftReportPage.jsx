@@ -12,6 +12,13 @@ const todayKey = () => {
   return local.toISOString().slice(0, 10);
 };
 
+const shiftDate = (dateKey, deltaDays) => {
+  const d = new Date(`${dateKey}T00:00:00`);
+  d.setDate(d.getDate() + deltaDays);
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+};
+
 const currency = (value) => new Intl.NumberFormat('vi-VN', {
   style: 'currency',
   currency: 'VND',
@@ -106,16 +113,32 @@ export default function ReceptionShiftReportPage() {
               <span className="material-symbols-outlined text-[18px] text-emerald-600">download</span>
               <span>Xuất Báo Cáo (CSV)</span>
             </button>
-            <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700 bg-white border border-slate-200 px-3.5 py-2 rounded-xl shadow-sm">
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 bg-white border border-slate-200 px-2.5 py-1.5 rounded-xl shadow-sm">
+              <button
+                type="button"
+                onClick={() => setDate((prev) => shiftDate(prev, -1))}
+                aria-label="Ngày trước"
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-900 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+              </button>
               <span className="material-symbols-outlined text-orange-500 text-[18px]">event</span>
-              <span>Ngày ca trực:</span>
               <input
                 type="date"
+                aria-label="Ngày ca trực"
                 value={date}
                 onChange={(event) => setDate(event.target.value)}
                 className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-sm font-semibold text-slate-800 outline-none focus:border-orange-500"
               />
-            </label>
+              <button
+                type="button"
+                onClick={() => setDate((prev) => shiftDate(prev, 1))}
+                aria-label="Ngày sau"
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-900 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+              </button>
+            </div>
           </div>
         </header>
 

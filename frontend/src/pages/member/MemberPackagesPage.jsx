@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import MemberLayout from '../../components/layouts/MemberLayout';
+import ModalDialog from '../../components/common/ModalDialog';
 import { useApp } from '../../context/AppContext';
 import { apiRequest, generatePayment } from '../../services/apiClient';
 import { getPublicPackages } from '../../services/publicContentApi';
@@ -122,9 +123,8 @@ export default function MemberPackagesPage() {
       await loadData();
     } catch (err) {
       console.error('[PACKAGE] Purchase error:', err);
+      setCheckoutError(err.message || 'Không thể thực hiện giao dịch gói tập.');
       showToast('Thao tác không thành công', err.message || 'Không thể thực hiện giao dịch gói tập.', 'error');
-      setSelectedPackage(null);
-      await loadData();
     } finally {
       setSubmitting(false);
     }
@@ -336,15 +336,21 @@ export default function MemberPackagesPage() {
       </div>
 
       {/* Modal Confirm Checkout */}
-      {selectedPackage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 !m-0">
-            <div className="w-full max-w-xl max-h-[92vh] flex flex-col rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+      <ModalDialog
+        open={Boolean(selectedPackage)}
+        onClose={() => setSelectedPackage(null)}
+        preventClose={submitting}
+        titleId="member-package-checkout-title"
+        maxWidthClass="max-w-xl"
+      >
+        {selectedPackage && (
+            <div className="w-full max-h-[88dvh] flex flex-col bg-white overflow-hidden">
               <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-2xl text-orange-500">
+                  <span aria-hidden="true" className="material-symbols-outlined text-2xl text-orange-500">
                     {actionType === 'renew' ? 'autorenew' : actionType === 'upgrade' ? 'upgrade' : 'add_card'}
                   </span>
-                  <h3 className="text-lg font-bold text-slate-900">
+                  <h3 id="member-package-checkout-title" className="text-lg font-bold text-slate-900">
                     {actionType === 'renew'
                       ? 'Xác Nhận Gia Hạn Gói Tập'
                       : actionType === 'upgrade'
@@ -354,10 +360,12 @@ export default function MemberPackagesPage() {
                 </div>
                 <button
                   type="button"
+                  aria-label="Đóng"
+                  disabled={submitting}
                   onClick={() => setSelectedPackage(null)}
-                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer disabled:opacity-50"
                 >
-                  <span className="material-symbols-outlined text-[20px]">close</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[20px]">close</span>
                 </button>
               </div>
 
@@ -394,10 +402,44 @@ export default function MemberPackagesPage() {
                 <div className="space-y-2">
                   <label htmlFor="package-voucher" className="text-xs font-bold">Mã ưu đãi gói tập</label>
                   <div className="flex gap-2">
-                    <input id="package-voucher" value={voucherCode} onChange={(e) => { setVoucherCode(e.target.value.toUpperCase()); setVoucherPreview(null); }} className="flex-1 min-w-0 rounded-xl border p-2 text-sm" />
-                    <button type="button" onClick={applyVoucher} disabled={!voucherCode.trim() || submitting} className="rounded-xl border px-3 text-sm font-bold">Áp dụng</button>
+                    <input
+                      id="package-voucher"
+                      value={voucherCode}
+                      onChange={(e) => {
+                        setVoucherCode(e.target.value.toUpperCase());
+                        setVoucherPreview(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          applyVoucher();
+                        }
+                      }}
+                      placeholder="Nhập mã giảm giá..."
+                      className="flex-1 min-w-0 rounded-xl border border-slate-300 px-3 py-2 text-sm uppercase font-semibold"
+                    />
+                    <button
+                      type="button"
+                      onClick={applyVoucher}
+                      disabled={!voucherCode.trim() || submitting}
+                      className="rounded-xl border border-slate-300 px-3.5 text-sm font-bold hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                    >
+                      Áp dụng
+                    </button>
+                    {voucherPreview && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVoucherCode('');
+                          setVoucherPreview(null);
+                        }}
+                        className="rounded-xl border border-red-200 px-3 text-xs font-bold text-red-600 hover:bg-red-50 cursor-pointer"
+                      >
+                        Gỡ mã
+                      </button>
+                    )}
                   </div>
-                  {voucherPreview && <p className="text-xs text-emerald-700">Giảm {formatMoney(voucherPreview.discountAmount)} · Còn {formatMoney(checkoutAmount)}</p>}
+                  {voucherPreview && <p className="text-xs text-emerald-700 font-semibold">Giảm {formatMoney(voucherPreview.discountAmount)} · Còn {formatMoney(checkoutAmount)}</p>}
                 </div>
                 {/* Payment Method Selector */}
                 <PaymentMethodSelector
@@ -449,8 +491,8 @@ export default function MemberPackagesPage() {
                 </button>
               </div>
             </div>
-          </div>
         )}
+      </ModalDialog>
 
     </MemberLayout>
   );

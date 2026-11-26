@@ -1,5 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { apiRequest } from '../../services/apiClient';
+import { useApp } from '../../context/AppContext';
+import ModalDialog from '../common/ModalDialog';
 
 // Format functions inline (self-contained component)
 const formatVnd = (amount) =>
@@ -54,16 +56,24 @@ const getItemTypeLabel = (itemType) => {
 export default function RefundRequestModal({ 
   show, 
   onClose, 
-  transactions, 
+  transactions = [], 
   onSuccess,
   showToast 
 }) {
+  const { currentUser } = useApp();
+  const titleId = useId();
   const [selectedTxForRefund, setSelectedTxForRefund] = useState('');
   const [refundReason, setRefundReason] = useState('');
   const [bankName, setBankName] = useState('Vietcombank');
   const [bankAccount, setBankAccount] = useState('');
   const [accountHolder, setAccountHolder] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (show && !accountHolder && currentUser?.name) {
+      setAccountHolder(String(currentUser.name).toUpperCase());
+    }
+  }, [show, accountHolder, currentUser?.name]);
 
   // Filter only paid transactions with amount > 0 (cannot refund quota or already refunded)
   const paidTransactions = transactions.filter(
@@ -146,64 +156,75 @@ export default function RefundRequestModal({
     }
   };
 
-  if (!show) return null;
-
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 !m-0"
+    <ModalDialog
+      open={Boolean(show)}
+      onClose={onClose}
+      preventClose={submitting}
+      titleId={titleId}
+      maxWidthClass="max-w-3xl"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-3xl max-h-[calc(100dvh-2rem)] overflow-y-auto bg-white rounded-3xl shadow-2xl border border-slate-200 p-4 sm:p-6 space-y-5 relative"
-      >
+      <div className="w-full bg-white p-4 sm:p-6 space-y-5 relative">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 shrink-0 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <span className="material-symbols-outlined text-[20px]">currency_exchange</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">currency_exchange</span>
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-base">Gửi Yêu Cầu Hoàn Tiền</h3>
+              <h3 id={titleId} className="font-bold text-slate-900 text-base">Gửi Yêu Cầu Hoàn Tiền</h3>
               <p className="text-xs text-slate-500">Áp dụng cho hủy lịch trước 2h hoặc yêu cầu hoàn phí theo quy chế</p>
             </div>
           </div>
           <button
+            type="button"
+            aria-label="Đóng"
+            disabled={submitting}
             onClick={onClose}
-            className="w-8 h-8 shrink-0 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer"
+            className="w-8 h-8 shrink-0 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-[18px]">close</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700">Chọn Giao Dịch Cần Hoàn</label>
-            <select
-              value={selectedTxForRefund}
-              onChange={(e) => setSelectedTxForRefund(e.target.value)}
-              required
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white outline-none focus:border-orange-500 focus:ring-0"
-            >
-              <option value="">-- Chọn giao dịch đã thanh toán --</option>
+          {paidTransactions.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 flex items-start gap-2.5">
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-slate-400 shrink-0">info</span>
+              <div>
+                <p className="font-bold text-slate-800">Chưa có giao dịch đủ điều kiện hoàn tiền</p>
+                <p className="mt-0.5 text-slate-500">Chỉ các giao dịch đã thanh toán bằng tiền (lớn hơn 0đ) mới có thể gửi yêu cầu hoàn tiền về tài khoản ngân hàng.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <label htmlFor="refund-tx-select" className="text-xs font-bold text-slate-700">Chọn Giao Dịch Cần Hoàn</label>
+              <select
+                id="refund-tx-select"
+                value={selectedTxForRefund}
+                onChange={(e) => setSelectedTxForRefund(e.target.value)}
+                required
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white outline-none focus:border-orange-500 focus:ring-0"
+              >
+                <option value="">-- Chọn giao dịch đã thanh toán --</option>
 
-              {/* Grouped by item type for better UX (OPTION 2 FIX) */}
-              {Object.entries(groupedPaidTransactions).map(([type, items]) => (
-                <optgroup 
-                  key={type} 
-                  label={`${getItemTypeIcon(type)} ${getItemTypeLabel(type)}`}
-                >
-                  {items.map((tx) => (
-                    <option 
-                      key={tx.id} 
-                      value={tx.referenceCode || `TX-${tx.id}`}
-                    >
-                      {formatRefCode(tx.referenceCode || `TX-${tx.id}`)} · {tx.itemName || 'Dịch vụ'} ({formatVnd(tx.amount)})
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
+                {Object.entries(groupedPaidTransactions).map(([type, items]) => (
+                  <optgroup 
+                    key={type} 
+                    label={`${getItemTypeIcon(type)} ${getItemTypeLabel(type)}`}
+                  >
+                    {items.map((tx) => (
+                      <option 
+                        key={tx.id} 
+                        value={tx.referenceCode || `TX-${tx.id}`}
+                      >
+                        {formatRefCode(tx.referenceCode || `TX-${tx.id}`)} · {tx.itemName || 'Dịch vụ'} ({formatVnd(tx.amount)})
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="space-y-1">
             <label className="text-xs font-bold text-slate-700">Lý Do Yêu Cầu Hoàn Tiền</label>
@@ -266,20 +287,21 @@ export default function RefundRequestModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              disabled={submitting}
+              className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
             >
               Hủy Bỏ
             </button>
             <button
               type="submit"
-              disabled={submitting}
-              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold shadow-md cursor-pointer"
+              disabled={submitting || paidTransactions.length === 0}
+              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold shadow-md cursor-pointer disabled:cursor-not-allowed"
             >
               {submitting ? 'Đang gửi...' : 'Gửi Yêu Cầu Hoàn Tiền'}
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </ModalDialog>
   );
 }

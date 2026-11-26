@@ -9,10 +9,17 @@ export default function ModalDialog({
   open,
   onClose,
   titleId,
+  ariaLabel,
+  preventClose = false,
   maxWidthClass = 'max-w-lg',
   children,
 }) {
   const dialogRef = useRef(null);
+  const preventCloseRef = useRef(preventClose);
+
+  useEffect(() => {
+    preventCloseRef.current = preventClose;
+  }, [preventClose]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -43,10 +50,10 @@ export default function ModalDialog({
 
     let pressedOutside = false;
     const handlePointerDown = (event) => {
-      pressedOutside = isOutside(event);
+      pressedOutside = !preventCloseRef.current && isOutside(event);
     };
     const handlePointerUp = (event) => {
-      if (pressedOutside && isOutside(event) && dialog.open) {
+      if (!preventCloseRef.current && pressedOutside && isOutside(event) && dialog.open) {
         dialog.close();
       }
       pressedOutside = false;
@@ -63,13 +70,19 @@ export default function ModalDialog({
   return createPortal(
     <dialog
       ref={dialogRef}
-      closedby="any"
+      closedby={preventClose ? 'none' : 'any'}
       aria-labelledby={titleId}
+      aria-label={!titleId ? ariaLabel : undefined}
+      onCancel={(event) => {
+        if (preventCloseRef.current) {
+          event.preventDefault();
+        }
+      }}
       onClose={(event) => {
         event.currentTarget.returnValue = '';
         onClose?.();
       }}
-      className={`m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] ${maxWidthClass} overflow-y-auto rounded-3xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/60 backdrop:backdrop-blur-sm`}
+      className={`fixed m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] ${maxWidthClass} overflow-y-auto rounded-3xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/60 backdrop:backdrop-blur-sm`}
     >
       {open ? children : null}
     </dialog>,

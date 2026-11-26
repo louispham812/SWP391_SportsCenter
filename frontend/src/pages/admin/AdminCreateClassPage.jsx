@@ -93,7 +93,7 @@ export default function AdminCreateClassPage() {
 
   return (
     <AdminLayout>
-      <main className="space-y-5">
+      <div className="space-y-5">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Tạo lịch lớp học</h1>
@@ -247,7 +247,7 @@ export default function AdminCreateClassPage() {
                 </button>
               </div>
             </form>
-      </main>
+      </div>
     </AdminLayout>
   );
 }

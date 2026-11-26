@@ -2,10 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { useApp } from '../context/AppContext';
 import { getPublicFacilities, getPublicSports } from '../services/publicContentApi';
 import { getSportMedia, getFacilityMedia, DEFAULT_SPORT_IMG } from '../utils/mediaMap';
+import { getPortalHomePath } from '../utils/portalRoute';
 
 export default function LandingPage() {
+  const { currentUser, currentRole } = useApp();
+  const portalHomePath = getPortalHomePath(currentRole, '/member');
   const [sports, setSports] = useState([]);
   const [facilities, setFacilities] = useState([]);
   const [isContentLoading, setIsContentLoading] = useState(true);
@@ -21,8 +25,8 @@ export default function LandingPage() {
         setFacilities(Array.isArray(facilitiesData) ? facilitiesData : []);
       })
       .catch((err) => {
-        console.error('Lỗi khi tải dữ liệu trang chủ từ máy chủ backend:', err);
-        setLoadError('Không thể tải dữ liệu trực tiếp từ máy chủ backend. Vui lòng kiểm tra kết nối dịch vụ.');
+        console.error('Lỗi khi tải dữ liệu trang chủ từ máy chủ:', err);
+        setLoadError('Không thể tải dữ liệu từ máy chủ hệ thống. Vui lòng kiểm tra kết nối dịch vụ.');
         setSports([]);
         setFacilities([]);
       })
@@ -224,7 +228,7 @@ export default function LandingPage() {
                   >
                     <div>
                       {/* Hình ảnh minh họa bắt mắt */}
-                      <div className="relative w-full h-44 overflow-hidden bg-slate-100">
+                      <Link to={`/sports/${sport.slug}`} className="block relative w-full h-44 overflow-hidden bg-slate-100">
                         <img
                           src={media.image}
                           alt={sport.name}
@@ -246,7 +250,7 @@ export default function LandingPage() {
                         {/* Icon & Specs góc dưới ảnh */}
                         <div className="absolute bottom-3 left-3 flex items-center gap-2 text-white">
                           <div className="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold shadow-md">
-                            <span className="material-symbols-outlined text-[18px]">
+                            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
                               {sport.icon || 'sports_tennis'}
                             </span>
                           </div>
@@ -254,12 +258,12 @@ export default function LandingPage() {
                             {sport.area || 'Tiêu chuẩn'}
                           </span>
                         </div>
-                      </div>
+                      </Link>
 
                       {/* Nội dung card */}
                       <div className="p-5 space-y-2">
                         <h3 className="text-base font-black text-slate-900 group-hover:text-orange-600 transition-colors uppercase">
-                          {sport.name}
+                          <Link to={`/sports/${sport.slug}`}>{sport.name}</Link>
                         </h3>
                         {sport.subtitle && (
                           <p className="text-[10px] uppercase tracking-wider text-orange-600 font-bold">
@@ -443,10 +447,10 @@ export default function LandingPage() {
                   Đăng Ký Gói Tập Ngay
                 </Link>
                 <Link
-                  to="/login"
+                  to={currentUser ? portalHomePath : '/login'}
                   className="px-8 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs uppercase tracking-wider transition-all text-center cursor-pointer"
                 >
-                  Đăng Nhập Tài Khoản
+                  {currentUser ? 'Về Portal Của Tôi' : 'Đăng Nhập Tài Khoản'}
                 </Link>
               </div>
             </div>

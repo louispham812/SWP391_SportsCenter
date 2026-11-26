@@ -21,6 +21,7 @@ import {
   getTicketSeverityMeta,
   getTicketStatusMeta,
 } from '../../utils/ticketLabels';
+import { matchesAnyVietnamese } from '../../utils/vietnameseSearch';
 
 const TICKETS_PER_PAGE = 10;
 
@@ -49,6 +50,7 @@ export default function TicketManagementPanel({ mode = 'receptionist' }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [memberSearch, setMemberSearch] = useState('');
   const [memberSearchState, setMemberSearchState] = useState({ query: '', rows: [] });
+  const [searchingMembers, setSearchingMembers] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [newCategory, setNewCategory] = useState('FACILITY_ISSUE');
   const [newSeverity, setNewSeverity] = useState('NORMAL');
@@ -64,10 +66,11 @@ export default function TicketManagementPanel({ mode = 'receptionist' }) {
   const [replyError, setReplyError] = useState('');
   const [replying, setReplying] = useState(false);
 
-  const loading = ticketResponse?.key !== refreshKey;
+  const isInitialLoading = ticketResponse === null;
+  const isRefreshing = ticketResponse !== null && ticketResponse.key !== refreshKey;
   const tickets = useMemo(
-    () => (ticketResponse?.key === refreshKey ? ticketResponse.rows : []),
-    [ticketResponse, refreshKey]
+    () => (Array.isArray(ticketResponse?.rows) ? ticketResponse.rows : []),
+    [ticketResponse]
   );
   const error = ticketResponse?.key === refreshKey ? ticketResponse.error : '';
 
@@ -96,10 +99,12 @@ export default function TicketManagementPanel({ mode = 'receptionist' }) {
 
   useEffect(() => {
     if (!showCreateModal || memberSearch.trim().length < 2) {
+      setSearchingMembers(false);
       return undefined;
     }
     let active = true;
     const q = memberSearch.trim();
+    setSearchingMembers(true);
     const timer = window.setTimeout(() => {
       const searchFn = isAdmin
         ? () => getManagerMembers({ query: q, page: 0, size: 15 })
@@ -110,6 +115,9 @@ export default function TicketManagementPanel({ mode = 'receptionist' }) {
         })
         .catch(() => {
           if (active) setMemberSearchState({ query: q, rows: [] });
+        })
+        .finally(() => {
+          if (active) setSearchingMembers(false);
         });
     }, 250);
     return () => {
@@ -126,31 +134,35 @@ export default function TicketManagementPanel({ mode = 'receptionist' }) {
     let submitted = 0;
     let inReview = 0;
     let resolved = 0;
+    let rejected = 0;
     tickets.forEach((t) => {
       const st = (t.status || '').toUpperCase();
       if (st === 'SUBMITTED') submitted += 1;
       else if (st === 'IN_REVIEW') inReview += 1;
       else if (st === 'RESOLVED') resolved += 1;
+      else if (st === 'REJECTED') rejected += 1;
     });
-    return { total: tickets.length, submitted, inReview, resolved };
+    return { total: tickets.length, submitted, inReview, resolved, rejected };
   }, [tickets]);
 
   const filteredTickets = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
     return tickets.filter((t) => {
       const st = (t.status || '').toUpperCase();
       const sev = (t.severity || '').toUpperCase();
       if (statusFilter !== 'ALL' && st !== statusFilter) return false;
       if (severityFilter !== 'ALL' && sev !== severityFilter) return false;
-      if (!q) return true;
-      return [
-        t.title,
-        t.description,
-        t.memberName,
-        t.adminResponse,
-        `#tk-${t.ticketId}`,
-        String(t.ticketId || ''),
-      ].some((v) => String(v || '').toLowerCase().includes(q));
+      if (!searchQuery.trim()) return true;
+      return matchesAnyVietnamese(
+        [
+          t.title,
+          t.description,
+          t.memberName,
+          t.adminResponse,
+          `#tk-${t.ticketId}`,
+          String(t.ticketId || ''),
+        ],
+        searchQuery
+      );
     });
   }, [tickets, statusFilter, severityFilter, searchQuery]);
 
@@ -277,33 +289,57 @@ export default function TicketManagementPanel({ mode = 'receptionist' }) {
           <button
             type="button"
             onClick={() => setRefreshKey((k) => k + 1)}
-            disabled={loading}
+            disabled={isInitialLoading || isRefreshing}
             className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 shadow-sm cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[18px]">refresh</span>
+            <span aria-hidden="true" className={`material-symbols-outlined text-[18px] ${isRefreshing ? 'animate-spin' : ''}`}>refresh</span>
             Làm mới
           </button>
         </div>
       </header>
 
-      {/* Summary KPI Cards */}
+      {/* Summary KPI Cards (1-click filters) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+        <button
+          type="button"
+          onClick={() => { setStatusFilter('ALL'); setCurrentPage(1); }}
+          className={`text-left rounded-2xl border bg-white p-4 shadow-sm transition cursor-pointer ${
+            statusFilter === 'ALL' ? 'border-orange-400 ring-2 ring-orange-200' : 'border-slate-200 hover:border-slate-300'
+          }`}
+        >
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Tổng số Ticket</span>
           <div className="mt-1.5 text-2xl font-black text-slate-900">{stats.total}</div>
-        </div>
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 shadow-xs">
+        </button>
+        <button
+          type="button"
+          onClick={() => { setStatusFilter('SUBMITTED'); setCurrentPage(1); }}
+          className={`text-left rounded-2xl border bg-amber-50/50 p-4 shadow-sm transition cursor-pointer ${
+            statusFilter === 'SUBMITTED' ? 'border-amber-500 ring-2 ring-amber-200' : 'border-amber-200 hover:border-amber-300'
+          }`}
+        >
           <span className="text-xs font-bold uppercase tracking-wider text-amber-700">Chờ tiếp nhận</span>
           <div className="mt-1.5 text-2xl font-black text-amber-700">{stats.submitted}</div>
-        </div>
-        <div className="rounded-2xl border border-blue-200 bg-blue-50/50 p-4 shadow-xs">
+        </button>
+        <button
+          type="button"
+          onClick={() => { setStatusFilter('IN_REVIEW'); setCurrentPage(1); }}
+          className={`text-left rounded-2xl border bg-blue-50/50 p-4 shadow-sm transition cursor-pointer ${
+            statusFilter === 'IN_REVIEW' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-blue-200 hover:border-blue-300'
+          }`}
+        >
           <span className="text-xs font-bold uppercase tracking-wider text-blue-700">Đang xử lý</span>
           <div className="mt-1.5 text-2xl font-black text-blue-700">{stats.inReview}</div>
-        </div>
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 shadow-xs">
+        </button>
+        <button
+          type="button"
+          onClick={() => { setStatusFilter('RESOLVED'); setCurrentPage(1); }}
+          className={`text-left rounded-2xl border bg-emerald-50/50 p-4 shadow-sm transition cursor-pointer ${
+            statusFilter === 'RESOLVED' ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-emerald-200 hover:border-emerald-300'
+          }`}
+        >
           <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Đã giải quyết</span>
           <div className="mt-1.5 text-2xl font-black text-emerald-700">{stats.resolved}</div>
-        </div>
+        </button>
       </div>
 
       {/* Filters & Table */}
@@ -311,11 +347,11 @@ export default function TicketManagementPanel({ mode = 'receptionist' }) {
         <div className="p-4 border-b border-slate-200 bg-slate-50/60 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {[
-              { value: 'ALL', label: 'Tất cả' },
-              { value: 'SUBMITTED', label: 'Chờ tiếp nhận' },
-              { value: 'IN_REVIEW', label: 'Đang xử lý' },
-              { value: 'RESOLVED', label: 'Đã giải quyết' },
-              { value: 'REJECTED', label: 'Từ chối' },
+              { value: 'ALL', label: `Tất cả (${stats.total})` },
+              { value: 'SUBMITTED', label: `Chờ tiếp nhận (${stats.submitted})` },
+              { value: 'IN_REVIEW', label: `Đang xử lý (${stats.inReview})` },
+              { value: 'RESOLVED', label: `Đã giải quyết (${stats.resolved})` },
+              { value: 'REJECTED', label: `Từ chối (${stats.rejected})` },
             ].map((item) => (
               <button
                 key={item.value}
@@ -351,19 +387,32 @@ export default function TicketManagementPanel({ mode = 'receptionist' }) {
             </select>
 
             <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[17px] text-slate-400">
+              <span aria-hidden="true" className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[17px] text-slate-400">
                 search
               </span>
               <input
-                type="search"
+                type="text"
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
                 placeholder="Tìm mã, tiêu đề, hội viên..."
-                className="w-full sm:w-64 rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-xs outline-none focus:border-orange-500"
+                className="w-full sm:w-64 rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-8 text-xs outline-none focus:border-orange-500"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  aria-label="Xóa tìm kiếm"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setCurrentPage(1);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[15px]">close</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -374,27 +423,42 @@ export default function TicketManagementPanel({ mode = 'receptionist' }) {
           </div>
         )}
 
-        <div className="p-4">
-          {loading ? (
-            <TableSkeleton rows={5} cols={6} />
+        <div className={`p-4 transition-opacity ${isRefreshing ? 'opacity-60' : ''}`}>
+          {isInitialLoading ? (
+            <TableSkeleton bare rows={5} cols={6} />
           ) : paginatedTickets.length === 0 ? (
-            <div className="py-14 text-center">
-              <span className="material-symbols-outlined text-4xl text-slate-300">support_agent</span>
-              <p className="mt-2 font-bold text-slate-800 text-sm">Chưa có ticket hỗ trợ nào phù hợp</p>
-              <p className="mt-1 text-xs text-slate-500">Thử thay đổi bộ lọc hoặc bấm &quot;Tạo Ticket Mới&quot; để tiếp nhận yêu cầu hộ hội viên.</p>
+            <div className="py-14 text-center space-y-2">
+              <span aria-hidden="true" className="material-symbols-outlined text-4xl text-slate-300">support_agent</span>
+              <p className="font-bold text-slate-800 text-sm">Chưa có ticket hỗ trợ nào phù hợp</p>
+              <p className="text-xs text-slate-500">Thử thay đổi bộ lọc hoặc bấm &quot;Tạo Ticket Mới&quot; để tiếp nhận yêu cầu hộ hội viên.</p>
+              {(statusFilter !== 'ALL' || severityFilter !== 'ALL' || searchQuery.trim()) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter('ALL');
+                    setSeverityFilter('ALL');
+                    setSearchQuery('');
+                    setCurrentPage(1);
+                  }}
+                  className="mt-2 inline-flex items-center gap-1 px-4 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[15px]">filter_alt_off</span>
+                  Xóa bộ lọc
+                </button>
+              )}
             </div>
           ) : (
             <div tabIndex={0} role="region" aria-label="Danh sách ticket hỗ trợ" className="overflow-x-auto">
-              <table className="w-full min-w-[820px] text-left text-xs">
+              <table className="w-full min-w-[780px] text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px] whitespace-nowrap">
-                    <th className="py-3 px-3">Mã Ticket</th>
-                    <th className="py-3 px-3">Hội viên</th>
-                    <th className="py-3 px-3 min-w-[260px]">Nội dung &amp; Phản hồi</th>
-                    <th className="py-3 px-3">Mức độ</th>
-                    <th className="py-3 px-3">Trạng thái</th>
-                    <th className="py-3 px-3">Thời gian</th>
-                    <th className="py-3 px-3 text-right">Thao tác</th>
+                    <th className="py-3 px-2.5">Mã Ticket</th>
+                    <th className="py-3 px-2.5">Hội viên</th>
+                    <th className="py-3 px-2.5 min-w-[230px]">Nội dung &amp; Phản hồi</th>
+                    <th className="py-3 px-2.5">Mức độ</th>
+                    <th className="py-3 px-2.5">Trạng thái</th>
+                    <th className="py-3 px-2.5">Thời gian</th>
+                    <th className="py-3 px-2.5 text-right sticky right-0 bg-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -434,16 +498,16 @@ export default function TicketManagementPanel({ mode = 'receptionist' }) {
                             {statusMeta.label}
                           </span>
                         </td>
-                        <td className="py-3.5 px-3 text-slate-500 whitespace-nowrap">
+                        <td className="py-3 px-2.5 text-slate-500 whitespace-nowrap">
                           {formatTicketDate(ticket.createdAt)}
                         </td>
-                        <td className="py-3.5 px-3 text-right whitespace-nowrap">
+                        <td className="py-3 px-2.5 text-right whitespace-nowrap sticky right-0 bg-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">
                           <button
                             type="button"
                             onClick={() => openReplyModal(ticket)}
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-orange-500 text-white font-bold text-[11px] transition-colors cursor-pointer"
                           >
-                            <span className="material-symbols-outlined text-[14px]">reply</span>
+                            <span aria-hidden="true" className="material-symbols-outlined text-[14px]">reply</span>
                             Xử lý / Phản hồi
                           </button>
                         </td>
@@ -474,6 +538,7 @@ export default function TicketManagementPanel({ mode = 'receptionist' }) {
       <ModalDialog
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
+        preventClose={creating}
         titleId={createTitleId}
         maxWidthClass="max-w-lg"
       >
@@ -518,26 +583,36 @@ export default function TicketManagementPanel({ mode = 'receptionist' }) {
                 placeholder="Nhập tên, SĐT hoặc email hội viên (tối thiểu 2 ký tự)..."
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-orange-500"
               />
-              {memberResults.length > 0 && !selectedMember && (
-                <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
-                  {memberResults.map((m) => (
-                    <button
-                      key={m.userId}
-                      type="button"
-                      onClick={() => {
-                        setSelectedMember(m);
-                        setMemberSearch(m.fullName);
-                      }}
-                      className="w-full px-3 py-2 text-left text-xs hover:bg-orange-50 flex items-center justify-between cursor-pointer"
-                    >
-                      <div>
-                        <strong className="text-slate-900 block">{m.fullName}</strong>
-                        <span className="text-[11px] text-slate-500">{m.phone || m.email}</span>
-                      </div>
-                      <span className="font-mono text-[11px] text-slate-400">#{m.userId}</span>
-                    </button>
-                  ))}
-                </div>
+              {!selectedMember && memberSearch.trim().length >= 2 && (
+                searchingMembers ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
+                    Đang tìm hội viên...
+                  </div>
+                ) : memberResults.length === 0 ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
+                    Không tìm thấy hội viên phù hợp.
+                  </div>
+                ) : (
+                  <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
+                    {memberResults.map((m) => (
+                      <button
+                        key={m.userId}
+                        type="button"
+                        onClick={() => {
+                          setSelectedMember(m);
+                          setMemberSearch(m.fullName);
+                        }}
+                        className="w-full px-3 py-2 text-left text-xs hover:bg-orange-50 flex items-center justify-between cursor-pointer"
+                      >
+                        <div>
+                          <strong className="text-slate-900 block">{m.fullName}</strong>
+                          <span className="text-[11px] text-slate-500">{m.phone || m.email}</span>
+                        </div>
+                        <span className="font-mono text-[11px] text-slate-400">#{m.userId}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
               )}
               {selectedMember && (
                 <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
@@ -646,6 +721,7 @@ export default function TicketManagementPanel({ mode = 'receptionist' }) {
       <ModalDialog
         open={Boolean(activeTicket)}
         onClose={() => setActiveTicket(null)}
+        preventClose={replying}
         titleId={replyTitleId}
         maxWidthClass="max-w-lg"
       >
@@ -682,31 +758,42 @@ export default function TicketManagementPanel({ mode = 'receptionist' }) {
                 </div>
               )}
 
-              <div className="space-y-1">
-                <label htmlFor="reply-status" className="text-xs font-bold text-slate-700">
+              <div className="space-y-1.5">
+                <span className="text-xs font-bold text-slate-700 block">
                   Trạng thái xử lý
-                </label>
-                <select
-                  id="reply-status"
-                  value={replyStatus}
-                  onChange={(e) => setReplyStatus(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-bold cursor-pointer"
-                >
-                  <option value="SUBMITTED">Chờ tiếp nhận</option>
-                  <option value="IN_REVIEW">Đang xử lý</option>
-                  <option value="RESOLVED">Đã giải quyết</option>
-                  <option value="REJECTED">Từ chối</option>
-                </select>
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  {[
+                    { value: 'SUBMITTED', label: 'Chờ tiếp nhận' },
+                    { value: 'IN_REVIEW', label: 'Đang xử lý' },
+                    { value: 'RESOLVED', label: 'Đã giải quyết' },
+                    { value: 'REJECTED', label: 'Từ chối' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setReplyStatus(opt.value)}
+                      className={`px-2.5 py-2 rounded-xl border text-[11px] font-bold transition cursor-pointer ${
+                        replyStatus === opt.value
+                          ? 'border-orange-500 bg-orange-50 text-orange-700'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-1">
                 <label htmlFor="reply-message" className="text-xs font-bold text-slate-700">
-                  Nội dung phản hồi tới hội viên
+                  Nội dung phản hồi tới hội viên {['RESOLVED', 'REJECTED'].includes(replyStatus) ? '*' : ''}
                 </label>
                 <textarea
                   id="reply-message"
                   autoFocus
                   rows={4}
+                  required={['RESOLVED', 'REJECTED'].includes(replyStatus)}
                   value={replyMessage}
                   onChange={(e) => setReplyMessage(e.target.value)}
                   placeholder="Nhập nội dung phản hồi hoặc kết quả đối soát..."

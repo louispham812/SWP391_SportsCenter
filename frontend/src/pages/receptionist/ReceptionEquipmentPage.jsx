@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
+import ModalDialog from '../../components/common/ModalDialog';
 import { apiRequest } from '../../services/apiClient';
 import { useApp } from '../../context/AppContext';
 
@@ -58,6 +59,15 @@ export default function ReceptionEquipmentPage() {
   useEffect(() => {
     loadEquipments();
   }, [loadEquipments]);
+
+  useEffect(() => {
+    if (!returnReceipt) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setReturnReceipt(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [returnReceipt]);
 
   // Search members debounce
   useEffect(() => {
@@ -524,15 +534,23 @@ export default function ReceptionEquipmentPage() {
       </div>
 
       {/* Return & Pay Modal */}
-      {returningLoan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
-          <div className="relative w-full max-w-md overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
+      <ModalDialog
+        open={Boolean(returningLoan)}
+        onClose={() => setReturningLoan(null)}
+        titleId="equipment-return-title"
+        maxWidthClass="max-w-md"
+        preventClose={isReturning}
+      >
+        {returningLoan && (
+          <div className="p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">Xác nhận trả đồ &amp; Thu phí</h3>
+              <h3 id="equipment-return-title" className="text-base font-bold text-slate-900">Xác nhận trả đồ &amp; Thu phí</h3>
               <button
                 type="button"
+                disabled={isReturning}
                 onClick={() => setReturningLoan(null)}
-                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                aria-label="Đóng hộp thoại trả đồ"
+                className="text-slate-400 hover:text-slate-700 cursor-pointer disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -568,8 +586,9 @@ export default function ReceptionEquipmentPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="font-bold uppercase text-slate-600 text-[11px]">Hình thức thu tiền tại quầy</label>
+                    <label className="font-bold uppercase text-slate-600 text-[11px]" htmlFor="equipment-payment-method">Hình thức thu tiền tại quầy</label>
                     <select
+                      id="equipment-payment-method"
                       value={paymentMethod}
                       onChange={(e) => setPaymentMethod(e.target.value)}
                       className="w-full p-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 outline-none cursor-pointer"
@@ -588,8 +607,9 @@ export default function ReceptionEquipmentPage() {
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
               <button
                 type="button"
+                disabled={isReturning}
                 onClick={() => setReturningLoan(null)}
-                className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
               >
                 Hủy bỏ
               </button>
@@ -603,13 +623,18 @@ export default function ReceptionEquipmentPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
 
       {/* Printable Equipment Return Receipt Modal */}
       {returnReceipt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs print:p-0 print:bg-white print:static !m-0">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 space-y-4 print:shadow-none print:border-none print:max-w-none print:w-full">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs print:p-0 print:bg-white print:static !m-0"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setReturnReceipt(null);
+          }}
+        >
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 space-y-4 print:max-h-none print:overflow-visible print:shadow-none print:border-none print:max-w-none print:w-full">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 print:hidden">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-emerald-600 text-[20px]">receipt_long</span>

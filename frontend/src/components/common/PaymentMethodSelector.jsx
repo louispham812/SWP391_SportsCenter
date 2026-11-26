@@ -22,10 +22,10 @@ export default function PaymentMethodSelector({
 
   return (
     <div className="space-y-4">
-      <div>
-        <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+      <fieldset>
+        <legend className="text-xs font-bold uppercase tracking-wider text-slate-700">
           Phương thức thanh toán
-        </label>
+        </legend>
         <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {methods.map((method) => {
             const isSelected = selectedMethod === method.id;
@@ -33,14 +33,16 @@ export default function PaymentMethodSelector({
               <button
                 key={method.id}
                 type="button"
+                aria-pressed={isSelected}
                 onClick={() => onChange(method.id)}
-                className={`relative flex items-start gap-3 rounded-2xl border p-3.5 text-left transition ${
+                className={`relative flex items-start gap-3 rounded-2xl border p-3.5 text-left transition cursor-pointer ${
                   isSelected
                     ? 'border-orange-500 bg-orange-50/40 ring-2 ring-orange-500/20'
                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'
                 }`}
               >
                 <div
+                  aria-hidden="true"
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition ${
                     isSelected ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-600'
                   }`}
@@ -48,7 +50,7 @@ export default function PaymentMethodSelector({
                   <span className="material-symbols-outlined text-[20px]">{method.icon}</span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-xs font-bold text-slate-900">{method.name}</span>
                     {method.badge && (
                       <span
@@ -62,7 +64,7 @@ export default function PaymentMethodSelector({
                       </span>
                     )}
                   </div>
-                  <p className="mt-0.5 text-[11px] text-slate-500 truncate">{method.subtitle}</p>
+                  <p className="mt-0.5 text-[11px] text-slate-500 leading-snug">{method.subtitle}</p>
                 </div>
                 <div className="shrink-0 self-center">
                   <div
@@ -77,7 +79,7 @@ export default function PaymentMethodSelector({
             );
           })}
         </div>
-      </div>
+      </fieldset>
 
       {selectedMethod === 'VNPAY' && (
         <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 text-xs text-blue-950 space-y-2">

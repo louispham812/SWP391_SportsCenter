@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../../components/layouts/AdminLayout';
+import ModalDialog from '../../components/common/ModalDialog';
 import { TableSkeleton } from '../../components/common/Skeleton';
 import {
   cancelManagerClassSession,
@@ -303,7 +304,7 @@ export default function AdminClassesPage() {
 
   return (
     <AdminLayout>
-      <main className="space-y-6">
+      <div className="space-y-6">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
@@ -481,18 +482,24 @@ export default function AdminClassesPage() {
             )}
           </div>
         </section>
-      </main>
+      </div>
 
-      {isEditSessionModalOpen && selectedSession && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
-          <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
+      <ModalDialog
+        open={Boolean(isEditSessionModalOpen && selectedSession)}
+        onClose={() => setIsEditSessionModalOpen(false)}
+        titleId="admin-edit-class-session-title"
+        maxWidthClass="max-w-lg"
+        preventClose={processingAction}
+      >
+        {selectedSession && (
+          <div className="p-6 sm:p-8 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <span className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
                   <span className="material-symbols-outlined text-[20px]">edit_calendar</span>
                 </span>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Dời Giờ / Đổi HLV Ca Học</h3>
+                  <h3 id="admin-edit-class-session-title" className="text-base font-bold text-slate-900">Dời Giờ / Đổi HLV Ca Học</h3>
                   <p className="text-xs text-slate-500 font-mono">
                     SES-{selectedSession.sessionId}: {selectedSession.className}
                     {editSportName ? ` · Bộ môn: ${editSportName}` : ''}
@@ -501,8 +508,10 @@ export default function AdminClassesPage() {
               </div>
               <button
                 type="button"
+                disabled={processingAction}
                 onClick={() => setIsEditSessionModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                aria-label="Đóng hộp thoại sửa ca học"
+                className="text-slate-400 hover:text-slate-700 cursor-pointer disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -600,23 +609,31 @@ export default function AdminClassesPage() {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
 
-      {isCancelModalOpen && sessionToCancel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
-          <div className="relative w-full max-w-md overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
+      <ModalDialog
+        open={Boolean(isCancelModalOpen && sessionToCancel)}
+        onClose={() => setIsCancelModalOpen(false)}
+        titleId="admin-cancel-class-session-title"
+        maxWidthClass="max-w-md"
+        preventClose={processingAction}
+      >
+        {sessionToCancel && (
+          <div className="p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <span className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold">
                   <span className="material-symbols-outlined text-[20px]">warning</span>
                 </span>
-                <h3 className="text-base font-bold text-slate-900">Xác Nhận Hủy Ca Học</h3>
+                <h3 id="admin-cancel-class-session-title" className="text-base font-bold text-slate-900">Xác Nhận Hủy Ca Học</h3>
               </div>
               <button
                 type="button"
+                disabled={processingAction}
                 onClick={() => setIsCancelModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                aria-label="Đóng hộp thoại hủy ca học"
+                className="text-slate-400 hover:text-slate-700 cursor-pointer disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -657,8 +674,8 @@ export default function AdminClassesPage() {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
     </AdminLayout>
   );
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
+import ModalDialog from '../../components/common/ModalDialog';
 import { TableSkeleton } from '../../components/common/Skeleton';
 import {
   createManagerPackage,
@@ -326,7 +327,7 @@ export default function AdminPackagesPage() {
 
   return (
     <AdminLayout>
-      <main className="space-y-6">
+      <div className="space-y-6">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
@@ -634,7 +635,7 @@ export default function AdminPackagesPage() {
           </section>
         )}
 
-      </main>
+      </div>
 
       {/* Package Drawer */}
       {isDrawerOpen && (
@@ -807,21 +808,26 @@ export default function AdminPackagesPage() {
       )}
 
       {/* Voucher Modal (MGR-18) */}
-      {isVoucherModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
-          <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">
-                {editingVoucher ? 'Cập nhật Voucher' : 'Tạo Voucher Khuyến Mãi Mới'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsVoucherModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
+      <ModalDialog
+        open={isVoucherModalOpen}
+        onClose={() => setIsVoucherModalOpen(false)}
+        titleId="admin-voucher-modal-title"
+        maxWidthClass="max-w-lg"
+      >
+        <div className="p-6 sm:p-8 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 id="admin-voucher-modal-title" className="text-base font-bold text-slate-900">
+              {editingVoucher ? 'Cập nhật Voucher' : 'Tạo Voucher Khuyến Mãi Mới'}
+            </h3>
+            <button
+              type="button"
+              onClick={() => setIsVoucherModalOpen(false)}
+              aria-label="Đóng hộp thoại voucher"
+              className="text-slate-400 hover:text-slate-700 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
 
             <form onSubmit={handleSaveVoucher} className="space-y-3.5">
               <div className="grid grid-cols-2 gap-3">
@@ -954,9 +960,8 @@ export default function AdminPackagesPage() {
                 </button>
               </div>
             </form>
-          </div>
         </div>
-      )}
+      </ModalDialog>
 
     </AdminLayout>
   );

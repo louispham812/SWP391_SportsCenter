@@ -247,7 +247,7 @@ export default function AdminDashboardPage() {
         disabled: !report || loading || Boolean(error),
       }}
     >
-      <main className="space-y-6">
+      <div className="space-y-6">
         <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
           <div>
             <p className="mb-1 text-xs font-bold uppercase tracking-widest text-orange-600">Trung tâm điều hành</p>
@@ -799,7 +799,7 @@ export default function AdminDashboardPage() {
             </>
           )}
         </section>
-      </main>
+      </div>
 
       <ModalDialog open={Boolean(selectedTx)} onClose={() => setSelectedTx(null)} titleId="transaction-title">
         {selectedTx && (
