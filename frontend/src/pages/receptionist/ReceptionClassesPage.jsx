@@ -61,7 +61,7 @@ export default function ReceptionClassesPage() {
   const loading = !isSameWeekLoaded;
   const refreshing = isSameWeekLoaded && scheduleResponse?.key !== requestKey;
   const classes = useMemo(
-    () => (isSameWeekLoaded ? scheduleResponse.rows || [] : []),
+    () => (isSameWeekLoaded && Array.isArray(scheduleResponse?.rows) ? scheduleResponse.rows : []),
     [isSameWeekLoaded, scheduleResponse],
   );
   const error = isSameWeekLoaded ? scheduleResponse.error || '' : '';

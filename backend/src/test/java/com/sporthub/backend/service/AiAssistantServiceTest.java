@@ -340,6 +340,9 @@ class AiAssistantServiceTest {
 
     @Test
     void realGeminiApiCallReturnsValidResponseWhenKeyIsProvided() {
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                Boolean.getBoolean("runLiveAiTests") || "true".equalsIgnoreCase(System.getenv("RUN_LIVE_AI_TESTS")),
+                "Skip live external Gemini API call unless -DrunLiveAiTests=true");
         String configuredKey = resolveApiKey();
         org.junit.jupiter.api.Assumptions.assumeTrue(configuredKey != null && !configuredKey.isBlank(),
                 "Skip real Gemini API call when GEMINI_API_KEY is not configured");
@@ -372,6 +375,9 @@ class AiAssistantServiceTest {
 
     @Test
     void realGeminiCoachPlanCallReturnsValidResponseWhenKeyIsProvided() {
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                Boolean.getBoolean("runLiveAiTests") || "true".equalsIgnoreCase(System.getenv("RUN_LIVE_AI_TESTS")),
+                "Skip live external Gemini API call unless -DrunLiveAiTests=true");
         String configuredKey = resolveApiKey();
         org.junit.jupiter.api.Assumptions.assumeTrue(configuredKey != null && !configuredKey.isBlank(),
                 "Skip real Gemini API call when GEMINI_API_KEY is not configured");
