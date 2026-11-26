@@ -5,6 +5,7 @@
 @layer base {
   html {
     font-size: 17px;
+    scroll-padding-top: 5rem;
   }
   @media (min-width: 1440px) {
     html {
@@ -46,6 +47,53 @@ dialog:modal {
 dialog::backdrop {
   overflow: hidden;
   overscroll-behavior: contain;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  dialog:modal {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition:
+      opacity 180ms ease-out,
+      transform 180ms ease-out,
+      display 180ms,
+      overlay 180ms;
+    transition-behavior: allow-discrete;
+  }
+
+  @starting-style {
+    dialog:modal {
+      opacity: 0;
+      transform: translateY(6px) scale(0.98);
+    }
+  }
+
+  @keyframes f-sport-enter {
+    from {
+      opacity: var(--enter-opacity, 1);
+      transform: translate3d(0, var(--enter-translate-y, 0px), 0) scale(var(--enter-scale, 1));
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  .animate-in {
+    animation: f-sport-enter 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .fade-in {
+    --enter-opacity: 0;
+  }
+  .zoom-in-95 {
+    --enter-scale: 0.95;
+  }
+  .slide-in-from-top-2 {
+    --enter-translate-y: -0.5rem;
+  }
+  .slide-in-from-top-4 {
+    --enter-translate-y: -1rem;
+  }
 }
 
 /* Shared keyboard focus for portal tabs. */
@@ -145,6 +193,12 @@ input[type="radio"] {
   animation: shimmer 1.5s infinite linear;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer {
+    animation-duration: 6s;
+  }
+}
+
 .card-hover {
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
@@ -152,5 +206,32 @@ input[type="radio"] {
 .card-hover:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-hover:hover {
+    transform: none;
+  }
+}
+
+@media print {
+  body:has(#receipt-print-area) #root,
+  body:has(.receipt-print-area) #root {
+    display: none !important;
+  }
+  dialog:modal:has(#receipt-print-area),
+  dialog:modal:has(.receipt-print-area) {
+    position: static !important;
+    max-height: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+  dialog:modal:has(#receipt-print-area)::backdrop,
+  dialog:modal:has(.receipt-print-area)::backdrop {
+    display: none !important;
+  }
 }
 

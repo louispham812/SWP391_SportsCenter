@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
+import { TableSkeleton } from '../../components/common/Skeleton';
 import { apiRequest } from '../../services/apiClient';
 import { checkInReceptionMember, lookupReceptionCard } from '../../services/receptionistApi';
 import { getTierBadgeStyle } from '../../utils/memberMemberships';
 import { getAvatarImageUrl } from '../../utils/avatarHelper';
+import { matchesAnyVietnamese } from '../../utils/vietnameseSearch';
 
 const formatDateTime = (value) => new Date(value).toLocaleString('vi-VN', {
   dateStyle: 'short',
@@ -43,15 +45,20 @@ export default function ReceptionCheckInPage() {
   const [lookingUp, setLookingUp] = useState(false);
   const [cardProfile, setCardProfile] = useState(null);
   const profileRequest = useRef(0);
+  const scanInputRef = useRef(null);
+  const cardProfileRef = useRef(null);
 
   // Manual search state
   const [search, setSearch] = useState('');
   const [members, setMembers] = useState([]);
+  const [searchingMembers, setSearchingMembers] = useState(false);
   const [memberId, setMemberId] = useState('');
 
   // History state
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [historyFilter, setHistoryFilter] = useState('ALL'); // 'ALL' | 'VALID' | 'INVALID'
+  const [historySearch, setHistorySearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [resultMessage, setResultMessage] = useState('');
@@ -78,27 +85,38 @@ export default function ReceptionCheckInPage() {
       }
     };
     void loadHistory();
+    const handleCheckInSync = () => {
+      void refreshHistory();
+    };
+    window.addEventListener('reception:checkin-updated', handleCheckInSync);
     return () => {
       current = false;
+      window.removeEventListener('reception:checkin-updated', handleCheckInSync);
     };
-  }, []);
+  }, [refreshHistory]);
 
   // Debounced search for manual lookup
   useEffect(() => {
     let current = true;
-    if (search.trim().length < 2) {
+    const trimmed = search.trim();
+    if (trimmed.length < 2) {
       setMembers([]);
+      setSearchingMembers(false);
       return () => {
         current = false;
       };
     }
+    setSearchingMembers(true);
     const timeoutId = window.setTimeout(() => {
-      apiRequest(`/receptionist/members?query=${encodeURIComponent(search.trim())}&page=0&size=20`)
+      apiRequest(`/receptionist/members?query=${encodeURIComponent(trimmed)}&page=0&size=20`)
         .then((result) => {
           if (current) setMembers(result.content || []);
         })
         .catch((requestError) => {
           if (current) setError(requestError.message || 'Không thể tìm hội viên.');
+        })
+        .finally(() => {
+          if (current) setSearchingMembers(false);
         });
     }, 250);
     return () => {
@@ -106,6 +124,17 @@ export default function ReceptionCheckInPage() {
       window.clearTimeout(timeoutId);
     };
   }, [search]);
+
+  const filteredHistory = useMemo(() => {
+    return history.filter((entry) => {
+      if (historyFilter === 'VALID' && entry.result !== 'VALID') return false;
+      if (historyFilter === 'INVALID' && entry.result === 'VALID') return false;
+      if (historySearch.trim()) {
+        return matchesAnyVietnamese([entry.memberName, entry.phone], historySearch);
+      }
+      return true;
+    });
+  }, [history, historyFilter, historySearch]);
 
   const selectedMember = members.find((member) => member.userId === Number(memberId));
   const canCheckIn = cardProfile?.checkInEligibility?.eligible === true;
@@ -134,6 +163,9 @@ export default function ReceptionCheckInPage() {
       if (requestId !== profileRequest.current) return;
       setCardProfile(profile);
       setMemberId(String(profile.userId));
+      window.requestAnimationFrame(() => {
+        cardProfileRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
     } catch (err) {
       if (requestId !== profileRequest.current) return;
       setError(err.message || 'Không tìm thấy thẻ hội viên hoặc mã không hợp lệ.');
@@ -183,7 +215,7 @@ export default function ReceptionCheckInPage() {
 
   return (
     <ReceptionistLayout>
-      <main className="space-y-6">
+      <div className="space-y-6">
         <header>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold uppercase tracking-wider mb-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -249,13 +281,27 @@ export default function ReceptionCheckInPage() {
                   contactless
                 </span>
                 <input
+                  ref={scanInputRef}
                   type="text"
                   value={scanCode}
                   onChange={(e) => setScanCode(e.target.value)}
                   placeholder="Quét mã QR thẻ hội viên hoặc quẹt thẻ từ RFID..."
-                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-white border border-slate-300 text-sm font-mono font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 shadow-xs"
+                  className="w-full pl-11 pr-10 py-3 rounded-xl bg-white border border-slate-300 text-sm font-mono font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 shadow-xs"
                   autoFocus
                 />
+                {scanCode && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScanCode('');
+                      scanInputRef.current?.focus();
+                    }}
+                    aria-label="Xóa mã thẻ vừa nhập"
+                    className="absolute right-3 text-slate-400 hover:text-slate-700 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">close</span>
+                  </button>
+                )}
               </div>
               <button
                 type="submit"
@@ -265,13 +311,31 @@ export default function ReceptionCheckInPage() {
                 <span className="material-symbols-outlined text-[18px]">search</span>
                 <span>{lookingUp ? 'Đang tra cứu...' : 'Tra Cứu Thẻ'}</span>
               </button>
+              {cardProfile && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    profileRequest.current += 1;
+                    setCardProfile(null);
+                    setMemberId('');
+                    setScanCode('');
+                    setResultMessage('');
+                    setError('');
+                    scanInputRef.current?.focus();
+                  }}
+                  className="py-3 px-4 rounded-xl border border-orange-300 bg-white hover:bg-orange-50 text-orange-700 text-xs font-semibold uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <span className="material-symbols-outlined text-[18px]">qr_code_scanner</span>
+                  <span>Quét thẻ tiếp</span>
+                </button>
+              )}
             </form>
           </div>
         </section>
 
         {/* 2. HỒ SƠ NHẬN DIỆN KHÁCH HÀNG (FACIAL VERIFICATION & ACTIVE PACKAGES) */}
         {cardProfile && (
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-md space-y-6 animate-in fade-in duration-200">
+          <section ref={cardProfileRef} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-md space-y-6 animate-in fade-in duration-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -399,23 +463,49 @@ export default function ReceptionCheckInPage() {
             <span className="text-xs text-slate-400">Theo tên, email hoặc SĐT</span>
           </div>
 
-          <input
-            id="member-search"
-            value={search}
-            onChange={(event) => {
-              profileRequest.current += 1;
-              setSearch(event.target.value);
-              setMemberId('');
-              setCardProfile(null);
-              setLookingUp(false);
-            }}
-            placeholder="Nhập tên, số điện thoại hoặc email (tối thiểu 2 ký tự)..."
-            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
-          />
+          <div className="relative">
+            <input
+              id="member-search"
+              value={search}
+              onChange={(event) => {
+                profileRequest.current += 1;
+                setSearch(event.target.value);
+                setMemberId('');
+                setCardProfile(null);
+                setLookingUp(false);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && members.length === 1 && !searchingMembers) {
+                  event.preventDefault();
+                  void loadProfile(String(members[0].userId));
+                }
+              }}
+              placeholder="Nhập tên, số điện thoại hoặc email (tối thiểu 2 ký tự)..."
+              className="w-full rounded-xl border border-slate-300 pl-4 pr-10 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => {
+                  profileRequest.current += 1;
+                  setSearch('');
+                  setMembers([]);
+                  setMemberId('');
+                  setCardProfile(null);
+                }}
+                aria-label="Xóa từ khóa tìm kiếm hội viên"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            )}
+          </div>
 
           {search.trim().length >= 2 && (
             <div className="max-h-52 space-y-2 overflow-y-auto">
-              {members.length === 0 ? (
+              {searchingMembers ? (
+                <p className="text-xs text-slate-500 p-2">Đang tìm kiếm hội viên...</p>
+              ) : members.length === 0 ? (
                 <p className="text-xs text-slate-500 p-2">Không tìm thấy hội viên phù hợp.</p>
               ) : (
                 members.map((member) => (
@@ -452,23 +542,82 @@ export default function ReceptionCheckInPage() {
 
         {/* 4. LỊCH SỬ CHECK-IN GẦN ĐÂY */}
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 p-5 flex items-center justify-between">
-            <h2 className="font-bold uppercase text-slate-900 text-sm">Lịch sử check-in hôm nay</h2>
-            <button
-              type="button"
-              onClick={refreshHistory}
-              className="text-xs text-slate-500 hover:text-slate-800 font-bold flex items-center gap-1 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[16px]">refresh</span>
-              <span>Làm mới</span>
-            </button>
+          <div className="border-b border-slate-100 p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-bold uppercase text-slate-900 text-sm">Lịch sử check-in hôm nay</h2>
+              <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-bold">
+                {[
+                  { id: 'ALL', label: `Tất cả (${history.length})` },
+                  { id: 'VALID', label: 'Hợp lệ' },
+                  { id: 'INVALID', label: 'Từ chối' },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setHistoryFilter(tab.id)}
+                    className={`rounded-lg px-2.5 py-1 transition cursor-pointer ${
+                      historyFilter === tab.id ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  placeholder="Lọc theo tên / SĐT..."
+                  className="w-44 sm:w-52 rounded-xl border border-slate-200 pl-3 pr-8 py-1.5 text-xs outline-none focus:border-orange-500"
+                />
+                {historySearch && (
+                  <button
+                    type="button"
+                    onClick={() => setHistorySearch('')}
+                    aria-label="Xóa lọc lịch sử"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">close</span>
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={refreshHistory}
+                className="text-xs text-slate-500 hover:text-slate-800 font-bold flex items-center gap-1 cursor-pointer shrink-0"
+              >
+                <span className="material-symbols-outlined text-[16px]">refresh</span>
+                <span>Làm mới</span>
+              </button>
+            </div>
           </div>
           {loadingHistory ? (
-            <p role="status" className="p-5 text-sm text-slate-500">Đang tải lịch sử...</p>
-          ) : history.length === 0 ? (
-            <p className="p-5 text-sm text-slate-500">Chưa có lượt check-in nào trong phiên làm việc.</p>
+            <div className="p-4">
+              <TableSkeleton bare rows={4} cols={4} />
+            </div>
+          ) : filteredHistory.length === 0 ? (
+            <div className="p-6 text-center space-y-2">
+              <p className="text-sm text-slate-500">
+                {history.length === 0 ? 'Chưa có lượt check-in nào trong phiên làm việc.' : 'Không có lượt check-in phù hợp bộ lọc.'}
+              </p>
+              {(historyFilter !== 'ALL' || historySearch.trim()) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHistoryFilter('ALL');
+                    setHistorySearch('');
+                  }}
+                  className="text-xs font-bold text-orange-600 hover:underline cursor-pointer"
+                >
+                  Xóa bộ lọc
+                </button>
+              )}
+            </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0}>
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 uppercase text-slate-500">
                   <tr>
@@ -479,7 +628,7 @@ export default function ReceptionCheckInPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {history.map((entry) => (
+                  {filteredHistory.map((entry) => (
                     <tr key={entry.checkInId} className="hover:bg-slate-50">
                       <td className="px-5 py-3.5 font-bold text-slate-900">
                         {entry.memberName}
@@ -503,7 +652,7 @@ export default function ReceptionCheckInPage() {
             </div>
           )}
         </section>
-      </main>
+      </div>
     </ReceptionistLayout>
   );
 }

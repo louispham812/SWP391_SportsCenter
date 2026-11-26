@@ -3,10 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import Footer from '../components/Footer';
 import Navbar from '../components/Navbar';
 import { useApp } from '../context/AppContext';
-import { apiRequest, generatePayment } from '../services/apiClient';
-import { redirectToPayment } from '../services/paymentNavigation';
 import { getPublicPackages } from '../services/publicContentApi';
 import { getTierBadgeStyle } from '../utils/memberMemberships';
+
+const TIER_LABELS = {
+  BRONZE: 'Hạng Đồng',
+  SILVER: 'Hạng Bạc',
+  GOLD: 'Hạng Vàng',
+  DIAMOND: 'Hạng Kim Cương',
+};
 
 const formatPrice = (price) => new Intl.NumberFormat('vi-VN', {
   style: 'currency',
@@ -19,9 +24,7 @@ export default function PricingPage() {
   const navigate = useNavigate();
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [savingPackageId, setSavingPackageId] = useState(null);
   const [error, setError] = useState('');
-  const [purchaseMessage, setPurchaseMessage] = useState('');
 
   const fetchPackages = () => {
     setLoading(true);
@@ -44,53 +47,6 @@ export default function PricingPage() {
     fetchPackages();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
-
-  const handlePurchase = async (membershipPackage) => {
-    if (!currentUser) {
-      navigate('/login', {
-        state: {
-          notice: 'Vui lòng đăng nhập tài khoản hội viên để đăng ký gói tập.',
-          from: '/pricing',
-        },
-      });
-      return;
-    }
-
-    setSavingPackageId(membershipPackage.packageId);
-    setError('');
-    setPurchaseMessage('');
-    try {
-      const result = await apiRequest('/members/me/memberships', {
-        method: 'POST',
-        body: JSON.stringify({
-          packageId: membershipPackage.packageId,
-          paymentMethod: 'VNPAY',
-        }),
-      });
-      if (result.paymentId && result.paymentStatus !== 'PAID') {
-        try {
-          const vnpayResult = await generatePayment(result.paymentId, 'VNPAY');
-          redirectToPayment(result.paymentId, vnpayResult.paymentUrl);
-          return;
-        } catch {
-          showToast(
-            'Đã tạo yêu cầu gói tập',
-            'Vui lòng hoàn tất thanh toán VNPay tại trang Gói hội viên.',
-            'info',
-          );
-          navigate('/member/packages');
-          return;
-        }
-      }
-      const message = `Đã ghi nhận yêu cầu đăng ký "${result.packageName}". Trạng thái thanh toán: ${result.paymentStatus}.`;
-      setPurchaseMessage(message);
-      showToast('Đăng ký gói thành công', message, 'success');
-    } catch (requestError) {
-      setError(requestError.message || 'Không thể tạo yêu cầu đăng ký gói tập.');
-    } finally {
-      setSavingPackageId(null);
-    }
-  };
 
   const getAccessBadge = (accessType) => {
     switch (accessType) {
@@ -139,12 +95,6 @@ export default function PricingPage() {
               >
                 Tải lại bảng giá
               </button>
-            </div>
-          )}
-
-          {purchaseMessage && (
-            <div role="status" className="mb-6 max-w-2xl mx-auto rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center">
-              <p className="text-xs font-bold text-emerald-800">{purchaseMessage}</p>
             </div>
           )}
 
@@ -206,9 +156,8 @@ export default function PricingPage() {
                             {badgeInfo.label}
                           </span>
                           <span className={`inline-block px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${getTierBadgeStyle(pkg.membershipTier || pkg.name, isFeatured ? 'dark' : 'light')}`}>
-                            {pkg.membershipTier && !['BRONZE', 'SILVER', 'GOLD', 'DIAMOND'].includes(String(pkg.membershipTier).toUpperCase())
-                              ? 'Hạng đặc biệt'
-                              : pkg.membershipTier || 'Hạng hội viên'}
+                            {TIER_LABELS[String(pkg.membershipTier || '').toUpperCase()] ||
+                              (pkg.membershipTier ? 'Hạng đặc biệt' : 'Hạng hội viên')}
                           </span>
                         </div>
                         <h2 className={`mt-3 text-xl sm:text-2xl font-black uppercase tracking-normal leading-snug ${isFeatured ? 'text-white' : 'text-slate-900'}`}>
@@ -271,15 +220,14 @@ export default function PricingPage() {
                       {currentRole === 'member' ? (
                         <button
                           type="button"
-                          disabled={savingPackageId !== null}
-                          onClick={() => handlePurchase(pkg)}
-                          className={`w-full py-3.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                          onClick={() => navigate('/member/packages')}
+                          className={`w-full py-3.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md cursor-pointer ${
                             isFeatured
                               ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-orange-500/30'
                               : 'bg-slate-900 hover:bg-orange-500 text-white'
                           }`}
                         >
-                          {savingPackageId === pkg.packageId ? 'Đang chuyển thanh toán...' : 'Đăng Ký & Thanh Toán VNPay'}
+                          Đăng Ký / Nâng Cấp Gói Tập
                         </button>
                       ) : currentUser ? (
                         <Link

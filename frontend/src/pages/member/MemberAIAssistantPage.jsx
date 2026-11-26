@@ -7,6 +7,13 @@ import Pagination from '../../components/common/Pagination';
 import { apiRequest } from '../../services/apiClient';
 import { sendMemberAssistantMessages } from '../../services/aiAssistantApi';
 import { getMyWorkoutProgress, recordBodyProgress } from '../../services/workoutApi';
+import { formatStatusLabel } from '../../utils/enumLabels';
+
+const FITNESS_LEVEL_LABELS = {
+  BEGINNER: 'Người mới',
+  INTERMEDIATE: 'Phong trào',
+  ADVANCED: 'Nâng cao',
+};
 
 const SCHEDULE_PER_PAGE = 3;
 
@@ -334,7 +341,7 @@ export default function MemberAIAssistantPage() {
   };
 
   const handleSendMessage = async (event) => {
-    event.preventDefault();
+    event?.preventDefault();
     const content = messageDraft.trim();
     if (!content || sending) return;
 
@@ -348,6 +355,27 @@ export default function MemberAIAssistantPage() {
       const response = await sendMemberAssistantMessages(nextMessages);
       if (chatSessionRef.current !== sessionId) return;
       setMessages([...nextMessages, { role: 'assistant', content: response.answer }]);
+    } catch (requestError) {
+      if (chatSessionRef.current === sessionId) {
+        setAssistantError(requestError.message || 'Không thể nhận phản hồi từ trợ lý AI.');
+      }
+    } finally {
+      if (chatSessionRef.current === sessionId) {
+        setSending(false);
+      }
+    }
+  };
+
+  const handleRetryLastMessage = async () => {
+    if (sending || messages.length === 0) return;
+    const sessionId = chatSessionRef.current;
+    const payloadMessages = messages.slice(-19);
+    setAssistantError('');
+    setSending(true);
+    try {
+      const response = await sendMemberAssistantMessages(payloadMessages);
+      if (chatSessionRef.current !== sessionId) return;
+      setMessages([...payloadMessages, { role: 'assistant', content: response.answer }]);
     } catch (requestError) {
       if (chatSessionRef.current === sessionId) {
         setAssistantError(requestError.message || 'Không thể nhận phản hồi từ trợ lý AI.');
@@ -527,23 +555,40 @@ export default function MemberAIAssistantPage() {
             </div>
 
             {assistantError && (
-              <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-800">
-                {assistantError}
-              </p>
+              <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-800 flex items-center justify-between gap-2">
+                <span>{assistantError}</span>
+                {messages.length > 0 && (
+                  <button
+                    type="button"
+                    disabled={sending}
+                    onClick={handleRetryLastMessage}
+                    className="px-3 py-1 rounded-lg bg-white border border-red-200 text-red-700 hover:bg-red-100 cursor-pointer shrink-0 disabled:opacity-50"
+                  >
+                    Thử gửi lại
+                  </button>
+                )}
+              </div>
             )}
 
-            <form onSubmit={handleSendMessage} className="flex flex-col gap-2.5 pt-1 sm:flex-row">
+            <form onSubmit={handleSendMessage} className="flex flex-col gap-2.5 pt-1 sm:flex-row sm:items-end">
               <label className="sr-only" htmlFor="member-ai-message">
                 Tin nhắn cho trợ lý AI
               </label>
-              <input
+              <textarea
                 ref={chatInputRef}
                 id="member-ai-message"
+                rows={2}
                 value={messageDraft}
                 onChange={(event) => setMessageDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    handleSendMessage(event);
+                  }
+                }}
                 maxLength={4000}
-                placeholder="Nhập câu hỏi của bạn cho AI Coach..."
-                className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-xs font-medium outline-none focus:border-orange-500 sm:text-sm"
+                placeholder="Nhập câu hỏi của bạn cho AI Coach (Enter để gửi, Shift+Enter xuống dòng)..."
+                className="min-w-0 flex-1 resize-none rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-medium outline-none focus:border-orange-500 sm:text-sm"
                 disabled={sending}
               />
               <button
@@ -551,7 +596,7 @@ export default function MemberAIAssistantPage() {
                 disabled={sending || !messageDraft.trim()}
                 className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-6 py-3 text-xs font-black uppercase tracking-wider text-white shadow-md shadow-orange-500/20 transition-all hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[16px]">send</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[16px]">send</span>
                 <span>{sending ? 'Đang gửi...' : 'Gửi câu hỏi'}</span>
               </button>
             </form>
@@ -619,7 +664,7 @@ export default function MemberAIAssistantPage() {
                       Thông tin mục tiêu
                     </h2>
                     <span className="rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[10px] font-bold uppercase text-slate-700">
-                      {health?.fitnessLevel || 'Chưa cập nhật'}
+                      {FITNESS_LEVEL_LABELS[String(health?.fitnessLevel || '').toUpperCase()] || health?.fitnessLevel || 'Chưa cập nhật'}
                     </span>
                   </div>
                   <dl className="mt-3 space-y-2.5 text-xs">
@@ -681,7 +726,7 @@ export default function MemberAIAssistantPage() {
                                     : 'bg-orange-100 text-orange-800'
                                 }`}
                               >
-                                {plan.source === 'AI' ? 'Gợi ý AI' : `HLV ${plan.coachName || 'SportHub'}`}
+                                {plan.source === 'AI' ? 'Gợi ý AI' : `HLV ${plan.coachName || 'F Sport'}`}
                               </span>
                               {exercises.length > 0 && (
                                 <span className="text-[11px] font-bold text-slate-500">
@@ -808,7 +853,7 @@ export default function MemberAIAssistantPage() {
                                 : 'bg-emerald-100 text-emerald-800'
                             }`}
                           >
-                            {entry.status}
+                            {formatStatusLabel(entry.status)}
                           </span>
                         </div>
                         <p className="mt-1 truncate text-[11px] text-slate-600">

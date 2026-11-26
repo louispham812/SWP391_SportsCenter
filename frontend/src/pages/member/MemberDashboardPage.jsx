@@ -280,41 +280,52 @@ export default function MemberDashboardPage() {
           ) : (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {currentBookings.map((booking) => (
-                  <div
-                    key={`${booking.bookingType}-${booking.bookingId}`}
-                    className="rounded-2xl border border-slate-200 p-5 flex flex-col justify-between card-hover bg-slate-50/50"
-                  >
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
-                          booking.bookingType === 'COURT'
-                            ? 'bg-orange-100 text-orange-700'
-                            : 'bg-blue-100 text-blue-700'
-                        }`}>
-                          {booking.bookingType === 'COURT' ? 'Sân Chơi' : 'Lớp Huấn Luyện'}
-                        </span>
-                        <span className="text-xs font-black text-slate-900 font-mono">
-                          {formatBookingAmount(booking.amountPaid)}
-                        </span>
-                      </div>
+                {currentBookings.map((booking) => {
+                  const isUnpaid = ['BOOKED', 'PENDING'].includes(String(booking.status || '').toUpperCase());
+                  return (
+                    <Link
+                      key={`${booking.bookingType}-${booking.bookingId}`}
+                      to="/member/schedule"
+                      className="rounded-2xl border border-slate-200 p-5 flex flex-col justify-between card-hover bg-slate-50/50 hover:border-orange-300"
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                              booking.bookingType === 'COURT'
+                                ? 'bg-orange-100 text-orange-700'
+                                : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {booking.bookingType === 'COURT' ? 'Sân Chơi' : 'Lớp Huấn Luyện'}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                              isUnpaid ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-700'
+                            }`}>
+                              {isUnpaid ? 'Chờ thanh toán' : 'Đã xác nhận'}
+                            </span>
+                          </div>
+                          <span className="text-xs font-black text-slate-900 font-mono shrink-0">
+                            {formatBookingAmount(booking.amountPaid)}
+                          </span>
+                        </div>
 
-                      <div>
-                        <h3 className="text-sm font-black text-slate-900 uppercase">
-                          {booking.title}
-                        </h3>
-                        <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                          {booking.sportName} • {booking.location}
-                        </p>
-                      </div>
+                        <div>
+                          <h3 className="text-sm font-black text-slate-900 uppercase">
+                            {booking.title}
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                            {booking.sportName} • {booking.location}
+                          </p>
+                        </div>
 
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                        <span className="material-symbols-outlined text-orange-500 text-[18px]">schedule</span>
-                        <span>{formatBookingTime(booking.startTime)}</span>
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                          <span aria-hidden="true" className="material-symbols-outlined text-orange-500 text-[18px]">schedule</span>
+                          <span>{formatBookingTime(booking.startTime)}</span>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
 
               {totalBookingPages > 1 && (

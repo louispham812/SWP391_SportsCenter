@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
+import ModalDialog from '../../components/common/ModalDialog';
 import { useApp } from '../../context/AppContext';
 import QrCodeSvg from '../../components/common/QrCodeSvg';
 import {
@@ -42,6 +43,11 @@ export default function ReceptionProfilePage() {
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
+  });
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    next: false,
+    confirm: false,
   });
   const [passwordSaving, setPasswordSaving] = useState(false);
 
@@ -625,47 +631,86 @@ export default function ReceptionProfilePage() {
               {activeTab === 'security' && (
                 <form onSubmit={handlePasswordSubmit} className="max-w-md space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="rec-current-pw">
                       Mật khẩu hiện tại <span className="text-rose-500">*</span>
                     </label>
-                    <input
-                      type="password"
-                      required
-                      value={passwordForm.currentPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-hidden"
-                      placeholder="••••••••"
-                    />
+                    <div className="relative">
+                      <input
+                        id="rec-current-pw"
+                        type={showPasswords.current ? 'text' : 'password'}
+                        required
+                        value={passwordForm.currentPassword}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                        className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-hidden"
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswords((prev) => ({ ...prev, current: !prev.current }))}
+                        aria-label={showPasswords.current ? 'Ẩn mật khẩu hiện tại' : 'Hiện mật khẩu hiện tại'}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">
+                          {showPasswords.current ? 'visibility_off' : 'visibility'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="rec-new-pw">
                       Mật khẩu mới <span className="text-rose-500">*</span>
                     </label>
-                    <input
-                      type="password"
-                      required
-                      minLength={8}
-                      value={passwordForm.newPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-hidden"
-                      placeholder="Tối thiểu 8 ký tự"
-                    />
+                    <div className="relative">
+                      <input
+                        id="rec-new-pw"
+                        type={showPasswords.next ? 'text' : 'password'}
+                        required
+                        minLength={8}
+                        value={passwordForm.newPassword}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                        className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-hidden"
+                        placeholder="Tối thiểu 8 ký tự"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswords((prev) => ({ ...prev, next: !prev.next }))}
+                        aria-label={showPasswords.next ? 'Ẩn mật khẩu mới' : 'Hiện mật khẩu mới'}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">
+                          {showPasswords.next ? 'visibility_off' : 'visibility'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="rec-confirm-pw">
                       Xác nhận mật khẩu mới <span className="text-rose-500">*</span>
                     </label>
-                    <input
-                      type="password"
-                      required
-                      minLength={8}
-                      value={passwordForm.confirmPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-hidden"
-                      placeholder="Nhập lại mật khẩu mới"
-                    />
+                    <div className="relative">
+                      <input
+                        id="rec-confirm-pw"
+                        type={showPasswords.confirm ? 'text' : 'password'}
+                        required
+                        minLength={8}
+                        value={passwordForm.confirmPassword}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                        className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-hidden"
+                        placeholder="Nhập lại mật khẩu mới"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswords((prev) => ({ ...prev, confirm: !prev.confirm }))}
+                        aria-label={showPasswords.confirm ? 'Ẩn xác nhận mật khẩu' : 'Hiện xác nhận mật khẩu'}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">
+                          {showPasswords.confirm ? 'visibility_off' : 'visibility'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="pt-2">
@@ -686,35 +731,39 @@ export default function ReceptionProfilePage() {
       </div>
 
       {/* Staff QR Code Modal */}
-      {showQrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
-          <div className="relative w-full max-w-sm bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 text-center space-y-4">
-            <button
-              type="button"
-              onClick={() => setShowQrModal(false)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-slate-700 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[20px]">close</span>
-            </button>
+      <ModalDialog
+        open={showQrModal}
+        onClose={() => setShowQrModal(false)}
+        titleId="rec-staff-qr-title"
+        maxWidthClass="max-w-sm"
+      >
+        <div className="relative p-6 text-center space-y-4">
+          <button
+            type="button"
+            onClick={() => setShowQrModal(false)}
+            aria-label="Đóng mã QR nhân viên"
+            className="absolute right-4 top-4 text-slate-400 hover:text-slate-700 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
 
-            <div className="space-y-1">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-orange-50 text-orange-600 border border-orange-200">
-                F SPORT STAFF QR
-              </span>
-              <h3 className="font-black text-slate-900 text-base">{profileForm.fullName || currentUser?.name}</h3>
-              <p className="text-xs text-slate-500 font-mono">{staffCode} · {rfidCode}</p>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 inline-block shadow-inner">
-              <QrCodeSvg text={qrToken} size={180} fgColor="#0f172a" bgColor="#f8fafc" />
-            </div>
-
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              Dùng mã QR này để xác thực ca trực nội bộ, điểm danh nhân viên hoặc quét qua đầu đọc cảm ứng tại trung tâm thể thao.
-            </p>
+          <div className="space-y-1">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-orange-50 text-orange-600 border border-orange-200">
+              F SPORT STAFF QR
+            </span>
+            <h3 id="rec-staff-qr-title" className="font-black text-slate-900 text-base">{profileForm.fullName || currentUser?.name}</h3>
+            <p className="text-xs text-slate-500 font-mono">{staffCode} · {rfidCode}</p>
           </div>
+
+          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 inline-block shadow-inner">
+            <QrCodeSvg text={qrToken} size={180} fgColor="#0f172a" bgColor="#f8fafc" />
+          </div>
+
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            Dùng mã QR này để xác thực ca trực nội bộ, điểm danh nhân viên hoặc quét qua đầu đọc cảm ứng tại trung tâm thể thao.
+          </p>
         </div>
-      )}
+      </ModalDialog>
     </ReceptionistLayout>
   );
 }

@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
+import ModalDialog from '../../components/common/ModalDialog';
 import { getMemberAttendance, createMemberTicket } from '../../services/memberApi';
 import { formatTicketDate } from '../../utils/ticketLabels';
+import { matchesAnyVietnamese } from '../../utils/vietnameseSearch';
 import { useApp } from '../../context/AppContext';
 import { TableSkeleton, CardGridSkeleton } from '../../components/common/Skeleton';
 import Pagination from '../../components/common/Pagination';
@@ -122,12 +123,10 @@ export default function MemberAttendancePage() {
         (statusFilter === 'UNEXCUSED_ABSENCE' && (st === 'UNEXCUSED_ABSENCE' || st === 'ABSENT')) ||
         (statusFilter === 'REGISTERED' && (st === 'REGISTERED' || st === 'CONFIRMED' || st === 'PENDING'));
 
-      const q = searchQuery.toLowerCase().trim();
-      const matchesSearch =
-        !q ||
-        (rec.className && rec.className.toLowerCase().includes(q)) ||
-        (rec.sportName && rec.sportName.toLowerCase().includes(q)) ||
-        (rec.coachName && rec.coachName.toLowerCase().includes(q));
+      const matchesSearch = matchesAnyVietnamese(
+        [rec.className, rec.sportName, rec.coachName],
+        searchQuery
+      );
 
       return matchesStatus && matchesSearch;
     });
@@ -317,8 +316,21 @@ export default function MemberAttendancePage() {
                       setSearchQuery(e.target.value);
                       setClassPage(1);
                     }}
-                    className="w-full sm:w-56 pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full sm:w-56 pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      aria-label="Xóa tìm kiếm"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setClassPage(1);
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
+                    >
+                      <span aria-hidden="true" className="material-symbols-outlined text-[15px]">close</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Status select (MEM-19) */}
@@ -360,6 +372,19 @@ export default function MemberAttendancePage() {
                       ? 'Không tìm thấy buổi học nào khớp với bộ lọc hiện tại.'
                       : 'Bạn chưa có buổi học nào được ghi nhận điểm danh. Hãy đăng ký lớp học và tham gia đúng giờ!'}
                   </p>
+                  {(searchQuery || statusFilter !== 'ALL') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setStatusFilter('ALL');
+                        setClassPage(1);
+                      }}
+                      className="mt-3 inline-flex items-center gap-1 px-4 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                    >
+                      Xóa bộ lọc
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -703,74 +728,80 @@ export default function MemberAttendancePage() {
       </div>
 
       {/* Dispute Modal (MEM-19) */}
-      {isDisputeModalOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto !m-0">
-          <div className="relative w-full max-w-md my-auto overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
-                  <span className="material-symbols-outlined text-[20px]">report_problem</span>
-                </span>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Khiếu Nại Điểm Danh</h3>
-                  <p className="text-xs text-slate-500">{disputeItem?.className || disputeItem?.courtName || 'Buổi tập'}</p>
-                </div>
+      <ModalDialog
+        open={isDisputeModalOpen}
+        onClose={() => setIsDisputeModalOpen(false)}
+        preventClose={submittingDispute}
+        titleId="member-attendance-dispute-title"
+        maxWidthClass="max-w-md"
+      >
+        <div className="p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
+                <span aria-hidden="true" className="material-symbols-outlined text-[20px]">report_problem</span>
+              </span>
+              <div>
+                <h3 id="member-attendance-dispute-title" className="text-base font-bold text-slate-900">Khiếu Nại Điểm Danh</h3>
+                <p className="text-xs text-slate-500">{disputeItem?.className || disputeItem?.courtName || 'Buổi tập'}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsDisputeModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
+            </div>
+            <button
+              type="button"
+              aria-label="Đóng"
+              disabled={submittingDispute}
+              onClick={() => setIsDisputeModalOpen(false)}
+              className="text-slate-400 hover:text-slate-700 cursor-pointer disabled:opacity-50"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmitDispute} className="space-y-4">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed">
+              Nếu bạn có mặt nhưng bị ghi vắng, hoặc có việc đột xuất cần duyệt <strong>Vắng có phép</strong>, vui lòng gửi phản hồi để Quản lý trung tâm đối soát lịch sử quét cổng RFID và hỗ trợ bạn.
             </div>
 
-            <form onSubmit={handleSubmitDispute} className="space-y-4">
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed">
-                ℹ️ Nếu bạn có mặt nhưng bị ghi vắng, hoặc có việc đột xuất cần duyệt <strong>Vắng có phép</strong>, vui lòng gửi phản hồi để Quản lý trung tâm đối soát lịch sử quét cổng RFID và hỗ trợ bạn.
-              </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="dispute-reason" className="text-xs font-bold uppercase text-slate-700">Lý do khiếu nại chi tiết *</label>
+              <textarea
+                id="dispute-reason"
+                required
+                minLength={10}
+                rows={3}
+                value={disputeReason}
+                onChange={(e) => {
+                  setDisputeReason(e.target.value);
+                  if (disputeError) setDisputeError('');
+                }}
+                placeholder="Ghi rõ thông tin: Có mặt tại lớp lúc mấy giờ, HLV nào phụ trách hoặc lý do xin nghỉ có phép..."
+                className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-orange-500 resize-none"
+              />
+              {disputeError && (
+                <p className="text-[11px] font-semibold text-rose-600">{disputeError}</p>
+              )}
+            </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold uppercase text-slate-700">Lý do khiếu nại chi tiết *</label>
-                <textarea
-                  required
-                  minLength={10}
-                  rows={3}
-                  value={disputeReason}
-                  onChange={(e) => {
-                    setDisputeReason(e.target.value);
-                    if (disputeError) setDisputeError('');
-                  }}
-                  placeholder="Ghi rõ thông tin: Có mặt tại lớp lúc mấy giờ, HLV nào phụ trách hoặc lý do xin nghỉ có phép..."
-                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs font-medium text-slate-800 outline-none focus:border-orange-500 resize-none"
-                />
-                {disputeError && (
-                  <p className="text-[11px] font-semibold text-rose-600">{disputeError}</p>
-                )}
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  disabled={submittingDispute}
-                  onClick={() => setIsDisputeModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer disabled:opacity-60"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingDispute}
-                  className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-60"
-                >
-                  {submittingDispute ? 'Đang gửi...' : 'Gửi Khiếu Nại'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={submittingDispute}
+                onClick={() => setIsDisputeModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer disabled:opacity-60"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={submittingDispute}
+                className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-60"
+              >
+                {submittingDispute ? 'Đang gửi...' : 'Gửi Khiếu Nại'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </ModalDialog>
     </MemberLayout>
   );
 }

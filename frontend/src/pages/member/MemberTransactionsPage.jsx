@@ -60,6 +60,7 @@ const FILTER_LABELS = {
   MEMBERSHIP: 'Gói thành viên',
   CLASS: 'Lớp học',
   COURT: 'Đặt sân',
+  PT: 'HLV Riêng',
   QUOTA: 'Khấu trừ Quota (0đ)',
   REFUNDED: 'Đã hoàn tiền',
 };
@@ -75,7 +76,8 @@ export default function MemberTransactionsPage() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filterType, setFilterType] = useState('ALL'); // 'ALL' | 'MEMBERSHIP' | 'CLASS' | 'COURT' | 'REFUNDED' | 'QUOTA'
+  const [filterType, setFilterType] = useState('ALL'); // 'ALL' | 'MEMBERSHIP' | 'CLASS' | 'COURT' | 'PT' | 'REFUNDED' | 'QUOTA'
+  const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const TX_PER_PAGE = 8;
 
@@ -130,17 +132,23 @@ export default function MemberTransactionsPage() {
     }
   };
 
-  // Filter transactions based on selected type
+  // Filter transactions based on selected type & search
   const filteredTransactions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
     return transactions.filter((t) => {
-      if (filterType === 'ALL') return true;
-      if (filterType === 'REFUNDED') return t.paymentStatus === 'REFUNDED';
+      if (filterType === 'REFUNDED' && t.paymentStatus !== 'REFUNDED') return false;
       if (filterType === 'QUOTA') {
-        return t.itemType === 'QUOTA' || t.paymentMethod === 'MEMBERSHIP_QUOTA' || parseFloat(t.amount) === 0;
+        const isQ = t.itemType === 'QUOTA' || t.paymentMethod === 'MEMBERSHIP_QUOTA' || parseFloat(t.amount) === 0;
+        if (!isQ) return false;
+      } else if (filterType !== 'ALL' && filterType !== 'REFUNDED') {
+        if (t.itemType !== filterType) return false;
       }
-      return t.itemType === filterType;
+      if (!q) return true;
+      return [t.referenceCode, t.itemName, `TX-${t.id}`].some((val) =>
+        String(val || '').toLowerCase().includes(q)
+      );
     });
-  }, [transactions, filterType]);
+  }, [transactions, filterType, searchQuery]);
 
   const totalPages = Math.ceil(filteredTransactions.length / TX_PER_PAGE) || 1;
 
@@ -260,8 +268,8 @@ export default function MemberTransactionsPage() {
         {/* Transactions Table Section */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           {/* Filters - INLINE */}
-          <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between gap-4 overflow-x-auto">
-            <div className="flex items-center gap-2">
+          <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/50 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
               {Object.keys(FILTER_LABELS).map((filter) => (
                 <button
                   key={filter}
@@ -277,25 +285,66 @@ export default function MemberTransactionsPage() {
                 </button>
               ))}
             </div>
+            <div className="relative w-full lg:w-64 shrink-0">
+              <span aria-hidden="true" className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[17px] text-slate-400">search</span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Tìm mã giao dịch, dịch vụ..."
+                className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 bg-white text-xs outline-none focus:border-orange-500"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  aria-label="Xóa tìm kiếm"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setCurrentPage(1);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[15px]">close</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Table - INLINE */}
           <div className="p-4 sm:p-5">
             {loading ? (
-              <TableSkeleton rows={5} cols={7} />
+              <TableSkeleton bare rows={5} cols={7} />
             ) : error ? (
               <div className="p-6 text-center text-red-600 bg-red-50 rounded-xl text-xs">
                 {error}
               </div>
             ) : paginatedTransactions.length === 0 ? (
-              <div className="py-16 text-center">
+              <div className="py-16 text-center space-y-2">
                 <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
-                  <span className="material-symbols-outlined text-[32px]">receipt_long</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[32px]">receipt_long</span>
                 </div>
                 <h3 className="text-base font-bold text-slate-800">Không có giao dịch nào</h3>
-                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  Bạn chưa có khoản thanh toán nào cho danh mục này.
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  {filterType !== 'ALL' || searchQuery.trim()
+                    ? 'Không tìm thấy giao dịch phù hợp với bộ lọc hiện tại.'
+                    : 'Bạn chưa có khoản thanh toán nào trong hệ thống.'}
                 </p>
+                {(filterType !== 'ALL' || searchQuery.trim()) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterType('ALL');
+                      setSearchQuery('');
+                      setCurrentPage(1);
+                    }}
+                    className="mt-2 inline-flex items-center gap-1 px-4 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Xóa bộ lọc
+                  </button>
+                )}
               </div>
             ) : (
               <div className="overflow-x-auto">

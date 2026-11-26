@@ -2,13 +2,20 @@ import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext';
 
 export default function ToastContainer() {
-  const { toasts, removeToast } = useApp();
-
-  if (!toasts || toasts.length === 0) return null;
+  const { toasts, removeToast, pauseToast, resumeToast } = useApp();
+  const latestToast = toasts?.[toasts.length - 1];
 
   return createPortal(
-    <div className="fixed top-5 right-5 z-[100000] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
-      {toasts.map((toast) => {
+    <div
+      role="region"
+      aria-label="Thông báo hệ thống"
+      className="fixed top-4 left-4 right-4 sm:left-auto sm:right-5 sm:w-full sm:max-w-sm z-[100000] flex flex-col gap-2.5 pointer-events-none"
+    >
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {latestToast ? `${latestToast.title}: ${latestToast.message}` : ''}
+      </div>
+
+      {(toasts || []).map((toast) => {
         const isSuccess = toast.type === 'success';
         const isError = toast.type === 'error' || toast.type === 'danger';
         const isWarning = toast.type === 'warning';
@@ -16,6 +23,15 @@ export default function ToastContainer() {
         return (
           <div
             key={toast.id}
+            role={isError ? 'alert' : 'status'}
+            onMouseEnter={() => pauseToast?.(toast.id)}
+            onMouseLeave={() => resumeToast?.(toast.id)}
+            onFocus={() => pauseToast?.(toast.id)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) {
+                resumeToast?.(toast.id);
+              }
+            }}
             className={`pointer-events-auto transform transition-all duration-300 animate-in fade-in slide-in-from-top-4 flex items-start gap-3 p-4 rounded-2xl shadow-2xl border backdrop-blur-xl ${
               isSuccess
                 ? 'bg-slate-900/95 text-white border-slate-700/80 shadow-[0_8px_30px_rgba(0,19,43,0.3)]'
@@ -28,6 +44,7 @@ export default function ToastContainer() {
           >
             {/* Status Icon */}
             <div
+              aria-hidden="true"
               className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                 isSuccess
                   ? 'bg-emerald-500 text-white'
@@ -65,10 +82,11 @@ export default function ToastContainer() {
             {/* Close */}
             <button
               onClick={() => removeToast(toast.id)}
-              className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10 cursor-pointer"
+              aria-label="Đóng thông báo"
+              className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10 cursor-pointer shrink-0"
               type="button"
             >
-              <span className="material-symbols-outlined text-[16px]">close</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">close</span>
             </button>
           </div>
         );

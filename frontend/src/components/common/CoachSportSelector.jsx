@@ -15,15 +15,35 @@ export default function CoachSportSelector({
     }
   };
 
+  const allSelected = sports.length > 0 && sports.every((s) => selectedIds.includes(String(s.sportId)));
+  const toggleAll = () => {
+    if (allSelected) {
+      onChange([]);
+    } else {
+      onChange(sports.map((s) => String(s.sportId)));
+    }
+  };
+
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <span className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
           {label}
         </span>
-        <span className="text-[11px] font-semibold text-slate-500">
-          Đã chọn {selectedIds.length} bộ môn
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold text-slate-500">
+            Đã chọn {selectedIds.length} bộ môn
+          </span>
+          {!loading && sports.length > 1 && (
+            <button
+              type="button"
+              onClick={toggleAll}
+              className="text-[11px] font-bold text-orange-600 hover:text-orange-700 cursor-pointer"
+            >
+              {allSelected ? 'Bỏ chọn' : 'Chọn tất cả'}
+            </button>
+          )}
+        </div>
       </div>
       {loading ? (
         <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
@@ -54,7 +74,7 @@ export default function CoachSportSelector({
                   onChange={() => toggleSport(key)}
                   className="h-3.5 w-3.5 rounded accent-orange-500 cursor-pointer"
                 />
-                <span className="truncate">{sportLabel}</span>
+                <span className="truncate" title={sportLabel}>{sportLabel}</span>
               </label>
             );
           })}

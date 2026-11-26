@@ -62,6 +62,13 @@ export default {
         "xl": "0.75rem",
         "full": "9999px"
       },
+      boxShadow: {
+        "2xs": "0 1px 1px 0 rgb(15 23 42 / 0.04)",
+        "xs": "0 1px 2px 0 rgb(15 23 42 / 0.06)"
+      },
+      backdropBlur: {
+        "xs": "2px"
+      },
       spacing: {
         "space-xs": "0.25rem",
         "space-lg": "1.5rem",

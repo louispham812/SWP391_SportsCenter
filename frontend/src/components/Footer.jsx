@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import ModalDialog from './common/ModalDialog';
 
 const POLICY_DETAILS = {
   membership: {
@@ -95,18 +96,14 @@ export default function Footer() {
         </div>
       </div>
 
-      {activePolicy && POLICY_DETAILS[activePolicy] && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="footer-policy-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
-          onClick={() => setActivePolicy(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-3xl bg-white border border-slate-200 shadow-2xl p-6 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <ModalDialog
+        open={Boolean(activePolicy && POLICY_DETAILS[activePolicy])}
+        onClose={() => setActivePolicy(null)}
+        titleId="footer-policy-title"
+        maxWidthClass="max-w-md"
+      >
+        {activePolicy && POLICY_DETAILS[activePolicy] && (
+          <div className="p-6 space-y-4">
             <div className="flex items-center justify-between gap-3">
               <h3 id="footer-policy-title" className="text-base font-black text-slate-900 uppercase">
                 {POLICY_DETAILS[activePolicy].title}
@@ -117,7 +114,7 @@ export default function Footer() {
                 onClick={() => setActivePolicy(null)}
                 className="w-8 h-8 rounded-xl text-slate-500 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
@@ -131,8 +128,8 @@ export default function Footer() {
               Đóng
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
     </footer>
   );
 }

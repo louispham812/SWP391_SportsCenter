@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import ModalDialog from '../components/common/ModalDialog';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1')
   .replace(/\/$/, '');
@@ -261,7 +262,7 @@ export default function AuthPage() {
           {/* =========================================
               CỘT TRÁI (50% WIDTH, FULL HEIGHT ON DESKTOP)
              ========================================= */}
-          <div className="relative w-full lg:w-1/2 lg:h-full lg:overflow-y-auto overflow-x-clip flex flex-col justify-between gap-4 p-5 sm:p-8 lg:p-8 xl:p-10 bg-slate-900">
+          <div className="order-2 lg:order-1 relative w-full lg:w-1/2 lg:h-full lg:overflow-y-auto overflow-x-clip flex flex-col justify-between gap-4 p-5 sm:p-8 lg:p-8 xl:p-10 bg-slate-900">
             <div aria-hidden="true" className="absolute inset-0 overflow-hidden pointer-events-none">
               {/* Background Image */}
               <div
@@ -384,7 +385,7 @@ export default function AuthPage() {
           {/* =========================================
               CỘT PHẢI (50% WIDTH, FULL-HEIGHT BALANCED AUTH FORM)
              ========================================= */}
-          <div className="w-full lg:w-1/2 lg:h-full lg:overflow-y-auto flex flex-col justify-between gap-3 [@media(min-height:760px)]:gap-4 [@media(min-height:840px)]:gap-6 bg-[#f7f9fb] px-5 sm:px-10 lg:px-10 xl:px-14 py-4 sm:py-6 lg:py-4 [@media(min-height:760px)]:py-6 [@media(min-height:840px)]:py-8">
+          <div className="order-1 lg:order-2 w-full lg:w-1/2 lg:h-full lg:overflow-y-auto flex flex-col justify-between gap-3 [@media(min-height:760px)]:gap-4 [@media(min-height:840px)]:gap-6 bg-[#f7f9fb] px-5 sm:px-10 lg:px-10 xl:px-14 py-4 sm:py-6 lg:py-4 [@media(min-height:760px)]:py-6 [@media(min-height:840px)]:py-8">
             {/* Header Navigation Cột Phải (Pinned Top) */}
             <div className="w-full max-w-xl mx-auto flex items-center justify-between gap-2 shrink-0">
               <Link
@@ -875,18 +876,14 @@ export default function AuthPage() {
         </div>
       </main>
 
-      {infoDialog && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="auth-info-dialog-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs !m-0"
-          onClick={() => setInfoDialog(null)}
-        >
-          <div
-            className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <ModalDialog
+        open={Boolean(infoDialog)}
+        onClose={() => setInfoDialog(null)}
+        titleId="auth-info-dialog-title"
+        maxWidthClass="max-w-md"
+      >
+        {infoDialog && (
+          <div className="p-6 space-y-4">
             <div className="flex items-center justify-between gap-3">
               <h3 id="auth-info-dialog-title" className="text-base font-black text-slate-900 uppercase tracking-tight">
                 {infoDialog.title}
@@ -897,7 +894,7 @@ export default function AuthPage() {
                 onClick={() => setInfoDialog(null)}
                 className="w-8 h-8 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 flex items-center justify-center cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
@@ -911,8 +908,8 @@ export default function AuthPage() {
               Đã hiểu
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
     </div>
   );
 }

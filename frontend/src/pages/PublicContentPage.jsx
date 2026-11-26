@@ -4,6 +4,7 @@ import Footer from '../components/Footer';
 import Navbar from '../components/Navbar';
 import { getPublicFacilities, getPublicSports } from '../services/publicContentApi';
 import { getSportMedia, getFacilityMedia, DEFAULT_SPORT_IMG, DEFAULT_FACILITY_IMG } from '../utils/mediaMap';
+import { matchesAnyVietnamese } from '../utils/vietnameseSearch';
 
 export default function PublicContentPage({ contentType }) {
   const { slug } = useParams();
@@ -30,7 +31,7 @@ export default function PublicContentPage({ contentType }) {
       })
       .catch((err) => {
         console.error('Lỗi khi tải dữ liệu từ máy chủ:', err);
-        setError('Không thể kết nối đến máy chủ backend để tải dữ liệu. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại sau.');
+        setError('Không thể kết nối đến máy chủ hệ thống để tải dữ liệu. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại sau.');
         setItems([]);
       })
       .finally(() => {
@@ -40,22 +41,17 @@ export default function PublicContentPage({ contentType }) {
 
   useEffect(() => {
     loadData();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [isSports]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [isSports, slug]);
 
   const selectedItem = slug ? items.find((item) => item.slug === slug) : null;
 
-  const filteredItems = items.filter((item) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      item.name?.toLowerCase().includes(q) ||
-      item.description?.toLowerCase().includes(q) ||
-      item.subtitle?.toLowerCase().includes(q) ||
-      item.tag?.toLowerCase().includes(q) ||
-      item.area?.toLowerCase().includes(q)
-    );
-  });
+  const filteredItems = items.filter((item) =>
+    matchesAnyVietnamese([item.name, item.description, item.subtitle, item.tag, item.area], searchQuery)
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-body-md text-slate-800 antialiased selection:bg-orange-500 selection:text-white">
@@ -270,8 +266,18 @@ export default function PublicContentPage({ contentType }) {
                       placeholder={`Tìm kiếm ${isSports ? 'bộ môn' : 'tiện ích'}...`}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all shadow-2xs"
+                      className="w-full pl-10 pr-9 py-3 rounded-2xl bg-white border border-slate-200 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all shadow-2xs"
                     />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        aria-label="Xóa từ khóa tìm kiếm"
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
+                      >
+                        <span aria-hidden="true" className="material-symbols-outlined text-[16px]">close</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -340,7 +346,7 @@ export default function PublicContentPage({ contentType }) {
                       >
                         <div>
                           {/* Hình ảnh minh họa nổi bật */}
-                          <div className="relative w-full h-52 overflow-hidden bg-slate-100">
+                          <Link to={`${basePath}/${item.slug}`} className="block relative w-full h-52 overflow-hidden bg-slate-100">
                             <img
                               src={item.imageUrl || item.image || media.image}
                               alt={item.name}
@@ -357,7 +363,7 @@ export default function PublicContentPage({ contentType }) {
                             <div className="absolute top-4 left-4 flex items-center gap-2">
                               {!isSports && item.active === false ? (
                                 <span className="px-3 py-1 rounded-full bg-red-600/90 text-white text-[10px] font-black uppercase tracking-wider border border-white/20 flex items-center gap-1 shadow-sm">
-                                  <span className="material-symbols-outlined text-[13px]">construction</span>
+                                  <span aria-hidden="true" className="material-symbols-outlined text-[13px]">construction</span>
                                   ĐANG BẢO TRÌ
                                 </span>
                               ) : (isSports ? item.tag : item.highlight) && (
@@ -370,7 +376,7 @@ export default function PublicContentPage({ contentType }) {
                             {/* Icon bộ môn góc dưới ảnh */}
                             <div className="absolute bottom-4 left-4 flex items-center gap-2 text-white">
                               <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center font-bold shadow-md">
-                                <span className="material-symbols-outlined text-[20px]">
+                                <span aria-hidden="true" className="material-symbols-outlined text-[20px]">
                                   {item.icon || (isSports ? 'fitness_center' : 'apartment')}
                                 </span>
                               </div>
@@ -378,13 +384,13 @@ export default function PublicContentPage({ contentType }) {
                                 {isSports ? (item.area || 'Chuẩn Quốc Tế') : (item.highlight || '5 SAO')}
                               </span>
                             </div>
-                          </div>
+                          </Link>
 
                           {/* Nội dung chi tiết */}
                           <div className="p-6 space-y-3">
                             <div>
                               <h2 className="text-lg font-black text-slate-900 group-hover:text-orange-600 transition-colors uppercase">
-                                {item.name}
+                                <Link to={`${basePath}/${item.slug}`}>{item.name}</Link>
                               </h2>
                               {isSports && item.subtitle && (
                                 <p className="text-[11px] font-bold uppercase tracking-wider text-orange-600 mt-0.5">

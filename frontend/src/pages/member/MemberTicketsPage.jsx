@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import MemberLayout from '../../components/layouts/MemberLayout';
+import ModalDialog from '../../components/common/ModalDialog';
 import { useApp } from '../../context/AppContext';
 import { createMemberTicket, getMemberTickets } from '../../services/memberApi';
 import {
@@ -112,9 +113,9 @@ export default function MemberTicketsPage() {
           <button
             type="button"
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold shadow-sm transition-colors cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold shadow-sm transition-colors cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[18px]">add_comment</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">add_comment</span>
             <span>Gửi Khiếu Nại Mới</span>
           </button>
         </div>
@@ -137,20 +138,26 @@ export default function MemberTicketsPage() {
         <section className="rounded-3xl border border-slate-200 bg-white overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-1.5">
-              {STATUS_FILTERS.map((f) => (
-                <button
-                  key={f.key}
-                  type="button"
-                  onClick={() => setStatusFilter(f.key)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-                    statusFilter === f.key
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
+              {STATUS_FILTERS.map((f) => {
+                const count =
+                  f.key === 'ALL'
+                    ? tickets.length
+                    : tickets.filter((t) => (t.status || '').toUpperCase() === f.key).length;
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setStatusFilter(f.key)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                      statusFilter === f.key
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {f.label} ({count})
+                  </button>
+                );
+              })}
             </div>
             <button
               type="button"
@@ -167,11 +174,20 @@ export default function MemberTicketsPage() {
               <div className="py-12 text-center text-sm text-slate-500">Đang tải danh sách khiếu nại...</div>
             ) : filteredTickets.length === 0 ? (
               <div className="py-12 text-center space-y-2">
-                <span className="material-symbols-outlined text-4xl text-slate-300">support_agent</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-4xl text-slate-300">support_agent</span>
                 <h3 className="text-sm font-bold text-slate-800">Chưa có phiếu khiếu nại nào</h3>
                 <p className="text-xs text-slate-500">
                   Bấm &quot;Gửi Khiếu Nại Mới&quot; nếu bạn cần hỗ trợ hoặc phản ánh vấn đề phát sinh.
                 </p>
+                {statusFilter !== 'ALL' && (
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('ALL')}
+                    className="mt-2 inline-flex items-center gap-1 px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Xem tất cả phiếu
+                  </button>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
@@ -233,108 +249,113 @@ export default function MemberTicketsPage() {
         </section>
       </div>
 
-      {showModal && (
-        <div
-          onClick={() => setShowModal(false)}
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-5"
-          >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[20px]">report_problem</span>
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">Gửi Khiếu Nại &amp; Hỗ Trợ</h3>
-                  <p className="text-xs text-slate-500">Lễ tân và Quản lý sẽ tiếp nhận và phản hồi cho bạn</p>
-                </div>
+      <ModalDialog
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        preventClose={submitting}
+        titleId="member-ticket-modal-title"
+        maxWidthClass="max-w-lg"
+      >
+        <div className="p-6 space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
+                <span aria-hidden="true" className="material-symbols-outlined text-[20px]">report_problem</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
+              <div>
+                <h3 id="member-ticket-modal-title" className="font-bold text-slate-900 text-base">Gửi Khiếu Nại &amp; Hỗ Trợ</h3>
+                <p className="text-xs text-slate-500">Lễ tân và Quản lý sẽ tiếp nhận và phản hồi cho bạn</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              aria-label="Đóng"
+              disabled={submitting}
+              onClick={() => setShowModal(false)}
+              className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer disabled:opacity-50"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label htmlFor="member-ticket-category" className="text-xs font-bold text-slate-700">Danh Mục</label>
+                <select
+                  id="member-ticket-category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white"
+                >
+                  {CATEGORY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label htmlFor="member-ticket-severity" className="text-xs font-bold text-slate-700">Mức Độ</label>
+                <select
+                  id="member-ticket-severity"
+                  value={severity}
+                  onChange={(e) => setSeverity(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white"
+                >
+                  <option value="NORMAL">Bình thường (Phản hồi trong 24h)</option>
+                  <option value="URGENT">Khẩn cấp (Phản hồi trong 4h)</option>
+                </select>
+              </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700">Danh Mục</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white"
-                  >
-                    {CATEGORY_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            <div className="space-y-1">
+              <label htmlFor="member-ticket-title" className="text-xs font-bold text-slate-700">Tiêu Đề *</label>
+              <input
+                id="member-ticket-title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Ví dụ: Sân số 2 đèn bị nhấp nháy hoặc sai trạng thái điểm danh"
+                required
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold"
+              />
+            </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700">Mức Độ</label>
-                  <select
-                    value={severity}
-                    onChange={(e) => setSeverity(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white"
-                  >
-                    <option value="NORMAL">Bình thường (Phản hồi trong 24h)</option>
-                    <option value="URGENT">Khẩn cấp (Phản hồi trong 4h)</option>
-                  </select>
-                </div>
-              </div>
+            <div className="space-y-1">
+              <label htmlFor="member-ticket-desc" className="text-xs font-bold text-slate-700">Mô Tả Chi Tiết *</label>
+              <textarea
+                id="member-ticket-desc"
+                rows="4"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Mô tả cụ thể thời gian, sân/lớp hoặc giao dịch liên quan để trung tâm kiểm tra nhanh nhất..."
+                required
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">Tiêu Đề *</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ví dụ: Sân số 2 đèn bị nhấp nháy hoặc sai trạng thái điểm danh"
-                  required
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">Mô Tả Chi Tiết *</label>
-                <textarea
-                  rows="4"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Mô tả cụ thể thời gian, sân/lớp hoặc giao dịch liên quan để trung tâm kiểm tra nhanh nhất..."
-                  required
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-xs font-bold shadow-sm cursor-pointer"
-                >
-                  {submitting ? 'Đang gửi...' : 'Gửi Khiếu Nại'}
-                </button>
-              </div>
-            </form>
-          </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-xs font-bold shadow-sm cursor-pointer"
+              >
+                {submitting ? 'Đang gửi...' : 'Gửi Khiếu Nại'}
+              </button>
+            </div>
+          </form>
         </div>
-      )}
+      </ModalDialog>
     </MemberLayout>
   );
 }

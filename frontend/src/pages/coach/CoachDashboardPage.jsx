@@ -30,6 +30,8 @@ const formatTime = (value) =>
 export default function CoachDashboardPage() {
   const { currentUser } = useApp();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [refreshTick, setRefreshTick] = useState(0);
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
   const [profile, setProfile] = useState(null);
@@ -44,19 +46,24 @@ export default function CoachDashboardPage() {
     const weekKey = dateKey(weekStart);
 
     Promise.all([
-      getCoachSchedule(weekKey).catch(() => []),
-      getCoachStudents().catch(() => []),
+      getCoachSchedule(weekKey),
+      getCoachStudents(),
       getCoachProfile().catch(() => null),
       getMyCoachFeedbacks().catch(() => null),
       getCoachIncome().catch(() => null),
     ])
       .then(([scheduleRes, studentsRes, profileRes, feedbacksRes, incomeRes]) => {
         if (!active) return;
+        setError('');
         setClasses(Array.isArray(scheduleRes) ? scheduleRes : []);
         setStudents(Array.isArray(studentsRes) ? studentsRes : []);
         setProfile(profileRes);
         setFeedbackStats(feedbacksRes);
         setIncome(incomeRes);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err.message || 'Không thể tải dữ liệu tổng quan huấn luyện viên.');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -65,7 +72,7 @@ export default function CoachDashboardPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [refreshTick]);
 
   // Filter today's classes
   const todayClasses = useMemo(() => {
@@ -157,6 +164,22 @@ export default function CoachDashboardPage() {
             Bảng điều khiển hoạt động giảng dạy, theo dõi ca dạy hôm nay và tiến độ học viên.
           </p>
         </div>
+
+        {error && (
+          <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-800 flex items-center justify-between gap-3">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true);
+                setRefreshTick((t) => t + 1);
+              }}
+              className="rounded-xl bg-rose-600 hover:bg-rose-700 px-3 py-1.5 text-white font-bold cursor-pointer shrink-0"
+            >
+              Thử lại
+            </button>
+          </div>
+        )}
 
         {/* =========================================
             2. WELCOME HERO BANNER

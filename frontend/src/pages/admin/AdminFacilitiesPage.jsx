@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
+import ModalDialog from '../../components/common/ModalDialog';
 import { CardGridSkeleton } from '../../components/common/Skeleton';
 import {
   getManagerCoaches,
@@ -221,7 +222,7 @@ export default function AdminFacilitiesPage() {
 
   return (
     <AdminLayout>
-      <main className="space-y-6">
+      <div className="space-y-6">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
@@ -543,24 +544,31 @@ export default function AdminFacilitiesPage() {
             </div>
           </section>
         )}
-      </main>
+      </div>
 
       {/* Modal Lên Lịch Bảo Trì (MGR-19) */}
-      {isMaintenanceModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
-            <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 className="text-base font-bold text-slate-900">
-                  Lên Lịch Bảo Trì Sân Thể Thao
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setIsMaintenanceModalOpen(false)}
-                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[20px]">close</span>
-                </button>
-              </div>
+      <ModalDialog
+        open={isMaintenanceModalOpen}
+        onClose={() => setIsMaintenanceModalOpen(false)}
+        titleId="admin-maintenance-create-title"
+        maxWidthClass="max-w-lg"
+        preventClose={saving}
+      >
+        <div className="p-6 sm:p-8 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 id="admin-maintenance-create-title" className="text-base font-bold text-slate-900">
+              Lên Lịch Bảo Trì Sân Thể Thao
+            </h3>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => setIsMaintenanceModalOpen(false)}
+              aria-label="Đóng hộp thoại bảo trì"
+              className="text-slate-400 hover:text-slate-700 cursor-pointer disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
 
               <form onSubmit={handleCreateMaintenance} className="space-y-3.5">
                 <div>
@@ -644,32 +652,42 @@ export default function AdminFacilitiesPage() {
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
-        )}
+        </div>
+      </ModalDialog>
 
       {/* Modal Gia Hạn Bảo Trì */}
-      {isExtendModalOpen && extendingMaintenance && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
-            <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-orange-600 text-[22px]">more_time</span>
-                  <h3 className="text-base font-bold text-slate-900">
-                    Gia Hạn Tiến Độ Bảo Trì Sân
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsExtendModalOpen(false);
-                    setExtendingMaintenance(null);
-                  }}
-                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[20px]">close</span>
-                </button>
+      <ModalDialog
+        open={Boolean(isExtendModalOpen && extendingMaintenance)}
+        onClose={() => {
+          setIsExtendModalOpen(false);
+          setExtendingMaintenance(null);
+        }}
+        titleId="admin-maintenance-extend-title"
+        maxWidthClass="max-w-lg"
+        preventClose={saving}
+      >
+        {extendingMaintenance && (
+          <div className="p-6 sm:p-8 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-orange-600 text-[22px]">more_time</span>
+                <h3 id="admin-maintenance-extend-title" className="text-base font-bold text-slate-900">
+                  Gia Hạn Tiến Độ Bảo Trì Sân
+                </h3>
               </div>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  setIsExtendModalOpen(false);
+                  setExtendingMaintenance(null);
+                }}
+                aria-label="Đóng hộp thoại gia hạn bảo trì"
+                className="text-slate-400 hover:text-slate-700 cursor-pointer disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
 
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-1">
                 <div className="flex justify-between">
@@ -750,9 +768,9 @@ export default function AdminFacilitiesPage() {
                   </button>
                 </div>
               </form>
-            </div>
           </div>
         )}
+      </ModalDialog>
 
     </AdminLayout>
   );

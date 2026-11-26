@@ -3,6 +3,7 @@ import AdminLayout from '../../components/layouts/AdminLayout';
 import { getAuditLogs } from '../../services/engagementApi';
 import { TableSkeleton } from '../../components/common/Skeleton';
 import Pagination from '../../components/common/Pagination';
+import { matchesAnyVietnamese } from '../../utils/vietnameseSearch';
 
 // MGR-14: Xem Audit Log (dữ liệu thật từ bảng audit_logs)
 export default function AdminAuditLogPage() {
@@ -21,11 +22,13 @@ export default function AdminAuditLogPage() {
   }, []);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     if (!q) return logs;
     return logs.filter((l) =>
-      [l.action, l.logType, l.detail, l.actionDetail, l.actorName, l.userEmail, l.actorRole]
-        .some((v) => (v || '').toLowerCase().includes(q)));
+      matchesAnyVietnamese(
+        [l.action, l.logType, l.detail, l.actionDetail, l.actorName, l.userEmail, l.actorRole],
+        q,
+      ));
   }, [logs, query]);
 
   const totalPages = Math.ceil(filtered.length / LOGS_PER_PAGE) || 1;
@@ -38,20 +41,35 @@ export default function AdminAuditLogPage() {
     <AdminLayout>
       <div className="space-y-4">
         <h1 className="text-xl font-bold text-primary uppercase">Nhật ký hệ thống (Audit Log)</h1>
-        <input
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setCurrentPage(1);
-          }}
-          placeholder="Lọc theo hành động, người thực hiện, nội dung..."
-          className="w-full max-w-md rounded-lg border border-slate-200 p-2 text-sm"
-        />
+        <div className="relative w-full max-w-md">
+          <input
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setCurrentPage(1);
+            }}
+            placeholder="Lọc theo hành động, người thực hiện, nội dung..."
+            className="w-full rounded-xl border border-slate-200 bg-white pl-3.5 pr-9 py-2 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery('');
+                setCurrentPage(1);
+              }}
+              aria-label="Xóa từ khóa lọc nhật ký"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+          )}
+        </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         {loading ? (
           <TableSkeleton rows={6} cols={4} />
         ) : (
-          <div className="overflow-x-auto bg-white rounded-xl border border-slate-200">
+          <div className="overflow-x-auto bg-white rounded-xl border border-slate-200" tabIndex={0}>
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 whitespace-nowrap">
                 <tr><th className="p-3">Thời gian</th><th className="p-3">Người thực hiện</th><th className="p-3">Hành động</th><th className="p-3">Chi tiết</th></tr>

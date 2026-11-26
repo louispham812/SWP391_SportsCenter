@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import ReceptionistLayout from '../../components/layouts/ReceptionistLayout';
 import CreateUserModal from '../../components/common/CreateUserModal';
+import ModalDialog from '../../components/common/ModalDialog';
 import QrCodeSvg from '../../components/common/QrCodeSvg';
 import Pagination from '../../components/common/Pagination';
+import { TableSkeleton } from '../../components/common/Skeleton';
+import { useApp } from '../../context/AppContext';
 import { compressImageFile } from '../../utils/imageCompressor';
 import { getAvatarImageUrl } from '../../utils/avatarHelper';
 import {
@@ -13,6 +16,7 @@ import {
 } from '../../services/receptionistApi';
 
 export default function ReceptionMembersPage() {
+  const { showToast } = useApp();
   const [query, setQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [page, setPage] = useState(0);
@@ -143,13 +147,16 @@ export default function ReceptionMembersPage() {
     setActionError('');
     try {
       await updateReceptionMemberAvatar(avatarMember.userId, avatarPreview);
-      setActionSuccess('Cập nhật ảnh nhận diện hội viên thành công!');
-      setTimeout(() => {
-        setAvatarMember(null);
-        setAvatarPreview('');
-        setActionSuccess('');
-        setRefreshKey((k) => k + 1);
-      }, 1000);
+      showToast('Cập nhật ảnh nhận diện', 'Cập nhật ảnh nhận diện hội viên thành công!', 'success');
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+      setCameraActive(false);
+      setAvatarMember(null);
+      setAvatarPreview('');
+      setActionSuccess('');
+      setRefreshKey((k) => k + 1);
     } catch (err) {
       setActionError(err.message || 'Không thể lưu ảnh đại diện.');
     } finally {
@@ -164,13 +171,11 @@ export default function ReceptionMembersPage() {
     setActionError('');
     try {
       await updateReceptionMemberRfid(rfidMember.userId, rfidInput.trim());
-      setActionSuccess('Cập nhật mã thẻ từ RFID thành công!');
-      setTimeout(() => {
-        setRfidMember(null);
-        setRfidInput('');
-        setActionSuccess('');
-        setRefreshKey((k) => k + 1);
-      }, 1000);
+      showToast('Cấp thẻ RFID', 'Cập nhật mã thẻ từ RFID thành công!', 'success');
+      setRfidMember(null);
+      setRfidInput('');
+      setActionSuccess('');
+      setRefreshKey((k) => k + 1);
     } catch (err) {
       setActionError(err.message || 'Không thể cấp thẻ RFID.');
     } finally {
@@ -188,13 +193,11 @@ export default function ReceptionMembersPage() {
         emergencyContactName: emergencyForm.name.trim(),
         emergencyContactPhone: emergencyForm.phone.trim(),
       });
-      setActionSuccess('Cập nhật liên hệ khẩn cấp thành công!');
-      setTimeout(() => {
-        setEmergencyMember(null);
-        setEmergencyForm({ name: '', phone: '' });
-        setActionSuccess('');
-        setRefreshKey((k) => k + 1);
-      }, 1000);
+      showToast('Liên hệ khẩn cấp', 'Cập nhật liên hệ khẩn cấp thành công!', 'success');
+      setEmergencyMember(null);
+      setEmergencyForm({ name: '', phone: '' });
+      setActionSuccess('');
+      setRefreshKey((k) => k + 1);
     } catch (err) {
       setActionError(err.message || 'Không thể cập nhật liên hệ khẩn cấp.');
     } finally {
@@ -226,13 +229,29 @@ export default function ReceptionMembersPage() {
 
         <form onSubmit={submitSearch} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row">
           <label className="sr-only" htmlFor="member-search">Từ khóa tìm kiếm</label>
-          <input
-            id="member-search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Nhập tên, email, số điện thoại hoặc mã thẻ RFID..."
-            className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
-          />
+          <div className="relative min-w-0 flex-1">
+            <input
+              id="member-search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Nhập tên, email, số điện thoại hoặc mã thẻ RFID..."
+              className="w-full rounded-xl border border-slate-300 pl-4 pr-10 py-3 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery('');
+                  setSubmittedQuery('');
+                  setPage(0);
+                }}
+                aria-label="Xóa từ khóa tìm kiếm"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            )}
+          </div>
           <button type="submit" className="rounded-xl bg-orange-500 hover:bg-orange-600 px-6 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all cursor-pointer">
             Tìm hội viên
           </button>
@@ -242,10 +261,12 @@ export default function ReceptionMembersPage() {
 
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           {loading ? (
-            <p className="p-8 text-center text-sm text-slate-500">Đang tải dữ liệu hội viên...</p>
+            <div className="p-4">
+              <TableSkeleton bare rows={6} cols={6} />
+            </div>
           ) : result?.content?.length ? (
             <>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0}>
                 <table className="w-full min-w-[800px] text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 whitespace-nowrap">
                     <tr>
@@ -396,22 +417,34 @@ export default function ReceptionMembersPage() {
       </div>
 
       {/* Modal 1: Cập nhật ảnh nhận diện quầy (REC-03) */}
-      {avatarMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 !m-0">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in duration-150">
+      <ModalDialog
+        open={Boolean(avatarMember)}
+        onClose={() => {
+          stopCamera();
+          setAvatarMember(null);
+          setAvatarPreview('');
+        }}
+        titleId="member-avatar-modal-title"
+        maxWidthClass="max-w-md"
+        preventClose={actionLoading}
+      >
+        {avatarMember && (
+          <div className="p-6 sm:p-7 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="font-bold text-slate-900 text-base">Cập Nhật Ảnh Nhận Diện Quầy</h3>
+                <h3 id="member-avatar-modal-title" className="font-bold text-slate-900 text-base">Cập Nhật Ảnh Nhận Diện Quầy</h3>
                 <p className="text-xs text-slate-500">Hội viên: <strong>{avatarMember.fullName}</strong> (#{avatarMember.userId})</p>
               </div>
               <button
                 type="button"
+                disabled={actionLoading}
                 onClick={() => {
                   stopCamera();
                   setAvatarMember(null);
                   setAvatarPreview('');
                 }}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
+                aria-label="Đóng hộp thoại cập nhật ảnh"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
@@ -488,36 +521,48 @@ export default function ReceptionMembersPage() {
               </button>
               <button
                 type="button"
+                disabled={actionLoading}
                 onClick={() => {
                   stopCamera();
                   setAvatarMember(null);
                   setAvatarPreview('');
                 }}
-                className="py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
+                className="py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition cursor-pointer disabled:opacity-50"
               >
                 Hủy
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
 
       {/* Modal 2: Cấp thẻ từ RFID / Xem mã QR (REC-08) */}
-      {rfidMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 !m-0">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in duration-150">
+      <ModalDialog
+        open={Boolean(rfidMember)}
+        onClose={() => {
+          setRfidMember(null);
+          setRfidInput('');
+        }}
+        titleId="member-rfid-modal-title"
+        maxWidthClass="max-w-md"
+        preventClose={actionLoading}
+      >
+        {rfidMember && (
+          <div className="p-6 sm:p-7 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="font-bold text-slate-900 text-base">Cấp Thẻ Từ RFID &amp; Mã QR</h3>
+                <h3 id="member-rfid-modal-title" className="font-bold text-slate-900 text-base">Cấp Thẻ Từ RFID &amp; Mã QR</h3>
                 <p className="text-xs text-slate-500">Hội viên: <strong>{rfidMember.fullName}</strong> (#{rfidMember.userId})</p>
               </div>
               <button
                 type="button"
+                disabled={actionLoading}
                 onClick={() => {
                   setRfidMember(null);
                   setRfidInput('');
                 }}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
+                aria-label="Đóng hộp thoại cấp thẻ"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
@@ -576,36 +621,48 @@ export default function ReceptionMembersPage() {
                 </button>
                 <button
                   type="button"
+                  disabled={actionLoading}
                   onClick={() => {
                     setRfidMember(null);
                     setRfidInput('');
                   }}
-                  className="py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
+                  className="py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition cursor-pointer disabled:opacity-50"
                 >
                   Hủy
                 </button>
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
 
       {/* Modal 3: Cập nhật liên hệ khẩn cấp (REC-09) */}
-      {emergencyMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 !m-0">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in duration-150">
+      <ModalDialog
+        open={Boolean(emergencyMember)}
+        onClose={() => {
+          setEmergencyMember(null);
+          setEmergencyForm({ name: '', phone: '' });
+        }}
+        titleId="member-emergency-modal-title"
+        maxWidthClass="max-w-md"
+        preventClose={actionLoading}
+      >
+        {emergencyMember && (
+          <div className="p-6 sm:p-7 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="font-bold text-slate-900 text-base">Liên Hệ Khẩn Cấp (Emergency Contact)</h3>
+                <h3 id="member-emergency-modal-title" className="font-bold text-slate-900 text-base">Liên Hệ Khẩn Cấp (Emergency Contact)</h3>
                 <p className="text-xs text-slate-500">Hội viên: <strong>{emergencyMember.fullName}</strong> (#{emergencyMember.userId})</p>
               </div>
               <button
                 type="button"
+                disabled={actionLoading}
                 onClick={() => {
                   setEmergencyMember(null);
                   setEmergencyForm({ name: '', phone: '' });
                 }}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
+                aria-label="Đóng hộp thoại liên hệ khẩn cấp"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
@@ -661,19 +718,20 @@ export default function ReceptionMembersPage() {
                 </button>
                 <button
                   type="button"
+                  disabled={actionLoading}
                   onClick={() => {
                     setEmergencyMember(null);
                     setEmergencyForm({ name: '', phone: '' });
                   }}
-                  className="py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
+                  className="py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition cursor-pointer disabled:opacity-50"
                 >
                   Hủy
                 </button>
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
 
       <CreateUserModal
         isOpen={isCreateOpen}

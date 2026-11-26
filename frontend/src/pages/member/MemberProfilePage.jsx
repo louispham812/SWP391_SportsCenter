@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
+import ModalDialog from '../../components/common/ModalDialog';
 import { useApp } from '../../context/AppContext';
 import QrCodeSvg from '../../components/common/QrCodeSvg';
+import { formatStatusLabel } from '../../utils/enumLabels';
 import {
   getMemberDigitalCard,
   getMemberHealthProfile,
@@ -23,6 +25,9 @@ export default function MemberProfilePage() {
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'health' | 'inbody'
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingHealth, setSavingHealth] = useState(false);
+  const [copiedQr, setCopiedQr] = useState(false);
   const [memberships, setMemberships] = useState([]);
   const activeMemberships = getActiveMemberships(memberships);
   const [digitalCard, setDigitalCard] = useState(null);
@@ -113,7 +118,9 @@ export default function MemberProfilePage() {
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
+    if (savingProfile) return;
     setProfileError('');
+    setSavingProfile(true);
     try {
       const saved = await updateMemberProfile({
         ...profileForm,
@@ -125,6 +132,8 @@ export default function MemberProfilePage() {
       showToast('Cập nhật thành công', 'Hồ sơ đã được lưu thành công.');
     } catch (requestError) {
       setProfileError(requestError.message || 'Không thể lưu hồ sơ.');
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -152,7 +161,9 @@ export default function MemberProfilePage() {
   };
 
   const saveHealth = async (changes) => {
+    if (savingHealth) return;
     setProfileError('');
+    setSavingHealth(true);
     try {
       const weight = changes.weightKg !== undefined ? changes.weightKg : (Number(inbodyForm.weight) || null);
       const height = changes.heightCm !== undefined ? changes.heightCm : (Number(inbodyForm.height) || null);
@@ -187,6 +198,20 @@ export default function MemberProfilePage() {
       showToast('Đã lưu hồ sơ', 'Thông tin sức khỏe đã được cập nhật thành công.');
     } catch (requestError) {
       setProfileError(requestError.message || 'Không thể lưu hồ sơ sức khỏe.');
+    } finally {
+      setSavingHealth(false);
+    }
+  };
+
+  const qrTokenValue = digitalCard?.qrToken || `SPORTHUB-MEMBER-${currentUser.memberId || currentUser.id}`;
+
+  const handleCopyQr = async () => {
+    try {
+      await navigator.clipboard.writeText(qrTokenValue);
+      setCopiedQr(true);
+      window.setTimeout(() => setCopiedQr(false), 1800);
+    } catch {
+      // ignore clipboard errors
     }
   };
 
@@ -255,7 +280,7 @@ export default function MemberProfilePage() {
         </div>
 
         {/* Tab Selection */}
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+        <div role="tablist" aria-label="Mục hồ sơ" className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto whitespace-nowrap">
           {[
             { id: 'profile', label: 'Thông tin cá nhân', icon: 'badge' },
             { id: 'health', label: 'Hồ sơ sức khỏe & Thể lực', icon: 'health_and_safety' },
@@ -263,14 +288,17 @@ export default function MemberProfilePage() {
           ].map((tab) => (
             <button
               key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
                 activeTab === tab.id
                   ? 'bg-slate-900 text-white shadow-sm'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
-              <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{tab.icon}</span>
               <span>{tab.label}</span>
             </button>
           ))}
@@ -366,15 +394,23 @@ export default function MemberProfilePage() {
                       onClick={() => setShowQrModal(true)}
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-bold uppercase tracking-wider transition shadow-xs cursor-pointer whitespace-nowrap"
                     >
-                      <span className="material-symbols-outlined text-[14px]">fullscreen</span>
+                      <span aria-hidden="true" className="material-symbols-outlined text-[14px]">fullscreen</span>
                       <span>Phóng to</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyQr}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold uppercase tracking-wider transition border border-slate-700 cursor-pointer whitespace-nowrap"
+                    >
+                      <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{copiedQr ? 'check' : 'content_copy'}</span>
+                      <span>{copiedQr ? 'Đã chép' : 'Sao chép'}</span>
                     </button>
                     <button
                       type="button"
                       onClick={handleDownloadQr}
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold uppercase tracking-wider transition border border-slate-700 cursor-pointer whitespace-nowrap"
                     >
-                      <span className="material-symbols-outlined text-[14px]">download</span>
+                      <span aria-hidden="true" className="material-symbols-outlined text-[14px]">download</span>
                       <span>Tải QR</span>
                     </button>
                   </div>
@@ -405,7 +441,7 @@ export default function MemberProfilePage() {
                         <div className="text-[11px] text-slate-500">{b.startTime} - {b.endTime}</div>
                       </div>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 uppercase">
-                        {b.status}
+                        {formatStatusLabel(b.status)}
                       </span>
                     </div>
                   ))}
@@ -476,6 +512,7 @@ export default function MemberProfilePage() {
                         <button
                           key={idx}
                           type="button"
+                          disabled={avatarUploading}
                           onClick={async () => {
                             try {
                               setMemberAvatar(presetUrl);
@@ -488,7 +525,7 @@ export default function MemberProfilePage() {
                               showToast({ title: 'Lỗi', message: err.message || 'Không thể đổi ảnh đại diện.', type: 'error' });
                             }
                           }}
-                          className="w-7 h-7 rounded-full overflow-hidden border border-slate-300 hover:border-orange-500 hover:scale-110 transition shadow-xs cursor-pointer"
+                          className="w-8 h-8 rounded-full overflow-hidden border border-slate-300 hover:border-orange-500 hover:scale-110 transition shadow-xs cursor-pointer disabled:opacity-50"
                         >
                           <img src={presetUrl} alt="Preset" className="w-full h-full object-cover" />
                         </button>
@@ -527,9 +564,10 @@ export default function MemberProfilePage() {
                       type="email"
                       value={profileForm.email}
                       readOnly
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-primary"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 text-xs outline-none cursor-not-allowed"
                       required
                     />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">Email đăng nhập không thể thay đổi</span>
                   </div>
                   <div>
                     <label className="text-xs font-bold uppercase text-slate-700 block mb-1">Ngày sinh</label>
@@ -547,6 +585,7 @@ export default function MemberProfilePage() {
                       onChange={(e) => setProfileForm({ ...profileForm, gender: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none bg-white font-semibold"
                     >
+                      <option value="">-- Chọn giới tính --</option>
                       <option value="Nữ">Nữ</option>
                       <option value="Nam">Nam</option>
                       <option value="Khác">Khác</option>
@@ -590,10 +629,11 @@ export default function MemberProfilePage() {
 
                 <button
                   type="submit"
-                  className="py-3 px-6 rounded-xl bg-primary text-white text-xs font-bold uppercase tracking-wider hover:bg-slate-800 transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                  disabled={savingProfile}
+                  className="py-3 px-6 rounded-xl bg-primary text-white text-xs font-bold uppercase tracking-wider hover:bg-slate-800 disabled:opacity-60 transition-all shadow-md flex items-center gap-2 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[18px]">save</span>
-                  <span>Lưu Hồ Sơ Cá Nhân</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">save</span>
+                  <span>{savingProfile ? 'Đang lưu...' : 'Lưu Hồ Sơ Cá Nhân'}</span>
                 </button>
               </form>
             )}
@@ -611,7 +651,7 @@ export default function MemberProfilePage() {
                   <label className="text-xs font-bold uppercase text-slate-700 block mb-1">
                     Trình độ thể thao hiện tại
                   </label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {[
                       { id: 'beginner', title: 'Người mới (Beginner)', desc: 'Tập < 6 tháng' },
                       { id: 'intermediate', title: 'Phong trào (Amateur)', desc: 'Tập 1 - 3 năm' },
@@ -661,10 +701,11 @@ export default function MemberProfilePage() {
 
                 <button
                   type="submit"
-                  className="py-3 px-6 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-md shadow-orange-500/20 flex items-center gap-2 cursor-pointer"
+                  disabled={savingHealth}
+                  className="py-3 px-6 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-md shadow-orange-500/20 flex items-center gap-2 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[18px]">verified_user</span>
-                  <span>Lưu Hồ Sơ Sức Khỏe</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">verified_user</span>
+                  <span>{savingHealth ? 'Đang lưu...' : 'Lưu Hồ Sơ Sức Khỏe'}</span>
                 </button>
               </form>
             )}
@@ -739,10 +780,11 @@ export default function MemberProfilePage() {
 
                 <button
                   type="submit"
-                  className="py-3 px-6 rounded-xl bg-slate-900 hover:bg-orange-500 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                  disabled={savingHealth}
+                  className="py-3 px-6 rounded-xl bg-slate-900 hover:bg-orange-500 disabled:opacity-60 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center gap-2 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[18px]">save</span>
-                  <span>Cập Nhật Chỉ Số InBody</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">save</span>
+                  <span>{savingHealth ? 'Đang lưu...' : 'Cập Nhật Chỉ Số InBody'}</span>
                 </button>
               </form>
             )}
@@ -751,67 +793,80 @@ export default function MemberProfilePage() {
       </div>
 
       {/* Modal Phóng to QR Thẻ Hội Viên */}
-      {showQrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 !m-0">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl border border-slate-200 text-center space-y-4 animate-in fade-in zoom-in duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-                <span className="text-xs font-black uppercase tracking-wider text-slate-800">Mã QR Check-In Quầy</span>
-              </div>
+      <ModalDialog
+        open={showQrModal}
+        onClose={() => setShowQrModal(false)}
+        titleId="member-qr-modal-title"
+        maxWidthClass="max-w-sm"
+      >
+        <div className="p-6 sm:p-8 text-center space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+              <span id="member-qr-modal-title" className="text-xs font-black uppercase tracking-wider text-slate-800">Mã QR Check-In Quầy</span>
+            </div>
+            <button
+              type="button"
+              aria-label="Đóng"
+              onClick={() => setShowQrModal(false)}
+              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+          </div>
+
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col items-center justify-center">
+            <QrCodeSvg
+              id="member-digital-qr-svg"
+              text={qrTokenValue}
+              size={220}
+            />
+            <div className="mt-3 flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-300">
+              <span className="font-mono text-xs font-bold text-slate-700 select-all">
+                {qrTokenValue}
+              </span>
               <button
                 type="button"
-                onClick={() => setShowQrModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
+                onClick={handleCopyQr}
+                className="text-[11px] font-bold text-orange-600 hover:text-orange-700 cursor-pointer shrink-0"
               >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
-
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col items-center justify-center">
-              <QrCodeSvg
-                id="member-digital-qr-svg"
-                text={digitalCard?.qrToken || `SPORTHUB-MEMBER-${currentUser.memberId || currentUser.id}`}
-                size={220}
-              />
-              <div className="mt-3 font-mono text-xs font-bold text-slate-700 bg-white px-3 py-1.5 rounded-lg border border-slate-300 select-all">
-                {digitalCard?.qrToken || `SPORTHUB-MEMBER-${currentUser.memberId || currentUser.id}`}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <h4 className="font-bold text-slate-900 text-sm">{profileForm.fullName || currentUser.name}</h4>
-              <p className="text-xs text-slate-500">
-                Đưa mã QR này vào máy quét tại quầy lễ tân để ghi nhận vào phòng tập tức thì.
-              </p>
-              {digitalCard?.rfidCode && (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold mt-2">
-                  <span className="material-symbols-outlined text-[14px]">contactless</span>
-                  <span>Thẻ từ: {digitalCard.rfidCode}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="pt-2 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleDownloadQr}
-                className="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[16px]">download</span>
-                <span>Tải Mã QR</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowQrModal(false)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
-              >
-                Đóng
+                {copiedQr ? 'Đã chép' : 'Sao chép'}
               </button>
             </div>
           </div>
+
+          <div className="space-y-1">
+            <h4 className="font-bold text-slate-900 text-sm">{profileForm.fullName || currentUser.name}</h4>
+            <p className="text-xs text-slate-500">
+              Đưa mã QR này vào máy quét tại quầy lễ tân để ghi nhận vào phòng tập tức thì.
+            </p>
+            {digitalCard?.rfidCode && (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold mt-2">
+                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">contactless</span>
+                <span>Thẻ từ: {digitalCard.rfidCode}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="pt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadQr}
+              className="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">download</span>
+              <span>Tải Mã QR</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowQrModal(false)}
+              className="flex-1 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
+            >
+              Đóng
+            </button>
+          </div>
         </div>
-      )}
+      </ModalDialog>
     </MemberLayout>
   );
 }

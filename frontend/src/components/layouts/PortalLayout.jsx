@@ -5,6 +5,7 @@ import { getMemberNotifications } from '../../services/memberApi';
 import { getNotifications, markAllNotificationsRead, markNotificationRead } from '../../services/engagementApi';
 import { getAvatarImageUrl, getAvatarInitials } from '../../utils/avatarHelper';
 import { getPortalHomePath, getRoleProfileLink } from '../../utils/portalRoute';
+import { matchesAnyVietnamese } from '../../utils/vietnameseSearch';
 
 const ROLE_LABELS = {
   member: 'Hội viên',
@@ -84,6 +85,7 @@ export default function PortalLayout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeSearchIndex, setActiveSearchIndex] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [liveNotifications, setLiveNotifications] = useState([]);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -96,15 +98,33 @@ export default function PortalLayout({
   const notificationsRef = useRef(null);
   const userMenuRef = useRef(null);
 
+  const openCommandPalette = useCallback(() => {
+    setSearchQuery('');
+    setActiveSearchIndex(0);
+    setSearchOpen(true);
+  }, []);
+
+  const closeCommandPalette = useCallback(() => {
+    setSearchOpen(false);
+    setSearchQuery('');
+    setActiveSearchIndex(0);
+  }, []);
+
   // Global Keyboard Shortcut: Cmd+K / Ctrl+K & Escape
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setSearchOpen((prev) => !prev);
+        setSearchOpen((prev) => {
+          if (!prev) {
+            setSearchQuery('');
+            setActiveSearchIndex(0);
+          }
+          return !prev;
+        });
       }
       if (e.key === 'Escape') {
-        setSearchOpen(false);
+        closeCommandPalette();
         setShowNotifications(false);
         setShowUserMenu(false);
         setMobileMenuOpen(false);
@@ -187,15 +207,16 @@ export default function PortalLayout({
       .map((item) => ({ ...item, roleName })),
   ];
 
-  // Search Results Filtering
-  const cleanQuery = searchQuery.trim().toLowerCase();
-  const matchedPages = searchablePages.filter(
-    (p) =>
-      p.title.toLowerCase().includes(cleanQuery) ||
-      p.subtitle.toLowerCase().includes(cleanQuery) ||
-      p.path.toLowerCase().includes(cleanQuery) ||
-      p.roleName.toLowerCase().includes(cleanQuery)
+  // Search Results Filtering (accent-insensitive)
+  const matchedPages = searchablePages.filter((p) =>
+    matchesAnyVietnamese([p.title, p.subtitle, p.path, p.roleName], searchQuery)
   );
+  const safeSearchIndex =
+    matchedPages.length === 0 ? -1 : Math.min(activeSearchIndex, matchedPages.length - 1);
+
+  const activeMenuPath = getActiveMenuPath(location.pathname, menuItems, role);
+  const activeMenuItem = menuItems.find((item) => item.path === activeMenuPath) || null;
+  const unreadCount = liveNotifications.filter((n) => !n.isRead).length;
 
   const hasSections = menuItems.some((item) => Boolean(item.section));
   const pinnedMobileItems = menuItems.filter((item) => item.mobilePin);
@@ -218,6 +239,12 @@ export default function PortalLayout({
 
   return (
     <div className="min-h-screen bg-[#f7f9fb] font-body-md text-slate-800 antialiased flex flex-col pb-16 lg:pb-0">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[200] focus:px-4 focus:py-2 focus:rounded-xl focus:bg-orange-500 focus:text-white focus:text-xs focus:font-bold focus:shadow-lg"
+      >
+        Chuyển đến nội dung chính
+      </a>
       {/* =========================================
           1. FIXED LEFT SIDEBAR (Unified Width w-72)
          ========================================= */}
@@ -229,37 +256,44 @@ export default function PortalLayout({
         <div className="flex flex-col min-h-0 flex-1 overflow-y-auto pb-3">
           {/* Brand Header */}
           <div className="px-5 pt-4 pb-3">
-            <Link
-              to={portalHomePath}
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-2.5 group"
-            >
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 shadow-md shadow-orange-500/25 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
-                <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-white drop-shadow-sm" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 4H19L17.5 8H11.5L10.5 11H16.5L15 15H10L8.5 20H4.5L7 4Z" fill="currentColor" />
-                </svg>
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="font-headline-sm text-[15px] text-slate-900 tracking-tight font-black leading-tight">
-                  F SPORT <span className="text-orange-500">CENTER</span>
-                </span>
-                <span className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5">
-                  TRUNG TÂM THỂ THAO ĐA NĂNG
-                </span>
-              </div>
-            </Link>
+            <div className="flex items-center justify-between gap-2">
+              <Link
+                to={portalHomePath}
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2.5 group min-w-0"
+              >
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 shadow-md shadow-orange-500/25 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+                  <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-white drop-shadow-sm" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M7 4H19L17.5 8H11.5L10.5 11H16.5L15 15H10L8.5 20H4.5L7 4Z" fill="currentColor" />
+                  </svg>
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="font-headline-sm text-[15px] text-slate-900 tracking-tight font-black leading-tight">
+                    F SPORT <span className="text-orange-500">CENTER</span>
+                  </span>
+                  <span className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mt-0.5 truncate">
+                    TRUNG TÂM THỂ THAO ĐA NĂNG
+                  </span>
+                </div>
+              </Link>
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                aria-label="Đóng menu"
+                className="lg:hidden w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 flex items-center justify-center shrink-0 cursor-pointer"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
 
             {/* Role Context Pill */}
             <div className="mt-3 flex items-center justify-between">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)] animate-pulse"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]"></span>
                 <span className="font-label-sm uppercase tracking-wider font-bold text-[10px] text-slate-800">
                   {roleBadge}
                 </span>
               </div>
-              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                Online
-              </span>
             </div>
           </div>
 
@@ -271,11 +305,9 @@ export default function PortalLayout({
               </span>
             )}
 
-            <nav className="flex flex-col gap-1">
-              {(() => {
-                const activeMenuPath = getActiveMenuPath(location.pathname, menuItems, role);
-                return menuItems.map((item, idx) => {
-                  const isActive = item.path === activeMenuPath;
+            <nav aria-label="Điều hướng chính" className="flex flex-col gap-1">
+              {menuItems.map((item, idx) => {
+                const isActive = item.path === activeMenuPath;
                 const showSectionHeader =
                   Boolean(item.section) && (idx === 0 || item.section !== menuItems[idx - 1]?.section);
 
@@ -292,6 +324,7 @@ export default function PortalLayout({
                     )}
                     <Link
                       to={item.path}
+                      aria-current={isActive ? 'page' : undefined}
                       onClick={() => setMobileMenuOpen(false)}
                       className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] transition-all ${
                         isActive
@@ -300,6 +333,7 @@ export default function PortalLayout({
                       }`}
                     >
                       <span
+                        aria-hidden="true"
                         className={`material-symbols-outlined text-[20px] ${
                           isActive ? 'text-white font-bold' : 'text-slate-500'
                         }`}
@@ -310,8 +344,7 @@ export default function PortalLayout({
                     </Link>
                   </React.Fragment>
                 );
-              });
-              })()}
+              })}
             </nav>
           </div>
         </div>
@@ -362,32 +395,44 @@ export default function PortalLayout({
          ========================================= */}
       <div className="lg:pl-72 flex-1 flex flex-col min-h-screen min-w-0">
         <header className="sticky top-0 h-14 bg-white/95 backdrop-blur-xl z-40 border-b border-slate-200 shadow-[0_1px_4px_rgba(0,0,0,0.03)] flex items-center justify-between px-4 lg:px-6">
-          {/* Left: Mobile Toggle + Search Trigger Button */}
-          <div className="flex items-center gap-3 flex-1 min-w-0 max-w-xl">
+          {/* Left: Mobile Toggle + Active Page Context + Search Trigger Button */}
+          <div className="flex items-center gap-3 flex-1 min-w-0 max-w-2xl">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="lg:hidden w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 cursor-pointer shrink-0"
               type="button"
-              aria-label="Toggle menu"
+              aria-label="Mở menu điều hướng"
+              aria-expanded={mobileMenuOpen}
             >
-              <span className="material-symbols-outlined text-[20px]">menu</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">menu</span>
             </button>
 
-            {/* Clickable Quick Search Bar that opens Command Palette */}
-            <div
-              onClick={() => setSearchOpen(true)}
-              className="relative flex items-center w-full min-w-0 h-9 px-3 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-500 text-xs cursor-pointer transition-all shadow-inner select-none"
+            {activeMenuItem && (
+              <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100/80 border border-slate-200/80 text-xs font-bold text-slate-700 shrink-0 max-w-[200px]">
+                <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-orange-500">
+                  {activeMenuItem.icon}
+                </span>
+                <span className="truncate">{activeMenuItem.label}</span>
+              </div>
+            )}
+
+            {/* Clickable Quick Search Button that opens Command Palette */}
+            <button
+              type="button"
+              onClick={openCommandPalette}
+              aria-label="Mở tìm kiếm nhanh trang chức năng"
+              className="relative flex items-center w-full min-w-0 h-9 px-3 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-500 text-xs cursor-pointer transition-all shadow-inner text-left"
             >
-              <span className="material-symbols-outlined text-slate-400 text-[18px] mr-2.5">
+              <span aria-hidden="true" className="material-symbols-outlined text-slate-400 text-[18px] mr-2.5">
                 search
               </span>
               <span className="truncate text-slate-400">
-                Tìm kiếm thông tin, lịch học, hội viên...
+                Tìm nhanh trang chức năng...
               </span>
-              <kbd className="hidden sm:inline-flex items-center gap-0.5 ml-auto px-2 py-0.5 text-[10px] font-mono font-semibold text-slate-500 bg-white border border-slate-300 rounded shadow-sm">
+              <kbd className="hidden sm:inline-flex items-center gap-0.5 ml-auto px-2 py-0.5 text-[10px] font-mono font-semibold text-slate-500 bg-white border border-slate-300 rounded shadow-sm shrink-0">
                 ⌘K
               </kbd>
-            </div>
+            </button>
           </div>
 
           {/* Right: Status Chip + Quick Action Button + Notifications + Profile */}
@@ -427,13 +472,15 @@ export default function PortalLayout({
                 }}
                 type="button"
                 className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors relative cursor-pointer"
-                title="Thông báo"
-                aria-label="Thông báo"
+                title={unreadCount > 0 ? `Thông báo (${unreadCount} chưa đọc)` : 'Thông báo'}
+                aria-label={unreadCount > 0 ? `Thông báo (${unreadCount} chưa đọc)` : 'Thông báo'}
                 aria-expanded={showNotifications}
               >
-                <span className="material-symbols-outlined text-[18px]">notifications</span>
-                {liveNotifications.some((n) => !n.isRead) && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-white"></span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">notifications</span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-white text-[10px] font-black flex items-center justify-center ring-2 ring-white">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
                 )}
               </button>
 
@@ -608,7 +655,7 @@ export default function PortalLayout({
         {/* =========================================
             3. MAIN CONTENT CANVAS
            ========================================= */}
-        <main className="p-3 sm:p-4 lg:p-6 pb-20 lg:pb-6 flex-1 bg-[#f7f9fb]">
+        <main id="main-content" tabIndex={-1} className="p-3 sm:p-4 lg:p-6 pb-20 lg:pb-6 flex-1 bg-[#f7f9fb] focus:outline-none">
           {children}
         </main>
       </div>
@@ -616,16 +663,15 @@ export default function PortalLayout({
       {/* =========================================
           4. MOBILE BOTTOM NAVIGATION (Thanh điều hướng nhanh trên điện thoại)
          ========================================= */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200 px-2 py-1.5 flex items-center justify-around shadow-lg">
-        {(() => {
-          const activeMenuPath = getActiveMenuPath(location.pathname, menuItems, role);
-          return mobileBottomItems.map((item) => {
-            const isActive = item.path === activeMenuPath;
+      <nav aria-label="Điều hướng nhanh di động" className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200 px-2 py-1.5 flex items-center justify-around shadow-lg">
+        {mobileBottomItems.map((item) => {
+          const isActive = item.path === activeMenuPath;
 
           return (
             <Link
               key={item.path}
               to={item.path}
+              aria-current={isActive ? 'page' : undefined}
               className={`flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition-colors min-w-0 ${
                 isActive
                   ? 'text-slate-950 font-bold'
@@ -637,15 +683,14 @@ export default function PortalLayout({
                   isActive ? 'bg-orange-500 text-white' : ''
                 }`}
               >
-                <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[20px]">{item.icon}</span>
               </div>
               <span className="text-[10px] leading-tight mt-0.5 truncate max-w-[68px]">
                 {item.mobileLabel || item.label}
               </span>
             </Link>
           );
-        });
-        })()}
+        })}
 
         {/* More Menu on Mobile */}
         <button
@@ -654,7 +699,7 @@ export default function PortalLayout({
           className="flex flex-col items-center justify-center py-1 px-1.5 rounded-xl text-slate-500 hover:text-slate-900"
         >
           <div className="w-9 h-7 rounded-lg flex items-center justify-center">
-            <span className="material-symbols-outlined text-[20px]">menu</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[20px]">menu</span>
           </div>
           <span className="text-[10px] leading-tight mt-0.5">Thêm</span>
         </button>
@@ -665,31 +710,57 @@ export default function PortalLayout({
          ========================================= */}
       {searchOpen && (
         <div
-          onClick={() => setSearchOpen(false)}
+          onClick={closeCommandPalette}
           className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-sm flex items-start justify-center p-4 pt-16 sm:pt-24 animate-in fade-in duration-200 !m-0"
         >
           <div
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Tìm nhanh trang chức năng"
             className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-150"
           >
             {/* Input Header */}
             <div className="flex items-center px-4 border-b border-slate-200 bg-slate-50/50">
-              <span className="material-symbols-outlined text-slate-400 text-[22px] mr-3">
+              <span aria-hidden="true" className="material-symbols-outlined text-slate-400 text-[22px] mr-3">
                 search
               </span>
               <input
                 ref={searchInputRef}
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm trang chức năng (gõ để lọc)"
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setActiveSearchIndex(0);
+                }}
+                onKeyDown={(e) => {
+                  if (matchedPages.length === 0) return;
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setActiveSearchIndex((prev) => (prev + 1) % matchedPages.length);
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setActiveSearchIndex((prev) => (prev - 1 + matchedPages.length) % matchedPages.length);
+                  } else if (e.key === 'Enter' && safeSearchIndex >= 0 && matchedPages[safeSearchIndex]) {
+                    e.preventDefault();
+                    navigate(matchedPages[safeSearchIndex].path);
+                    closeCommandPalette();
+                  }
+                }}
+                placeholder="Tìm trang chức năng (gõ không dấu hoặc có dấu)..."
                 className="w-full py-4 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
               />
               {searchQuery && (
                 <button
-                  onClick={() => setSearchQuery('')}
-                  className="p-1 rounded-md text-slate-400 hover:text-slate-700"
+                  type="button"
+                  aria-label="Xóa từ khóa tìm kiếm"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setActiveSearchIndex(0);
+                    searchInputRef.current?.focus();
+                  }}
+                  className="p-1 rounded-md text-slate-400 hover:text-slate-700 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[18px]">clear</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">clear</span>
                 </button>
               )}
               <kbd className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-mono text-slate-400 bg-slate-200 rounded ml-2">
@@ -710,30 +781,44 @@ export default function PortalLayout({
                       Không tìm thấy trang chức năng phù hợp.
                     </div>
                   ) : (
-                    matchedPages.map((page) => (
-                      <button
-                        key={page.path}
-                        type="button"
-                        onClick={() => {
-                          navigate(page.path);
-                          setSearchOpen(false);
-                        }}
-                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-orange-500 text-slate-700 group-hover:text-white flex items-center justify-center transition-colors">
-                            <span className="material-symbols-outlined text-[18px]">{page.icon}</span>
+                    matchedPages.map((page, index) => {
+                      const isHighlighted = index === safeSearchIndex;
+                      return (
+                        <button
+                          key={page.path}
+                          type="button"
+                          onMouseEnter={() => setActiveSearchIndex(index)}
+                          onClick={() => {
+                            navigate(page.path);
+                            closeCommandPalette();
+                          }}
+                          className={`flex items-center justify-between p-2.5 rounded-xl text-left transition-colors cursor-pointer group ${
+                            isHighlighted
+                              ? 'bg-orange-50 ring-1 ring-orange-200'
+                              : 'hover:bg-slate-100'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div
+                              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 ${
+                                isHighlighted
+                                  ? 'bg-orange-500 text-white'
+                                  : 'bg-slate-100 group-hover:bg-orange-500 text-slate-700 group-hover:text-white'
+                              }`}
+                            >
+                              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{page.icon}</span>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-bold text-slate-900 truncate">{page.title}</div>
+                              <div className="text-[11px] text-slate-500 truncate">{page.subtitle}</div>
+                            </div>
                           </div>
-                          <div>
-                            <div className="text-xs font-bold text-slate-900">{page.title}</div>
-                            <div className="text-[11px] text-slate-500">{page.subtitle}</div>
-                          </div>
-                        </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
-                          {page.roleName}
-                        </span>
-                      </button>
-                    ))
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium shrink-0 ml-2">
+                            {page.roleName}
+                          </span>
+                        </button>
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -742,8 +827,8 @@ export default function PortalLayout({
 
             {/* Micro Footer */}
             <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
-              <span>Sử dụng phím <strong>ESC</strong> để đóng</span>
-              <span>F Sport Command Palette v2.0</span>
+              <span><strong>↑↓</strong> chọn · <strong>Enter</strong> mở · <strong>ESC</strong> đóng</span>
+              <span>F Sport Command Palette</span>
             </div>
           </div>
         </div>

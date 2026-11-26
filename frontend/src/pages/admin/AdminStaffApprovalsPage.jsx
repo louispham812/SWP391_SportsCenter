@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../../components/layouts/AdminLayout';
+import ModalDialog from '../../components/common/ModalDialog';
 import { useApp } from '../../context/AppContext';
 import { TableSkeleton } from '../../components/common/Skeleton';
 import CoachSportSelector from '../../components/common/CoachSportSelector';
@@ -330,7 +331,7 @@ export default function AdminStaffApprovalsPage() {
 
   return (
     <AdminLayout>
-      <main className="space-y-6">
+      <div className="space-y-6">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">
@@ -800,13 +801,18 @@ export default function AdminStaffApprovalsPage() {
             )}
           </section>
         )}
-      </main>
+      </div>
 
       {/* Rejection Modal for Membership Packages */}
-      {rejectMembershipModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
-          <div className="relative w-full max-w-md overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
-            <h3 className="text-base font-bold text-slate-900">Từ chối gói thành viên &amp; Hoàn tiền 100%</h3>
+      <ModalDialog
+        open={Boolean(rejectMembershipModal)}
+        onClose={() => setRejectMembershipModal(null)}
+        titleId="admin-reject-membership-title"
+        maxWidthClass="max-w-md"
+      >
+        {rejectMembershipModal && (
+          <div className="p-6 space-y-4">
+            <h3 id="admin-reject-membership-title" className="text-base font-bold text-slate-900">Từ chối gói thành viên &amp; Hoàn tiền 100%</h3>
             <p className="text-xs text-slate-500">
               Nhập lý do từ chối gói #{rejectMembershipModal.membershipId} của hội viên {rejectMembershipModal.memberName}. Hệ thống sẽ hoàn trả 100% tiền đã thu ({formatPrice(rejectMembershipModal.price)}).
             </p>
@@ -837,16 +843,22 @@ export default function AdminStaffApprovalsPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
 
       {/* Tab 1 Coach Sport Assignment Approval Modal */}
-      {approveStaffModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
-          <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-7 space-y-4">
+      <ModalDialog
+        open={Boolean(approveStaffModal)}
+        onClose={() => setApproveStaffModal(null)}
+        titleId="admin-approve-staff-coach-title"
+        maxWidthClass="max-w-lg"
+        preventClose={Boolean(approveStaffModal && processingId === approveStaffModal.userId)}
+      >
+        {approveStaffModal && (
+          <div className="p-6 sm:p-7 space-y-4">
             <div className="flex items-start justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 id="admin-approve-staff-coach-title" className="text-base font-bold text-slate-900">
                   Phê duyệt &amp; Phân công bộ môn Huấn luyện viên
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -855,8 +867,10 @@ export default function AdminStaffApprovalsPage() {
               </div>
               <button
                 type="button"
+                disabled={processingId === approveStaffModal.userId}
                 onClick={() => setApproveStaffModal(null)}
-                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                aria-label="Đóng hộp thoại phê duyệt HLV"
+                className="text-slate-400 hover:text-slate-700 cursor-pointer disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -898,21 +912,27 @@ export default function AdminStaffApprovalsPage() {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
 
       {/* MGR-24 Coach Leave Approval & Reassignment Modal */}
-      {approveLeaveModal && (() => {
-        const affectedSessions = Array.isArray(approveLeaveModal.affectedSessions)
-          ? approveLeaveModal.affectedSessions
-          : [];
-        const allSessionsAssigned = affectedSessions.every((s) => Boolean(reassignForm[s.sessionId]));
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
-            <div className="relative w-full max-w-xl overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-4 max-h-[90vh] flex flex-col">
+      <ModalDialog
+        open={Boolean(approveLeaveModal)}
+        onClose={() => setApproveLeaveModal(null)}
+        titleId="admin-approve-leave-title"
+        maxWidthClass="max-w-xl"
+        preventClose={Boolean(approveLeaveModal && processingId === approveLeaveModal.leaveId)}
+      >
+        {approveLeaveModal && (() => {
+          const affectedSessions = Array.isArray(approveLeaveModal.affectedSessions)
+            ? approveLeaveModal.affectedSessions
+            : [];
+          const allSessionsAssigned = affectedSessions.every((s) => Boolean(reassignForm[s.sessionId]));
+          return (
+            <div className="p-6 sm:p-8 space-y-4 max-h-[90vh] flex flex-col">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">
+                  <h3 id="admin-approve-leave-title" className="text-base font-bold text-slate-900">
                     Xác nhận duyệt nghỉ &amp; Phân công Coach thay thế
                   </h3>
                   <p className="text-xs text-slate-500">Coach: {approveLeaveModal.coachName} · {approveLeaveModal.startDate} → {approveLeaveModal.endDate}</p>
@@ -920,6 +940,7 @@ export default function AdminStaffApprovalsPage() {
                 <button
                   type="button"
                   onClick={() => setApproveLeaveModal(null)}
+                  aria-label="Đóng hộp thoại duyệt nghỉ"
                   className="text-slate-400 hover:text-slate-700 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[20px]">close</span>
@@ -1029,9 +1050,9 @@ export default function AdminStaffApprovalsPage() {
                 </button>
               </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
+      </ModalDialog>
     </AdminLayout>
   );
 }

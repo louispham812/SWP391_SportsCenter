@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import MemberLayout from '../../components/layouts/MemberLayout';
+import ModalDialog from '../../components/common/ModalDialog';
 import {
   cancelMemberBooking,
   getCoachPublicProfile,
@@ -183,33 +183,34 @@ export default function MemberSchedulePage() {
     }
   };
 
-  // Filter entries for the selected week
+  // Filter entries for the selected week (unfiltered by type for accurate tab counts)
   const weekStartMs = currentWeekStart.getTime();
   const weekEndMs = new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate(), 23, 59, 59).getTime();
 
-  const weekEntries = useMemo(() => {
+  const rawWeekEntries = useMemo(() => {
     return scheduleEntries.filter((entry) => {
       // Exclude CANCELLED and REFUNDED bookings from the schedule
       // But KEEP bookings with refundStatus='PENDING_APPROVAL' (waiting for Manager)
       if (entry.status === 'CANCELLED' || entry.status === 'REFUNDED') {
         return false;
       }
-      // Also exclude if refund completed or approved
       if (entry.refundStatus === 'REFUNDED' || entry.refundStatus === 'APPROVED') {
         return false;
       }
-
       const startMs = new Date(entry.startTime).getTime();
-      const inWeek = startMs >= weekStartMs && startMs <= weekEndMs;
-      if (!inWeek) return false;
+      return startMs >= weekStartMs && startMs <= weekEndMs;
+    });
+  }, [scheduleEntries, weekStartMs, weekEndMs]);
 
+  const weekEntries = useMemo(() => {
+    return rawWeekEntries.filter((entry) => {
+      const startMs = new Date(entry.startTime).getTime();
       if (filterType === 'CLASS' && entry.bookingType !== 'CLASS') return false;
       if (filterType === 'COURT' && entry.bookingType !== 'COURT') return false;
       if (filterType === 'UPCOMING' && startMs < nowMs) return false;
-
       return true;
     });
-  }, [scheduleEntries, weekStartMs, weekEndMs, filterType, nowMs]);
+  }, [rawWeekEntries, filterType, nowMs]);
 
   // Group entries by date key (YYYY-MM-DD)
   const entriesByDate = useMemo(() => {
@@ -227,25 +228,25 @@ export default function MemberSchedulePage() {
     return map;
   }, [weekDays, weekEntries]);
 
-  // Stats for the week
+  // Stats for the week (computed from rawWeekEntries so counts stay accurate on tab switch)
   const stats = useMemo(() => {
     let classesCount = 0;
     let courtsCount = 0;
     let upcomingCount = 0;
 
-    weekEntries.forEach((e) => {
+    rawWeekEntries.forEach((e) => {
       if (e.bookingType === 'CLASS') classesCount++;
       if (e.bookingType === 'COURT') courtsCount++;
       if (new Date(e.startTime).getTime() >= nowMs && e.status !== 'CANCELLED') upcomingCount++;
     });
 
     return {
-      total: weekEntries.length,
+      total: rawWeekEntries.length,
       classes: classesCount,
       courts: courtsCount,
       upcoming: upcomingCount,
     };
-  }, [weekEntries, nowMs]);
+  }, [rawWeekEntries, nowMs]);
 
   const isWithinFreeCancelWindow = (entry) => {
     const startMs = new Date(entry.startTime).getTime();
@@ -280,6 +281,11 @@ export default function MemberSchedulePage() {
            entry.refundStatus !== 'REFUNDED';
   };
 
+  const toLocalDateTimeInput = (dateObj) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())}T${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
+  };
+
   const handleOpenReschedule = (entry) => {
     setReschedulingBooking(entry);
     setRescheduleForm({
@@ -288,10 +294,33 @@ export default function MemberSchedulePage() {
     });
   };
 
+  const handleRescheduleStartChange = (nextStart) => {
+    if (!nextStart || !reschedulingBooking?.startTime || !reschedulingBooking?.endTime) {
+      setRescheduleForm((prev) => ({ ...prev, newStartTime: nextStart }));
+      return;
+    }
+    const origDurationMs =
+      new Date(reschedulingBooking.endTime).getTime() - new Date(reschedulingBooking.startTime).getTime();
+    const nextStartDate = new Date(nextStart);
+    if (Number.isFinite(origDurationMs) && origDurationMs > 0 && !Number.isNaN(nextStartDate.getTime())) {
+      const nextEndDate = new Date(nextStartDate.getTime() + origDurationMs);
+      setRescheduleForm({
+        newStartTime: nextStart,
+        newEndTime: toLocalDateTimeInput(nextEndDate),
+      });
+    } else {
+      setRescheduleForm((prev) => ({ ...prev, newStartTime: nextStart }));
+    }
+  };
+
   const handleRescheduleSubmit = async (e) => {
     e.preventDefault();
     if (!reschedulingBooking || !rescheduleForm.newStartTime || !rescheduleForm.newEndTime) {
       showToast('Lỗi', 'Vui lòng chọn đầy đủ thời gian bắt đầu và kết thúc mới.', 'warning');
+      return;
+    }
+    if (new Date(rescheduleForm.newEndTime) <= new Date(rescheduleForm.newStartTime)) {
+      showToast('Lỗi', 'Thời gian kết thúc mới phải sau thời gian bắt đầu.', 'warning');
       return;
     }
     setSubmittingReschedule(true);
@@ -485,27 +514,40 @@ export default function MemberSchedulePage() {
         ) : weekEntries.length === 0 ? (
           <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-white p-12 text-center space-y-4">
             <div className="w-16 h-16 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center mx-auto shadow-sm">
-              <span className="material-symbols-outlined text-[36px]">event_busy</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[36px]">event_busy</span>
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-800">Không Có Lịch Tập Trong Tuần Này</h3>
+              <h3 className="text-base font-bold text-slate-800">
+                {rawWeekEntries.length > 0 ? 'Không Có Lịch Phù Hợp Bộ Lọc' : 'Không Có Lịch Tập Trong Tuần Này'}
+              </h3>
               <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                Tuần này bạn chưa có lịch học hay ca đặt sân nào. Hãy đăng ký lớp học thể thao mới hoặc giữ chỗ sân tập cùng bạn bè!
+                {rawWeekEntries.length > 0
+                  ? 'Thử chuyển về tab Tất cả để xem toàn bộ lịch học và đặt sân trong tuần này.'
+                  : 'Tuần này bạn chưa có lịch học hay ca đặt sân nào. Hãy đăng ký lớp học thể thao mới hoặc giữ chỗ sân tập cùng bạn bè!'}
               </p>
             </div>
-            <div className="flex items-center justify-center gap-3 pt-2">
+            <div className="flex items-center justify-center gap-3 pt-2 flex-wrap">
+              {rawWeekEntries.length > 0 && filterType !== 'ALL' && (
+                <button
+                  type="button"
+                  onClick={() => setFilterType('ALL')}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-md transition-all cursor-pointer"
+                >
+                  <span>Xem tất cả lịch tuần này ({rawWeekEntries.length})</span>
+                </button>
+              )}
               <Link
                 to="/member/classes"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-md shadow-orange-500/20 transition-all cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[18px]">school</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">school</span>
                 <span>Đăng Ký Lớp Ngay</span>
               </Link>
               <Link
                 to="/member/book/court/sports"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[18px]">sports_tennis</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">sports_tennis</span>
                 <span>Đặt Sân Thể Thao</span>
               </Link>
             </div>
@@ -1008,22 +1050,22 @@ export default function MemberSchedulePage() {
         {/* =========================================
             4. COACH PUBLIC PROFILE MODAL
            ========================================= */}
-        {selectedCoach && createPortal(
-          <div
-            onClick={() => setSelectedCoach(null)}
-            className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto !m-0"
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-lg my-auto bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden relative"
-            >
+        <ModalDialog
+          open={Boolean(selectedCoach)}
+          onClose={() => setSelectedCoach(null)}
+          titleId="schedule-coach-title"
+          maxWidthClass="max-w-lg"
+        >
+          {selectedCoach && (
+            <div className="w-full bg-white overflow-hidden relative">
               <div className="h-28 bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 p-4 flex justify-end">
                 <button
                   type="button"
+                  aria-label="Đóng"
                   onClick={() => setSelectedCoach(null)}
                   className="w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 text-white flex items-center justify-center transition-colors cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[18px]">close</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">close</span>
                 </button>
               </div>
 
@@ -1042,14 +1084,14 @@ export default function MemberSchedulePage() {
                 </div>
 
                 <div>
-                  <h3 className="text-xl font-black text-slate-900">{selectedCoach.fullName}</h3>
+                  <h3 id="schedule-coach-title" className="text-xl font-black text-slate-900">{selectedCoach.fullName}</h3>
                   <p className="text-xs text-orange-600 font-bold mt-0.5">
                     Huấn Luyện Viên Thể Thao F Sport Center
                   </p>
                 </div>
 
                 <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-xs text-slate-700 leading-relaxed">
-                  <span className="font-bold text-slate-900 block mb-1">Tiểu sử & Chuyên môn:</span>
+                  <span className="font-bold text-slate-900 block mb-1">Tiểu sử &amp; Chuyên môn:</span>
                   {selectedCoach.bio || 'Huấn luyện viên chuyên môn cao với nhiều năm kinh nghiệm đào tạo học viên đạt chuẩn thể lực và kỹ thuật chuyên nghiệp.'}
                 </div>
 
@@ -1093,30 +1135,29 @@ export default function MemberSchedulePage() {
                 </button>
               </div>
             </div>
-          </div>,
-          document.body
-        )}
+          )}
+        </ModalDialog>
 
         {/* =========================================
             5. CANCEL BOOKING CONFIRMATION MODAL
            ========================================= */}
-        {cancelingBooking && createPortal(
-          <div
-            onClick={() => setCancelingBooking(null)}
-            className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto !m-0"
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md my-auto bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-4"
-            >
+        <ModalDialog
+          open={Boolean(cancelingBooking)}
+          onClose={() => setCancelingBooking(null)}
+          preventClose={submittingCancel}
+          titleId="schedule-cancel-title"
+          maxWidthClass="max-w-md"
+        >
+          {cancelingBooking && (
+            <div className="p-6 space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto">
-                <span className="material-symbols-outlined text-[28px]">warning</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[28px]">warning</span>
               </div>
 
               <div className="text-center space-y-1">
-                <h3 className="text-lg font-black text-slate-900">{isUnpaidBooking(cancelingBooking) ? 'Hủy Yêu Cầu Giữ Chỗ?' : 'Xác Nhận Hủy Lịch Tập?'}</h3>
+                <h3 id="schedule-cancel-title" className="text-lg font-black text-slate-900">{isUnpaidBooking(cancelingBooking) ? 'Hủy Yêu Cầu Giữ Chỗ?' : 'Xác Nhận Hủy Lịch Tập?'}</h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Bạn có chắc muốn hủy <strong>"{cancelingBooking.title}"</strong> vào lúc{' '}
+                  Bạn có chắc muốn hủy <strong>&quot;{cancelingBooking.title}&quot;</strong> vào lúc{' '}
                   <strong>{formatTime(cancelingBooking.startTime)}</strong> ngày{' '}
                   <strong>{new Date(cancelingBooking.startTime).toLocaleDateString('vi-VN')}</strong>?
                 </p>
@@ -1126,10 +1167,10 @@ export default function MemberSchedulePage() {
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-700">
                   Yêu cầu này chưa thanh toán. Hủy yêu cầu sẽ trả lại chỗ giữ và bạn có thể đăng ký lại.
                 </div>
-              ) : cancelingBooking.isMaintenanceAffected ? (
+              ) : (cancelingBooking.isMaintenanceAffected || cancelingBooking.hasMaintenanceConflict) ? (
                 <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-1 text-xs">
                   <div className="flex items-center gap-1.5 font-bold text-amber-800">
-                    <span className="material-symbols-outlined text-[16px]">engineering</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[16px]">engineering</span>
                     Miễn Phạt Do Trùng Lịch Bảo Trì (Hoàn 100%)
                   </div>
                   <p className="text-amber-700 leading-relaxed text-[11px]">
@@ -1139,7 +1180,7 @@ export default function MemberSchedulePage() {
               ) : !isWithinFreeCancelWindow(cancelingBooking) ? (
                 <div className="p-4 bg-red-50 rounded-2xl border border-red-200 space-y-1 text-xs">
                   <div className="flex items-center gap-1.5 font-bold text-red-800">
-                    <span className="material-symbols-outlined text-[16px]">warning</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[16px]">warning</span>
                     Hủy sát giờ (&lt; 2 tiếng) — Không hoàn tiền / quota
                   </div>
                   <p className="text-red-700 leading-relaxed text-[11px]">
@@ -1149,17 +1190,17 @@ export default function MemberSchedulePage() {
               ) : Number(cancelingBooking.amountPaid) > 0 ? (
                 <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-1 text-xs">
                   <div className="flex items-center gap-1.5 font-bold text-emerald-800">
-                    <span className="material-symbols-outlined text-[16px]">verified</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[16px]">verified</span>
                     Chính sách hoàn tiền 100%
                   </div>
                   <p className="text-emerald-700 leading-relaxed text-[11px]">
-                    Do bạn thực hiện hủy trước giờ tập trên 2 tiếng, yêu cầu hoàn 100% học phí/tiền sân ({formatMoney(cancelingBooking.amountPaid)}) sẽ được gửi tới ban quản lý để duyệt hoàn trả. Lịch tập sẽ chuyển sang trạng thái "Chờ duyệt hoàn tiền".
+                    Do bạn thực hiện hủy trước giờ tập trên 2 tiếng, yêu cầu hoàn 100% học phí/tiền sân ({formatMoney(cancelingBooking.amountPaid)}) sẽ được gửi tới ban quản lý để duyệt hoàn trả. Lịch tập sẽ chuyển sang trạng thái &quot;Chờ duyệt hoàn tiền&quot;.
                   </p>
                 </div>
               ) : (
                 <div className="p-4 bg-blue-50 rounded-2xl border border-blue-200 space-y-1 text-xs">
                   <div className="flex items-center gap-1.5 font-bold text-blue-800">
-                    <span className="material-symbols-outlined text-[16px]">event_busy</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[16px]">event_busy</span>
                     Chính sách hủy lịch tập
                   </div>
                   <p className="text-blue-700 leading-relaxed text-[11px]">
@@ -1192,7 +1233,7 @@ export default function MemberSchedulePage() {
                     <span>
                       {isUnpaidBooking(cancelingBooking)
                         ? 'Xác Nhận Hủy Yêu Cầu'
-                        : !cancelingBooking.hasMaintenanceConflict && !isWithinFreeCancelWindow(cancelingBooking)
+                        : !(cancelingBooking.isMaintenanceAffected || cancelingBooking.hasMaintenanceConflict) && !isWithinFreeCancelWindow(cancelingBooking)
                         ? 'Xác Nhận Hủy (Không hoàn)'
                         : Number(cancelingBooking.amountPaid) > 0
                         ? 'Xác Nhận Hủy (Hoàn 100%)'
@@ -1202,33 +1243,34 @@ export default function MemberSchedulePage() {
                 </button>
               </div>
             </div>
-          </div>,
-          document.body
-        )}
+          )}
+        </ModalDialog>
 
         {/* =========================================
             6. RESCHEDULE COURT BOOKING MODAL
            ========================================= */}
-        {reschedulingBooking && createPortal(
-          <div
-            onClick={() => setReschedulingBooking(null)}
-            className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto !m-0"
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md my-auto bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-4"
-            >
+        <ModalDialog
+          open={Boolean(reschedulingBooking)}
+          onClose={() => setReschedulingBooking(null)}
+          preventClose={submittingReschedule}
+          titleId="schedule-reschedule-title"
+          maxWidthClass="max-w-md"
+        >
+          {reschedulingBooking && (
+            <div className="p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-orange-600 text-[24px]">edit_calendar</span>
-                  <h3 className="text-base font-bold text-slate-900">Đổi Lịch Đặt Sân</h3>
+                  <span aria-hidden="true" className="material-symbols-outlined text-orange-600 text-[24px]">edit_calendar</span>
+                  <h3 id="schedule-reschedule-title" className="text-base font-bold text-slate-900">Đổi Lịch Đặt Sân</h3>
                 </div>
                 <button
                   type="button"
+                  aria-label="Đóng"
+                  disabled={submittingReschedule}
                   onClick={() => setReschedulingBooking(null)}
-                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                  className="text-slate-400 hover:text-slate-700 cursor-pointer disabled:opacity-50"
                 >
-                  <span className="material-symbols-outlined text-[20px]">close</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[20px]">close</span>
                 </button>
               </div>
 
@@ -1247,21 +1289,25 @@ export default function MemberSchedulePage() {
 
               <form onSubmit={handleRescheduleSubmit} className="space-y-3.5">
                 <div>
-                  <label className="text-xs font-bold uppercase text-slate-700">Thời gian bắt đầu mới *</label>
+                  <label htmlFor="reschedule-start" className="text-xs font-bold uppercase text-slate-700">Thời gian bắt đầu mới *</label>
                   <input
+                    id="reschedule-start"
                     type="datetime-local"
                     required
+                    min={toLocalDateTimeInput(new Date())}
                     value={rescheduleForm.newStartTime}
-                    onChange={(e) => setRescheduleForm({ ...rescheduleForm, newStartTime: e.target.value })}
+                    onChange={(e) => handleRescheduleStartChange(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold uppercase text-slate-700">Thời gian kết thúc mới *</label>
+                  <label htmlFor="reschedule-end" className="text-xs font-bold uppercase text-slate-700">Thời gian kết thúc mới *</label>
                   <input
+                    id="reschedule-end"
                     type="datetime-local"
                     required
+                    min={rescheduleForm.newStartTime || toLocalDateTimeInput(new Date())}
                     value={rescheduleForm.newEndTime}
                     onChange={(e) => setRescheduleForm({ ...rescheduleForm, newEndTime: e.target.value })}
                     className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none"
@@ -1300,9 +1346,8 @@ export default function MemberSchedulePage() {
                 </div>
               </form>
             </div>
-          </div>,
-          document.body
-        )}
+          )}
+        </ModalDialog>
       </div>
     </MemberLayout>
   );

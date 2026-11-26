@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { createManagerUser, getManagerDomainSports } from '../../services/managerApi';
 import { createReceptionistUser, getReceptionistDomainSports } from '../../services/receptionistApi';
 import CoachSportSelector from './CoachSportSelector';
+import ModalDialog from './ModalDialog';
 
 export default function CreateUserModal({ isOpen, onClose, onSuccess, memberOnly = false, staffOnly = false }) {
   const { currentUser, currentRole, showToast } = useApp();
+  const titleId = useId();
 
   const isManager =
     currentRole === 'admin' ||
@@ -20,6 +22,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess, memberOnly
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('SportHub@123');
   const [showPassword, setShowPassword] = useState(false);
+  const [copiedPassword, setCopiedPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [sports, setSports] = useState([]);
@@ -99,7 +102,15 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess, memberOnly
     onClose();
   };
 
-  if (!isOpen) return null;
+  const handleCopyPassword = async () => {
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopiedPassword(true);
+      window.setTimeout(() => setCopiedPassword(false), 1800);
+    } catch {
+      // ignore clipboard errors
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -160,16 +171,22 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess, memberOnly
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 !m-0">
-      <div className="relative w-full max-w-lg overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-2xl">
+    <ModalDialog
+      open={isOpen}
+      onClose={handleClose}
+      preventClose={submitting}
+      titleId={titleId}
+      maxWidthClass="max-w-lg"
+    >
+      <div className="relative w-full overflow-hidden bg-white">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div className="flex items-center gap-2.5">
             <span className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
-              <span className="material-symbols-outlined text-[20px]">person_add</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">person_add</span>
             </span>
             <div>
-              <h2 className="text-base font-bold text-slate-900">Thêm người dùng mới</h2>
+              <h2 id={titleId} className="text-base font-bold text-slate-900">Thêm người dùng mới</h2>
               <p className="text-xs text-slate-500">
                 Khởi tạo tài khoản trực tiếp trên hệ thống quản trị F Sport
               </p>
@@ -178,9 +195,11 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess, memberOnly
           <button
             type="button"
             onClick={handleClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+            disabled={submitting}
+            aria-label="Đóng"
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[20px]">close</span>
           </button>
         </div>
 
@@ -289,14 +308,24 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess, memberOnly
 
           {/* Mật khẩu khởi tạo */}
           <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-              <label className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="create-user-password" className="text-xs uppercase tracking-wider text-slate-700 font-extrabold">
                 Mật khẩu khởi tạo *
               </label>
-              <span className="text-[10px] text-slate-400 font-medium">Tối thiểu 8 ký tự</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-500 font-medium">Mặc định: <code className="font-mono font-bold text-slate-700">SportHub@123</code></span>
+                <button
+                  type="button"
+                  onClick={handleCopyPassword}
+                  className="text-[10px] font-bold text-orange-600 hover:text-orange-700 cursor-pointer"
+                >
+                  {copiedPassword ? 'Đã chép' : 'Sao chép'}
+                </button>
+              </div>
             </div>
             <div className="relative flex items-center">
               <input
+                id="create-user-password"
                 type={showPassword ? 'text' : 'password'}
                 required
                 minLength={8}
@@ -307,10 +336,11 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess, memberOnly
               />
               <button
                 type="button"
+                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 text-slate-400 hover:text-slate-700 transition-colors flex items-center cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[18px]">
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
                   {showPassword ? 'visibility_off' : 'visibility'}
                 </span>
               </button>
@@ -443,6 +473,6 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess, memberOnly
           </div>
         </form>
       </div>
-    </div>
+    </ModalDialog>
   );
 }

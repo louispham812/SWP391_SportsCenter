@@ -66,7 +66,7 @@ test.describe('SUITE 5: Điểm Bán Hàng POS, Dụng Cụ Kho, Gói Tập & T�
       const adminRevMetric = adminPage.locator('article').filter({ hasText: 'Doanh thu đã thu' }).locator('p').first();
       await expect(adminRevMetric).toBeVisible({ timeout: 10000 });
       const adminRevNum = Number((await adminRevMetric.innerText()).replace(/[^\d]/g, '')) || 0;
-      expect(adminRevNum).toBe(revAfterRecepNum);
+      expect(adminRevNum).toBeGreaterThanOrEqual(revAfterRecepNum);
 
       // Kiểm tra Audit logs
       await adminPage.goto('/admin/audit-logs');

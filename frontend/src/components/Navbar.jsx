@@ -17,6 +17,11 @@ export default function Navbar() {
   const profileLink = getRoleProfileLink(currentRole, accountPath);
 
   useEffect(() => {
+    setMobileNavOpen(false);
+    setUserMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
     const handleClickOutside = (event) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setUserMenuOpen(false);
@@ -89,6 +94,7 @@ export default function Navbar() {
               <Link
                 key={link.label}
                 to={link.path}
+                aria-current={isActive ? 'page' : undefined}
                 className={`text-[13px] uppercase tracking-wider transition-colors py-1 font-extrabold ${
                   isActive
                     ? 'text-orange-600 border-b-2 border-orange-500'
@@ -214,16 +220,23 @@ export default function Navbar() {
       {/* Mobile Nav */}
       {mobileNavOpen && (
         <div className="lg:hidden bg-white border-b border-slate-200 px-6 py-4 flex flex-col gap-3 shadow-xl">
-          {navLinks.map((link) => (
-            <Link
-              key={link.label}
-              to={link.path}
-              onClick={() => setMobileNavOpen(false)}
-              className="text-sm font-bold text-slate-800 py-2 border-b border-slate-100 uppercase tracking-wider"
-            >
-              {link.label}
-            </Link>
-          ))}
+          {navLinks.map((link) => {
+            const isActive = location.pathname === link.path
+              || location.pathname.startsWith(`${link.path}/`);
+            return (
+              <Link
+                key={link.label}
+                to={link.path}
+                aria-current={isActive ? 'page' : undefined}
+                onClick={() => setMobileNavOpen(false)}
+                className={`text-sm font-bold py-2 border-b border-slate-100 uppercase tracking-wider ${
+                  isActive ? 'text-orange-600' : 'text-slate-800'
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
           {!isAuthenticated ? (
             <Link
               to="/login"

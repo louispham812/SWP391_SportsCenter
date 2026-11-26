@@ -2,10 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { useApp } from '../context/AppContext';
 import { getPublicFacilities, getPublicSports } from '../services/publicContentApi';
 import { getSportMedia } from '../utils/mediaMap';
+import { getPortalHomePath } from '../utils/portalRoute';
 
 export default function AboutPage() {
+  const { currentUser, currentRole } = useApp();
+  const portalHomePath = getPortalHomePath(currentRole, '/member');
   const [sports, setSports] = useState([]);
   const [facilities, setFacilities] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,7 +41,7 @@ export default function AboutPage() {
       label: 'Sân bãi & cơ sở vật chất 5 sao',
       icon: 'stadium',
     },
-    { number: '24/7', label: 'Check-in RFID & AI Smart Coach', icon: 'schedule' },
+    { number: '05:30 - 23:00', label: 'Mở cửa mỗi ngày · RFID & AI', icon: 'schedule' },
   ];
 
   const coreValues = [
@@ -427,10 +431,10 @@ export default function AboutPage() {
                 Trở Thành Hội Viên Ngay
               </Link>
               <Link
-                to="/login"
+                to={currentUser ? portalHomePath : '/login'}
                 className="px-8 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
               >
-                Đăng Nhập Tài Khoản
+                {currentUser ? 'Về Portal Của Tôi' : 'Đăng Nhập Tài Khoản'}
               </Link>
             </div>
           </div>
