@@ -236,6 +236,7 @@ public class AiAssistantService {
             append(context, "Cân nặng (kg)", profile.getWeightKg());
             append(context, "Chiều cao (cm)", profile.getHeightCm());
             append(context, "BMI", profile.getBmi());
+            append(context, "Khối lượng cơ nạc SMM (kg)", profile.getSmmKg());
             append(context, "Tỷ lệ mỡ (%)", profile.getPbfPercent());
         }
         context.append("Các lớp đã đăng ký:\n");

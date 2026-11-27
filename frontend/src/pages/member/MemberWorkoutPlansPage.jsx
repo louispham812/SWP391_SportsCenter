@@ -347,7 +347,7 @@ export default function MemberWorkoutPlansPage() {
 
     try {
       const res = await sendMemberAssistantMessages([{ role: 'user', content: prompt }]);
-      const rawText = String(res?.reply || res?.message || res?.content || '').trim();
+      const rawText = String(res?.answer || res?.reply || res?.message || res?.content || '').trim();
       const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
       const firstBrace = cleaned.indexOf('{');
       const lastBrace = cleaned.lastIndexOf('}');
