@@ -1,6 +1,7 @@
 package com.sporthub.backend.controller;
 
 import com.sporthub.backend.dto.CreateClassSessionRequest;
+import com.sporthub.backend.dto.FacilityRequest;
 import com.sporthub.backend.dto.FacilityStatusRequest;
 import com.sporthub.backend.dto.ManagerFacilityResponse;
 import com.sporthub.backend.dto.UpdateClassSessionRequest;
@@ -155,6 +156,84 @@ public class FacilityManagementController {
                 sportName,
                 facility.getCapacity(),
                 facility.getStatus());
+    }
+
+    @PostMapping("/facilities")
+    @Transactional
+    public ManagerFacilityResponse createFacility(
+            @RequestBody FacilityRequest request,
+            Authentication authentication) {
+        requireManager(authentication);
+        if (request.facilityName() == null || request.facilityName().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên cơ sở / sân không được để trống.");
+        }
+        if (request.sportId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng chọn bộ môn thể thao.");
+        }
+        Sport sport = sportRepository.findById(request.sportId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Môn thể thao không tồn tại."));
+        int capacity = (request.capacity() != null && request.capacity() > 0) ? request.capacity() : 10;
+
+        Facility facility = new Facility();
+        facility.setFacilityName(request.facilityName().trim());
+        facility.setSportId(request.sportId());
+        facility.setCapacity(capacity);
+        facility.setStatus("AVAILABLE");
+        Facility saved = facilityRepository.save(facility);
+
+        if (engagementService != null) {
+            engagementService.audit(actorId(authentication), actorRole(authentication),
+                    "FACILITY_CREATED", "facilityId=" + saved.getFacilityId() + ", name=" + saved.getFacilityName());
+        }
+
+        return new ManagerFacilityResponse(
+                saved.getFacilityId(),
+                saved.getFacilityName(),
+                saved.getSportId(),
+                sport.getSportName(),
+                saved.getCapacity(),
+                saved.getStatus());
+    }
+
+    @PutMapping("/facilities/{facilityId}")
+    @Transactional
+    public ManagerFacilityResponse updateFacility(
+            @PathVariable Long facilityId,
+            @RequestBody FacilityRequest request,
+            Authentication authentication) {
+        requireManager(authentication);
+        Facility facility = facilityRepository.findById(facilityId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy cơ sở / sân."));
+        if (request.facilityName() == null || request.facilityName().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên cơ sở / sân không được để trống.");
+        }
+        facility.setFacilityName(request.facilityName().trim());
+        if (request.capacity() != null && request.capacity() > 0) {
+            facility.setCapacity(request.capacity());
+        }
+        if (request.sportId() != null) {
+            if (!sportRepository.existsById(request.sportId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Môn thể thao không tồn tại.");
+            }
+            facility.setSportId(request.sportId());
+        }
+        Facility updated = facilityRepository.save(facility);
+
+        if (engagementService != null) {
+            engagementService.audit(actorId(authentication), actorRole(authentication),
+                    "FACILITY_UPDATED", "facilityId=" + facilityId + ", name=" + updated.getFacilityName());
+        }
+
+        String sportName = sportRepository.findById(updated.getSportId())
+                .map(Sport::getSportName)
+                .orElse(null);
+        return new ManagerFacilityResponse(
+                updated.getFacilityId(),
+                updated.getFacilityName(),
+                updated.getSportId(),
+                sportName,
+                updated.getCapacity(),
+                updated.getStatus());
     }
 
     @PostMapping("/class-sessions")

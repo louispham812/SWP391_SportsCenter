@@ -60,6 +60,18 @@ export const updateManagerFacilityStatus = (facilityId, status) =>
     body: JSON.stringify({ status }),
   });
 
+export const createManagerFacility = (facility) =>
+  apiRequest('/manager/facilities', {
+    method: 'POST',
+    body: JSON.stringify(facility),
+  });
+
+export const updateManagerFacility = (facilityId, facility) =>
+  apiRequest(`/manager/facilities/${facilityId}`, {
+    method: 'PUT',
+    body: JSON.stringify(facility),
+  });
+
 export const createManagerClassSession = (session) =>
   apiRequest('/manager/class-sessions', {
     method: 'POST',

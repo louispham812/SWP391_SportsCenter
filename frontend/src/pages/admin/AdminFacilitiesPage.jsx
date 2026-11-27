@@ -4,9 +4,11 @@ import AdminLayout from '../../components/layouts/AdminLayout';
 import ModalDialog from '../../components/common/ModalDialog';
 import { CardGridSkeleton } from '../../components/common/Skeleton';
 import {
+  createManagerFacility,
   getManagerCoaches,
   getManagerDomainSports,
   getManagerFacilities,
+  updateManagerFacility,
   updateManagerFacilityStatus,
 } from '../../services/managerApi';
 import {
@@ -47,6 +49,23 @@ export default function AdminFacilitiesPage() {
   const [extendForm, setExtendForm] = useState({
     newEndTime: '',
     reason: '',
+  });
+
+  // Create Facility State
+  const [isCreateFacilityModalOpen, setIsCreateFacilityModalOpen] = useState(false);
+  const [createFacilityForm, setCreateFacilityForm] = useState({
+    sportId: '',
+    facilityName: '',
+    capacity: 10,
+  });
+
+  // Edit Facility State
+  const [isEditFacilityModalOpen, setIsEditFacilityModalOpen] = useState(false);
+  const [editingFacility, setEditingFacility] = useState(null);
+  const [editFacilityForm, setEditFacilityForm] = useState({
+    facilityName: '',
+    capacity: 10,
+    sportId: '',
   });
 
   const loadFacilities = useCallback(async () => {
@@ -220,6 +239,69 @@ export default function AdminFacilitiesPage() {
     }
   };
 
+  const handleOpenEditModal = (facility) => {
+    setEditingFacility(facility);
+    setEditFacilityForm({
+      facilityName: facility.facilityName || '',
+      capacity: facility.capacity || 10,
+      sportId: facility.sportId ? String(facility.sportId) : '',
+    });
+    setIsEditFacilityModalOpen(true);
+  };
+
+  const handleCreateFacility = async (e) => {
+    e.preventDefault();
+    if (!createFacilityForm.facilityName.trim()) {
+      showToast('Lỗi', 'Vui lòng nhập tên sân / cơ sở.', 'warning');
+      return;
+    }
+    if (!createFacilityForm.sportId) {
+      showToast('Lỗi', 'Vui lòng chọn bộ môn thể thao.', 'warning');
+      return;
+    }
+    setSaving(true);
+    try {
+      await createManagerFacility({
+        facilityName: createFacilityForm.facilityName.trim(),
+        sportId: Number(createFacilityForm.sportId),
+        capacity: Number(createFacilityForm.capacity) || 10,
+      });
+      showToast('Thành công', `Đã thêm sân mới "${createFacilityForm.facilityName.trim()}".`, 'success');
+      setIsCreateFacilityModalOpen(false);
+      setCreateFacilityForm({ sportId: '', facilityName: '', capacity: 10 });
+      await loadFacilities();
+    } catch (err) {
+      showToast('Lỗi tạo sân mới', err.message || 'Không thể tạo sân mới.', 'danger');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdateFacility = async (e) => {
+    e.preventDefault();
+    if (!editingFacility) return;
+    if (!editFacilityForm.facilityName.trim()) {
+      showToast('Lỗi', 'Vui lòng nhập tên sân / cơ sở.', 'warning');
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateManagerFacility(editingFacility.facilityId, {
+        facilityName: editFacilityForm.facilityName.trim(),
+        capacity: Number(editFacilityForm.capacity) || 10,
+        sportId: editFacilityForm.sportId ? Number(editFacilityForm.sportId) : editingFacility.sportId,
+      });
+      showToast('Thành công', `Đã cập nhật thông tin sân "${editFacilityForm.facilityName.trim()}".`, 'success');
+      setIsEditFacilityModalOpen(false);
+      setEditingFacility(null);
+      await loadFacilities();
+    } catch (err) {
+      showToast('Lỗi cập nhật', err.message || 'Không thể cập nhật thông tin sân.', 'danger');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -247,12 +329,18 @@ export default function AdminFacilitiesPage() {
             </button>
             <button
               type="button"
-              onClick={() => navigate('/admin/classes/new')}
-              disabled={!sports.length || !coaches.length || !facilities.some((facility) => facility.status === 'AVAILABLE')}
-              className="flex items-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer whitespace-nowrap"
+              onClick={() => {
+                setCreateFacilityForm({
+                  sportId: sports.length > 0 ? String(sports[0].sportId) : '',
+                  facilityName: '',
+                  capacity: 10,
+                });
+                setIsCreateFacilityModalOpen(true);
+              }}
+              className="flex items-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm shadow-orange-500/25 active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap"
             >
               <span className="material-symbols-outlined text-[18px]">add_circle</span>
-              Tạo lịch lớp mới
+              Thêm sân mới
             </button>
           </div>
         </header>
@@ -415,17 +503,28 @@ export default function AdminFacilitiesPage() {
                             </div>
                             <div className="mt-5 flex items-center justify-between border-t border-slate-200/70 pt-3.5">
                               <span className="text-xs text-slate-400 font-medium">Mã cơ sở: #{facility.facilityId}</span>
-                              <button
-                                type="button"
-                                onClick={() => handleFacilityStatus(facility)}
-                                className={`rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                                  facility.status === 'AVAILABLE'
-                                    ? 'border border-amber-300 text-amber-800 hover:bg-amber-50'
-                                    : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-2xs'
-                                }`}
-                              >
-                                {facility.status === 'AVAILABLE' ? 'Tạm khóa bảo trì' : 'Mở lại hoạt động'}
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditModal(facility)}
+                                  title="Chỉnh sửa Tên sân & Sức chứa"
+                                  className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:text-orange-600 hover:border-orange-200 hover:bg-orange-50 text-xs font-bold transition-all cursor-pointer shadow-2xs shrink-0"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">edit</span>
+                                  <span>Sửa</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleFacilityStatus(facility)}
+                                  className={`rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                                    facility.status === 'AVAILABLE'
+                                      ? 'border border-amber-300 text-amber-800 hover:bg-amber-50'
+                                      : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-2xs'
+                                  }`}
+                                >
+                                  {facility.status === 'AVAILABLE' ? 'Tạm khóa bảo trì' : 'Mở lại hoạt động'}
+                                </button>
+                              </div>
                             </div>
                           </article>
                         ))}
@@ -768,6 +867,198 @@ export default function AdminFacilitiesPage() {
                   </button>
                 </div>
               </form>
+          </div>
+        )}
+      </ModalDialog>
+
+      {/* Modal Thêm Sân / Cơ Sở Mới */}
+      <ModalDialog
+        open={isCreateFacilityModalOpen}
+        onClose={() => setIsCreateFacilityModalOpen(false)}
+        titleId="admin-facility-create-title"
+        maxWidthClass="max-w-lg"
+        preventClose={saving}
+      >
+        <div className="p-6 sm:p-8 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-orange-600 text-[22px]">add_circle</span>
+              <h3 id="admin-facility-create-title" className="text-base font-bold text-slate-900">
+                Thêm Sân / Cơ Sở Mới
+              </h3>
+            </div>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => setIsCreateFacilityModalOpen(false)}
+              aria-label="Đóng hộp thoại thêm sân"
+              className="text-slate-400 hover:text-slate-700 cursor-pointer disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
+
+          <form onSubmit={handleCreateFacility} className="space-y-4">
+            <div>
+              <label className="text-xs font-bold uppercase text-slate-700">Bộ môn thể thao *</label>
+              <select
+                required
+                value={createFacilityForm.sportId}
+                onChange={(e) => setCreateFacilityForm({ ...createFacilityForm, sportId: e.target.value })}
+                className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none cursor-pointer"
+              >
+                <option value="">-- Chọn môn thể thao --</option>
+                {sports.map((s) => (
+                  <option key={s.sportId} value={s.sportId}>
+                    {s.sportName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold uppercase text-slate-700">Tên sân / Tên cơ sở *</label>
+              <input
+                type="text"
+                required
+                value={createFacilityForm.facilityName}
+                onChange={(e) => setCreateFacilityForm({ ...createFacilityForm, facilityName: e.target.value })}
+                placeholder="VD: Cụm Sân Pickleball - Sân P3 (Outdoor), Sân Cầu Lông VIP B3..."
+                className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-medium outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold uppercase text-slate-700">Sức chứa tối đa (người) *</label>
+              <input
+                type="number"
+                required
+                min={1}
+                max={200}
+                value={createFacilityForm.capacity}
+                onChange={(e) => setCreateFacilityForm({ ...createFacilityForm, capacity: Number(e.target.value) })}
+                className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none"
+              />
+              <p className="mt-1 text-[11px] text-slate-400">
+                Sức chứa phục vụ tối đa cho một ca tập / lớp học tại cơ sở này.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsCreateFacilityModalOpen(false)}
+                className="rounded-xl border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="rounded-xl bg-orange-500 hover:bg-orange-600 px-5 py-2 text-xs font-bold uppercase text-white shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                {saving ? 'Đang tạo...' : 'Tạo sân mới'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </ModalDialog>
+
+      {/* Modal Chỉnh Sửa Thông Tin Sân */}
+      <ModalDialog
+        open={Boolean(isEditFacilityModalOpen && editingFacility)}
+        onClose={() => {
+          setIsEditFacilityModalOpen(false);
+          setEditingFacility(null);
+        }}
+        titleId="admin-facility-edit-title"
+        maxWidthClass="max-w-lg"
+        preventClose={saving}
+      >
+        {editingFacility && (
+          <div className="p-6 sm:p-8 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-orange-600 text-[22px]">edit</span>
+                <h3 id="admin-facility-edit-title" className="text-base font-bold text-slate-900">
+                  Chỉnh Sửa Thông Tin Sân #{editingFacility.facilityId}
+                </h3>
+              </div>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  setIsEditFacilityModalOpen(false);
+                  setEditingFacility(null);
+                }}
+                aria-label="Đóng hộp thoại chỉnh sửa"
+                className="text-slate-400 hover:text-slate-700 cursor-pointer disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateFacility} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-700">Bộ môn thể thao *</label>
+                <select
+                  required
+                  value={editFacilityForm.sportId}
+                  onChange={(e) => setEditFacilityForm({ ...editFacilityForm, sportId: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none cursor-pointer"
+                >
+                  {sports.map((s) => (
+                    <option key={s.sportId} value={s.sportId}>
+                      {s.sportName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-700">Tên sân / Tên cơ sở *</label>
+                <input
+                  type="text"
+                  required
+                  value={editFacilityForm.facilityName}
+                  onChange={(e) => setEditFacilityForm({ ...editFacilityForm, facilityName: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-medium outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-700">Sức chứa tối đa (người) *</label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  max={200}
+                  value={editFacilityForm.capacity}
+                  onChange={(e) => setEditFacilityForm({ ...editFacilityForm, capacity: Number(e.target.value) })}
+                  className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs font-semibold outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditFacilityModalOpen(false);
+                    setEditingFacility(null);
+                  }}
+                  className="rounded-xl border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded-xl bg-orange-500 hover:bg-orange-600 px-5 py-2 text-xs font-bold uppercase text-white shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </ModalDialog>
