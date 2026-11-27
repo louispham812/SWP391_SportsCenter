@@ -191,8 +191,8 @@ export default function ReceptionCheckInPage() {
     try {
       const result = await checkInReceptionMember({ memberId: Number(targetMemberId), bookingId });
       setResultMessage(result.result === 'VALID'
-        ? `ĐIỂM DANH THÀNH CÔNG: Hội viên ${result.memberName} đủ điều kiện vào tập.`
-        : `TỪ CHỐI VÀO TẬP: Tài khoản hội viên ${result.memberName} không hoạt động. Lượt kiểm tra đã được lưu.`);
+        ? `CHECK-IN THÀNH CÔNG: Hội viên ${result.memberName} đã checkin thành công tại trung tâm.`
+        : `CHECK-IN THẤT BẠI: Tài khoản hội viên ${result.memberName} không hoạt động. Lượt kiểm tra đã được lưu.`);
       await refreshHistory();
     } catch (requestError) {
       setError(admissionGuide({ eligible: false, reason: requestError.message }).reason);
@@ -392,11 +392,6 @@ export default function ReceptionCheckInPage() {
                     <div className="space-y-2">
                       <h4 className="text-lg font-bold">{guide.title}</h4>
                       <p className="text-sm leading-6">{guide.reason}</p>
-                      <div className="rounded-xl bg-white/70 p-3 text-sm leading-6">
-                        <p className="font-bold">Lễ tân cần làm gì?</p>
-                        <p>{guide.next}</p>
-                        {guide.link && <Link to={guide.link} className="mt-2 inline-block font-bold underline underline-offset-4">{guide.linkLabel} →</Link>}
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -433,21 +428,6 @@ export default function ReceptionCheckInPage() {
                   </button>
                   <button type="button" disabled={submitting || lookingUp} onClick={() => loadProfile(String(cardProfile.userId))} className="text-sm font-semibold text-blue-700 disabled:opacity-50">Kiểm tra lại sau khi xử lý</button>
                 </div>
-
-                <details className="rounded-xl border border-slate-200 bg-white p-4">
-                  <summary className="cursor-pointer text-sm font-semibold text-slate-700">Thông tin gói tập ({cardProfile.activePackages?.length || 0} gói còn hạn)</summary>
-                  <p className="mt-3 text-xs leading-5 text-slate-500">Gói còn hạn chưa có nghĩa là buổi tập này đủ điều kiện. Cần kiểm tra số lượt và gói được dùng cho lịch.</p>
-                  <div className="mt-3 space-y-3">
-                    {cardProfile.activePackages?.length ? cardProfile.activePackages.map((pkg) => (
-                      <div key={pkg.membershipId} className="rounded-xl bg-slate-50 p-3 text-xs space-y-2">
-                        <p className="font-bold text-slate-900">{pkg.packageName}</p>
-                        <p className="text-slate-600">{formatDate(pkg.startDate)} – {formatDate(pkg.endDate)} · Còn hạn {pkg.daysRemaining} ngày</p>
-                        {pkg.remainingSessions != null && <p className="text-slate-700">Có thể đặt thêm: <strong>{pkg.remainingSessions} buổi</strong> · Đã giữ cho lịch: <strong>{pkg.heldSessions} buổi</strong> · Đã dùng: {pkg.usedSessions} buổi</p>}
-                        {pkg.remainingCourtHours != null && <p className="text-slate-700">Có thể đặt thêm: <strong>{pkg.remainingCourtHours} giờ sân</strong> · Đã giữ cho lịch: <strong>{pkg.heldCourtHours} giờ</strong> · Đã dùng: {pkg.usedCourtHours} giờ</p>}
-                      </div>
-                    )) : <p className="text-xs text-slate-600">Chưa có gói còn hạn. Học viên vẫn có thể sử dụng lịch thanh toán theo buổi nếu đáp ứng điều kiện.</p>}
-                  </div>
-                </details>
               </div>
             </div>
           </section>
