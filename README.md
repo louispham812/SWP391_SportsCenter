@@ -38,7 +38,7 @@ Trung tâm thể thao đa năng **F Sport Center (SportHub)** phục vụ **10 b
 | **Routing** | **React Router DOM 7** | Định tuyến 55 trang UI và bảo vệ route theo vai trò (`RequireRole`) |
 | **Backend** | **Java 21**, **Spring Boot 4.1.2**, **Spring Data JPA**, **Spring Security** | RESTful API (`/api/v1`) qua 23 Controllers, xác thực Bearer Token (`auth_sessions`), gửi OTP qua Gmail SMTP |
 | **Tích hợp mở rộng** | **VNPay Sandbox & Refund API**, **Google Gemini API** (`gemini-flash-lite-latest`) | Thanh toán trực tuyến chữ ký HMAC-SHA512, hoàn tiền qua API & Trợ lý AI tư vấn tập luyện |
-| **Cơ sở dữ liệu** | **Microsoft SQL Server** (2019 / 2022) | Lưu trữ chuẩn hóa **33 bảng** và **51 khóa ngoại** (`SportsCenterDB`), mã hóa UTF-8 |
+| **Cơ sở dữ liệu** | **Microsoft SQL Server** (2019 / 2022) | Lưu trữ chuẩn hóa **33 bảng** và **52 khóa ngoại** (`SportsCenterDB`), mã hóa UTF-8 |
 | **Kiểm thử & Công cụ** | **JUnit 5**, **Playwright E2E**, **Oxlint**, **Knip** | **35 bộ test Backend**, **14 bộ Playwright E2E**, unit test JS, static lint & dead-code check |
 
 ---
@@ -112,19 +112,17 @@ SWP391_SportsCenter/
 │   ├── src/test/                        # 35 bộ kiểm thử Unit & Integration (JUnit 5) + TestMailConfig
 │   └── pom.xml
 │
-├── docs/                                # Tài liệu dự án & hồ sơ bảo vệ
+├── docs/                                # Tài liệu dự án & hồ sơ thiết kế
 │   ├── BUSINESS_RULES.md                # Đặc tả 23 Quy tắc Nghiệp vụ (BR-01..BR-23) & BUSINESS_RULES.csv
-│   ├── demo/                            # Kịch bản bảo vệ 28/11/2026 (KICH_BAN_DEMO_BAO_VE.md & .docx)
+│   ├── demo/                            # Tài liệu ghi chú demo (DEMO_2026-11-20.md)
 │   ├── specs/                           # Đặc tả yêu cầu phần mềm (SRD_Document.md) & PROJECT_TRACKING_FINAL.csv
 │   ├── diagrams/                        # Sơ đồ Kiến trúc Hệ thống, ERD (.drawio/.png) & Usecase
 │   └── slides/                          # Slide thuyết trình HTML/PPTX
 ├── postman/                             # Tài nguyên biến môi trường Postman
-├── DATABASEchuan.sql                    # Script reset & khởi tạo 33 bảng SQL Server + dữ liệu mẫu bảo vệ
+├── DATABASEchuan.sql                    # Script reset & khởi tạo 33 bảng SQL Server + dữ liệu mẫu
 ├── vercel.json                          # Cấu hình rewrite SPA khi deploy Vercel
 └── .env.example                         # Mẫu cấu hình biến môi trường (DB, Mail SMTP, Gemini AI, VNPay)
 ```
-
-> 📘 **Tài liệu Demo Bảo vệ Hội đồng (28/11/2026):** Xem [`docs/demo/KICH_BAN_DEMO_BAO_VE.md`](./docs/demo/KICH_BAN_DEMO_BAO_VE.md).
 
 ---
 
