@@ -745,4 +745,87 @@ class ReceptionistControllerTest {
         assertEquals(2L, profile.shiftStats().totalSalesHandled());
         assertEquals(new BigDecimal("700000"), profile.shiftStats().totalRevenueCollected());
     }
+
+    @Test
+    void sellMembershipRejectsDowngradeWhenHigherTierIsActive() {
+        User member = User.builder().userId(9L).fullName("Member Gold").role("MEMBER").status("ACTIVE").build();
+        var activeGold = new com.sporthub.backend.entity.UserMembership();
+        activeGold.setMembershipId(1L);
+        activeGold.setUserId(9L);
+        activeGold.setPackageId(3L);
+        activeGold.setStatus("ACTIVE");
+        activeGold.setStartDate(LocalDate.now().minusDays(2));
+        activeGold.setEndDate(LocalDate.now().plusDays(28));
+
+        var goldPkg = com.sporthub.backend.entity.MembershipPackage.builder()
+                .packageId(3L).name("Hạng Vàng").membershipTier("GOLD").status("ACTIVE").durationDays(30)
+                .price(new BigDecimal("1000000")).build();
+        var silverPkg = com.sporthub.backend.entity.MembershipPackage.builder()
+                .packageId(2L).name("Hạng Bạc").membershipTier("SILVER").status("ACTIVE").durationDays(30)
+                .price(new BigDecimal("500000")).build();
+
+        when(userRepository.findByIdForUpdate(9L)).thenReturn(java.util.Optional.of(member));
+        when(packageRepository.findById(2L)).thenReturn(java.util.Optional.of(silverPkg));
+        when(packageRepository.findById(3L)).thenReturn(java.util.Optional.of(goldPkg));
+        when(membershipRepository.existsByUserIdAndPackageIdAndStatusIn(eq(9L), eq(2L), any())).thenReturn(false);
+        when(membershipRepository.findByUserIdAndStatus(9L, "ACTIVE")).thenReturn(List.of(activeGold));
+
+        var ex = org.junit.jupiter.api.Assertions.assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> controller.sellMembership(
+                new com.sporthub.backend.dto.ReceptionistMembershipSaleRequest(9L, 2L, "CASH"), receptionist));
+        assertEquals(409, ex.getStatusCode().value());
+    }
+
+    @Test
+    void searchMembersIncludesQueuedRenewalInExtendedEndDateAndQuota() {
+        User member = User.builder()
+                .userId(9L)
+                .fullName("Nguyễn Anh Khoa")
+                .email("khoa@example.com")
+                .phone("0901234567")
+                .role("MEMBER")
+                .status("ACTIVE")
+                .build();
+        LocalDate currentEnd = LocalDate.now().plusDays(15);
+        LocalDate renewedEnd = currentEnd.plusDays(30);
+
+        var currentTerm = new com.sporthub.backend.entity.UserMembership();
+        currentTerm.setMembershipId(41L);
+        currentTerm.setUserId(9L);
+        currentTerm.setPackageId(7L);
+        currentTerm.setStartDate(LocalDate.now().minusDays(15));
+        currentTerm.setEndDate(currentEnd);
+        currentTerm.setStatus("ACTIVE");
+        currentTerm.setRemainingQuotaSessions(5);
+        currentTerm.setRemainingQuotaCourts(3);
+
+        var queuedRenewal = new com.sporthub.backend.entity.UserMembership();
+        queuedRenewal.setMembershipId(42L);
+        queuedRenewal.setUserId(9L);
+        queuedRenewal.setPackageId(7L);
+        queuedRenewal.setStartDate(currentEnd.plusDays(1));
+        queuedRenewal.setEndDate(renewedEnd);
+        queuedRenewal.setStatus("ACTIVE");
+        queuedRenewal.setRemainingQuotaSessions(10);
+        queuedRenewal.setRemainingQuotaCourts(6);
+
+        var pkg = com.sporthub.backend.entity.MembershipPackage.builder()
+                .packageId(7L)
+                .name("Hạng Vàng")
+                .membershipTier("GOLD")
+                .build();
+
+        when(userRepository.searchMembers(eq("Khoa"), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(member), PageRequest.of(0, 20), 1));
+        when(membershipRepository.findByUserIdInOrderByEndDateDesc(List.of(9L)))
+                .thenReturn(List.of(queuedRenewal, currentTerm));
+        when(packageRepository.findAllById(java.util.Set.of(7L)))
+                .thenReturn(List.of(pkg));
+
+        var result = controller.searchMembers("Khoa", 0, 20, receptionist);
+        var row = result.getContent().get(0);
+        assertEquals(renewedEnd, row.activePackageEndDate());
+        assertEquals(15, row.remainingQuotaSessions());
+        assertEquals(2, row.activePackages().size());
+        assertEquals("GOLD", row.activePackages().get(0).membershipTier());
+    }
 }

@@ -17,7 +17,7 @@ import {
 import { compressImageFile } from '../../utils/imageCompressor';
 import { getAvatarImageUrl, getAvatarInitials } from '../../utils/avatarHelper';
 import ActiveMemberPackages from '../../components/common/ActiveMemberPackages';
-import { getActiveMemberships, getTierBadgeStyle } from '../../utils/memberMemberships';
+import { getActiveMemberships, getTierBadgeStyle, getUpcomingMemberships } from '../../utils/memberMemberships';
 
 export default function MemberProfilePage() {
   const { currentUser, updateProfile, showToast } = useApp();
@@ -30,6 +30,7 @@ export default function MemberProfilePage() {
   const [copiedQr, setCopiedQr] = useState(false);
   const [memberships, setMemberships] = useState([]);
   const activeMemberships = getActiveMemberships(memberships);
+  const upcomingMemberships = getUpcomingMemberships(memberships);
   const [digitalCard, setDigitalCard] = useState(null);
   const [showQrModal, setShowQrModal] = useState(false);
   const [memberAvatar, setMemberAvatar] = useState('');
@@ -424,7 +425,7 @@ export default function MemberProfilePage() {
               </div>
             </div>
 
-            <ActiveMemberPackages memberships={activeMemberships} />
+            <ActiveMemberPackages memberships={activeMemberships} upcomingMemberships={upcomingMemberships} />
 
             {/* Today Bookings Card */}
             {digitalCard?.todayBookings && digitalCard.todayBookings.length > 0 && (

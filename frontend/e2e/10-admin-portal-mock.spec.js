@@ -198,17 +198,17 @@ test('report failure clears previous data and disables export until successful r
     report: (route, url) =>
       route.fulfill(fail ? { status: 500, json: { message: 'Báo cáo tạm thời không khả dụng' } } : { json: { ...report, period: url.searchParams.get('period') } }),
   });
-  await expect(page.getByRole('heading', { name: 'Doanh thu đã thu', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Doanh thu', exact: true })).toBeVisible();
   fail = true;
   await page.getByRole('button', { name: 'Tháng', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Báo cáo tạm thời không khả dụng');
-  await expect(page.getByRole('heading', { name: 'Doanh thu đã thu', exact: true })).not.toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Doanh thu', exact: true })).not.toBeVisible();
   await expect(page.getByRole('button', { name: 'Xuất báo cáo CSV', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Xuất báo cáo', exact: true })).toBeDisabled();
   await expect(page.getByText('Tennis sáng', { exact: true })).toBeVisible();
   fail = false;
   await page.getByRole('button', { name: 'Thử lại', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Doanh thu đã thu', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Doanh thu', exact: true })).toBeVisible();
 });
 
 test('schedule error is visible and retry does not discard financial report', async ({ page }) => {
@@ -218,7 +218,7 @@ test('schedule error is visible and retry does not discard financial report', as
       route.fulfill(fail ? { status: 503, json: { message: 'Không tải được lịch lớp' } } : { json: [] }),
   });
   await expect(page.getByRole('alert')).toContainText('Không tải được lịch lớp');
-  await expect(page.getByRole('heading', { name: 'Doanh thu đã thu', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Doanh thu', exact: true })).toBeVisible();
   fail = false;
   await page.getByRole('button', { name: 'Thử lại', exact: true }).click();
   await expect(page.getByText('Không có lớp học trong ngày này.', { exact: true })).toBeVisible();
@@ -231,10 +231,10 @@ test('legacy daily-only server cannot silently show zero revenue for a month', a
       date: '2026-11-01', totalRevenue: 0, completedPayments: 0, newMembers: 0, payments: [], paymentMethods: [],
     } }),
   });
-  await expect(page.getByRole('heading', { name: 'Doanh thu đã thu', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Doanh thu', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Tháng', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Máy chủ chưa trả về đúng kỳ báo cáo');
-  await expect(page.getByRole('heading', { name: 'Doanh thu đã thu', exact: true })).not.toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Doanh thu', exact: true })).not.toBeVisible();
   await expect(page.getByRole('button', { name: 'Xuất báo cáo CSV', exact: true })).toBeDisabled();
 });
 

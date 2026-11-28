@@ -8,7 +8,7 @@ import { getMemberMemberships, purchaseMembership } from '../../services/memberA
 import { redirectToPayment } from '../../services/paymentNavigation';
 import PaymentMethodSelector from '../../components/common/PaymentMethodSelector';
 import ActiveMemberPackages from '../../components/common/ActiveMemberPackages';
-import { getActiveMemberships, getTierBadgeStyle } from '../../utils/memberMemberships';
+import { getActiveMemberships, getTierBadgeStyle, getUpcomingMemberships } from '../../utils/memberMemberships';
 
 const formatMoney = (amount) =>
   new Intl.NumberFormat('vi-VN', {
@@ -72,6 +72,7 @@ export default function MemberPackagesPage() {
   }, []);
 
   const activeMemberships = getActiveMemberships(memberships);
+  const upcomingMemberships = getUpcomingMemberships(memberships);
   const tierRank = { BRONZE: 1, SILVER: 2, GOLD: 3, DIAMOND: 4 };
   const currentTierRank = Math.max(0, ...activeMemberships.map((membership) => tierRank[membership.membershipTier] || 0));
   const sortedPackages = [...packages].sort((a, b) =>
@@ -174,7 +175,7 @@ export default function MemberPackagesPage() {
           </section>
         )}
 
-        <ActiveMemberPackages memberships={activeMemberships} onRenew={(membership) => {
+        <ActiveMemberPackages memberships={activeMemberships} upcomingMemberships={upcomingMemberships} onRenew={(membership) => {
           const pkg = packages.find((item) => item.packageId === membership.packageId);
           if (pkg) handleOpenCheckout(pkg, 'renew');
           else showToast('Chưa thể gia hạn', 'Gói này hiện không mở bán. Vui lòng liên hệ lễ tân.', 'info');

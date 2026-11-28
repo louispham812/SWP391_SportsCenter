@@ -24,10 +24,21 @@ public record ReceptionistMemberResponse(
             Long membershipId,
             Long packageId,
             String packageName,
+            String membershipTier,
             LocalDate startDate,
             LocalDate endDate,
             Integer remainingQuotaSessions,
             Integer remainingQuotaCourts) {
+        public ActivePackageSummary(
+                Long membershipId,
+                Long packageId,
+                String packageName,
+                LocalDate startDate,
+                LocalDate endDate,
+                Integer remainingQuotaSessions,
+                Integer remainingQuotaCourts) {
+            this(membershipId, packageId, packageName, null, startDate, endDate, remainingQuotaSessions, remainingQuotaCourts);
+        }
     }
 
     public ReceptionistMemberResponse(Long userId, String fullName, String email, String phone, String status, LocalDateTime createdAt) {

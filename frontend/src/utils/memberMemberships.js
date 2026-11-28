@@ -7,6 +7,27 @@ export function getActiveMemberships(memberships, now = new Date()) {
     && membership.endDate && membership.endDate >= today);
 }
 
+export function getUpcomingMemberships(memberships, now = new Date()) {
+  const today = dateKey(now);
+  return memberships
+    .filter((membership) => membership.status === 'ACTIVE'
+      && membership.startDate && membership.startDate > today
+      && membership.endDate && membership.endDate >= today)
+    .sort((a, b) => String(a.startDate).localeCompare(String(b.startDate)));
+}
+
+export const TIER_RANK = {
+  BRONZE: 1,
+  SILVER: 2,
+  GOLD: 3,
+  DIAMOND: 4,
+};
+
+export function getTierRank(tierValue) {
+  const normalized = String(tierValue || '').trim().toUpperCase();
+  return TIER_RANK[normalized] || 0;
+}
+
 export function membershipDaysRemaining(endDate, now = new Date()) {
   if (!endDate) return 0;
   const [year, month, day] = endDate.split('-').map(Number);

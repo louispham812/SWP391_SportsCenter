@@ -391,7 +391,7 @@ export default function AdminDashboardPage() {
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   {[
                     [
-                      'Doanh thu đã thu',
+                      'Doanh thu',
                       formatPrice(report.totalRevenue),
                       'Chỉ tính giao dịch hoàn tất',
                       'payments',

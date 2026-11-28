@@ -128,4 +128,44 @@ class MembershipServiceTest {
         tierService.approveMembership(55L, 1L);
         assertEquals(java.time.LocalDate.now(), purchased.getStartDate());
     }
+
+    @Test
+    void approveMembershipRejectsDowngradeWhenHigherTierIsActive() {
+        var rows = mock(UserMembershipRepository.class);
+        var catalog = mock(MembershipPackageRepository.class);
+        var payments = mock(PaymentTransactionRepository.class);
+        var tierService = new MembershipService(rows, catalog, null, null, null);
+        org.springframework.test.util.ReflectionTestUtils.setField(tierService, "payments", payments);
+
+        var activeGold = new UserMembership();
+        activeGold.setMembershipId(1L);
+        activeGold.setUserId(9L);
+        activeGold.setPackageId(3L);
+        activeGold.setStatus("ACTIVE");
+        activeGold.setStartDate(java.time.LocalDate.now().minusDays(2));
+        activeGold.setEndDate(java.time.LocalDate.now().plusDays(28));
+
+        var pendingSilver = new UserMembership();
+        pendingSilver.setMembershipId(55L);
+        pendingSilver.setUserId(9L);
+        pendingSilver.setPackageId(2L);
+        pendingSilver.setStatus("PENDING_APPROVAL");
+
+        var paid = new PaymentTransaction();
+        paid.setMemberId(9L);
+        paid.setPaymentStatus("PAID");
+
+        when(payments.findFirstByMembershipIdOrderByCreatedAtDesc(55L)).thenReturn(Optional.of(paid));
+        when(rows.findByIdForUpdate(55L)).thenReturn(Optional.of(pendingSilver));
+        when(rows.findByUserIdAndStatus(9L, "ACTIVE")).thenReturn(java.util.List.of(activeGold));
+        when(catalog.findById(3L)).thenReturn(Optional.of(MembershipPackage.builder()
+                .packageId(3L).name("Hạng Vàng").membershipTier("GOLD").durationDays(30).build()));
+        when(catalog.findById(2L)).thenReturn(Optional.of(MembershipPackage.builder()
+                .packageId(2L).name("Hạng Bạc").membershipTier("SILVER").durationDays(30).build()));
+
+        var ex = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> tierService.approveMembership(55L, 1L));
+        assertEquals(409, ex.getStatusCode().value());
+        verify(rows, never()).save(any());
+    }
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getActiveMemberships, getTierBadgeStyle, membershipDaysRemaining } from './memberMemberships.js';
+import { getActiveMemberships, getTierBadgeStyle, getTierRank, getUpcomingMemberships, membershipDaysRemaining } from './memberMemberships.js';
 
 const now = new Date(2026, 10, 19, 23, 30);
 const membership = (id, changes = {}) => ({
@@ -36,4 +36,19 @@ test('resolves preset and deterministic fallback badge styles for custom tier na
   assert.ok(customStyle.length > 0);
   assert.equal(customStyle, getTierBadgeStyle('Hạng Bạch Kim', 'light'));
   assert.notEqual(customStyle, getTierBadgeStyle('BASIC', 'light'));
+});
+
+test('returns future-queued active renewals sorted by startDate and computes tier rank', () => {
+  const rows = [
+    membership(1, { startDate: '2026-11-01', endDate: '2026-12-01' }),
+    membership(2, { startDate: '2027-01-01', endDate: '2027-01-30' }),
+    membership(3, { startDate: '2026-12-02', endDate: '2026-12-31' }),
+    membership(4, { startDate: '2026-12-02', endDate: '2026-12-31', status: 'PENDING_APPROVAL' }),
+  ];
+  assert.deepEqual(getUpcomingMemberships(rows, now).map((r) => r.membershipId), [3, 2]);
+  assert.equal(getTierRank('BRONZE'), 1);
+  assert.equal(getTierRank('SILVER'), 2);
+  assert.equal(getTierRank('GOLD'), 3);
+  assert.equal(getTierRank('DIAMOND'), 4);
+  assert.equal(getTierRank('CUSTOM'), 0);
 });

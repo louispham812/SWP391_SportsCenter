@@ -3,7 +3,16 @@ import { membershipDaysRemaining } from '../../utils/memberMemberships';
 const formatDate = (value) => value
   ? new Date(`${value}T00:00:00`).toLocaleDateString('vi-VN') : '—';
 
-export default function ActiveMemberPackages({ memberships, onRenew }) {
+const sameRenewalGroup = (active, upcoming) => {
+  const tierA = String(active.membershipTier || '').trim().toUpperCase();
+  const tierB = String(upcoming.membershipTier || '').trim().toUpperCase();
+  if (tierA && tierB) return tierA === tierB;
+  return active.packageId != null && upcoming.packageId != null && active.packageId === upcoming.packageId;
+};
+
+export default function ActiveMemberPackages({ memberships, upcomingMemberships = [], onRenew }) {
+  const matchedUpcomingIds = new Set();
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3" aria-label="Hạng hội viên đang dùng">
       <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
@@ -11,12 +20,32 @@ export default function ActiveMemberPackages({ memberships, onRenew }) {
         <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">{memberships.length} hạng</span>
       </div>
       {memberships.length ? memberships.map((membership) => {
-        const days = membershipDaysRemaining(membership.endDate);
+        const queuedRenewals = upcomingMemberships.filter((u) => {
+          if (matchedUpcomingIds.has(u.membershipId)) return false;
+          if (sameRenewalGroup(membership, u)) {
+            matchedUpcomingIds.add(u.membershipId);
+            return true;
+          }
+          return false;
+        });
+        const effectiveEndDate = queuedRenewals.reduce(
+          (latest, item) => (item.endDate && item.endDate > latest ? item.endDate : latest),
+          membership.endDate,
+        );
+        const days = membershipDaysRemaining(effectiveEndDate);
         return (
           <div key={membership.membershipId} className="flex flex-col gap-4 rounded-xl bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <strong className="text-base font-bold text-slate-900">{membership.packageName}</strong>
-              <p className="mt-1 text-sm text-slate-600">Hiệu lực: {formatDate(membership.startDate)} – {formatDate(membership.endDate)}</p>
+              <p className="mt-1 text-sm text-slate-600">
+                Hiệu lực: {formatDate(membership.startDate)} – {formatDate(effectiveEndDate)}
+              </p>
+              {queuedRenewals.length > 0 && (
+                <p className="mt-1 text-xs font-medium text-emerald-700">
+                  Đã gia hạn nối tiếp ({queuedRenewals.length} kỳ):{' '}
+                  {queuedRenewals.map((q) => `${formatDate(q.startDate)} – ${formatDate(q.endDate)}`).join(', ')}
+                </p>
+              )}
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-3">
               <span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${days > 10 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{days === 0 ? 'Hết hạn hôm nay' : `Còn ${days} ngày`}</span>
@@ -25,6 +54,20 @@ export default function ActiveMemberPackages({ memberships, onRenew }) {
           </div>
         );
       }) : <p className="py-2 text-xs text-slate-500">Chưa có hạng hội viên đang hoạt động.</p>}
+
+      {upcomingMemberships.filter((u) => !matchedUpcomingIds.has(u.membershipId)).map((upcoming) => (
+        <div key={upcoming.membershipId} className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <strong className="text-base font-bold text-slate-900">{upcoming.packageName}</strong>
+            <p className="mt-1 text-sm text-slate-600">
+              Kỳ nối tiếp: {formatDate(upcoming.startDate)} – {formatDate(upcoming.endDate)}
+            </p>
+          </div>
+          <span className="self-start sm:self-auto rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-800">
+            Đã duyệt · Chờ nối tiếp
+          </span>
+        </div>
+      ))}
     </section>
   );
 }

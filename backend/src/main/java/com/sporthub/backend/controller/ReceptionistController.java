@@ -193,7 +193,6 @@ public class ReceptionistController {
         }
         List<UserMembership> active = rawMemberships.stream()
                 .filter(m -> "ACTIVE".equalsIgnoreCase(m.getStatus())
-                        && (m.getStartDate() == null || !m.getStartDate().isAfter(today))
                         && (m.getEndDate() == null || !m.getEndDate().isBefore(today)))
                 .toList();
         if (active.isEmpty()) {
@@ -211,6 +210,7 @@ public class ReceptionistController {
         for (UserMembership m : active) {
             MembershipPackage pkg = pkgMap.get(m.getPackageId());
             String pkgName = pkg != null && pkg.getName() != null ? pkg.getName() : "Gói tập #" + m.getPackageId();
+            String pkgTier = pkg != null ? pkg.getMembershipTier() : null;
             Integer remainingSessions = m.getRemainingQuotaSessions() != null ? m.getRemainingQuotaSessions() : 0;
             Integer remainingCourts = m.getRemainingQuotaCourts() != null ? m.getRemainingQuotaCourts() : 0;
             grouped.computeIfAbsent(m.getUserId(), k -> new ArrayList<>())
@@ -218,6 +218,7 @@ public class ReceptionistController {
                             m.getMembershipId(),
                             m.getPackageId(),
                             pkgName,
+                            pkgTier,
                             m.getStartDate(),
                             m.getEndDate(),
                             remainingSessions,
@@ -321,6 +322,28 @@ public class ReceptionistController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Gói tập này đang chờ thanh toán hoặc chờ duyệt.");
         }
         LocalDate today = LocalDate.now();
+        int targetTierRank = com.sporthub.backend.enums.MembershipTier.rank(membershipPackage.getMembershipTier());
+        if (targetTierRank > 0) {
+            int highestActiveRank = 0;
+            String highestActiveName = null;
+            for (UserMembership activeMem : membershipRepository.findByUserIdAndStatus(member.getUserId(), "ACTIVE")) {
+                if (activeMem.getEndDate() == null || activeMem.getEndDate().isBefore(today)) continue;
+                MembershipPackage activePkg = packageRepository.findById(activeMem.getPackageId()).orElse(null);
+                if (activePkg == null) continue;
+                int activeRank = com.sporthub.backend.enums.MembershipTier.rank(activePkg.getMembershipTier());
+                if (activeRank > highestActiveRank) {
+                    highestActiveRank = activeRank;
+                    highestActiveName = activePkg.getName() != null && !activePkg.getName().isBlank()
+                            ? activePkg.getName()
+                            : activePkg.getMembershipTier();
+                }
+            }
+            if (highestActiveRank > targetTierRank) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Hội viên đang sử dụng " + highestActiveName
+                                + " còn hiệu lực. Hệ thống không hỗ trợ mua hoặc hạ xuống hạng thấp hơn.");
+            }
+        }
         UserMembership membership = new UserMembership();
         membership.setUserId(member.getUserId());
         membership.setPackageId(membershipPackage.getPackageId());
@@ -937,7 +960,6 @@ public class ReceptionistController {
 
         List<UserMembership> activeList = membershipRepository.findByUserIdOrderByEndDateDesc(uid).stream()
                 .filter(m -> "ACTIVE".equalsIgnoreCase(m.getStatus())
-                        && m.getStartDate() != null && !m.getStartDate().isAfter(today)
                         && m.getEndDate() != null && !m.getEndDate().isBefore(today))
                 .toList();
 

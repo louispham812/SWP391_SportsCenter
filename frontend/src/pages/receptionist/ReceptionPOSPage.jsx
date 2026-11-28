@@ -6,6 +6,7 @@ import QrCodeSvg from '../../components/common/QrCodeSvg';
 import { TableSkeleton } from '../../components/common/Skeleton';
 import { useApp } from '../../context/AppContext';
 import { formatBookingTypeLabel, formatStatusLabel } from '../../utils/enumLabels';
+import { getTierRank } from '../../utils/memberMemberships';
 
 const formatPrice = (amount) => new Intl.NumberFormat('vi-VN', {
   style: 'currency',
@@ -114,6 +115,20 @@ export default function ReceptionPOSPage() {
     : [];
   const selectedMember = members.find((member) => member.userId === Number(memberId));
   const selectedPackage = packages.find((item) => item.packageId === Number(packageId));
+  const selectedMemberCurrentTierRank = (() => {
+    const activeList = selectedMember?.activePackages || [];
+    let maxRank = 0;
+    for (const ap of activeList) {
+      const tier = ap.membershipTier || packages.find((p) => p.packageId === ap.packageId)?.membershipTier;
+      const rank = getTierRank(tier);
+      if (rank > maxRank) maxRank = rank;
+    }
+    return maxRank;
+  })();
+  const isLowerTierPackage = (pkg) => {
+    const pkgRank = getTierRank(pkg?.membershipTier);
+    return pkgRank > 0 && selectedMemberCurrentTierRank > 0 && pkgRank < selectedMemberCurrentTierRank;
+  };
 
   const handleCheckout = async (event) => {
     event.preventDefault();
@@ -123,6 +138,10 @@ export default function ReceptionPOSPage() {
     }
     if (selectedMember?.status && selectedMember.status !== 'ACTIVE') {
       setError('Tài khoản hội viên chưa kích hoạt hoặc đang bị khóa, chưa thể đăng ký gói tập.');
+      return;
+    }
+    if (selectedPackage && isLowerTierPackage(selectedPackage)) {
+      setError('Hội viên đang sử dụng hạng cao hơn còn hiệu lực. Hệ thống không hỗ trợ mua hoặc hạ xuống hạng thấp hơn.');
       return;
     }
     setSaving(true);
@@ -305,7 +324,11 @@ export default function ReceptionPOSPage() {
                       key={member.userId}
                       type="button"
                       disabled={isInactiveMember}
-                      onClick={() => setMemberId(String(member.userId))}
+                      onClick={() => {
+                        setMemberId(String(member.userId));
+                        setPackageId('');
+                        setError('');
+                      }}
                       className={`w-full rounded-xl border p-3 text-left text-sm transition-all flex items-center justify-between gap-2 ${
                         isInactiveMember
                           ? 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed'
@@ -330,14 +353,25 @@ export default function ReceptionPOSPage() {
             )}
             {selectedMember && (
               <div className="flex items-center justify-between gap-2 rounded-xl bg-orange-50 border border-orange-200 p-3 text-sm text-orange-900">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-orange-600 text-[18px]">account_circle</span>
-                  <span>Hội viên đã chọn: <strong>{selectedMember.fullName}</strong> ({selectedMember.phone || selectedMember.email})</span>
+                <div className="flex items-start gap-2">
+                  <span className="material-symbols-outlined text-orange-600 text-[18px] mt-0.5">account_circle</span>
+                  <div>
+                    <div>Hội viên đã chọn: <strong>{selectedMember.fullName}</strong> ({selectedMember.phone || selectedMember.email})</div>
+                    {selectedMember.activePackageName && (
+                      <div className="text-xs text-orange-800 mt-0.5">
+                        Gói hiện tại: <strong>{selectedMember.activePackageName}</strong>
+                        {selectedMember.activePackageEndDate
+                          ? ` · HSD: ${new Date(`${selectedMember.activePackageEndDate}T00:00:00`).toLocaleDateString('vi-VN')}`
+                          : ''}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
                     setMemberId('');
+                    setPackageId('');
                     setSearch('');
                   }}
                   className="text-xs font-bold text-orange-700 hover:underline cursor-pointer shrink-0"
@@ -360,11 +394,14 @@ export default function ReceptionPOSPage() {
                 className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-medium outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
               >
                 <option value="">-- Chọn gói tập --</option>
-                {packages.map((item) => (
-                  <option key={item.packageId} value={item.packageId}>
-                    {item.name} · {formatPrice(item.price)} · {item.durationDays} ngày
-                  </option>
-                ))}
+                {packages.map((item) => {
+                  const lowerTier = isLowerTierPackage(item);
+                  return (
+                    <option key={item.packageId} value={item.packageId} disabled={lowerTier}>
+                      {item.name} · {formatPrice(item.price)} · {item.durationDays} ngày{lowerTier ? ' (Không hỗ trợ hạ hạng)' : ''}
+                    </option>
+                  );
+                })}
               </select>
             )}
             {packages.length === 0 && !loading && (

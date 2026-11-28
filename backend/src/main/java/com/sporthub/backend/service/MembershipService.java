@@ -69,6 +69,8 @@ public class MembershipService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
                     "Package không tồn tại"));
 
+        requireNoDowngrade(membership.getUserId(), pkg, membershipId);
+
         // Kích hoạt gói
         membership.setStatus("ACTIVE");
 
@@ -256,6 +258,37 @@ public class MembershipService {
         LocalDate today = LocalDate.now();
         return "ACTIVE".equals(m.getStatus()) && m.getStartDate() != null && !m.getStartDate().isAfter(today)
             && m.getEndDate() != null && !m.getEndDate().isBefore(today);
+    }
+
+    public void requireNoDowngrade(Long userId, MembershipPackage targetPackage) {
+        requireNoDowngrade(userId, targetPackage, null);
+    }
+
+    public void requireNoDowngrade(Long userId, MembershipPackage targetPackage, Long excludeMembershipId) {
+        if (userId == null || targetPackage == null) return;
+        int targetRank = com.sporthub.backend.enums.MembershipTier.rank(targetPackage.getMembershipTier());
+        if (targetRank <= 0) return;
+        LocalDate today = LocalDate.now();
+        int highestActiveRank = 0;
+        String highestActiveName = null;
+        for (UserMembership active : userMembershipRepository.findByUserIdAndStatus(userId, "ACTIVE")) {
+            if (excludeMembershipId != null && excludeMembershipId.equals(active.getMembershipId())) continue;
+            if (active.getEndDate() == null || active.getEndDate().isBefore(today)) continue;
+            MembershipPackage activePkg = membershipPackageRepository.findById(active.getPackageId()).orElse(null);
+            if (activePkg == null) continue;
+            int activeRank = com.sporthub.backend.enums.MembershipTier.rank(activePkg.getMembershipTier());
+            if (activeRank > highestActiveRank) {
+                highestActiveRank = activeRank;
+                highestActiveName = activePkg.getName() != null && !activePkg.getName().isBlank()
+                        ? activePkg.getName()
+                        : activePkg.getMembershipTier();
+            }
+        }
+        if (highestActiveRank > targetRank) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Hội viên đang sử dụng " + highestActiveName
+                            + " còn hiệu lực. Hệ thống không hỗ trợ mua hoặc hạ xuống hạng thấp hơn.");
+        }
     }
 
     private boolean sameRenewalGroup(MembershipPackage a, MembershipPackage b) {
